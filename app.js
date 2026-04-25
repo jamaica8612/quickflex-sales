@@ -983,7 +983,36 @@ function applySchedule(dateMap) {
   if (el.app.dataset.view === "record") renderEntryForm();
   toast(`스케줄 ${changedDates.length}일 반영 완료`, "success");
 }
+function extractScheduleJson(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return null;
+  const cleaned = raw
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+  const source = cleaned.startsWith("{") ? cleaned : (cleaned.match(/\{[\s\S]*\}/)?.[0] || "");
+  if (!source) return null;
+  try {
+    const parsed = JSON.parse(source);
+    const map = {};
+    Object.entries(parsed || {}).forEach(([dateKey, routes]) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
+      map[dateKey] = Array.isArray(routes)
+        ? routes.map(normalizeRoute).filter(Boolean)
+        : null;
+    });
+    return Object.keys(map).length ? map : null;
+  } catch {
+    return null;
+  }
+}
 function parseScheduleCsv(text) {
+  const jsonMap = extractScheduleJson(text);
+  if (jsonMap) {
+    applySchedule(jsonMap);
+    return;
+  }
   const rows = String(text || "").split(/\r?\n/).map((line) => splitLine(line)).filter((row) => row.some(Boolean));
   if (rows.length < 2) {
     parseScheduleOcrText(text);
