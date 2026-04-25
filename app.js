@@ -47,6 +47,9 @@ const state = {
   synced: false,
 };
 
+// OCR 초안: 날짜카드 편집용 인메모리 상태
+let ocrDraftMap = null; // Record<dateKey, string[] | null>
+
 const $ = (id) => document.getElementById(id);
 const el = {
   app: document.querySelector(".app"),
@@ -117,9 +120,12 @@ const el = {
   ocrStatus: $("ocrStatus"),
   schedulePreview: $("schedulePreview"),
   scheduleCsvInput: $("scheduleCsvInput"),
+  scheduleDraftSection: $("scheduleDraftSection"),
+  scheduleDraftCards: $("scheduleDraftCards"),
   shiftScheduleBack: $("shiftScheduleBack"),
   shiftScheduleForward: $("shiftScheduleForward"),
   parseSchedule: $("parseSchedule"),
+  parseScheduleCsv: $("parseScheduleCsv"),
   csvInput: $("csvInput"),
   parseCsv: $("parseCsv"),
   resetData: $("resetData"),
@@ -970,7 +976,7 @@ function applySchedule(dateMap) {
   const changedDates = [];
   Object.entries(dateMap).forEach(([dateKey, routes]) => {
     setRecord(dateKey, {
-      off: !routes || routes.length === 0,
+      off: routes === null, // null만 휴무, []는 구역 없는 작업일
       rows: (routes || []).map((route) => ({ route, count: "", unit: rateFor(route) })),
       freshCount: "",
       freshUnit: 100,
@@ -992,9 +998,117 @@ function shiftDateMap(dateMap, days) {
   });
   return shifted;
 }
-function formatScheduleDraft(dateMap) {
-  return JSON.stringify(dateMap, null, 2);
+/* ── OCR 드래프트 카드 UI ─────────────────────────────────── */
+function setOcrDraft(map) {
+  ocrDraftMap = map ? { ...map } : null;
+  const hasData = ocrDraftMap && Object.keys(ocrDraftMap).length > 0;
+  el.scheduleDraftSection.classList.toggle("hidden", !hasData);
+  renderDraftCards();
 }
+
+function renderDraftCards() {
+  const container = el.scheduleDraftCards;
+  if (!container) return;
+  if (!ocrDraftMap || !Object.keys(ocrDraftMap).length) {
+    container.innerHTML = "";
+    return;
+  }
+  const sorted = Object.keys(ocrDraftMap).sort();
+  container.innerHTML = sorted.map((dateKey) => {
+    const routes = ocrDraftMap[dateKey];
+    const isOff = routes === null; // null만 휴무, []는 구역 없는 작업일
+    const d = new Date(dateKey + "T00:00:00");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const dayStr = `${mm}/${dd} (${WEEKDAYS[d.getDay()]})`;
+    const chipsHtml = (routes || []).map((r) =>
+      `<span class="draft-chip">
+        ${r}
+        <button class="draft-chip-x" data-action="remove-route" data-date="${dateKey}" data-route="${r}" type="button">×</button>
+      </span>`
+    ).join("");
+    return `<div class="draft-card${isOff ? " is-off" : ""}" data-date="${dateKey}">
+      <div class="draft-card-header">
+        <span class="draft-date">${dayStr}</span>
+        <button class="draft-off-btn${isOff ? " active" : ""}" data-action="toggle-off" data-date="${dateKey}" type="button">
+          ${isOff ? "■ 휴무" : "○ 휴무"}
+        </button>
+      </div>
+      ${!isOff ? `<div class="draft-routes" data-date="${dateKey}">${chipsHtml}<button class="draft-add-btn" data-action="add-route" data-date="${dateKey}" type="button">+</button></div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+// 드래프트 카드 이벤트 위임
+function onDraftCardClick(e) {
+  const btn = e.target.closest("[data-action]");
+  if (!btn || !ocrDraftMap) return;
+  const action = btn.dataset.action;
+  const dateKey = btn.dataset.date;
+  if (!dateKey) return;
+
+  if (action === "toggle-off") {
+    const cur = ocrDraftMap[dateKey];
+    // null(휴무) → [](작업일·구역 없음), 배열(작업일) → null(휴무)
+    ocrDraftMap[dateKey] = cur === null ? [] : null;
+    renderDraftCards();
+    return;
+  }
+
+  if (action === "remove-route") {
+    const route = btn.dataset.route;
+    const cur = ocrDraftMap[dateKey];
+    if (Array.isArray(cur)) {
+      ocrDraftMap[dateKey] = cur.filter((r) => r !== route);
+    }
+    renderDraftCards();
+    return;
+  }
+
+  if (action === "add-route") {
+    // + 버튼을 인라인 입력으로 교체
+    btn.replaceWith(createAddRouteInput(dateKey));
+    return;
+  }
+}
+
+function createAddRouteInput(dateKey) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "draft-add-input";
+  input.placeholder = "302C";
+  input.maxLength = 5;
+  input.autocomplete = "off";
+  const commit = () => {
+    const val = input.value.trim().toUpperCase();
+    if (/^\d{3}[A-D]$/.test(val)) {
+      if (!Array.isArray(ocrDraftMap[dateKey])) ocrDraftMap[dateKey] = [];
+      if (!ocrDraftMap[dateKey].includes(val)) ocrDraftMap[dateKey].push(val);
+    }
+    renderDraftCards();
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); commit(); }
+    if (e.key === "Escape") renderDraftCards();
+  });
+  input.addEventListener("blur", commit);
+  // 다음 틱에 포커스
+  setTimeout(() => input.focus(), 0);
+  return input;
+}
+
+function shiftScheduleDraft(days) {
+  if (!ocrDraftMap || !Object.keys(ocrDraftMap).length) {
+    toast("보정할 OCR 초안을 먼저 만들어 주세요.", "error");
+    return;
+  }
+  ocrDraftMap = shiftDateMap(ocrDraftMap, days);
+  renderDraftCards();
+  el.ocrStatus.textContent = `OCR 초안 날짜를 ${days > 0 ? "+" : ""}${days}일 보정했습니다.`;
+  toast(`날짜를 ${days > 0 ? "+" : ""}${days}일 보정했어요.`, "success");
+}
+/* ────────────────────────────────────────────────────────── */
+
 function extractScheduleJson(text) {
   const raw = String(text || "").trim();
   if (!raw) return null;
@@ -1163,11 +1277,11 @@ async function runOcr() {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
       rawMap[dateKey] = Array.isArray(routes) && routes.length ? routes.map(normalizeRoute) : null;
     });
-    el.scheduleCsvInput.value = formatScheduleDraft(rawMap);
 
     if (!Object.keys(rawMap).length) throw new Error("유효한 날짜별 스케줄이 없습니다.");
-    el.ocrStatus.textContent = `${Object.keys(rawMap).length}일 OCR 초안 생성 완료`;
-    toast("OCR 초안을 만들었어요. 날짜 보정 후 스케줄 반영을 눌러 주세요.", "success");
+    setOcrDraft(rawMap);
+    el.ocrStatus.textContent = `${Object.keys(rawMap).length}일 OCR 초안 생성 완료 — 확인 후 반영하세요`;
+    toast("OCR 초안이 준비됐어요. 휴무/구역 확인 후 스케줄 반영을 눌러 주세요.", "success");
   } catch (error) {
     console.error("[OCR]", error);
     el.ocrStatus.textContent = "OCR 실패";
@@ -1322,7 +1436,15 @@ el.scheduleImage.addEventListener("change", () => {
 el.runScheduleOcr.addEventListener("click", runOcr);
 el.shiftScheduleBack.addEventListener("click", () => shiftScheduleDraft(-1));
 el.shiftScheduleForward.addEventListener("click", () => shiftScheduleDraft(1));
-el.parseSchedule.addEventListener("click", () => parseScheduleCsv(el.scheduleCsvInput.value));
+el.parseSchedule.addEventListener("click", () => {
+  if (ocrDraftMap && Object.keys(ocrDraftMap).length) {
+    applySchedule(ocrDraftMap);
+    setOcrDraft(null); // 반영 후 초안 닫기
+  }
+});
+el.parseScheduleCsv.addEventListener("click", () => parseScheduleCsv(el.scheduleCsvInput.value));
+// 드래프트 카드 이벤트 위임
+el.scheduleDraftCards.addEventListener("click", onDraftCardClick);
 el.parseCsv.addEventListener("click", () => {
   const rows = parseSettlementCsv(el.csvInput.value);
   if (!rows.length) return;

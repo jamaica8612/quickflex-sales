@@ -457,6 +457,133 @@ h1 { font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
 .full-btn.mt8 { margin-top: 4px; }
 .ocr-adjust-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 
+/* ── OCR 드래프트 카드 ──────────────────────────────────── */
+.schedule-draft-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  max-height: 460px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+.draft-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  transition: opacity .15s;
+}
+.draft-card.is-off {
+  opacity: .45;
+}
+.draft-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.draft-date {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.draft-off-btn {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text3);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+}
+.draft-off-btn.active {
+  background: var(--red-dim);
+  border-color: var(--red);
+  color: var(--red);
+}
+.draft-routes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+  align-items: center;
+}
+.draft-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--gold-dim);
+  border: 1px solid rgba(251,191,36,.4);
+  color: var(--gold);
+  border-radius: 6px;
+  padding: 3px 4px 3px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+.draft-chip-x {
+  background: none;
+  border: none;
+  color: var(--gold);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+  opacity: .6;
+}
+.draft-chip-x:hover { opacity: 1; }
+.draft-add-btn {
+  background: transparent;
+  border: 1px dashed var(--border2);
+  color: var(--text3);
+  border-radius: 6px;
+  width: 28px;
+  height: 24px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.draft-add-btn:hover { border-color: var(--gold); color: var(--gold); }
+.draft-add-input {
+  width: 58px;
+  height: 24px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid var(--gold);
+  background: var(--surface);
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+/* 수동 입력 접기 */
+.manual-entry-details {
+  margin-top: 10px;
+}
+.manual-entry-details summary {
+  font-size: 12px;
+  color: var(--text3);
+  cursor: pointer;
+  padding: 4px 0;
+  list-style: none;
+}
+.manual-entry-details summary::before {
+  content: "▶ ";
+  font-size: 10px;
+}
+.manual-entry-details[open] summary::before { content: "▼ "; }
+.manual-entry-details textarea { margin-top: 8px; }
+/* ─────────────────────────────────────────────────────────── */
+
 .hint { font-size: 12px; color: var(--text3); line-height: 1.5; }
 .hint.center { text-align: center; }
 .field-label { display: block; font-size: 12px; font-weight: 700; color: var(--text3); margin-bottom: 4px; }
