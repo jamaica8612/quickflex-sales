@@ -1069,7 +1069,6 @@ async function runOcr() {
         headers: {
           "Content-Type": "application/json",
           apikey: cfg.anonKey,
-          Authorization: `Bearer ${cfg.anonKey}`,
         },
         body: JSON.stringify({
           imageBase64: base64,
