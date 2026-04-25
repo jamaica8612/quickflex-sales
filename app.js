@@ -1133,17 +1133,6 @@ function extractScheduleJson(text) {
     return null;
   }
 }
-function shiftScheduleDraft(days) {
-  const currentMap = extractScheduleJson(el.scheduleCsvInput.value);
-  if (!currentMap) {
-    toast("보정할 OCR 초안을 먼저 만들어 주세요.", "error");
-    return;
-  }
-  const shifted = shiftDateMap(currentMap, days);
-  el.scheduleCsvInput.value = formatScheduleDraft(shifted);
-  el.ocrStatus.textContent = `OCR 초안 날짜를 ${days > 0 ? "+" : ""}${days}일 보정했습니다.`;
-  toast(`날짜를 ${days > 0 ? "+" : ""}${days}일 보정했어요.`, "success");
-}
 function parseScheduleCsv(text) {
   const jsonMap = extractScheduleJson(text);
   if (jsonMap) {
