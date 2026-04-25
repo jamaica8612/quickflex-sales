@@ -11,6 +11,9 @@ const WEEKDAYS = ["일","월","화","수","목","금","토"];
 const SUPABASE_URL      = "https://xrrdokcjhjqdfvwtbenl.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_prnLDb7bcWORu7wrqTRsXQ_NWJL8Jnk";
 
+/* ══ Gemini API 설정 (스케줄 OCR용, 무료 티어) ══ */
+const GEMINI_API_KEY = "";   // ← Google AI Studio 키 입력
+
 /* ══ 상수 ══ */
 const GOAL     = 6_000_000;
 const DB_KEY   = "quickflex-supabase-config";
@@ -696,20 +699,95 @@ function parseScheduleOcrText(text) {
   groups.forEach((routes,i)=>{const k=targetKeys[i];if(!k)return;map[k]=routes.length?routes:null;});
   applySchedule(map);
 }
+/* 이미지 → base64 변환 */
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ base64: reader.result.split(",")[1], mimeType: file.type || "image/jpeg" });
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* Gemini Vision으로 스케줄 파싱 */
 async function runOcr() {
-  const file=el.scheduleImage.files?.[0];
-  if (!file){toast("이미지를 먼저 선택해주세요","error");return;}
-  if (!window.Tesseract){toast("OCR 라이브러리 로딩 실패","error");return;}
-  el.runScheduleOcr.disabled=true; el.ocrStatus.textContent="OCR 준비 중...";
+  const file = el.scheduleImage.files?.[0];
+  if (!file) { toast("이미지를 먼저 선택해주세요", "error"); return; }
+  if (!GEMINI_API_KEY) { toast("Gemini API 키가 설정되지 않았습니다", "error"); return; }
+
+  el.runScheduleOcr.disabled = true;
+  el.ocrStatus.textContent = "Gemini 분석 중...";
+
   try {
-    const result=await window.Tesseract.recognize(file,"kor+eng",{
-      logger(msg){if(msg.status==="recognizing text")el.ocrStatus.textContent=`인식 중 ${Math.round(msg.progress*100)}%`;},
-    });
-    const text=result.data.text.trim();
-    el.scheduleCsvInput.value=text; parseScheduleOcrText(text);
-    el.ocrStatus.textContent="OCR 완료";
-  } catch(e){console.error(e);el.ocrStatus.textContent="OCR 실패";toast("OCR 실패","error");}
-  finally{el.runScheduleOcr.disabled=false;}
+    const { base64, mimeType } = await fileToBase64(file);
+
+    const prompt = `이 쿠팡 퀵플렉스 배송 스케줄 이미지에서 "김관현"의 날짜별 라우트를 추출해주세요.
+
+기준 연월: ${state.year}년 ${state.month}월
+
+아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
+{
+  "YYYY-MM-DD": ["302C", "313B"],
+  "YYYY-MM-DD": null
+}
+
+규칙:
+- 날짜는 YYYY-MM-DD 형식 (위 기준 연월 사용)
+- 라우트 코드는 숫자3자리+알파벳1자리 형식 (예: 302C, 313B)
+- 휴무/비번인 날은 null
+- 김관현 행의 데이터만 추출`;
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [
+            { inline_data: { mime_type: mimeType, data: base64 } },
+            { text: prompt }
+          ]}],
+          generationConfig: { temperature: 0, responseMimeType: "application/json" }
+        })
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    el.scheduleCsvInput.value = raw; // 검토용으로 텍스트박스에 표시
+
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch {
+      // JSON 추출 재시도
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error("응답에서 JSON을 찾을 수 없습니다");
+      parsed = JSON.parse(m[0]);
+    }
+
+    // applySchedule 형식으로 변환
+    const map = {};
+    for (const [date, routes] of Object.entries(parsed)) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        map[date] = Array.isArray(routes) && routes.length ? routes.map(normalizeRoute) : null;
+      }
+    }
+    if (!Object.keys(map).length) throw new Error("스케줄 데이터를 추출하지 못했습니다");
+
+    applySchedule(map);
+    el.ocrStatus.textContent = `완료 — ${Object.keys(map).length}일 인식됨`;
+
+  } catch (e) {
+    console.error("[Gemini OCR]", e);
+    el.ocrStatus.textContent = "실패";
+    toast(`OCR 실패: ${e.message}`, "error");
+  } finally {
+    el.runScheduleOcr.disabled = false;
+  }
 }
 
 /* ══════════════════════════════════════
