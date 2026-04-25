@@ -1226,6 +1226,55 @@ function fileToBase64(file) {
     reader.readAsDataURL(file);
   });
 }
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = String(reader.result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function preprocessImageForOcr(file) {
+  const image = await loadImageFromFile(file);
+  const scale = 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) {
+    return fileToBase64(file);
+  }
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.filter = "grayscale(1) contrast(1.45) brightness(1.08)";
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  ctx.filter = "none";
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const value = data[i];
+    const binary = value > 188 ? 255 : 0;
+    data[i] = binary;
+    data[i + 1] = binary;
+    data[i + 2] = binary;
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  const dataUrl = canvas.toDataURL("image/png");
+  return {
+    base64: dataUrl.split(",")[1],
+    mimeType: "image/png",
+  };
+}
 async function runOcr() {
   const file = el.scheduleImage.files?.[0];
   if (!file) {
@@ -1240,10 +1289,10 @@ async function runOcr() {
   }
 
   el.runScheduleOcr.disabled = true;
-  el.ocrStatus.textContent = "서버 OCR 분석 중...";
+  el.ocrStatus.textContent = "이미지 보정 후 OCR 분석 중...";
 
   try {
-    const { base64, mimeType } = await fileToBase64(file);
+    const { base64, mimeType } = await preprocessImageForOcr(file);
     const response = await fetch(
       functionUrl,
       {
