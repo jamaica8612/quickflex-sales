@@ -9,6 +9,12 @@ const number = new Intl.NumberFormat("ko-KR", {
 });
 
 const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+const DB_CONFIG_KEY = "quickflex-supabase-config";
+const OWNER_ID = "kim-gwanhyun";
+
+let dbClient = null;
+let dbSaveTimer = null;
+let isLoadingRemote = false;
 
 const sampleSettlement = [
   ["302C", 237, 231075],
@@ -123,6 +129,11 @@ const el = {
   rateUnit: document.querySelector("#rateUnit"),
   saveRate: document.querySelector("#saveRate"),
   rateList: document.querySelector("#rateList"),
+  supabaseUrl: document.querySelector("#supabaseUrl"),
+  supabaseAnonKey: document.querySelector("#supabaseAnonKey"),
+  saveDbConfig: document.querySelector("#saveDbConfig"),
+  syncNow: document.querySelector("#syncNow"),
+  dbStatus: document.querySelector("#dbStatus"),
 };
 
 function normalizeRoute(route) {
@@ -177,6 +188,7 @@ function loadRates() {
 
 function saveRates() {
   localStorage.setItem("quickflex-rates-v2", JSON.stringify(state.rates));
+  scheduleDbSave();
 }
 
 function loadEntries() {
@@ -186,6 +198,97 @@ function loadEntries() {
 
 function saveEntries() {
   localStorage.setItem("quickflex-entries-v2", JSON.stringify(state.entries));
+  scheduleDbSave();
+}
+
+function loadDbConfig() {
+  const saved = localStorage.getItem(DB_CONFIG_KEY);
+  return saved ? JSON.parse(saved) : { url: "", anonKey: "" };
+}
+
+function saveDbConfig(url, anonKey) {
+  localStorage.setItem(DB_CONFIG_KEY, JSON.stringify({ url, anonKey }));
+}
+
+function setDbStatus(message, connected = false) {
+  el.dbStatus.textContent = message;
+  el.dbStatus.parentElement.classList.toggle("connected", connected);
+}
+
+function getDbClient() {
+  if (dbClient) return dbClient;
+  const config = loadDbConfig();
+  if (!config.url || !config.anonKey || !window.supabase) return null;
+  dbClient = window.supabase.createClient(config.url, config.anonKey);
+  return dbClient;
+}
+
+async function loadFromDb() {
+  const client = getDbClient();
+  if (!client) {
+    setDbStatus("DB 미연결: 이 기기에만 저장됩니다.");
+    return;
+  }
+
+  isLoadingRemote = true;
+  setDbStatus("DB에서 데이터를 불러오는 중...");
+  const { data, error } = await client
+    .from("quickflex_data")
+    .select("rates, entries, updated_at")
+    .eq("user_id", OWNER_ID)
+    .maybeSingle();
+  isLoadingRemote = false;
+
+  if (error) {
+    setDbStatus(`DB 불러오기 실패: ${error.message}`);
+    return;
+  }
+
+  if (data) {
+    state.rates = Array.isArray(data.rates) ? data.rates : state.rates;
+    state.entries = data.entries && typeof data.entries === "object" ? data.entries : state.entries;
+    localStorage.setItem("quickflex-rates-v2", JSON.stringify(state.rates));
+    localStorage.setItem("quickflex-entries-v2", JSON.stringify(state.entries));
+    renderAll();
+    setDbStatus(`DB 연결됨: ${new Date(data.updated_at).toLocaleString("ko-KR")} 기준`, true);
+    return;
+  }
+
+  await saveToDb();
+}
+
+async function saveToDb() {
+  if (isLoadingRemote) return;
+  const client = getDbClient();
+  if (!client) return;
+
+  const payload = {
+    user_id: OWNER_ID,
+    rates: state.rates,
+    entries: state.entries,
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await client.from("quickflex_data").upsert(payload, { onConflict: "user_id" });
+  if (error) {
+    setDbStatus(`DB 저장 실패: ${error.message}`);
+    return;
+  }
+  setDbStatus(`DB 저장됨: ${new Date().toLocaleString("ko-KR")}`, true);
+}
+
+function scheduleDbSave() {
+  if (!getDbClient()) return;
+  clearTimeout(dbSaveTimer);
+  dbSaveTimer = setTimeout(saveToDb, 450);
+}
+
+function renderDbConfig() {
+  const config = loadDbConfig();
+  el.supabaseUrl.value = config.url || "";
+  el.supabaseAnonKey.value = config.anonKey || "";
+  if (config.url && config.anonKey) {
+    setDbStatus("DB 설정 있음: 연결 확인 중...", true);
+  }
 }
 
 function periodBounds(year = state.settlementYear, month = state.settlementMonth) {
@@ -810,7 +913,24 @@ el.saveRate.addEventListener("click", () => {
   el.rateRoute.value = "";
   el.rateUnit.value = "";
 });
+el.saveDbConfig.addEventListener("click", async () => {
+  const url = el.supabaseUrl.value.trim();
+  const anonKey = el.supabaseAnonKey.value.trim();
+  if (!url || !anonKey) {
+    setDbStatus("Project URL과 anon public key를 모두 입력해 주세요.");
+    return;
+  }
+  saveDbConfig(url, anonKey);
+  dbClient = null;
+  await loadFromDb();
+});
+el.syncNow.addEventListener("click", async () => {
+  await saveToDb();
+  await loadFromDb();
+});
 el.scheduleImage.addEventListener("change", () => previewImage(el.scheduleImage, "스케줄표"));
 el.settlementImage.addEventListener("change", () => previewImage(el.settlementImage, "정산표"));
 
+renderDbConfig();
 renderAll();
+loadFromDb();

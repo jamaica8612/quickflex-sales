@@ -221,6 +221,17 @@
               <button id="saveRate" type="button">저장</button>
             </div>
             <div id="rateList" class="rate-list"></div>
+
+            <div class="db-box">
+              <strong>Supabase DB 연결</strong>
+              <input id="supabaseUrl" type="url" placeholder="Project URL" />
+              <input id="supabaseAnonKey" type="password" placeholder="anon public key" />
+              <div class="button-row">
+                <button id="saveDbConfig" type="button">DB 연결</button>
+                <button id="syncNow" type="button" class="ghost">지금 동기화</button>
+              </div>
+              <p id="dbStatus">DB 미연결: 이 기기에만 저장됩니다.</p>
+            </div>
           </details>
         </section>
       </main>
@@ -237,6 +248,7 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./app.js"></script>
   </body>
 </html>
