@@ -5,18 +5,10 @@ const fmt    = new Intl.NumberFormat("ko-KR");
 const fmtWon = (n) => `₩${fmt.format(Math.round(n))}`;
 const WEEKDAYS = ["일","월","화","수","목","금","토"];
 
-/* ══ Supabase 설정 ══
-   아래 두 줄에 직접 입력하면 localStorage에 의존하지 않아 항상 연결됩니다.
-   anon key는 RLS로 보호되므로 공개 레포에 올려도 안전합니다.            */
-const SUPABASE_URL      = "https://xrrdokcjhjqdfvwtbenl.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_prnLDb7bcWORu7wrqTRsXQ_NWJL8Jnk";
-
-/* ══ Gemini API 설정 (스케줄 OCR용, 무료 티어) ══ */
-const GEMINI_API_KEY = "AIzaSyDSlUs2kXZcZYYj8oI9IMbwaaPLS0m8068";
-
 /* ══ 상수 ══ */
 const GOAL     = 6_000_000;
 const DB_KEY   = "quickflex-supabase-config";
+const GEMINI_KEY = "quickflex-gemini-key";
 const CACHE_RATES   = "quickflex-rates-v2";
 const CACHE_ENTRIES = "quickflex-entries-v2";
 const OWNER_ID = "kim-gwanhyun";
@@ -176,6 +168,12 @@ function normalizeUrl(v) {
 function saveDbConfig(url, anonKey) {
   localStorage.setItem(DB_KEY, JSON.stringify({ url: normalizeUrl(url), anonKey }));
 }
+function loadGeminiKey() {
+  return localStorage.getItem(GEMINI_KEY) || "";
+}
+function saveGeminiKey(key) {
+  localStorage.setItem(GEMINI_KEY, String(key || "").trim());
+}
 function buildClient(url, anonKey) {
   if (!window.supabase || !url || !anonKey) return null;
   return window.supabase.createClient(url, anonKey);
@@ -269,12 +267,10 @@ function setDbBadge(connected, updatedAt) {
    초기화 — DB 연결 & 데이터 로드
 ══════════════════════════════════════ */
 async function init() {
-  // 1. 하드코딩 상수 우선 → localStorage 순서로 설정 결정
-  const hardUrl = SUPABASE_URL.trim();
-  const hardKey = SUPABASE_ANON_KEY.trim();
+  // 1. localStorage 기준으로 설정 결정
   const cfg     = loadDbConfig();
-  const url     = hardUrl || cfg.url    || "";
-  const key     = hardKey || cfg.anonKey || "";
+  const url     = cfg.url || "";
+  const key     = cfg.anonKey || "";
 
   // 2. 캐시로 즉시 렌더 (연결 여부와 무관하게 앱 먼저 시작)
   state.rates   = readCache(CACHE_RATES,   avgRates(SAMPLE_SETTLEMENT));
@@ -287,8 +283,6 @@ async function init() {
     if (state.db) {
       const ok = await loadFromDb();
       if (ok) renderAll();
-      // 하드코딩된 경우 localStorage에도 저장 (설정 시트 표시용)
-      if (hardUrl && hardKey) saveDbConfig(url, key);
     } else {
       toast("DB 라이브러리 로드 실패 — 로컬 모드", "error");
     }
@@ -713,7 +707,15 @@ function fileToBase64(file) {
 async function runOcr() {
   const file = el.scheduleImage.files?.[0];
   if (!file) { toast("이미지를 먼저 선택해주세요", "error"); return; }
-  if (!GEMINI_API_KEY) { toast("Gemini API 키가 설정되지 않았습니다", "error"); return; }
+  let geminiKey = loadGeminiKey();
+  if (!geminiKey) {
+    geminiKey = window.prompt("Gemini API key를 입력해 주세요. 브라우저에 저장되어 다음부터는 다시 묻지 않습니다.", "");
+    if (!geminiKey) {
+      toast("Gemini API 키가 없어서 OCR을 실행할 수 없습니다", "error");
+      return;
+    }
+    saveGeminiKey(geminiKey);
+  }
 
   el.runScheduleOcr.disabled = true;
   el.ocrStatus.textContent = "Gemini 분석 중...";
@@ -738,7 +740,7 @@ async function runOcr() {
 - 김관현 행의 데이터만 추출`;
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -784,6 +786,9 @@ async function runOcr() {
 
   } catch (e) {
     console.error("[Gemini OCR]", e);
+    if (/api key|permission|auth|unauthorized|forbidden/i.test(String(e.message || ""))) {
+      localStorage.removeItem(GEMINI_KEY);
+    }
     el.ocrStatus.textContent = "실패";
     toast(`OCR 실패: ${e.message}`, "error");
   } finally {
