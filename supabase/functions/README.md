@@ -30,6 +30,8 @@ supabase secrets set GEMINI_API_KEY=YOUR_GEMINI_API_KEY
 supabase functions deploy ocr-schedule
 ```
 
+`supabase/config.toml` already sets `verify_jwt = false` for `ocr-schedule`, so redeploy after pulling the latest changes.
+
 After deployment, the app will call:
 
 `https://YOUR_PROJECT_REF.supabase.co/functions/v1/ocr-schedule`
