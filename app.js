@@ -8,8 +8,8 @@ const WEEKDAYS = ["일","월","화","수","목","금","토"];
 /* ══ Supabase 설정 ══
    아래 두 줄에 직접 입력하면 localStorage에 의존하지 않아 항상 연결됩니다.
    anon key는 RLS로 보호되므로 공개 레포에 올려도 안전합니다.            */
-const SUPABASE_URL      = "";   // ← "https://xxxx.supabase.co"
-const SUPABASE_ANON_KEY = "";   // ← "eyJhbGciOi..."
+const SUPABASE_URL      = "https://xrrdokcjhjqdfvwtbenl.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_prnLDb7bcWORu7wrqTRsXQ_NWJL8Jnk";
 
 /* ══ 상수 ══ */
 const GOAL     = 6_000_000;
