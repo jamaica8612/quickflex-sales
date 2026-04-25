@@ -226,6 +226,11 @@
             <p id="ocrStatus" class="hint">이미지 선택 후 OCR 실행을 누르세요.</p>
             <div id="schedulePreview" class="img-preview-wrap"></div>
             <textarea id="scheduleCsvInput" placeholder="또는 CSV · 텍스트 직접 붙여넣기"></textarea>
+            <div class="ocr-adjust-row">
+              <button id="shiftScheduleBack" type="button" class="secondary-btn">-1일 보정</button>
+              <button id="shiftScheduleForward" type="button" class="secondary-btn">+1일 보정</button>
+            </div>
+            <p class="hint">OCR 초안에서 `null`은 휴무를 뜻합니다. 날짜가 한 칸 밀리면 보정 후 반영하세요.</p>
             <button id="parseSchedule" class="full-btn mt8">스케줄 반영</button>
           </section>
 
