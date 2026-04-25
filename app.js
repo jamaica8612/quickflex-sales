@@ -738,7 +738,7 @@ async function runOcr() {
 - 김관현 행의 데이터만 추출`;
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -747,14 +747,15 @@ async function runOcr() {
             { inline_data: { mime_type: mimeType, data: base64 } },
             { text: prompt }
           ]}],
-          generationConfig: { temperature: 0, responseMimeType: "application/json" }
+          generationConfig: { temperature: 0 }
         })
       }
     );
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || `HTTP ${res.status}`);
+      const errText = await res.text().catch(() => "");
+      const errJson = (() => { try { return JSON.parse(errText); } catch { return {}; } })();
+      throw new Error(errJson.error?.message || errText.slice(0, 120) || `HTTP ${res.status}`);
     }
 
     const data = await res.json();
