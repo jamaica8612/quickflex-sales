@@ -5,6 +5,12 @@ const fmt    = new Intl.NumberFormat("ko-KR");
 const fmtWon = (n) => `₩${fmt.format(Math.round(n))}`;
 const WEEKDAYS = ["일","월","화","수","목","금","토"];
 
+/* ══ Supabase 설정 ══
+   아래 두 줄에 직접 입력하면 localStorage에 의존하지 않아 항상 연결됩니다.
+   anon key는 RLS로 보호되므로 공개 레포에 올려도 안전합니다.            */
+const SUPABASE_URL      = "";   // ← "https://xxxx.supabase.co"
+const SUPABASE_ANON_KEY = "";   // ← "eyJhbGciOi..."
+
 /* ══ 상수 ══ */
 const GOAL     = 6_000_000;
 const DB_KEY   = "quickflex-supabase-config";
@@ -51,7 +57,7 @@ const el = {
   // 셋업 오버레이
   setupOverlay: $("setupOverlay"),
   setupUrl: $("setupUrl"), setupKey: $("setupKey"), setupConnect: $("setupConnect"),
-  setupError: $("setupError"),
+  setupError: $("setupError"), setupSkip: $("setupSkip"),
   // 홈
   periodRevenue: $("periodRevenue"), periodCount: $("periodCount"),
   dailyAverage: $("dailyAverage"), workDaysHome: $("workDaysHome"),
@@ -259,27 +265,36 @@ function setDbBadge(connected, updatedAt) {
    초기화 — DB 연결 & 데이터 로드
 ══════════════════════════════════════ */
 async function init() {
-  const cfg = loadDbConfig();
+  // 1. 하드코딩 상수 우선 → localStorage 순서로 설정 결정
+  const hardUrl = SUPABASE_URL.trim();
+  const hardKey = SUPABASE_ANON_KEY.trim();
+  const cfg     = loadDbConfig();
+  const url     = hardUrl || cfg.url    || "";
+  const key     = hardKey || cfg.anonKey || "";
 
-  if (!cfg.url || !cfg.anonKey) {
-    // 최초 실행: 셋업 오버레이 표시
-    showSetupOverlay();
-    return;
-  }
-
-  // 로컬 캐시로 일단 렌더 (빠른 초기 표시)
+  // 2. 캐시로 즉시 렌더 (연결 여부와 무관하게 앱 먼저 시작)
   state.rates   = readCache(CACHE_RATES,   avgRates(SAMPLE_SETTLEMENT));
   state.entries = readCache(CACHE_ENTRIES, {});
   renderAll();
 
-  // DB 연결 후 최신 데이터로 교체
-  state.db = buildClient(cfg.url, cfg.anonKey);
-  const ok = await loadFromDb();
-  if (ok) renderAll();
-
-  // 설정 시트 초기값
-  el.supabaseUrl.value     = normalizeUrl(cfg.url) || "";
-  el.supabaseAnonKey.value = cfg.anonKey || "";
+  // 3. DB 연결 시도
+  if (url && key) {
+    state.db = buildClient(url, key);
+    if (state.db) {
+      const ok = await loadFromDb();
+      if (ok) renderAll();
+      // 하드코딩된 경우 localStorage에도 저장 (설정 시트 표시용)
+      if (hardUrl && hardKey) saveDbConfig(url, key);
+    } else {
+      toast("DB 라이브러리 로드 실패 — 로컬 모드", "error");
+    }
+    el.supabaseUrl.value     = normalizeUrl(url);
+    el.supabaseAnonKey.value = key;
+  } else {
+    // 4. 설정 없음 → 셋업 오버레이 (건너뛰기 가능, 앱은 로컬 모드로 동작)
+    showSetupOverlay();
+    setDbBadge(false);
+  }
 }
 
 function readCache(key, fallback) {
@@ -318,8 +333,8 @@ el.setupConnect.addEventListener("click", async () => {
 
   saveDbConfig(url, key);
   state.db = client;
-  state.rates   = avgRates(SAMPLE_SETTLEMENT);
-  state.entries = {};
+  state.rates   = readCache(CACHE_RATES, avgRates(SAMPLE_SETTLEMENT));
+  state.entries = readCache(CACHE_ENTRIES, {});
   await loadFromDb();
   hideSetupOverlay();
   renderAll();
@@ -327,6 +342,11 @@ el.setupConnect.addEventListener("click", async () => {
   el.supabaseAnonKey.value = key;
   toast("DB 연결 완료!", "success");
   el.setupConnect.disabled = false; el.setupConnect.textContent = "연결하기";
+});
+
+el.setupSkip.addEventListener("click", () => {
+  hideSetupOverlay();
+  toast("로컬 저장 모드로 시작합니다 — 설정에서 DB를 연결하세요", "");
 });
 
 /* ══════════════════════════════════════
