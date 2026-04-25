@@ -45,7 +45,6 @@ const state = {
   flushing: false,
   flushAgain: false,
   synced: false,
-  geminiKey: "",
 };
 
 const $ = (id) => document.getElementById(id);
@@ -339,6 +338,15 @@ function saveDbConfig(url, anonKey) {
 function buildClient(url, anonKey) {
   if (!window.supabase || !url || !anonKey) return null;
   return window.supabase.createClient(url, anonKey);
+}
+function getDbConfig() {
+  return loadDbConfig();
+}
+function getEdgeFunctionUrl(name) {
+  const cfg = getDbConfig();
+  const base = normalizeUrl(cfg.url || "");
+  if (!base) return "";
+  return `${base}/functions/v1/${name}`;
 }
 function setSyncStatus(status) {
   if (!el.syncIndicator) return;
@@ -1042,72 +1050,53 @@ async function runOcr() {
     toast("스케줄 이미지를 먼저 선택해 주세요.", "error");
     return;
   }
-
-  if (!state.geminiKey) {
-    state.geminiKey = window.prompt("Gemini API key를 입력해 주세요. 브라우저에는 저장하지 않습니다.", "") || "";
-  }
-  if (!state.geminiKey) {
-    toast("Gemini API key가 없어서 OCR을 실행할 수 없습니다.", "error");
+  const cfg = getDbConfig();
+  const functionUrl = getEdgeFunctionUrl("ocr-schedule");
+  if (!cfg.anonKey || !functionUrl) {
+    toast("먼저 Supabase DB를 연결해 주세요.", "error");
     return;
   }
 
   el.runScheduleOcr.disabled = true;
-  el.ocrStatus.textContent = "Gemini 분석 중...";
+  el.ocrStatus.textContent = "서버 OCR 분석 중...";
 
   try {
     const { base64, mimeType } = await fileToBase64(file);
-    const prompt = `${OWNER_NAME}의 쿠팡 퀵플렉스 스케줄을 읽어 JSON으로만 답하세요.
-
-기준 정산월: ${state.year}년 ${state.month}월
-형식:
-{
-  "YYYY-MM-DD": ["302C", "313B"],
-  "YYYY-MM-DD": null
-}
-
-규칙:
-- ${OWNER_NAME} 행만 추출
-- 휴무는 null
-- 구역은 숫자 3자리 + 영문 1자리 형식
-- 다른 설명 없이 JSON만 반환`;
-
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${state.geminiKey}`,
+      functionUrl,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          apikey: cfg.anonKey,
+          Authorization: `Bearer ${cfg.anonKey}`,
+        },
         body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: mimeType, data: base64 } },
-              { text: prompt },
-            ],
-          }],
-          generationConfig: { temperature: 0 },
+          imageBase64: base64,
+          mimeType,
+          ownerName: OWNER_NAME,
+          year: state.year,
+          month: state.month,
         }),
       },
     );
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
-      throw new Error(errorText || `HTTP ${response.status}`);
+      let message = errorText || `HTTP ${response.status}`;
+      try {
+        const parsed = JSON.parse(errorText);
+        message = parsed.error || message;
+      } catch {}
+      throw new Error(message);
     }
 
     const result = await response.json();
-    const raw = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const raw = typeof result.rawText === "string" ? result.rawText : JSON.stringify(result.schedule || {}, null, 2);
     el.scheduleCsvInput.value = raw;
 
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      const match = raw.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error("JSON 응답을 찾지 못했습니다.");
-      parsed = JSON.parse(match[0]);
-    }
-
     const map = {};
-    Object.entries(parsed).forEach(([dateKey, routes]) => {
+    Object.entries(result.schedule || {}).forEach(([dateKey, routes]) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
       map[dateKey] = Array.isArray(routes) && routes.length ? routes.map(normalizeRoute) : null;
     });
@@ -1117,9 +1106,6 @@ async function runOcr() {
     el.ocrStatus.textContent = `${Object.keys(map).length}일 인식 완료`;
   } catch (error) {
     console.error("[OCR]", error);
-    if (/api key|permission|auth|unauthorized|forbidden/i.test(String(error.message || ""))) {
-      state.geminiKey = "";
-    }
     el.ocrStatus.textContent = "OCR 실패";
     toast(`OCR 실패: ${error.message}`, "error");
   } finally {
