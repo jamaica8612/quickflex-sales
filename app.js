@@ -365,6 +365,12 @@ function setDbBadge(connected, updatedAt) {
       : "DB 연결 전에는 기록을 저장할 수 없습니다.";
   }
 }
+function showSetupOverlay() {
+  el.setupOverlay.classList.add("visible");
+}
+function hideSetupOverlay() {
+  el.setupOverlay.classList.remove("visible");
+}
 
 function ratesFromDb(rows) {
   return (rows || [])
