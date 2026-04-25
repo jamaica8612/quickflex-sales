@@ -117,6 +117,8 @@ const el = {
   ocrStatus: $("ocrStatus"),
   schedulePreview: $("schedulePreview"),
   scheduleCsvInput: $("scheduleCsvInput"),
+  shiftScheduleBack: $("shiftScheduleBack"),
+  shiftScheduleForward: $("shiftScheduleForward"),
   parseSchedule: $("parseSchedule"),
   csvInput: $("csvInput"),
   parseCsv: $("parseCsv"),
@@ -983,6 +985,16 @@ function applySchedule(dateMap) {
   if (el.app.dataset.view === "record") renderEntryForm();
   toast(`스케줄 ${changedDates.length}일 반영 완료`, "success");
 }
+function shiftDateMap(dateMap, days) {
+  const shifted = {};
+  Object.entries(dateMap || {}).forEach(([dateKey, routes]) => {
+    shifted[addDays(dateKey, days)] = routes;
+  });
+  return shifted;
+}
+function formatScheduleDraft(dateMap) {
+  return JSON.stringify(dateMap, null, 2);
+}
 function extractScheduleJson(text) {
   const raw = String(text || "").trim();
   if (!raw) return null;
@@ -1006,6 +1018,17 @@ function extractScheduleJson(text) {
   } catch {
     return null;
   }
+}
+function shiftScheduleDraft(days) {
+  const currentMap = extractScheduleJson(el.scheduleCsvInput.value);
+  if (!currentMap) {
+    toast("보정할 OCR 초안을 먼저 만들어 주세요.", "error");
+    return;
+  }
+  const shifted = shiftDateMap(currentMap, days);
+  el.scheduleCsvInput.value = formatScheduleDraft(shifted);
+  el.ocrStatus.textContent = `OCR 초안 날짜를 ${days > 0 ? "+" : ""}${days}일 보정했습니다.`;
+  toast(`날짜를 ${days > 0 ? "+" : ""}${days}일 보정했어요.`, "success");
 }
 function parseScheduleCsv(text) {
   const jsonMap = extractScheduleJson(text);
@@ -1135,18 +1158,16 @@ async function runOcr() {
     }
 
     const result = await response.json();
-    const raw = typeof result.rawText === "string" ? result.rawText : JSON.stringify(result.schedule || {}, null, 2);
-    el.scheduleCsvInput.value = raw;
-
-    const map = {};
+    const rawMap = {};
     Object.entries(result.schedule || {}).forEach(([dateKey, routes]) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
-      map[dateKey] = Array.isArray(routes) && routes.length ? routes.map(normalizeRoute) : null;
+      rawMap[dateKey] = Array.isArray(routes) && routes.length ? routes.map(normalizeRoute) : null;
     });
-    if (!Object.keys(map).length) throw new Error("유효한 날짜별 스케줄이 없습니다.");
+    el.scheduleCsvInput.value = formatScheduleDraft(rawMap);
 
-    applySchedule(map);
-    el.ocrStatus.textContent = `${Object.keys(map).length}일 인식 완료`;
+    if (!Object.keys(rawMap).length) throw new Error("유효한 날짜별 스케줄이 없습니다.");
+    el.ocrStatus.textContent = `${Object.keys(rawMap).length}일 OCR 초안 생성 완료`;
+    toast("OCR 초안을 만들었어요. 날짜 보정 후 스케줄 반영을 눌러 주세요.", "success");
   } catch (error) {
     console.error("[OCR]", error);
     el.ocrStatus.textContent = "OCR 실패";
@@ -1299,6 +1320,8 @@ el.scheduleImage.addEventListener("change", () => {
   reader.readAsDataURL(file);
 });
 el.runScheduleOcr.addEventListener("click", runOcr);
+el.shiftScheduleBack.addEventListener("click", () => shiftScheduleDraft(-1));
+el.shiftScheduleForward.addEventListener("click", () => shiftScheduleDraft(1));
 el.parseSchedule.addEventListener("click", () => parseScheduleCsv(el.scheduleCsvInput.value));
 el.parseCsv.addEventListener("click", () => {
   const rows = parseSettlementCsv(el.csvInput.value);
