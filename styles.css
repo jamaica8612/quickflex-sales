@@ -221,6 +221,17 @@ h1 { font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
 }
 .day-preview-info span { display: block; font-size: 12px; color: var(--text3); }
 .day-preview-info strong { font-size: 20px; font-weight: 900; color: var(--gold); }
+.preview-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.off-pill {
+  height: 44px; padding: 0 16px;
+  border-radius: 99px;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text3); font-size: 14px; font-weight: 700;
+  transition: all .15s; white-space: nowrap;
+}
+.off-pill.active {
+  background: var(--red-dim); border-color: var(--red); color: var(--red);
+}
 .record-btn {
   height: 44px; padding: 0 22px;
   background: var(--gold); color: #0d0f14;

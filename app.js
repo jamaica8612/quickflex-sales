@@ -66,6 +66,7 @@ const el = {
   monthCalendar: $("monthCalendar"),
   prevMonth: $("prevMonth"), nextMonth: $("nextMonth"), todayButton: $("todayButton"),
   homeSelectedDate: $("homeSelectedDate"), homeSelectedTotal: $("homeSelectedTotal"),
+  homeOffToggle: $("homeOffToggle"),
   openRecord: $("openRecord"), openSettings: $("openSettings"),
   syncIndicator: $("syncIndicator"),
   // 기록
@@ -474,6 +475,7 @@ function renderHomeSelection() {
   const rec=dayRecord(state.selectedDate);
   el.homeSelectedDate.textContent  = formatLong(state.selectedDate);
   el.homeSelectedTotal.textContent = rec.off?"휴무":fmtWon(calcRecord(rec).revenue);
+  el.homeOffToggle.classList.toggle("active", rec.off);
 }
 
 function renderEntryForm() {
@@ -721,6 +723,11 @@ el.navTabs.forEach(tab=>tab.addEventListener("click",()=>showView(tab.dataset.vi
 el.prevMonth.addEventListener("click",()=>moveMonth(-1));
 el.nextMonth.addEventListener("click",()=>moveMonth(1));
 el.todayButton.addEventListener("click",()=>selectDate(todayKey()));
+el.homeOffToggle.addEventListener("click",()=>{
+  const rec=dayRecord(state.selectedDate);
+  rec.off=!rec.off;
+  scheduleSave(); renderSummary(); renderMonth(); renderHomeSelection();
+});
 el.openRecord.addEventListener("click",()=>showView("record"));
 el.openSettings.addEventListener("click",()=>showView("settings"));
 el.backToCalendar.addEventListener("click",()=>showView("home"));
