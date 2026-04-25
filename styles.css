@@ -529,27 +529,32 @@ h1 { font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
 .setup-overlay {
   position: fixed; inset: 0; z-index: 300;
   background: var(--bg);
-  display: flex; align-items: center; justify-content: center;
-  padding: 24px;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: env(safe-area-inset-top, 32px) 20px 32px;
+  overflow-y: auto;
   opacity: 0; pointer-events: none;
   transition: opacity .2s;
 }
 .setup-overlay.visible { opacity: 1; pointer-events: all; }
 .setup-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 28px 24px 24px;
-  width: 100%; max-width: 360px;
-  display: flex; flex-direction: column; gap: 10px;
+  border-radius: var(--radius); padding: 24px 20px 20px;
+  width: 100%; max-width: 400px;
+  margin: auto 0;
+  display: flex; flex-direction: column; gap: 8px;
 }
 .setup-logo {
-  width: 52px; height: 52px; border-radius: 14px;
+  width: 44px; height: 44px; border-radius: 12px;
   background: var(--gold-dim); border: 1px solid rgba(251,191,36,.3);
   display: grid; place-items: center; color: var(--gold);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
-.setup-card h2 { font-size: 22px; font-weight: 900; }
-.setup-desc { font-size: 14px; color: var(--text2); line-height: 1.65; margin-bottom: 4px; }
-.setup-error { font-size: 13px; color: var(--red); min-height: 16px; }
+.setup-card h2 { font-size: 20px; font-weight: 900; }
+.setup-desc { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 2px; }
+.setup-error { font-size: 13px; color: var(--red); min-height: 18px; font-weight: 600; }
+.setup-fields { display: flex; flex-direction: column; gap: 4px; }
+.setup-fields .field-label { margin-top: 8px; }
+.setup-fields .field-label:first-child { margin-top: 0; }
 
 /* ── 싱크 인디케이터 ── */
 .header-actions {
