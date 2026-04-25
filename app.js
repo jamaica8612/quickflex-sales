@@ -206,8 +206,20 @@ function loadDbConfig() {
   return saved ? JSON.parse(saved) : { url: "", anonKey: "" };
 }
 
+function normalizeSupabaseUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  try {
+    const url = new URL(raw);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return raw.replace(/\/rest\/v1\/?$/i, "").replace(/\/+$/, "");
+  }
+}
+
 function saveDbConfig(url, anonKey) {
-  localStorage.setItem(DB_CONFIG_KEY, JSON.stringify({ url, anonKey }));
+  localStorage.setItem(DB_CONFIG_KEY, JSON.stringify({ url: normalizeSupabaseUrl(url), anonKey }));
 }
 
 function setDbStatus(message, connected = false) {
@@ -219,7 +231,7 @@ function getDbClient() {
   if (dbClient) return dbClient;
   const config = loadDbConfig();
   if (!config.url || !config.anonKey || !window.supabase) return null;
-  dbClient = window.supabase.createClient(config.url, config.anonKey);
+  dbClient = window.supabase.createClient(normalizeSupabaseUrl(config.url), config.anonKey);
   return dbClient;
 }
 
@@ -284,7 +296,7 @@ function scheduleDbSave() {
 
 function renderDbConfig() {
   const config = loadDbConfig();
-  el.supabaseUrl.value = config.url || "";
+  el.supabaseUrl.value = normalizeSupabaseUrl(config.url) || "";
   el.supabaseAnonKey.value = config.anonKey || "";
   if (config.url && config.anonKey) {
     setDbStatus("DB 설정 있음: 연결 확인 중...", true);
@@ -914,12 +926,13 @@ el.saveRate.addEventListener("click", () => {
   el.rateUnit.value = "";
 });
 el.saveDbConfig.addEventListener("click", async () => {
-  const url = el.supabaseUrl.value.trim();
+  const url = normalizeSupabaseUrl(el.supabaseUrl.value);
   const anonKey = el.supabaseAnonKey.value.trim();
   if (!url || !anonKey) {
     setDbStatus("Project URL과 anon public key를 모두 입력해 주세요.");
     return;
   }
+  el.supabaseUrl.value = url;
   saveDbConfig(url, anonKey);
   dbClient = null;
   await loadFromDb();
