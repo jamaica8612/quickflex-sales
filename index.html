@@ -20,12 +20,15 @@
               <h1>김관현</h1>
               <p class="period-label">정산기간 <span id="periodRange">—</span></p>
             </div>
-            <button class="icon-btn" id="openSettings" aria-label="설정">
+            <div class="header-actions">
+              <span id="syncIndicator" class="sync-indicator" title="저장됨"></span>
+              <button class="icon-btn" id="openSettings" aria-label="설정">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="3"/>
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
               </svg>
             </button>
+            </div>
           </div>
 
           <div class="summary-card">
@@ -243,6 +246,24 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
           </section>
+        </div>
+      </div>
+
+      <!-- ───── 셋업 오버레이 (최초 DB 연결) ───── -->
+      <div class="setup-overlay" id="setupOverlay">
+        <div class="setup-card">
+          <div class="setup-logo">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          </div>
+          <h2>퀵플렉스 매출관리</h2>
+          <p class="setup-desc">데이터를 안전하게 저장하려면<br>Supabase 프로젝트를 연결해주세요.</p>
+          <label class="field-label">Project URL</label>
+          <input id="setupUrl" type="url" placeholder="https://xxxx.supabase.co" autocomplete="off" />
+          <label class="field-label">anon public key</label>
+          <input id="setupKey" type="password" placeholder="eyJhbGciOi..." autocomplete="off" />
+          <p id="setupError" class="setup-error"></p>
+          <button id="setupConnect" class="full-btn">연결하기</button>
+          <p class="hint center">Supabase 무료 플랜으로 충분합니다</p>
         </div>
       </div>
 

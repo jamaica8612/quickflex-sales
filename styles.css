@@ -525,6 +525,47 @@ h1 { font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
 .toast.error { border-color: var(--danger); color: var(--danger); }
 .toast.success { border-color: var(--green); color: var(--green); }
 
+/* ── 셋업 오버레이 ── */
+.setup-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.setup-overlay.visible { opacity: 1; pointer-events: all; }
+.setup-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 28px 24px 24px;
+  width: 100%; max-width: 360px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.setup-logo {
+  width: 52px; height: 52px; border-radius: 14px;
+  background: var(--gold-dim); border: 1px solid rgba(251,191,36,.3);
+  display: grid; place-items: center; color: var(--gold);
+  margin-bottom: 4px;
+}
+.setup-card h2 { font-size: 22px; font-weight: 900; }
+.setup-desc { font-size: 14px; color: var(--text2); line-height: 1.65; margin-bottom: 4px; }
+.setup-error { font-size: 13px; color: var(--red); min-height: 16px; }
+
+/* ── 싱크 인디케이터 ── */
+.header-actions {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.sync-indicator {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green); opacity: 0;
+  transition: background .3s, opacity .3s;
+  flex-shrink: 0;
+}
+.sync-indicator[data-status="idle"]   { background: var(--green); opacity: 1; }
+.sync-indicator[data-status="saving"] { background: var(--gold);  opacity: 1; animation: sync-pulse 1s ease-in-out infinite; }
+.sync-indicator[data-status="error"]  { background: var(--red);   opacity: 1; }
+@keyframes sync-pulse { 0%,100%{ opacity:1; } 50%{ opacity:.3; } }
+
 /* ── 스크롤바 ── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
