@@ -348,6 +348,16 @@ function getEdgeFunctionUrl(name) {
   if (!base) return "";
   return `${base}/functions/v1/${name}`;
 }
+function buildFunctionHeaders(anonKey) {
+  const headers = {
+    "Content-Type": "application/json",
+    apikey: anonKey,
+  };
+  if (String(anonKey || "").startsWith("eyJ")) {
+    headers.Authorization = `Bearer ${anonKey}`;
+  }
+  return headers;
+}
 function setSyncStatus(status) {
   if (!el.syncIndicator) return;
   el.syncIndicator.dataset.status = status;
@@ -1073,8 +1083,7 @@ async function runOcr() {
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          apikey: cfg.anonKey,
+          ...buildFunctionHeaders(cfg.anonKey),
         },
         body: JSON.stringify({
           imageBase64: base64,
