@@ -14,6 +14,7 @@ create table if not exists public.quickflex_day_records (
   is_off boolean not null default false,
   fresh_count integer not null default 0,
   fresh_unit integer not null default 100,
+  backup_unit integer not null default 30,
   updated_at timestamptz not null default now(),
   unique (user_id, work_date)
 );
@@ -29,13 +30,19 @@ create table if not exists public.quickflex_day_route_items (
   updated_at timestamptz not null default now()
 );
 
-create index if not exists idx_quickflex_route_rates_user on public.quickflex_route_rates (user_id, route);
-create index if not exists idx_quickflex_day_records_user on public.quickflex_day_records (user_id, work_date);
-create index if not exists idx_quickflex_day_items_user on public.quickflex_day_route_items (user_id, work_date, sort_order);
+create index if not exists idx_quickflex_route_rates_user
+  on public.quickflex_route_rates (user_id, route);
+create index if not exists idx_quickflex_day_records_user
+  on public.quickflex_day_records (user_id, work_date);
+create index if not exists idx_quickflex_day_items_user
+  on public.quickflex_day_route_items (user_id, work_date, sort_order);
 
 alter table public.quickflex_route_rates enable row level security;
 alter table public.quickflex_day_records enable row level security;
 alter table public.quickflex_day_route_items enable row level security;
+
+alter table public.quickflex_day_records
+  add column if not exists backup_unit integer not null default 30;
 
 drop policy if exists "quickflex route rates select" on public.quickflex_route_rates;
 drop policy if exists "quickflex route rates insert" on public.quickflex_route_rates;
