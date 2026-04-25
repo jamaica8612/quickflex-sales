@@ -412,7 +412,7 @@ function calcRecord(rec) {
     return {count:s.count+c, revenue:s.revenue+c*u};
   },{count:0,revenue:0});
   const fc = toNum(rec.freshCount);
-  return {count:r.count+fc, revenue:r.revenue+fc*toNum(rec.freshUnit)};
+  return {count:r.count, revenue:r.revenue+fc*toNum(rec.freshUnit)};
 }
 function summarizePeriod(y=state.year, m=state.month) {
   let best={dateKey:"",revenue:0};
