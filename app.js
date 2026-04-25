@@ -12,7 +12,7 @@ const SUPABASE_URL      = "https://xrrdokcjhjqdfvwtbenl.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_prnLDb7bcWORu7wrqTRsXQ_NWJL8Jnk";
 
 /* ══ Gemini API 설정 (스케줄 OCR용, 무료 티어) ══ */
-const GEMINI_API_KEY = "";   // ← Google AI Studio 키 입력
+const GEMINI_API_KEY = "AIzaSyDSlUs2kXZcZYYj8oI9IMbwaaPLS0m8068";
 
 /* ══ 상수 ══ */
 const GOAL     = 6_000_000;
