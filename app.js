@@ -665,7 +665,7 @@ function parseScheduleCsv(text) {
   const rows=text.split(/\r?\n/).map(l=>splitLine(l)).filter(r=>r.some(Boolean));
   if (rows.length<2){parseScheduleOcrText(text);return;}
   const header=rows[0];
-  const target=rows.find((r,i)=>i>0&&r.some(c=>String(c).trim()==="김관현"));
+  const target=rows.find((r,i)=>i>0&&r.some(c=>String(c).replace(/\s/g,"").includes("김관현")));
   if (!target){toast("김관현 행을 찾지 못했습니다","error");return;}
   const map={};
   header.forEach((cell,i)=>{const k=parseHeaderDate(cell);if(!k)return;map[k]=routesFromCell(target[i]);});
@@ -685,7 +685,9 @@ function dateKeysFromOcrText(text) {
 }
 function parseScheduleOcrText(text) {
   const lines=String(text||"").split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-  const workerLine=lines.find(l=>/김\s*관\s*현/.test(l));
+  // 공백·특수문자 제거 후 비교 (OCR 오인식 대응)
+  const normalize=s=>s.replace(/\s+/g,"").replace(/[^가-힣\w]/g,"");
+  const workerLine=lines.find(l=>normalize(l).includes("김관현"));
   if (!workerLine){toast("김관현 행을 찾지 못했습니다","error");return;}
   const dateKeys=dateKeysFromOcrText(text);
   const groups=routeTokensFromText(workerLine.replace(/김\s*관\s*현/g,""));
