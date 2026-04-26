@@ -1,2 +1,3 @@
 local-server.js
 server-*.log
+supabase/.temp/
