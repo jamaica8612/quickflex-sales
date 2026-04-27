@@ -17,6 +17,25 @@ const SAMPLE_SETTLEMENT = [
   ["322D", 179, 183475], ["324C", 127, 117475], ["324D", 50, 53750], ["407B", 218, 179850],
   ["407D", 54, 44550],
 ];
+const DEFAULT_ROUTE_MASTER = [
+  "302A", "302B", "302C", "302D",
+  "303A", "303B",
+  "304A", "304B", "304C", "304D",
+  "308B", "308C",
+  "310A", "310C", "310D",
+  "311A", "311B", "311C", "311D",
+  "313A", "313B", "313C", "313D",
+  "314A", "314B", "314C", "314D",
+  "316A", "316B", "316C", "316D",
+  "318A", "318B", "318C", "318D",
+  "319A", "319B", "319C",
+  "322A", "322B", "322C", "322D",
+  "324A", "324B", "324C", "324D",
+  "407A", "407B", "407C", "407D",
+  "410A", "410B", "410C", "410D",
+  "425B", "425C", "425D",
+  "428A", "428B", "428C", "428D",
+];
 
 const today = new Date();
 const initialPeriodMonth = today.getDate() <= 25 ? today.getMonth() + 1 : today.getMonth() + 2;
@@ -615,8 +634,18 @@ async function logout() {
 
 function ratesFromDb(rows) {
   return (rows || []).map((row) => ({ route: normalizeRoute(row.route), unit: toNum(row.current_unit), count: 0, amount: 0 }))
-    .filter((row) => row.route && row.unit > 0)
+    .filter((row) => row.route)
     .sort((a, b) => a.route.localeCompare(b.route));
+}
+function mergeDefaultRouteMaster(rates) {
+  const byRoute = new Map((rates || []).map((rate) => [normalizeRoute(rate.route), { ...rate, route: normalizeRoute(rate.route), unit: toNum(rate.unit) }]));
+  let changed = false;
+  DEFAULT_ROUTE_MASTER.forEach((route) => {
+    if (byRoute.has(route)) return;
+    byRoute.set(route, { route, unit: 0, count: 0, amount: 0 });
+    changed = true;
+  });
+  return { rates: [...byRoute.values()].sort((a, b) => a.route.localeCompare(b.route)), changed };
 }
 function entriesFromDb(dayRows, itemRows) {
   const entries = {};
@@ -653,15 +682,18 @@ async function loadFromDb() {
   if (itemsResult.error) throw itemsResult.error;
   state.rates = ratesFromDb(ratesResult.data);
   state.entries = entriesFromDb(daysResult.data, itemsResult.data);
+  const hadRates = state.rates.length > 0;
   if (!state.rates.length) {
     state.rates = avgRates(SAMPLE_SETTLEMENT);
-    await persistRates();
   }
+  const merged = mergeDefaultRouteMaster(state.rates);
+  state.rates = merged.rates;
+  if (!hadRates || merged.changed) await persistRates();
   setDbBadge(true, "동기화됨");
 }
 async function persistRates() {
   const userId = currentUserId();
-  const cleanRates = state.rates.filter((rate) => normalizeRoute(rate.route) && toNum(rate.unit) > 0);
+  const cleanRates = state.rates.filter((rate) => normalizeRoute(rate.route) && toNum(rate.unit) >= 0);
   const { error: upsertError } = await state.db.from(TABLES.rates).upsert(cleanRates.map((rate) => ({
     user_id: userId,
     route: normalizeRoute(rate.route),
@@ -937,7 +969,7 @@ function renderRates() {
   const allowedRoutes = new Set(fixedRoutes());
   const visibleRates = isBackupDriver() ? state.rates : state.rates.filter((rate) => allowedRoutes.has(rate.route));
   el.rateList.innerHTML = visibleRates.length
-    ? visibleRates.map((rate) => `<button class="rate-chip" data-route="${rate.route}" type="button"><strong>${rate.route}</strong><span>${fmtWon(rate.unit)}</span></button>`).join("")
+    ? visibleRates.map((rate) => `<button class="rate-chip" data-route="${rate.route}" type="button"><strong>${rate.route}</strong><span>${toNum(rate.unit) > 0 ? fmtWon(rate.unit) : "단가 미정"}</span></button>`).join("")
     : `<div class="daily-card"><span>${isBackupDriver() ? "등록된 단가가 없습니다." : "고정 라우트를 먼저 등록하면 해당 단가만 표시됩니다."}</span></div>`;
   el.rateList.querySelectorAll(".rate-chip").forEach((button) => {
     button.addEventListener("click", () => {
@@ -951,7 +983,7 @@ function renderRates() {
 function upsertRate(routeValue, unitValue) {
   const route = normalizeRoute(routeValue);
   const unit = toNum(unitValue);
-  if (!route || unit <= 0) return false;
+  if (!route || unit < 0) return false;
   if (!isBackupDriver() && !fixedRoutes().includes(route)) return false;
   const existing = state.rates.find((rate) => rate.route === route);
   if (existing) existing.unit = unit;
@@ -1017,7 +1049,7 @@ async function persistRatesForUsers(rates, userIds) {
     rates.forEach((rate) => {
       const route = normalizeRoute(rate.route);
       const unit = toNum(rate.unit);
-      if (!userId || !route || unit <= 0) return;
+      if (!userId || !route || unit < 0) return;
       payload.push({ user_id: userId, route, current_unit: unit, updated_at: updatedAt });
     });
   });
@@ -1084,17 +1116,17 @@ async function applySettlementRows(rows) {
     toast("단가 반영을 취소했습니다.", "error");
     return false;
   }
-  const targetUserIds = await backupRateTargetUserIds();
-  await persistRatesForUsers(selectedRates, targetUserIds);
   selectedRates.forEach((rate) => {
     const existing = state.rates.find((item) => item.route === rate.route);
     if (existing) Object.assign(existing, rate);
     else state.rates.push(rate);
   });
-  state.rates.sort((a, b) => a.route.localeCompare(b.route));
+  state.rates = mergeDefaultRouteMaster(state.rates).rates;
+  const targetUserIds = await backupRateTargetUserIds();
+  await persistRatesForUsers(state.rates, targetUserIds);
   renderRates();
   renderAll();
-  toast(`정산표 단가 ${selectedRates.length}개를 백업기사 ${targetUserIds.length}명 기준으로 반영했습니다.`, "success");
+  toast(`정산표 단가와 기본 구역 ${state.rates.length}개를 백업기사 ${targetUserIds.length}명 기준으로 반영했습니다.`, "success");
   return true;
 }
 

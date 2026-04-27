@@ -185,16 +185,15 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
   text-overflow: ellipsis;
 }
 .day-routes {
-  display: -webkit-box;
+  display: block;
   min-width: 0;
   color: var(--blue);
   font-size: 9px;
   font-weight: 850;
-  line-height: 1.15;
+  line-height: 12px;
   overflow: hidden;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .day-dock {
