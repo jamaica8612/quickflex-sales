@@ -1,6 +1,27 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-27 (settlement rate sync pass)
+Last updated: 2026-04-27 (route master display pass)
+
+## 2026-04-27 Route Master Display Pass (Codex)
+
+Workspace: `C:\Users\jamai\Documents\Codex\2026-04-25\new-chat`
+
+### Changed Files
+
+- `styles.css`
+  - Calendar route labels are now single-line with ellipsis instead of wrapping inside a day cell.
+- `src/main.js`
+  - Added a default route master so backup drivers can see routes even before a unit price is known.
+  - Routes with unknown unit price are kept as `0` in DB and shown as `단가 미정` in settings.
+  - Included the missing route set called out by the user, including `302A`, `302D`, `428C`, `428D`, `304A`, `304B`, `304D`, `311A`, `311B`, `313A`, `314C`, `314D`, `310A`, `324A`, `324B`, `407A`, `407C`, and `410A`-`410D`.
+- `sw.js`
+  - `CACHE_NAME` bumped to `quickflex-shell-v14`.
+
+### Notes
+
+- Known route with no confirmed settlement unit is intentionally stored with `current_unit = 0`. The daily entry unit input stays blank until a real unit is set.
+
+---
 
 ## 2026-04-27 Settlement Rate Sync Pass (Codex)
 
