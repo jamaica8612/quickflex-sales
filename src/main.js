@@ -175,6 +175,7 @@ const el = {
   adminSection: $("adminSection"),
   adminProfiles: $("adminProfiles"),
   resetData: $("resetData"),
+  requestAccountDelete: $("requestAccountDelete"),
   openDbSettings: $("openDbSettings"),
   dbStatusBadge: $("dbStatusBadge"),
   dbOverlay: $("dbOverlay"),
@@ -217,6 +218,10 @@ function formatShort(date) {
 function formatLong(key) {
   const date = parseDateKey(key);
   return `${date.getFullYear()}년 ${String(date.getMonth() + 1).padStart(2, "0")}월 ${String(date.getDate()).padStart(2, "0")}일(${WEEKDAYS[date.getDay()]})`;
+}
+function formatRecordTitleDate(key) {
+  const date = parseDateKey(key);
+  return `${String(date.getFullYear()).slice(2)}년 ${String(date.getMonth() + 1).padStart(2, "0")}월 ${String(date.getDate()).padStart(2, "0")}일`;
 }
 function formatLongShort(key) {
   const date = parseDateKey(key);
@@ -366,6 +371,7 @@ function fixedDefaultRows() {
 }
 function ensureFixedRecordRows(record) {
   if (isBackupDriver()) return record;
+  if (record.off) return record;
   const allowed = fixedRoutes();
   if (!allowed.length) return record;
   const byRoute = new Map(record.rows.map((row) => [joinStoredRoutes(row.route), row]));
@@ -863,7 +869,7 @@ function renderMonth() {
     const cell = document.createElement("button");
     cell.type = "button";
     cell.className = `day-cell${inPeriod ? "" : " outside"}${dateKey === state.selectedDate ? " selected" : ""}${dateKey === todayKey() ? " today-cell" : ""}${record.off ? " off" : ""}`;
-    const routeText = formatRecordRoutes(record.rows);
+    const routeText = record.off ? "" : formatRecordRoutes(record.rows);
     const value = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : (calc.revenue ? fmtWon(calc.revenue) : "");
     cell.innerHTML = `<span class="day-number">${date.getDate()}</span><span class="day-value">${value}</span><span class="day-routes">${routeText}</span>`;
     cell.addEventListener("click", () => selectDate(dateKey));
@@ -901,9 +907,10 @@ function routeOptions(selected) {
 }
 function renderEntryForm() {
   let record = getRecord(state.selectedDate, true);
+  if (record.off) record.rows = [];
   if (!isBackupDriver()) record = ensureFixedRecordRows(record);
   setRecord(state.selectedDate, record);
-  el.selectedDateTitle.textContent = formatLong(state.selectedDate);
+  el.selectedDateTitle.textContent = formatRecordTitleDate(state.selectedDate);
   el.offToggle.checked = record.off;
   el.entryRows.innerHTML = "";
   record.rows.forEach((row, index) => renderEntryRow(row, index));
@@ -1539,6 +1546,9 @@ function renderDraftCards() {
     return `<div class="draft-card"><div class="draft-card-header"><strong>${formatLongShort(dateKey)}</strong><button class="draft-off-btn${routes === null ? " active" : ""}" data-action="off" data-date="${dateKey}">${routes === null ? "휴무" : "근무"}</button></div><div>${routes === null ? "휴무" : `${chips}<button class="draft-add-btn" data-action="add" data-date="${dateKey}">+ 추가</button>`}</div></div>`;
   }).join("");
 }
+function draftWorkRoutes() {
+  return isBackupDriver() ? [] : fixedRoutes();
+}
 async function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1551,7 +1561,7 @@ function cleanOcrErrorMessage(message) {
   const text = String(message || "").trim();
   if (!text) return "OCR 처리 중 오류가 발생했습니다.";
   if (/UNAVAILABLE|503|high demand|experienc/i.test(text)) {
-    return "OCR 모델 사용량이 많아 잠시 처리하지 못했습니다. 1~2분 뒤 다시 시도해 주세요.";
+    return "OCR 서버가 잠시 혼잡합니다. 이미지는 그대로 두고 잠시 후 다시 실행해 주세요.";
   }
   try {
     const parsed = JSON.parse(text);
@@ -1743,6 +1753,8 @@ function bindEvents() {
   el.homeOffToggle.addEventListener("click", () => {
     const record = getRecord(state.selectedDate, true);
     record.off = !record.off;
+    if (record.off) record.rows = [];
+    else if (!isBackupDriver()) record.rows = fixedDefaultRows();
     scheduleSave({ dateKeys: [state.selectedDate] });
     renderAll();
   });
@@ -1753,6 +1765,8 @@ function bindEvents() {
   el.offToggle.addEventListener("change", () => {
     const record = getRecord(state.selectedDate, true);
     record.off = el.offToggle.checked;
+    if (record.off) record.rows = [];
+    else if (!isBackupDriver()) record.rows = fixedDefaultRows();
     scheduleSave({ dateKeys: [state.selectedDate] });
     renderEntryForm();
     refreshTotals();
@@ -1841,7 +1855,7 @@ function bindEvents() {
     const button = event.target.closest("[data-action]");
     if (!button || !ocrDraftMap) return;
     const dateKey = button.dataset.date;
-    if (button.dataset.action === "off") ocrDraftMap[dateKey] = ocrDraftMap[dateKey] === null ? [] : null;
+    if (button.dataset.action === "off") ocrDraftMap[dateKey] = ocrDraftMap[dateKey] === null ? draftWorkRoutes() : null;
     if (button.dataset.action === "remove") ocrDraftMap[dateKey] = (ocrDraftMap[dateKey] || []).filter((route) => route !== button.dataset.route);
     if (button.dataset.action === "add") {
       const route = prompt("추가할 구역을 입력하세요. 예: 302B");
@@ -1868,6 +1882,23 @@ function bindEvents() {
       toast("내 데이터를 초기화했습니다.", "success");
     } catch (error) {
       toast(`초기화 실패: ${error.message}`, "error");
+    }
+  });
+  el.requestAccountDelete.addEventListener("click", async () => {
+    if (!window.confirm("탈퇴 요청을 남기고 내 기록과 단가 데이터를 삭제할까요?\n\n계정 완전 삭제는 관리자가 확인 후 처리합니다.")) return;
+    const userId = currentUserId();
+    try {
+      await state.db.from(TABLES.items).delete().eq("user_id", userId);
+      await state.db.from(TABLES.days).delete().eq("user_id", userId);
+      await state.db.from(TABLES.rates).delete().eq("user_id", userId);
+      await state.db.from(TABLES.profiles).update({
+        display_name: `[탈퇴요청] ${driverName()}`,
+        updated_at: new Date().toISOString(),
+      }).eq("id", userId);
+      toast("탈퇴 요청을 남겼습니다.", "success");
+      await logout();
+    } catch (error) {
+      toast(`탈퇴 요청 실패: ${error.message}`, "error");
     }
   });
   el.openDbSettings.addEventListener("click", openSheet);
