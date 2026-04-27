@@ -33,19 +33,23 @@ Deno.serve(async (request) => {
     const ownerName = String(body.ownerName || "김관현").trim();
     const year = Number(body.year) || new Date().getFullYear();
     const month = Number(body.month) || new Date().getMonth() + 1;
+    const kind = body.kind === "settlement" ? "settlement" : "schedule";
 
     if (!imageBase64) {
       return jsonResponse({ error: "imageBase64 값이 필요합니다." }, 400);
     }
 
     const provider = createOcrProvider();
-    const result = await provider.extractSchedule({
+    const input = {
       imageBase64,
       mimeType,
       ownerName,
       year,
       month,
-    });
+    };
+    const result = kind === "settlement"
+      ? await provider.extractSettlement(input)
+      : await provider.extractSchedule(input);
 
     return jsonResponse(result);
   } catch (error) {

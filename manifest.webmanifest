@@ -1,0 +1,19 @@
+{
+  "name": "퀵플렉스 매출관리",
+  "short_name": "퀵플렉스",
+  "description": "쿠팡 퀵플렉스 기사 매출 기록과 정산 통계 관리",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0d12",
+  "theme_color": "#0d0f14",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
