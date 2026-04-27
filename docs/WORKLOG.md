@@ -1,6 +1,29 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-27 (calendar route display pass)
+Last updated: 2026-04-27 (settlement rate sync pass)
+
+## 2026-04-27 Settlement Rate Sync Pass (Codex)
+
+Workspace: `C:\Users\jamai\Documents\Codex\2026-04-25\new-chat`
+
+### Changed Files
+
+- `src/main.js`
+  - Settlement rate import now separates new routes, changed routes, and unchanged routes.
+  - New routes from a settlement sheet are automatically prepared as default route rates.
+  - If an existing route has a different calculated unit price, the app asks whether to update to the settlement rate or keep the existing rate.
+  - Admin settlement import writes selected default rates for approved backup drivers so backup users can see all route options.
+  - When an admin approves/saves a backup driver, the current default route rates are also seeded to that driver.
+- `supabase-schema.sql`
+  - Route-rate RLS insert/update/delete policies now allow approved admins to manage route rates for other users.
+- `sw.js`
+  - `CACHE_NAME` bumped to `quickflex-shell-v13`.
+
+### Deployment Note
+
+- The schema policy changes must be applied to Supabase before admin can write route rates for other backup drivers. Without this SQL update, the frontend may show an RLS permission error when seeding rates for other users.
+
+---
 
 ## 2026-04-27 Calendar Route Display Pass (Codex)
 

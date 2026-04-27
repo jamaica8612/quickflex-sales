@@ -62,7 +62,7 @@ This `do $$` block prevents accidental NULL writes when no admin exists.
 - `quickflex_profiles` controls `role`, `status`, `driver_type`, and `fixed_routes`.
 - `approved` is enforced in the client UI and in RLS helper `quickflex_is_approved()`.
 - Normal users can read/write only their own route rates and daily records after approval.
-- Admin users can read member profiles and user-by-user revenue data through RLS-backed queries.
+- Admin users can read member profiles, user-by-user revenue data, and manage default route rates for approved backup drivers through RLS-backed queries.
 - Pending users should see only the approval-waiting screen.
 
 ## Production DB Configuration

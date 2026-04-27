@@ -201,20 +201,32 @@ create policy "quickflex route rates insert"
 on public.quickflex_route_rates
 for insert
 to authenticated
-with check (user_id = auth.uid()::text and public.quickflex_is_approved());
+with check (
+  public.quickflex_is_admin()
+  or (user_id = auth.uid()::text and public.quickflex_is_approved())
+);
 
 create policy "quickflex route rates update"
 on public.quickflex_route_rates
 for update
 to authenticated
-using (user_id = auth.uid()::text and public.quickflex_is_approved())
-with check (user_id = auth.uid()::text and public.quickflex_is_approved());
+using (
+  public.quickflex_is_admin()
+  or (user_id = auth.uid()::text and public.quickflex_is_approved())
+)
+with check (
+  public.quickflex_is_admin()
+  or (user_id = auth.uid()::text and public.quickflex_is_approved())
+);
 
 create policy "quickflex route rates delete"
 on public.quickflex_route_rates
 for delete
 to authenticated
-using (user_id = auth.uid()::text and public.quickflex_is_approved());
+using (
+  public.quickflex_is_admin()
+  or (user_id = auth.uid()::text and public.quickflex_is_approved())
+);
 
 drop policy if exists "quickflex day records select" on public.quickflex_day_records;
 drop policy if exists "quickflex day records insert" on public.quickflex_day_records;
