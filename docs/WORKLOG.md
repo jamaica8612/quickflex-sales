@@ -1,6 +1,18 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-27 (fixed driver settings and stats polish pass)
+Last updated: 2026-04-27 (unknown route rate display pass)
+
+## 2026-04-27 Unknown Route Rate Display Pass (Codex)
+
+Workspace: `C:\Users\jamai\Documents\Codex\2026-04-25\new-chat`
+
+### Changed Files
+
+- `src/main.js`
+  - Unknown route rates now display as `0원` instead of `단가 미정`.
+  - Data model still stores unknown rates as `current_unit = 0`.
+
+---
 
 ## 2026-04-27 Fixed Driver Settings And Stats Polish Pass (Codex)
 
