@@ -1,6 +1,32 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-27 (auth calendar intro polish pass)
+Last updated: 2026-04-27 (ocr ux account off-day pass)
+
+## 2026-04-27 OCR UX Account Off-Day Pass (Codex)
+
+Workspace: `C:\Users\jamai\Documents\Codex\2026-04-25\new-chat`
+
+### Changed Files
+
+- `index.html`
+  - Added a `탈퇴 요청` button under data reset.
+- `src/main.js`
+  - Shortened the record screen date title to `26년 MM월 DD일` so it stays on one line on mobile.
+  - Off-day calendar cells now hide route labels, and toggling a day to off clears route rows.
+  - Fixed-driver off-to-work toggles now restore that driver's assigned fixed routes instead of showing an empty `+ 추가` state.
+  - OCR high-demand/503 failures now show a softer Korean message that explains the server is temporarily busy.
+  - `탈퇴 요청` clears the user's route/rate/day data, marks the profile display name with `[탈퇴요청]`, and logs out. Supabase Auth user deletion still needs admin/server-side handling.
+- `styles.css`
+  - Made off-day labels larger and kept the record title one-line.
+  - Added subtle danger styling for account deletion.
+- `sw.js`
+  - `CACHE_NAME` bumped to `quickflex-shell-v17`.
+
+### Notes
+
+- OCR recognition issues are mostly caused by small table text, screenshot compression, and temporary Gemini 503/high-demand responses. Frontend wording is improved here; a stronger OCR improvement pass should add image preprocessing and/or a more table-oriented backend parser.
+
+---
 
 ## 2026-04-27 Auth Calendar Intro Polish Pass (Codex)
 
