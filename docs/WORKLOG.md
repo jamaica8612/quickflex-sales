@@ -1,6 +1,28 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-27 (handoff verification pass)
+Last updated: 2026-04-27 (calendar route display pass)
+
+## 2026-04-27 Calendar Route Display Pass (Codex)
+
+Workspace: `C:\Users\jamai\Documents\Codex\2026-04-25\new-chat`
+
+### Changed Files
+
+- `src/main.js`
+  - Added compact route display for calendar cells.
+  - Same 3-digit route prefixes now collapse into one label:
+    - `319A + 319B + 319C` -> `319ABC`
+    - `316A + 316B + 313A` -> `316AB 313A`
+  - Calendar cells now compact all route rows for the day together, not one row at a time.
+  - Day route items now persist when a route exists even if delivery count/unit price is still `0`, so schedule-only rows do not disappear just because the default rate is missing.
+- `sw.js`
+  - `CACHE_NAME` bumped to `quickflex-shell-v12`.
+
+### Notes
+
+- This fixes future schedule imports/saves. If an old day already lost its routes in the database because the previous save skipped zero-rate rows, the app cannot infer those vanished rows; re-import the schedule or add the routes once.
+
+---
 
 ## 2026-04-27 Intro Copy Privacy Pass (Codex)
 
