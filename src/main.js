@@ -971,7 +971,7 @@ function renderRates() {
   const allowedRoutes = new Set(fixedRoutes());
   const visibleRates = isBackupDriver() ? state.rates : state.rates.filter((rate) => allowedRoutes.has(rate.route));
   el.rateList.innerHTML = visibleRates.length
-    ? visibleRates.map((rate) => `<button class="rate-chip" data-route="${rate.route}" type="button"><strong>${rate.route}</strong><span>${toNum(rate.unit) > 0 ? fmtWon(rate.unit) : "단가 미정"}</span></button>`).join("")
+    ? visibleRates.map((rate) => `<button class="rate-chip" data-route="${rate.route}" type="button"><strong>${rate.route}</strong><span>${fmtWon(rate.unit)}</span></button>`).join("")
     : `<div class="daily-card"><span>${isBackupDriver() ? "등록된 단가가 없습니다." : "고정 라우트를 먼저 등록하면 해당 단가만 표시됩니다."}</span></div>`;
   el.rateList.querySelectorAll(".rate-chip").forEach((button) => {
     button.addEventListener("click", () => {
