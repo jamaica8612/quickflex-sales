@@ -1,7 +1,8 @@
-const CACHE_NAME = "quickflex-shell-v7";
+const CACHE_NAME = "quickflex-shell-v10";
 const SHELL_FILES = [
   "./",
   "./index.html",
+  "./intro.html",
   "./styles.css",
   "./app.js",
   "./src/main.js",
@@ -21,6 +22,8 @@ const SHELL_FILES = [
   "./src/lib/format.js",
   "./manifest.webmanifest",
   "./icon.svg",
+  "./icon-192.png",
+  "./icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {

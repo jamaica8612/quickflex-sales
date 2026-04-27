@@ -2,6 +2,103 @@
 
 Last updated: 2026-04-27 (handoff verification pass)
 
+## 2026-04-27 OCR 503 Error Handling Pass (Codex)
+
+작업 폴더: `C:\Users\jamai\Documents\Codex\2026-04-25\new-chat`
+
+### Problem
+
+- User hit OCR failure from Gemini:
+  - `503`
+  - `UNAVAILABLE`
+  - `This model is currently experiencing high demand`
+- The frontend displayed the raw escaped JSON error, which is not user-friendly.
+
+### Changed Files
+
+- `supabase/functions/ocr-schedule/providers/gemini.ts`
+  - Added retry for transient Gemini `429`/`503` responses.
+  - Converts high-demand/UNAVAILABLE failures into a Korean actionable message:
+    - `OCR 모델 사용량이 많아 잠시 처리하지 못했습니다. 1~2분 뒤 다시 시도해 주세요.`
+- `src/main.js`
+  - Added OCR response/error parsing helper.
+  - Schedule OCR and settlement OCR now show a clean Korean message instead of raw JSON.
+- `sw.js`
+  - `CACHE_NAME` bumped to `quickflex-shell-v10`.
+
+### Deployment Note
+
+- Frontend changes need normal GitHub Pages deploy.
+- Edge Function change must also be deployed to Supabase:
+  - `supabase functions deploy ocr-schedule`
+
+---
+
+## 2026-04-27 PWA Icon & Install Guidance Pass (Codex)
+
+작업 폴더: `C:\Users\jamai\Documents\Codex\2026-04-25\new-chat`
+
+### Changed Files
+
+- `icon.svg`
+  - Replaced the simple box mark with a more app-like QuickFlex Sales icon using the gold brand background, dark record card, route lines, and a Q/search-style revenue mark.
+- `icon-192.png`
+- `icon-512.png`
+  - Added PNG app icons for Android/iOS home-screen use.
+- `manifest.webmanifest`
+  - Added `192x192` and `512x512` PNG icon entries before the SVG fallback.
+- `index.html`
+- `intro.html`
+  - Added favicon and `apple-touch-icon` links.
+- `intro.html`
+  - Added a “홈 화면에 추가” install guidance section with iOS, Android, and PC steps.
+- `sw.js`
+  - `CACHE_NAME` bumped to `quickflex-shell-v9`.
+  - Added PNG app icons to `SHELL_FILES`.
+
+### Checks To Run
+
+- `node --check` for all JS files.
+- Browser check:
+  - `intro.html` shows the app icon and home-screen install guide.
+  - Manifest contains `icon-192.png`, `icon-512.png`, and `icon.svg`.
+  - After deployment, unregister/refresh service worker once if an old icon is cached.
+
+---
+
+## 2026-04-27 Intro Page Completion Pass (Codex)
+
+작업 폴더: `C:\Users\jamai\Documents\Codex\2026-04-25\new-chat`
+
+### Changed Files
+
+- `intro.html`
+  - Completed the user-facing product introduction page.
+  - Added top navigation, mobile metadata, CTA wording for login/signup request, and responsive polish.
+  - Added member/admin explanation sections:
+    - 백업기사 / 고정기사 지원
+    - 관리자 승인제
+    - 관리자 요약/라우트/사용자/정산표 탭
+    - 가입 요청 → 관리자 승인 → 일별 기록 → 통계 확인 flow
+- `index.html`
+  - Added an auth-card link to `intro.html` so first-time users can read the feature introduction from the login screen.
+- `styles.css`
+  - Added small auth intro-link styling.
+- `sw.js`
+  - `CACHE_NAME` bumped to `quickflex-shell-v8`.
+  - Added `./intro.html` to `SHELL_FILES` so the deployed PWA can cache the introduction page.
+
+### Checks To Run
+
+- `node --check` for all JS files.
+- Local/browser check:
+  - `intro.html` loads without console errors.
+  - `index.html` login card shows `처음이라면 기능 소개 보기`.
+  - `intro.html` CTA returns to `index.html`.
+  - Mobile width around 390px does not overflow.
+
+---
+
 ## 2026-04-27 Verification Pass (Claude)
 
 작업 폴더: `C:\Users\jamai\Documents\Codex\2026-04-25\new-chat`

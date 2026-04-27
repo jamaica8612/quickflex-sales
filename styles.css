@@ -547,6 +547,17 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
   padding: 0 12px;
   white-space: nowrap;
 }
+.auth-intro-link {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 850;
+}
+.auth-intro-link a {
+  color: var(--muted);
+  text-decoration: none;
+}
+.auth-intro-link a:hover { color: var(--gold); }
 .auth-card .error-text,
 .setup-card .error-text {
   margin: 10px 0 0;
