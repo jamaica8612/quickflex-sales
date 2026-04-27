@@ -6,7 +6,8 @@ This file is the shared working contract for Codex, Claude Code, and future agen
 
 - `index.html`: app shell.
 - `styles.css`: mobile-first visual system.
-- `app.js`: main browser app. It is compact; inspect targeted functions only.
+- `src/main.js`: main browser app. Inspect targeted functions only.
+- `app.js`: compatibility bootstrap for older script references.
 - `supabase-schema.sql`: database schema.
 - `supabase/functions/ocr-schedule/index.ts`: Supabase Edge Function HTTP entrypoint.
 - `supabase/functions/ocr-schedule/harness.ts`: OCR provider selection and normalization.
@@ -17,12 +18,28 @@ This file is the shared working contract for Codex, Claude Code, and future agen
 
 ## Data Rules
 
+- Users are Supabase Auth users. Profile and driver settings live in `quickflex_profiles`.
+- `quickflex_profiles.driver_type` is either `backup` or `fixed`.
+- `backup` drivers can add many routes and use backup bonus.
+- `fixed` drivers use `fixed_routes`, hide backup bonus, and should see only their assigned routes on the record screen.
 - Route rates live in `quickflex_route_rates`.
+- Route rate history is not used. Keep one current default unit price per Route in `quickflex_route_rates`.
 - Day records live in `quickflex_day_records`.
 - Route item snapshots live in `quickflex_day_route_items`.
 - Historical records must keep the unit price used on that date, even if the route rate changes later.
 - Backup bonus defaults to 30 won per delivery count, but the record screen may override it per day.
 - Do not introduce localStorage as the source of truth for production data.
+- localStorage may store only the Supabase project URL and anon key for the current browser.
+
+## Auth and RLS
+
+- All production data rows use `user_id = auth.uid()::text`.
+- RLS must remain enabled on profile, rate, day, and item tables.
+- The first created profile is bootstrapped as `admin` and `approved`.
+- Later users start as `pending`; admins approve or block them.
+- Users may edit their own display name, driver type, and fixed routes. They must not be able to approve themselves.
+- Admins may read all users' rates, records, and route item snapshots for revenue review.
+- Admin writes should stay limited to profile approval/type changes; do not let admins edit another driver's sales records from the admin dashboard.
 
 ## Route Grouping
 
@@ -53,6 +70,7 @@ Rules:
 - Keep prompt wording in `prompt.ts`.
 - Keep the HTTP request and response shape stable unless the browser app also needs a coordinated change.
 - Current default provider is Gemini. Optional secrets are `OCR_PROVIDER` and `GEMINI_MODEL`.
+- The same Edge Function accepts `kind: "settlement"` for settlement-table OCR. It should extract delivery rows only and calculate default route-rate candidates on the browser side after user confirmation.
 
 Deploy OCR after Edge Function changes:
 
