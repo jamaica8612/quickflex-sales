@@ -976,6 +976,55 @@ function avgRates(rows) {
     unit: Math.round(value.amount / value.count),
   })).sort((a, b) => a.route.localeCompare(b.route));
 }
+function settlementRatePlan(nextRates, existingRates = state.rates) {
+  const existingByRoute = new Map((existingRates || []).map((rate) => [normalizeRoute(rate.route), toNum(rate.unit)]));
+  const created = [];
+  const changed = [];
+  const unchanged = [];
+  nextRates.forEach((rate) => {
+    const route = normalizeRoute(rate.route);
+    const previousUnit = existingByRoute.get(route) || 0;
+    if (!previousUnit) created.push(rate);
+    else if (previousUnit !== toNum(rate.unit)) changed.push({ ...rate, previousUnit });
+    else unchanged.push(rate);
+  });
+  return { created, changed, unchanged };
+}
+function askChangedRatePolicy(changedRates) {
+  if (!changedRates.length) return true;
+  const preview = changedRates
+    .slice(0, 12)
+    .map((rate) => `${rate.route}: 기존 ${fmtWon(rate.previousUnit)} -> 정산표 ${fmtWon(rate.unit)}`)
+    .join("\n");
+  const suffix = changedRates.length > 12 ? `\n외 ${changedRates.length - 12}개` : "";
+  return window.confirm(`기존 단가와 다른 구역이 있습니다.\n\n${preview}${suffix}\n\n정산표 기준 새 단가로 바꿀까요?\n확인: 새 단가로 변경\n취소: 기존 단가 유지`);
+}
+async function backupRateTargetUserIds() {
+  if (state.profile?.role !== "admin" || !state.db) return [currentUserId()];
+  const { data, error } = await state.db
+    .from(TABLES.profiles)
+    .select("id,driver_type,status")
+    .eq("driver_type", "backup")
+    .eq("status", "approved");
+  if (error) throw error;
+  const ids = (data || []).map((profile) => profile.id).filter(Boolean);
+  return ids.length ? ids : [currentUserId()];
+}
+async function persistRatesForUsers(rates, userIds) {
+  const payload = [];
+  const updatedAt = new Date().toISOString();
+  (userIds || []).forEach((userId) => {
+    rates.forEach((rate) => {
+      const route = normalizeRoute(rate.route);
+      const unit = toNum(rate.unit);
+      if (!userId || !route || unit <= 0) return;
+      payload.push({ user_id: userId, route, current_unit: unit, updated_at: updatedAt });
+    });
+  });
+  if (!payload.length) return;
+  const { error } = await state.db.from(TABLES.rates).upsert(payload, { onConflict: "user_id,route" });
+  if (error) throw error;
+}
 function splitLine(line) {
   const cells = [];
   let current = "";
@@ -1003,7 +1052,7 @@ function parseSettlementCsv(text) {
   if (!parsed.length) toast("정산표에서 Route, 배송건수, 금액을 찾지 못했습니다.", "error");
   return parsed;
 }
-function applySettlementRows(rows) {
+async function applySettlementRows(rows) {
   const parsed = (rows || []).map((row) => [
     row.route,
     row.deliveryCount ?? row.count,
@@ -1020,16 +1069,24 @@ function applySettlementRows(rows) {
     toast("현재 프로필에 적용할 수 있는 Route 단가가 없습니다.", "error");
     return false;
   }
-  const preview = filteredRates
-    .slice(0, 8)
-    .map((rate) => `${rate.route}: ${fmtWon(rate.unit)} (${fmtCount(rate.count)})`)
-    .join("\n");
-  const suffix = filteredRates.length > 8 ? `\n외 ${filteredRates.length - 8}개` : "";
-  if (!window.confirm(`정산표에서 계산한 기본 단가 ${filteredRates.length}개를 설정에 반영할까요?\n\n${preview}${suffix}`)) {
+  const { created, changed, unchanged } = settlementRatePlan(filteredRates);
+  const shouldUpdateChanged = askChangedRatePolicy(changed);
+  const selectedRates = [
+    ...created,
+    ...unchanged,
+    ...(shouldUpdateChanged
+      ? changed.map(({ previousUnit, ...rate }) => rate)
+      : changed.map(({ previousUnit, ...rate }) => ({ ...rate, unit: previousUnit }))),
+  ];
+  const createdPreview = created.length ? `새 구역 ${created.map((rate) => rate.route).join(", ")}은 기본 단가로 추가합니다.` : "새 구역은 없습니다.";
+  const changedPreview = changed.length ? `단가가 다른 구역 ${changed.length}개는 ${shouldUpdateChanged ? "정산표 단가로 변경" : "기존 단가 유지"}합니다.` : "단가가 다른 구역은 없습니다.";
+  if (!window.confirm(`${createdPreview}\n${changedPreview}\n\n백업기사들이 볼 수 있도록 DB 기본 단가에 반영할까요?`)) {
     toast("단가 반영을 취소했습니다.", "error");
     return false;
   }
-  filteredRates.forEach((rate) => {
+  const targetUserIds = await backupRateTargetUserIds();
+  await persistRatesForUsers(selectedRates, targetUserIds);
+  selectedRates.forEach((rate) => {
     const existing = state.rates.find((item) => item.route === rate.route);
     if (existing) Object.assign(existing, rate);
     else state.rates.push(rate);
@@ -1037,8 +1094,7 @@ function applySettlementRows(rows) {
   state.rates.sort((a, b) => a.route.localeCompare(b.route));
   renderRates();
   renderAll();
-  scheduleSave({ rates: true, immediate: true });
-  toast(`정산표 단가 ${filteredRates.length}개를 갱신했습니다.`, "success");
+  toast(`정산표 단가 ${selectedRates.length}개를 백업기사 ${targetUserIds.length}명 기준으로 반영했습니다.`, "success");
   return true;
 }
 
@@ -1488,7 +1544,7 @@ async function runSettlementOcr() {
     const rows = result?.settlement?.rows || [];
     if (!rows.length) throw new Error("정산표 배송 행을 찾지 못했습니다.");
     el.settlementStatus.textContent = `${rows.length}개 배송 행 인식 완료`;
-    applySettlementRows(rows);
+    await applySettlementRows(rows);
   } catch (error) {
     console.error("[Settlement OCR]", error);
     const message = cleanOcrErrorMessage(error.message);
@@ -1537,6 +1593,9 @@ async function saveAdminProfile(card) {
     updated_at: new Date().toISOString(),
   }).eq("id", id);
   if (error) throw error;
+  if (status === "approved" && driverType === "backup" && state.rates.length) {
+    await persistRatesForUsers(state.rates, [id]);
+  }
   toast("사용자 정보를 저장했습니다.", "success");
   renderAdminDashboard();
 }
@@ -1652,7 +1711,8 @@ function bindEvents() {
   el.parseCsv.addEventListener("click", () => {
     const rows = parseSettlementCsv(el.csvInput.value);
     if (!rows.length) return;
-    applySettlementRows(rows.map(([route, deliveryCount, amount]) => ({ route, deliveryCount, amount })));
+    applySettlementRows(rows.map(([route, deliveryCount, amount]) => ({ route, deliveryCount, amount })))
+      .catch((error) => toast(`정산표 단가 반영 실패: ${error.message}`, "error"));
   });
   el.scheduleImage.addEventListener("change", () => {
     const file = el.scheduleImage.files?.[0];
