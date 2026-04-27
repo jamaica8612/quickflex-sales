@@ -237,12 +237,21 @@ function escapeAttr(value) {
 }
 function splitStoredRoutes(value) { return routeListFromText(value); }
 function joinStoredRoutes(routes) { return routeListFromText(Array.isArray(routes) ? routes.join("|") : routes).join("|"); }
+function compactRouteList(routes) {
+  const groups = new Map();
+  routeListFromText(routes).forEach((route) => {
+    const prefix = route.slice(0, 3);
+    const suffix = route.slice(3);
+    if (!groups.has(prefix)) groups.set(prefix, []);
+    if (!groups.get(prefix).includes(suffix)) groups.get(prefix).push(suffix);
+  });
+  return [...groups.entries()].map(([prefix, suffixes]) => `${prefix}${suffixes.join("")}`).join(" ");
+}
 function formatRouteLabel(value) {
-  const list = splitStoredRoutes(value);
-  if (list.length <= 1) return list[0] || "";
-  const prefix = list[0].slice(0, 3);
-  if (list.every((route) => route.slice(0, 3) === prefix)) return `${prefix}${list.map((route) => route.slice(3)).join("")}`;
-  return list.join(" / ");
+  return compactRouteList(splitStoredRoutes(value));
+}
+function formatRecordRoutes(rows) {
+  return compactRouteList((rows || []).flatMap((row) => splitStoredRoutes(row.route)));
 }
 function currentUserId() { return state.session?.user?.id || ""; }
 function isBackupDriver() { return (state.profile?.driver_type || "backup") === "backup"; }
@@ -685,7 +694,7 @@ async function persistDay(dateKey) {
   const { error: dayError } = await state.db.from(TABLES.days).upsert(dayPayload, { onConflict: "user_id,work_date" });
   if (dayError) throw dayError;
   const itemPayload = rec.off ? [] : rec.rows
-    .filter((row) => row.route && (toNum(row.count) > 0 || toNum(row.unit) > 0))
+    .filter((row) => row.route)
     .map((row, index) => ({
       user_id: userId,
       work_date: dateKey,
@@ -786,7 +795,7 @@ function renderMonth() {
     const cell = document.createElement("button");
     cell.type = "button";
     cell.className = `day-cell${inPeriod ? "" : " outside"}${dateKey === state.selectedDate ? " selected" : ""}${dateKey === todayKey() ? " today-cell" : ""}${record.off ? " off" : ""}`;
-    const routeText = record.rows.map((row) => formatRouteLabel(row.route)).filter(Boolean).join(" ");
+    const routeText = formatRecordRoutes(record.rows);
     const value = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : (calc.revenue ? fmtWon(calc.revenue) : "");
     cell.innerHTML = `<span class="day-number">${date.getDate()}</span><span class="day-value">${value}</span><span class="day-routes">${routeText}</span>`;
     cell.addEventListener("click", () => selectDate(dateKey));
