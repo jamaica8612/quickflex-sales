@@ -1,6 +1,27 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-27 (route master display pass)
+Last updated: 2026-04-27 (fixed driver settings and stats polish pass)
+
+## 2026-04-27 Fixed Driver Settings And Stats Polish Pass (Codex)
+
+Workspace: `C:\Users\jamai\Documents\Codex\2026-04-25\new-chat`
+
+### Changed Files
+
+- `index.html`
+  - Fixed-driver route list in Settings is now read-only text plus a hidden field for compatibility.
+  - Removed the explanatory fixed-route hint from the driver-facing Settings view.
+  - Schedule image/text import section is no longer backup-only, so fixed drivers can upload work schedule images too.
+- `src/main.js`
+  - Driver self-save no longer updates `fixed_routes`; that remains an admin-managed field.
+  - Schedule import for fixed drivers uses the admin-assigned fixed routes for work days and still supports off days from OCR/text.
+  - Daily stats cards now render route preview, revenue, and metric chips instead of a flat text line.
+- `styles.css`
+  - Added read-only value styling and polished daily stat cards.
+- `sw.js`
+  - `CACHE_NAME` bumped to `quickflex-shell-v15`.
+
+---
 
 ## 2026-04-27 Route Master Display Pass (Codex)
 

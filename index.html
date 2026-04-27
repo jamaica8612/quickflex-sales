@@ -164,8 +164,8 @@
             </div>
             <div class="settings-field fixed-only">
               <label>고정 라우트</label>
-              <input id="fixedRoutesInput" type="text" placeholder="예: 322A, 322B, 322C" />
-              <p class="hint">고정기사는 기록 화면과 단가 관리에 여기 등록한 라우트만 표시됩니다.</p>
+              <div id="fixedRoutesText" class="readonly-value">-</div>
+              <input id="fixedRoutesInput" type="hidden" />
             </div>
             <button id="saveProfile" class="full-btn">내 정보 저장</button>
           </section>
@@ -180,7 +180,7 @@
             <div id="rateList" class="rate-list"></div>
           </section>
 
-          <section class="settings-section backup-only">
+          <section class="settings-section">
             <h2>스케줄 가져오기</h2>
             <div class="upload-row">
               <label class="upload-btn"><input id="scheduleImage" type="file" accept="image/*" />이미지 선택</label>

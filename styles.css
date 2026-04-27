@@ -300,6 +300,17 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 }
 .settings-field .hint,
 .admin-card .hint { margin: 0; }
+.readonly-value {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255,255,255,.03);
+  color: var(--text);
+  font-weight: 850;
+}
 .profile-settings-section .full-btn { margin-top: 2px; }
 .rate-editor { display: grid; grid-template-columns: 1fr 1fr 74px; gap: 8px; }
 .rate-editor button { border-radius: 12px; background: var(--gold); color: #11151f; font-weight: 950; }
@@ -455,7 +466,46 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 .stats-list > div { display: flex; justify-content: space-between; align-items: center; }
 .stats-list span, .daily-card span { color: var(--muted); }
 .daily-card button { width: 100%; text-align: left; background: transparent; color: var(--text); padding: 0; }
-.daily-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.stat-day-card {
+  padding: 0;
+  overflow: hidden;
+}
+.stat-day-card button {
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+.daily-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.daily-top > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.daily-top strong:first-child { font-size: 15px; }
+.daily-top > strong:last-child {
+  color: var(--gold);
+  font-size: 18px;
+  white-space: nowrap;
+}
+.daily-top span {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.daily-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.daily-metrics span {
+  padding: 5px 8px;
+  border: 1px solid rgba(148,163,184,.18);
+  border-radius: 999px;
+  background: rgba(148,163,184,.08);
+  font-size: 11px;
+  font-weight: 800;
+}
 .daily-detail { margin-top: 10px; color: var(--muted); font-size: 13px; display: grid; gap: 4px; }
 
 .bottom-nav {

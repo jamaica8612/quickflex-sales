@@ -147,6 +147,7 @@ const el = {
   logoutBtn: $("logoutBtn"),
   syncStatus: $("syncStatus"),
   profileDisplayName: $("profileDisplayName"),
+  fixedRoutesText: $("fixedRoutesText"),
   fixedRoutesInput: $("fixedRoutesInput"),
   saveProfile: $("saveProfile"),
   rateRoute: $("rateRoute"),
@@ -515,7 +516,9 @@ function applyProfileUi() {
   el.app.dataset.role = isAdmin ? "admin" : "driver";
   el.profileName.textContent = profile.display_name || "매출관리";
   el.profileDisplayName.value = profile.display_name || "";
-  el.fixedRoutesInput.value = (profile.fixed_routes || []).join(", ");
+  const fixedRouteText = (profile.fixed_routes || []).join(", ");
+  el.fixedRoutesInput.value = fixedRouteText;
+  if (el.fixedRoutesText) el.fixedRoutesText.textContent = fixedRouteText || "관리자가 지정한 라우트가 없습니다.";
   document.querySelectorAll(".admin-only").forEach((node) => node.classList.toggle("hidden", !isAdmin));
   if (!isAdmin && el.app.dataset.view === "admin") showView("home");
   el.openDbSettings.style.display = hasPublicDbConfig() && !isAdmin ? "none" : "";
@@ -578,7 +581,6 @@ async function loadProfile() {
 async function saveProfile() {
   const payload = {
     display_name: el.profileDisplayName.value.trim() || driverName(),
-    fixed_routes: routeListFromText(el.fixedRoutesInput.value),
     updated_at: new Date().toISOString(),
   };
   const { data, error } = await state.db.from(TABLES.profiles).update(payload).eq("id", currentUserId()).select("*").single();
@@ -1154,10 +1156,21 @@ function renderDailyStats() {
     const details = calcRecordDetails(record);
     const open = state.statsDetailDate === dateKey;
     const routes = record.rows.map((row) => `${formatRouteLabel(row.route)} ${fmtCount(row.count)} × ${fmtWon(effectiveUnit(row))}`).join("<br>");
-    return `<div class="daily-card">
+    const routePreview = record.off ? "휴무" : (formatRecordRoutes(record.rows) || "라우트 없음");
+    return `<div class="daily-card stat-day-card">
       <button type="button" data-date="${dateKey}">
-        <div class="daily-top"><strong>${formatLongShort(dateKey)}</strong><strong>${record.off ? "휴무" : fmtWon(details.revenue)}</strong></div>
-        <span>${fmtCount(details.count)} · 프레시백 ${fmtCount(details.freshCount)}${details.backupRevenue ? ` · 백업 ${fmtWon(details.backupRevenue)}` : ""}</span>
+        <div class="daily-top">
+          <div>
+            <strong>${formatLongShort(dateKey)}</strong>
+            <span>${routePreview}</span>
+          </div>
+          <strong>${record.off ? "휴무" : fmtWon(details.revenue)}</strong>
+        </div>
+        <div class="daily-metrics">
+          <span>배송 ${fmtCount(details.count)}</span>
+          <span>프레시백 ${fmtCount(details.freshCount)}</span>
+          ${details.backupRevenue ? `<span>백업 ${fmtWon(details.backupRevenue)}</span>` : ""}
+        </div>
       </button>
       ${open ? `<div class="daily-detail">${record.off ? "휴무" : routes || "라우트 없음"}${details.freshRevenue ? `<br>프레시백 ${fmtWon(details.freshRevenue)}` : ""}</div>` : ""}
     </div>`;
@@ -1413,7 +1426,7 @@ function applySchedule(map) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
     const record = getRecord(dateKey, true);
     record.off = routes === null;
-    record.rows = routes === null ? [] : buildGroupedRows(routes);
+    record.rows = routes === null ? [] : (isBackupDriver() ? buildGroupedRows(routes) : fixedDefaultRows());
     record.freshCount = "";
     record.freshUnit = 100;
     record.backupUnit = DEFAULT_BACKUP_UNIT;
