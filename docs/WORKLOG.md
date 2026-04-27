@@ -2,6 +2,28 @@
 
 Last updated: 2026-04-27 (handoff verification pass)
 
+## 2026-04-27 Intro Copy Privacy Pass (Codex)
+
+작업 폴더: `C:\Users\jamai\Documents\Codex\2026-04-25\new-chat`
+
+### Changed Files
+
+- `intro.html`
+  - Changed hero copy from `쿠팡 퀵플렉스` to `형제물류 1캠프`.
+  - Removed the top trust badges.
+  - Removed public-facing admin feature section because admin is owner-only.
+  - Replaced `unit snapshot` with Korean-only wording.
+  - Replaced real-looking route/rate examples with generic `A구역/B구역/기본단가` examples.
+  - Removed footer text.
+- `sw.js`
+  - `CACHE_NAME` bumped to `quickflex-shell-v11`.
+
+### Checks To Run
+
+- Confirm online `intro.html` no longer shows admin features or real route/rate examples.
+
+---
+
 ## 2026-04-27 OCR 503 Error Handling Pass (Codex)
 
 작업 폴더: `C:\Users\jamai\Documents\Codex\2026-04-25\new-chat`
