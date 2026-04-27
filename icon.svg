@@ -1,5 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#ffc226"/>
-  <path d="M122 178 256 104l134 74v156l-134 74-134-74V178Z" fill="none" stroke="#0b0d12" stroke-width="34" stroke-linejoin="round"/>
-  <path d="M122 178l134 74 134-74M256 252v156" fill="none" stroke="#0b0d12" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QuickFlex Sales">
+  <defs>
+    <linearGradient id="bg" x1="96" y1="40" x2="416" y2="472" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffd34d"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="card" x1="140" y1="128" x2="372" y2="396" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1d2331"/>
+      <stop offset="1" stop-color="#0b0d12"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <path d="M130 168c0-28 22-50 50-50h152c28 0 50 22 50 50v176c0 28-22 50-50 50H180c-28 0-50-22-50-50V168Z" fill="url(#card)"/>
+  <path d="M178 198h156" stroke="#ffc226" stroke-width="22" stroke-linecap="round"/>
+  <path d="M178 252h116" stroke="#60a5fa" stroke-width="22" stroke-linecap="round"/>
+  <path d="M178 306h78" stroke="#34d399" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="338" cy="330" r="72" fill="#ffc226"/>
+  <path d="M368 354c-15 13-35 19-57 12-31-10-47-43-36-73 10-31 43-47 73-36 31 10 47 43 36 73" fill="none" stroke="#0b0d12" stroke-width="24" stroke-linecap="round"/>
+  <path d="M356 348l42 42" stroke="#0b0d12" stroke-width="24" stroke-linecap="round"/>
 </svg>

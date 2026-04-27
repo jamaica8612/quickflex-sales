@@ -1389,6 +1389,31 @@ async function fileToBase64(file) {
     reader.readAsDataURL(file);
   });
 }
+function cleanOcrErrorMessage(message) {
+  const text = String(message || "").trim();
+  if (!text) return "OCR 처리 중 오류가 발생했습니다.";
+  if (/UNAVAILABLE|503|high demand|experienc/i.test(text)) {
+    return "OCR 모델 사용량이 많아 잠시 처리하지 못했습니다. 1~2분 뒤 다시 시도해 주세요.";
+  }
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed?.error) return cleanOcrErrorMessage(parsed.error);
+    if (parsed?.message) return cleanOcrErrorMessage(parsed.message);
+  } catch {
+    const embedded = text.match(/\{[\s\S]*\}/)?.[0];
+    if (embedded && embedded !== text) return cleanOcrErrorMessage(embedded);
+  }
+  return text.length > 120 ? `${text.slice(0, 120)}...` : text;
+}
+async function readOcrResponse(response) {
+  const text = await response.text();
+  if (!response.ok) throw new Error(cleanOcrErrorMessage(text));
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("OCR 서버 응답을 읽지 못했습니다. 잠시 후 다시 시도해 주세요.");
+  }
+}
 function previewImageFile(file, target, altText) {
   if (!file || !target) return;
   const reader = new FileReader();
@@ -1411,8 +1436,7 @@ async function runOcr() {
       headers: await authHeaders(),
       body: JSON.stringify({ imageBase64: image.base64, mimeType: image.mimeType, ownerName: driverName(), year: state.year, month: state.month }),
     });
-    if (!response.ok) throw new Error(await response.text());
-    const result = await response.json();
+    const result = await readOcrResponse(response);
     const map = {};
     Object.entries(result.schedule || {}).forEach(([dateKey, routes]) => {
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) map[dateKey] = Array.isArray(routes) && routes.length ? routes.map(normalizeRoute) : null;
@@ -1423,8 +1447,9 @@ async function runOcr() {
     toast("OCR 초안이 준비됐습니다.", "success");
   } catch (error) {
     console.error("[OCR]", error);
-    el.ocrStatus.textContent = "OCR 실패";
-    toast(`OCR 실패: ${error.message}`, "error");
+    const message = cleanOcrErrorMessage(error.message);
+    el.ocrStatus.textContent = message;
+    toast(`OCR 실패: ${message}`, "error");
   } finally {
     el.runScheduleOcr.disabled = false;
   }
@@ -1450,16 +1475,16 @@ async function runSettlementOcr() {
         month: state.month,
       }),
     });
-    if (!response.ok) throw new Error(await response.text());
-    const result = await response.json();
+    const result = await readOcrResponse(response);
     const rows = result?.settlement?.rows || [];
     if (!rows.length) throw new Error("정산표 배송 행을 찾지 못했습니다.");
     el.settlementStatus.textContent = `${rows.length}개 배송 행 인식 완료`;
     applySettlementRows(rows);
   } catch (error) {
     console.error("[Settlement OCR]", error);
-    el.settlementStatus.textContent = "정산표 OCR 실패";
-    toast(`정산표 OCR 실패: ${error.message}`, "error");
+    const message = cleanOcrErrorMessage(error.message);
+    el.settlementStatus.textContent = message;
+    toast(`정산표 OCR 실패: ${message}`, "error");
   } finally {
     el.runSettlementOcr.disabled = false;
   }

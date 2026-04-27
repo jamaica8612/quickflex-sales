@@ -40,26 +40,39 @@ export class GeminiScheduleProvider implements ScheduleOcrProvider {
   }
 
   private async generate(input: OcrHarnessInput, prompt: string): Promise<string> {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: input.mimeType, data: input.imageBase64 } },
-              { text: prompt },
-            ],
-          }],
-          generationConfig: { temperature: 0 },
-        }),
-      },
-    );
+    const body = JSON.stringify({
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: input.mimeType, data: input.imageBase64 } },
+          { text: prompt },
+        ],
+      }],
+      generationConfig: { temperature: 0 },
+    });
+    let response: Response | null = null;
+    let errorText = "";
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
-      throw new Error(errorText || `Gemini request failed (${response.status})`);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+        },
+      );
+      if (response.ok) break;
+      errorText = await response.text().catch(() => "");
+      if (![429, 503].includes(response.status) || attempt === 2) break;
+      await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+    }
+
+    if (!response?.ok) {
+      const status = response?.status || 500;
+      if (status === 429 || status === 503 || /UNAVAILABLE|high demand|overloaded/i.test(errorText)) {
+        throw new Error("OCR 모델 사용량이 많아 잠시 처리하지 못했습니다. 1~2분 뒤 다시 시도해 주세요.");
+      }
+      throw new Error(errorText || `Gemini request failed (${status})`);
     }
 
     const payload = await response.json();
