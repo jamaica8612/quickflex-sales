@@ -1,6 +1,29 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-27 (unknown route rate display pass)
+Last updated: 2026-04-27 (auth calendar intro polish pass)
+
+## 2026-04-27 Auth Calendar Intro Polish Pass (Codex)
+
+Workspace: `C:\Users\jamai\Documents\Codex\2026-04-25\new-chat`
+
+### Changed Files
+
+- `index.html`
+  - Added a `비밀번호 찾기` action to the login modal.
+- `src/main.js`
+  - Added Supabase password reset email flow.
+  - Added password recovery mode for reset-link redirects.
+  - When a single-route daily unit price is changed, the app now asks whether to update the default route rate or keep the change for that date only.
+- `styles.css`
+  - Calendar revenue text is smaller/tighter and no longer ellipsizes.
+  - Added styling for the login reset link.
+- `intro.html`
+  - Added a blurred schedule-image style mock so users can intuitively understand schedule upload without exposing readable table text.
+  - Updated Android home-screen guidance to steer users to the HTTPS online URL in Chrome and suggest browser bookmark fallback if install is blocked.
+- `sw.js`
+  - `CACHE_NAME` bumped to `quickflex-shell-v16`.
+
+---
 
 ## 2026-04-27 Unknown Route Rate Display Pass (Codex)
 

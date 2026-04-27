@@ -84,6 +84,7 @@ const el = {
   authDriverType: $("authDriverType"),
   loginBtn: $("loginBtn"),
   signupBtn: $("signupBtn"),
+  forgotPasswordBtn: $("forgotPasswordBtn"),
   authError: $("authError"),
   pendingOverlay: $("pendingOverlay"),
   pendingLogout: $("pendingLogout"),
@@ -488,20 +489,28 @@ function showAuth(show) {
   el.authOverlay.classList.toggle("visible", show);
 }
 function showPending(show) { el.pendingOverlay.classList.toggle("visible", show); }
+function isPasswordRecoveryUrl() {
+  return /type=recovery/.test(`${location.hash}${location.search}`);
+}
 function setAuthMode(mode) {
-  state.authMode = mode === "signup" ? "signup" : "login";
+  state.authMode = mode === "signup" ? "signup" : mode === "reset" ? "reset" : "login";
   const signupMode = state.authMode === "signup";
-  el.authTitle.textContent = signupMode ? "가입 요청" : "로그인";
+  const resetMode = state.authMode === "reset";
+  el.authTitle.textContent = signupMode ? "가입 요청" : resetMode ? "비밀번호 변경" : "로그인";
   el.authHint.textContent = signupMode
     ? "처음 사용하는 기사님은 가입 요청을 보내고 관리자 승인을 기다려 주세요."
-    : "";
-  el.authHint.classList.toggle("hidden", !signupMode);
+    : resetMode
+      ? "새 비밀번호를 입력해 주세요."
+      : "";
+  el.authHint.classList.toggle("hidden", !(signupMode || resetMode));
   el.authSignupFields.classList.toggle("hidden", !signupMode);
   el.authName.required = signupMode;
   el.authDriverType.disabled = !signupMode;
-  el.authPassword.autocomplete = signupMode ? "new-password" : "current-password";
-  el.loginBtn.textContent = signupMode ? "로그인으로" : "로그인";
-  el.signupBtn.textContent = signupMode ? "가입 요청 보내기" : "가입 요청";
+  el.authEmail.disabled = false;
+  el.authPassword.autocomplete = signupMode || resetMode ? "new-password" : "current-password";
+  el.loginBtn.textContent = signupMode || resetMode ? "로그인으로" : "로그인";
+  el.signupBtn.textContent = signupMode ? "가입 요청 보내기" : resetMode ? "비밀번호 저장" : "가입 요청";
+  el.forgotPasswordBtn.classList.toggle("hidden", signupMode || resetMode);
   el.authError.textContent = "";
 }
 function setDbBadge(connected, text = "") {
@@ -537,6 +546,11 @@ async function connectDb(url, key, persist = false) {
   const { data, error } = await client.auth.getSession();
   if (error) throw error;
   state.session = data.session;
+  if (state.session && isPasswordRecoveryUrl()) {
+    showAuth(true);
+    setAuthMode("reset");
+    return;
+  }
   if (!state.session) {
     showAuth(true);
     return;
@@ -622,6 +636,26 @@ async function signup() {
   } else {
     toast("가입 요청을 보냈습니다. 이메일 확인이 필요할 수 있습니다.", "success");
   }
+}
+async function sendPasswordReset() {
+  el.authError.textContent = "";
+  const email = el.authEmail.value.trim();
+  if (!email) throw new Error("비밀번호를 재설정할 이메일을 입력해 주세요.");
+  const redirectTo = location.protocol === "file:"
+    ? "https://jamaica8612.github.io/quickflex-sales/"
+    : `${location.origin}${location.pathname}`;
+  const { error } = await state.db.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) throw error;
+  toast("비밀번호 재설정 메일을 보냈습니다.", "success");
+  el.authError.textContent = "메일의 링크를 열고 새 비밀번호를 설정해 주세요.";
+}
+async function updatePassword() {
+  el.authError.textContent = "";
+  if (!el.authPassword.value || el.authPassword.value.length < 6) throw new Error("새 비밀번호는 6자 이상으로 입력해 주세요.");
+  const { error } = await state.db.auth.updateUser({ password: el.authPassword.value });
+  if (error) throw error;
+  toast("비밀번호가 변경되었습니다. 다시 로그인해 주세요.", "success");
+  await logout();
 }
 async function logout() {
   if (state.db) await state.db.auth.signOut();
@@ -922,6 +956,20 @@ function renderEntryRow(row, index) {
     record.rows[index].unit = unit.value;
     scheduleSave({ dateKeys: [state.selectedDate] });
     refreshTotals();
+  });
+  unit.addEventListener("change", () => {
+    const routeList = splitStoredRoutes(select.value || row.route);
+    if (routeList.length !== 1) return;
+    const route = routeList[0];
+    const nextUnit = toNum(unit.value);
+    const currentUnit = sharedRateForRoutes(route) || rateFor(route);
+    if (!route || nextUnit <= 0 || nextUnit === currentUnit) return;
+    if (!window.confirm(`${route} 기본 단가도 ${fmtWon(nextUnit)}으로 바꿀까요?\n\n확인: 설정 단가도 변경\n취소: 이 날짜에만 적용`)) return;
+    if (upsertRate(route, nextUnit)) {
+      scheduleSave({ rates: true, immediate: true });
+      renderRates();
+      toast(`${route} 기본 단가를 ${fmtWon(nextUnit)}으로 변경했습니다.`, "success");
+    }
   });
   del.addEventListener("click", () => {
     const record = getRecord(state.selectedDate, true);
@@ -1664,18 +1712,25 @@ function bindEvents() {
     }
   });
   el.loginBtn.addEventListener("click", () => {
-    if (state.authMode === "signup") {
+    if (state.authMode === "signup" || state.authMode === "reset") {
       setAuthMode("login");
       return;
     }
     login().catch((error) => { el.authError.textContent = error.message; });
   });
   el.signupBtn.addEventListener("click", () => {
+    if (state.authMode === "reset") {
+      updatePassword().catch((error) => { el.authError.textContent = error.message; });
+      return;
+    }
     if (state.authMode !== "signup") {
       setAuthMode("signup");
       return;
     }
     signup().catch((error) => { el.authError.textContent = error.message; });
+  });
+  el.forgotPasswordBtn.addEventListener("click", () => {
+    sendPasswordReset().catch((error) => { el.authError.textContent = error.message; });
   });
   el.pendingLogout.addEventListener("click", logout);
   el.logoutBtn.addEventListener("click", logout);

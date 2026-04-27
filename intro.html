@@ -126,6 +126,21 @@
       .rate-chip { border-radius: 12px; background: var(--panel2); border: 1px solid var(--line); padding: 10px 4px; text-align: center; }
       .rate-chip strong { display: block; font-size: 13px; }
       .rate-chip span { color: var(--muted); font-size: 11px; }
+      .schedule-sample { position: relative; min-height: 148px; overflow: hidden; border-radius: 14px; border: 1px solid var(--line); background: #f8fafc; }
+      .schedule-sample::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(90deg, rgba(15,23,42,.16) 1px, transparent 1px) 0 0/42px 22px,
+          linear-gradient(rgba(15,23,42,.16) 1px, transparent 1px) 0 0/42px 22px;
+      }
+      .schedule-sample .bar { position: absolute; left: 0; right: 0; top: 22px; height: 24px; background: rgba(126,34,206,.78); }
+      .schedule-sample .row { position: absolute; left: 16px; right: 16px; height: 13px; border-radius: 4px; background: rgba(15,23,42,.28); filter: blur(2px); opacity: .7; }
+      .schedule-sample .r1 { top: 58px; width: 78%; }
+      .schedule-sample .r2 { top: 82px; width: 88%; }
+      .schedule-sample .r3 { top: 106px; width: 68%; }
+      .schedule-caption { position: absolute; right: 10px; bottom: 10px; padding: 6px 8px; border-radius: 999px; background: rgba(15,23,42,.84); color: #e5edf8; font-size: 11px; font-weight: 850; }
       .flow-list { display: grid; gap: 10px; padding: 16px; }
       .flow-item { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; background: var(--panel2); border: 1px solid var(--line); border-radius: 16px; padding: 13px; }
       .flow-item b { width: 34px; height: 34px; border-radius: 999px; background: rgba(255,194,38,.14); color: var(--gold); display: grid; place-items: center; font-size: 13px; }
@@ -138,6 +153,7 @@
       .install-steps { display: grid; gap: 8px; margin-top: 16px; }
       .install-step { display: grid; grid-template-columns: 32px 1fr; gap: 10px; align-items: center; color: var(--muted); font-size: 14px; }
       .install-step b { width: 32px; height: 32px; border-radius: 999px; background: rgba(255,194,38,.14); color: var(--gold); display: grid; place-items: center; font-size: 12px; }
+      .install-note { margin-top: 14px; padding: 12px; border: 1px solid rgba(96,165,250,.22); border-radius: 14px; background: rgba(96,165,250,.08); color: var(--muted); font-size: 13px; line-height: 1.55; text-align: left; }
       .closing { text-align: center; padding: 64px 0 16px; border-top: 1px solid var(--line); margin-top: 24px; }
       .closing h2 { font-size: 28px; margin: 0 0 12px; letter-spacing: -0.5px; }
       .closing p { color: var(--muted); margin: 0 0 24px; }
@@ -329,6 +345,13 @@
             <div class="settings-section">
               <h3>스케줄 가져오기</h3>
               <p style="margin:0; color: var(--muted); font-size: 13px;">근무표 이미지를 올리면 일별 구역이 자동으로 캘린더에 들어갑니다.</p>
+              <div class="schedule-sample" aria-label="흐릿하게 처리한 근무표 이미지 예시">
+                <div class="bar"></div>
+                <div class="row r1"></div>
+                <div class="row r2"></div>
+                <div class="row r3"></div>
+                <span class="schedule-caption">근무표 이미지 예시</span>
+              </div>
             </div>
           </div>
         </div>
@@ -369,9 +392,10 @@
             <p>설치 후에는 브라우저 주소창 없이 바로 열리고, 아이콘을 눌러 매일 기록 화면으로 들어갈 수 있습니다.</p>
             <div class="install-steps">
               <div class="install-step"><b>iOS</b><span>Safari 공유 버튼 → 홈 화면에 추가</span></div>
-              <div class="install-step"><b>AOS</b><span>Chrome 메뉴 → 앱 설치 또는 홈 화면에 추가</span></div>
+              <div class="install-step"><b>AOS</b><span>Chrome에서 온라인 주소 접속 → 홈 화면에 추가</span></div>
               <div class="install-step"><b>PC</b><span>주소창 오른쪽 설치 아이콘 또는 브라우저 메뉴에서 설치</span></div>
             </div>
+            <div class="install-note">Android에서 차단 문구가 보이면 파일로 연 화면이 아니라 HTTPS 온라인 주소에서 Chrome으로 다시 열어 주세요. 그래도 막히면 설치 대신 브라우저 북마크로 사용하고, 도메인 연결 후 다시 설치를 시도하는 방식이 가장 안전합니다.</div>
           </div>
         </div>
       </section>
