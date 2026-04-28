@@ -40,7 +40,8 @@ input, select, textarea {
 }
 input:focus, select:focus, textarea:focus { border-color: var(--gold); }
 textarea { min-height: 96px; resize: vertical; }
-label { display: block; margin: 12px 0 6px; color: var(--muted); font-size: 13px; font-weight: 700; }
+label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.settings-field label, .admin-route-field label { margin: 0; }
 
 .app {
   width: min(100%, 480px);
@@ -324,8 +325,8 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 }
 .profile-settings-section .full-btn { margin-top: 2px; }
 
-/* mode-toggle: 프레시백 방식 선택 */
-.mode-toggle {
+/* freshbag-toggle: 프레시백 방식 선택 */
+.freshbag-toggle {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
@@ -370,29 +371,6 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
   color: rgba(255,194,38,.7);
 }
 
-/* input-suffix-wrap: 단위 붙은 입력 */
-.input-suffix-wrap {
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel2);
-  overflow: hidden;
-}
-.input-suffix-wrap input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  padding: 12px 14px;
-  min-width: 0;
-}
-.input-suffix-wrap span {
-  padding: 0 14px 0 4px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 850;
-  white-space: nowrap;
-}
 
 .rate-editor { display: grid; grid-template-columns: 1fr 1fr 74px; gap: 8px; }
 .rate-editor button { border-radius: 12px; background: var(--gold); color: #11151f; font-weight: 950; }
@@ -459,14 +437,14 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
   line-height: 1.55;
 }
 .draft-list { display: grid; gap: 8px; margin: 10px 0; }
-.draft-card { background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+.draft-card { background: var(--panel2); border: 1px solid var(--line); border-radius: 16px; padding: 10px; }
 .draft-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .draft-chip { display: inline-flex; gap: 5px; align-items: center; margin: 3px; padding: 5px 8px; border-radius: 999px; background: var(--panel3); font-size: 12px; font-weight: 850; }
 .draft-chip button, .draft-add-btn { color: var(--muted); background: transparent; }
 .draft-off-btn { border-radius: 999px; background: transparent; border: 1px solid var(--line); color: var(--muted); padding: 5px 10px; }
 .draft-off-btn.active { color: var(--red); border-color: var(--red); }
 .admin-list { display: grid; gap: 8px; }
-.admin-card { background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 10px; }
+.admin-card { background: var(--panel2); border: 1px solid var(--line); border-radius: 16px; padding: 12px; display: grid; gap: 10px; }
 .admin-card-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .admin-route-field { display: grid; gap: 6px; }
 .admin-revenue-list,
@@ -586,7 +564,7 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 .stats-list > div, .daily-card {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 14px;
 }
 .stats-list > div { display: flex; justify-content: space-between; align-items: center; }

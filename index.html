@@ -182,7 +182,7 @@
           <section class="settings-section settings-section--slim">
             <div class="settings-field">
               <label>프레시백 입력 방식</label>
-              <div class="mode-toggle">
+              <div class="freshbag-toggle">
                 <label class="mode-option">
                   <input type="radio" name="freshbagMode" value="single" checked />
                   <span>단일<small>기본 100원</small></span>
@@ -392,7 +392,7 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./src/main.js?v=7"></script>
+    <script type="module" src="./src/main.js?v=8"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
