@@ -2,58 +2,12 @@ import { buildSchedulePrompt, buildSettlementPrompt } from "../prompt.ts";
 import type { OcrHarnessInput, OcrHarnessResult, ScheduleOcrProvider, SettlementOcrResult } from "../types.ts";
 import { extractJsonObject, normalizeScheduleMap, normalizeSettlementRows } from "../utils.ts";
 
-// Gemini가 지원하는 OpenAPI 서브셋 형식의 JSON 스키마.
-// 동적 키(날짜)는 지원되지 않으므로 days 배열로 받고 서버에서 map으로 변환.
-const SCHEDULE_SCHEMA = {
-  type: "object",
-  properties: {
-    days: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          date: { type: "string", description: "YYYY-MM-DD" },
-          routes: {
-            type: "array",
-            nullable: true,
-            items: { type: "string" },
-            description: "구역 코드 배열. 휴무/빈 셀이면 null",
-          },
-        },
-        required: ["date"],
-      },
-    },
-  },
-  required: ["days"],
-};
-
-const SETTLEMENT_SCHEMA = {
-  type: "object",
-  properties: {
-    rows: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          route: { type: "string" },
-          date: { type: "string" },
-          deliveryCount: { type: "number" },
-          amount: { type: "number" },
-          extraIncentive: { type: "number" },
-        },
-        required: ["route", "deliveryCount", "amount"],
-      },
-    },
-  },
-  required: ["rows"],
-};
-
 export class GeminiScheduleProvider implements ScheduleOcrProvider {
   readonly name = "gemini";
   readonly model: string;
   private readonly apiKey: string;
 
-  constructor(apiKey: string, model = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-pro") {
+  constructor(apiKey: string, model = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash") {
     if (!apiKey) {
       throw new Error("Server secret GEMINI_API_KEY is not configured.");
     }
@@ -65,7 +19,6 @@ export class GeminiScheduleProvider implements ScheduleOcrProvider {
     const rawText = await this.generate(
       input,
       buildSchedulePrompt(input.ownerName, input.year, input.month),
-      SCHEDULE_SCHEMA,
     );
 
     return {
@@ -80,7 +33,6 @@ export class GeminiScheduleProvider implements ScheduleOcrProvider {
     const rawText = await this.generate(
       input,
       buildSettlementPrompt(input.ownerName),
-      SETTLEMENT_SCHEMA,
     );
 
     return {
@@ -96,7 +48,6 @@ export class GeminiScheduleProvider implements ScheduleOcrProvider {
   private async generate(
     input: OcrHarnessInput,
     prompt: string,
-    responseSchema: Record<string, unknown>,
   ): Promise<string> {
     const body = JSON.stringify({
       contents: [{
@@ -108,7 +59,6 @@ export class GeminiScheduleProvider implements ScheduleOcrProvider {
       generationConfig: {
         temperature: 0,
         responseMimeType: "application/json",
-        responseSchema,
       },
     });
     let response: Response | null = null;
