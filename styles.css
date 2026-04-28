@@ -322,6 +322,77 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
   font-weight: 850;
 }
 .profile-settings-section .full-btn { margin-top: 2px; }
+
+/* mode-toggle: 프레시백 방식 선택 */
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.mode-option {
+  position: relative;
+  cursor: pointer;
+}
+.mode-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0; height: 0;
+}
+.mode-option span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 12px 8px;
+  border-radius: 12px;
+  border: 1.5px solid var(--line);
+  background: var(--panel2);
+  font-size: 13px;
+  font-weight: 850;
+  color: var(--text);
+  text-align: center;
+  transition: border-color .15s, background .15s;
+  line-height: 1.2;
+}
+.mode-option small {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.mode-option input[type="radio"]:checked + span {
+  border-color: var(--gold);
+  background: rgba(255,194,38,.10);
+  color: var(--gold);
+}
+.mode-option input[type="radio"]:checked + span small {
+  color: rgba(255,194,38,.7);
+}
+
+/* input-suffix-wrap: 단위 붙은 입력 */
+.input-suffix-wrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel2);
+  overflow: hidden;
+}
+.input-suffix-wrap input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 12px 14px;
+  min-width: 0;
+}
+.input-suffix-wrap span {
+  padding: 0 14px 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
 .rate-editor { display: grid; grid-template-columns: 1fr 1fr 74px; gap: 8px; }
 .rate-editor button { border-radius: 12px; background: var(--gold); color: #11151f; font-weight: 950; }
 .rate-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -468,12 +539,24 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 .admin-panel.active { display: block; }
 .daily-chart {
   display: flex; align-items: flex-end; gap: 2px;
-  height: 56px; padding: 0 4px 4px; margin-bottom: 8px;
+  height: 80px; padding: 20px 4px 4px; margin-bottom: 8px;
+  position: relative;
 }
-.chart-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.chart-bar { width: 100%; background: var(--gold); border-radius: 2px 2px 0 0; min-height: 2px; opacity: 0.8; }
-.chart-bar.is-off { background: var(--muted); opacity: 0.4; }
-.chart-label { font-size: 9px; color: var(--muted); }
+.chart-bar-wrap {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  gap: 0; height: 100%; justify-content: flex-end; position: relative;
+}
+.chart-bar {
+  width: 100%; background: var(--gold); border-radius: 2px 2px 0 0;
+  min-height: 0; opacity: 0.85; transition: height .2s;
+}
+.chart-bar.is-off { display: none; }
+.chart-amount {
+  position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+  font-size: 8px; font-weight: 850; color: var(--gold);
+  white-space: nowrap; margin-bottom: 1px; pointer-events: none;
+}
+.chart-label { font-size: 9px; color: var(--muted); margin-top: 2px; }
 .stats-list, .daily-list { display: grid; gap: 8px; }
 .stats-list > div, .daily-card {
   background: var(--panel);
