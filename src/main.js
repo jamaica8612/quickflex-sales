@@ -1659,21 +1659,28 @@ function previewImageFile(file, target, altText) {
 async function runOcr() {
   const file = el.scheduleImage.files?.[0];
   if (!file) return toast("스케줄 이미지를 먼저 선택해 주세요.", "error");
-  const url = getEdgeFunctionUrl("ocr-schedule");
-  if (!url) return toast("Supabase 연결이 필요합니다.", "error");
   el.runScheduleOcr.disabled = true;
-  el.ocrStatus.textContent = "OCR 분석 중...";
+  el.ocrStatus.textContent = "OCR 엔진 로딩 중...";
   try {
-    const image = await fileToBase64(file);
-    const response = await fetch(url, {
-      method: "POST",
-      headers: await authHeaders(),
-      body: JSON.stringify({ imageBase64: image.base64, mimeType: image.mimeType, ownerName: driverName(), year: state.year, month: state.month }),
+    // 클라이언트 사이드 파이프라인: OpenCV.js 표 분할 + Tesseract.js OCR
+    const { detectSchedule } = await import("./ocr/scheduleOcr.js");
+    const stageLabel = {
+      "loading-engines": "OCR 엔진 로딩 중...",
+      "segmenting": "표 분할 중...",
+      "recognizing": "셀별 인식 중...",
+      "parsing": "스케줄 분석 중...",
+      "done": "분석 완료",
+    };
+    const { schedule } = await detectSchedule(file, driverName(), state.year, state.month, (stage, info) => {
+      let text = stageLabel[stage] || stage;
+      if (stage === "recognizing" && info?.total) text = `셀별 인식 중... (${info.total}개)`;
+      el.ocrStatus.textContent = text;
     });
-    const result = await readOcrResponse(response);
     const map = {};
-    Object.entries(result.schedule || {}).forEach(([dateKey, routes]) => {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) map[dateKey] = Array.isArray(routes) && routes.length ? routes.map(normalizeRoute) : null;
+    Object.entries(schedule || {}).forEach(([dateKey, routes]) => {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+        map[dateKey] = Array.isArray(routes) && routes.length ? routes.map(normalizeRoute) : null;
+      }
     });
     if (!Object.keys(map).length) throw new Error("유효한 스케줄이 없습니다.");
     setOcrDraft(map);
