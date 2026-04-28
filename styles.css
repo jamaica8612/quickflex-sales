@@ -111,8 +111,12 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
   font-weight: 950;
   letter-spacing: -1px;
 }
-.summary-meter { height: 5px; background: #30384d; border-radius: 999px; overflow: hidden; margin: 16px 0; }
-.summary-meter span { display: block; width: 0; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold2)); }
+.meter-wrap { display: flex; align-items: center; gap: 10px; margin: 16px 0; }
+.meter-wrap .summary-meter { flex: 1; margin: 0; }
+.summary-meter { height: 5px; background: #30384d; border-radius: 999px; overflow: hidden; }
+.summary-meter span { display: block; width: 0; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold2)); transition: width .4s ease; }
+.meter-pct { font-size: 12px; font-weight: 900; color: var(--gold); white-space: nowrap; min-width: 38px; text-align: right; flex-shrink: 0; }
+.meter-label { font-size: 11px; color: var(--muted); text-align: center; margin: -6px 0 10px; }
 .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; }
 .summary-grid div + div { border-left: 1px solid var(--line); }
 .summary-grid span { display: block; color: var(--soft); font-size: 12px; font-weight: 800; }
