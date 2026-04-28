@@ -120,8 +120,8 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 .calendar-panel { background: var(--panel); }
 .calendar-toolbar { padding: 14px 16px 10px; }
 .calendar-toolbar > div { flex: 1; }
-.calendar-toolbar strong { display: block; font-size: 18px; }
-.calendar-toolbar span { color: var(--muted); font-size: 12px; }
+.calendar-toolbar strong { display: block; font-size: 22px; }
+.meter-label { font-size: 11px; color: var(--muted); text-align: center; margin: -10px 0 10px; }
 .today-btn, .ghost-pill, .primary-pill, .secondary-btn, .full-btn {
   border-radius: 999px;
   font-weight: 850;
@@ -148,7 +148,7 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   display: grid;
-  grid-template-rows: 28px 16px minmax(0, 1fr);
+  grid-template-rows: 28px 20px minmax(0, 1fr);
   align-content: start;
   gap: 2px;
   min-width: 0;
@@ -183,9 +183,9 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
   min-width: 0;
   color: var(--red);
   font-weight: 950;
-  font-size: clamp(8px, 2.25vw, 10px);
-  line-height: 16px;
-  letter-spacing: -0.35px;
+  font-size: clamp(11px, 3vw, 14px);
+  line-height: 20px;
+  letter-spacing: -0.5px;
   white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
@@ -466,6 +466,14 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 .stats-panel.active { display: block; }
 .admin-panel { display: none; }
 .admin-panel.active { display: block; }
+.daily-chart {
+  display: flex; align-items: flex-end; gap: 2px;
+  height: 56px; padding: 0 4px 4px; margin-bottom: 8px;
+}
+.chart-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.chart-bar { width: 100%; background: var(--gold); border-radius: 2px 2px 0 0; min-height: 2px; opacity: 0.8; }
+.chart-bar.is-off { background: var(--muted); opacity: 0.4; }
+.chart-label { font-size: 9px; color: var(--muted); }
 .stats-list, .daily-list { display: grid; gap: 8px; }
 .stats-list > div, .daily-card {
   background: var(--panel);

@@ -51,11 +51,14 @@ alter table public.quickflex_profiles
   add column if not exists role text not null default 'driver',
   add column if not exists fixed_routes text[] not null default '{}',
   add column if not exists created_at timestamptz not null default now(),
-  add column if not exists updated_at timestamptz not null default now();
+  add column if not exists updated_at timestamptz not null default now(),
+  add column if not exists freshbag_mode text not null default 'single';
 
 alter table public.quickflex_day_records
   add column if not exists backup_unit integer not null default 30,
-  add column if not exists driver_type text not null default 'backup';
+  add column if not exists driver_type text not null default 'backup',
+  add column if not exists fresh_solo_count integer not null default 0,
+  add column if not exists fresh_linked_count integer not null default 0;
 
 create index if not exists idx_quickflex_profiles_status
   on public.quickflex_profiles (status, role);
