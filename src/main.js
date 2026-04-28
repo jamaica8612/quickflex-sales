@@ -5,6 +5,11 @@ import { DB_KEY, DEFAULT_BACKUP_UNIT, GOAL, PUBLIC_SUPABASE_CONFIG, TABLES, WEEK
 const GOAL_KEY = "quickflex-goal";
 function getGoal() { return parseInt(localStorage.getItem(GOAL_KEY) || "", 10) || GOAL; }
 function saveGoalLocal(val) { const n = parseInt(val, 10); if (n > 0) localStorage.setItem(GOAL_KEY, n); }
+function goalRawValue() { return parseInt((el.goalAmountInput.value || "").replace(/,/g, ""), 10) || 0; }
+function formatGoalInput() {
+  const raw = goalRawValue();
+  el.goalAmountInput.value = raw > 0 ? raw.toLocaleString("ko-KR") : "";
+}
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
@@ -146,7 +151,6 @@ const el = {
   statsWorstDay: $("statsWorstDay"),
   statsPrevMonth: $("statsPrevMonth"),
   statsNextMonth: $("statsNextMonth"),
-  dailyChart: $("dailyChart"),
   dailyList: $("dailyList"),
   yearlyStats: $("yearlyStats"),
   totalStats: $("totalStats"),
@@ -560,8 +564,8 @@ function applyProfileUi() {
   document.querySelectorAll('input[name="freshbagMode"]').forEach((radio) => {
     radio.checked = radio.value === mode;
   });
-  const storedGoal = localStorage.getItem(GOAL_KEY);
-  el.goalAmountInput.value = storedGoal || "";
+  const storedGoal = parseInt(localStorage.getItem(GOAL_KEY) || "", 10) || 0;
+  el.goalAmountInput.value = storedGoal > 0 ? storedGoal.toLocaleString("ko-KR") : "";
 }
 async function connectDb(url, key, persist = false) {
   const client = buildClient(url, key);
@@ -1231,24 +1235,7 @@ function renderStats() {
   renderYearlyStats();
   renderTotalStats();
 }
-function fmtRevShort(val) {
-  if (!val) return "";
-  if (val >= 10000) return `${Math.round(val / 10000)}만`;
-  return `${Math.round(val / 1000)}천`;
-}
-function renderDailyChart() {
-  const keys = periodKeysFor(state.statsYear, state.statsMonth);
-  const revenues = keys.map((k) => { const r = getRecord(k, false); return { rev: calcRecord(r).revenue, off: r.off }; });
-  const max = Math.max(...revenues.filter((r) => !r.off).map((r) => r.rev), 1);
-  el.dailyChart.innerHTML = revenues.map(({ rev, off }, i) => {
-    const pct = off ? 0 : Math.max(Math.round(rev / max * 100), rev > 0 ? 4 : 0);
-    const d = parseDateKey(keys[i]);
-    const amountLabel = !off && rev > 0 ? `<span class="chart-amount">${fmtRevShort(rev)}</span>` : "";
-    return `<div class="chart-bar-wrap"><div class="chart-bar${off ? " is-off" : ""}" style="height:${pct}%">${amountLabel}</div><span class="chart-label">${d.getDate()}</span></div>`;
-  }).join("");
-}
 function renderDailyStats() {
-  renderDailyChart();
   const keys = periodKeysFor(state.statsYear, state.statsMonth).filter((dateKey) => hasMeaningfulRecord(getRecord(dateKey, false)));
   el.dailyList.innerHTML = keys.length ? keys.map((dateKey) => {
     const record = getRecord(dateKey, false);
@@ -1860,8 +1847,16 @@ function bindEvents() {
   el.adminPrevMonth.addEventListener("click", () => moveAdminMonth(-1));
   el.adminNextMonth.addEventListener("click", () => moveAdminMonth(1));
   el.saveProfile.addEventListener("click", () => saveProfile().catch((error) => toast(`프로필 저장 실패: ${error.message}`, "error")));
+  el.goalAmountInput.addEventListener("input", () => {
+    const pos = el.goalAmountInput.selectionStart;
+    const prevLen = el.goalAmountInput.value.length;
+    const raw = parseInt(el.goalAmountInput.value.replace(/,/g, ""), 10) || 0;
+    el.goalAmountInput.value = raw > 0 ? raw.toLocaleString("ko-KR") : "";
+    const diff = el.goalAmountInput.value.length - prevLen;
+    el.goalAmountInput.setSelectionRange(pos + diff, pos + diff);
+  });
   el.saveAppSettings.addEventListener("click", () => {
-    const val = parseInt(el.goalAmountInput.value, 10);
+    const val = goalRawValue();
     if (!val || val <= 0) return toast("올바른 목표 금액을 입력해 주세요.", "error");
     saveGoalLocal(val);
     renderSummary();

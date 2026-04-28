@@ -537,26 +537,50 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 .stats-panel.active { display: block; }
 .admin-panel { display: none; }
 .admin-panel.active { display: block; }
-.daily-chart {
-  display: flex; align-items: flex-end; gap: 2px;
-  height: 80px; padding: 20px 4px 4px; margin-bottom: 8px;
-  position: relative;
+/* goal-row: 목표금액 compact 설정 */
+.goal-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
 }
-.chart-bar-wrap {
-  flex: 1; display: flex; flex-direction: column; align-items: center;
-  gap: 0; height: 100%; justify-content: flex-end; position: relative;
+.goal-label {
+  font-size: 12px;
+  font-weight: 850;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.chart-bar {
-  width: 100%; background: var(--gold); border-radius: 2px 2px 0 0;
-  min-height: 0; opacity: 0.85; transition: height .2s;
+.goal-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--text);
+  text-align: right;
+  padding: 0;
 }
-.chart-bar.is-off { display: none; }
-.chart-amount {
-  position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-  font-size: 8px; font-weight: 850; color: var(--gold);
-  white-space: nowrap; margin-bottom: 1px; pointer-events: none;
+.goal-unit {
+  font-size: 12px;
+  font-weight: 850;
+  color: var(--muted);
+  flex-shrink: 0;
 }
-.chart-label { font-size: 9px; color: var(--muted); margin-top: 2px; }
+.goal-save-btn {
+  flex-shrink: 0;
+  padding: 5px 13px;
+  border-radius: 8px;
+  background: var(--gold);
+  color: #11151f;
+  font-size: 12px;
+  font-weight: 950;
+  white-space: nowrap;
+}
 .stats-list, .daily-list { display: grid; gap: 8px; }
 .stats-list > div, .daily-card {
   background: var(--panel);

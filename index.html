@@ -140,7 +140,6 @@
             <button class="stats-tab" data-tab="total">누적</button>
           </div>
           <section class="stats-panel active" data-panel="daily">
-            <div id="dailyChart" class="daily-chart"></div>
             <div id="dailyList" class="daily-list"></div>
           </section>
           <section class="stats-panel" data-panel="monthly">
@@ -199,14 +198,12 @@
 
           <section class="settings-section">
             <h2>목표 설정</h2>
-            <div class="settings-field">
-              <label>월 목표 금액</label>
-              <div class="input-suffix-wrap">
-                <input id="goalAmountInput" type="number" min="0" inputmode="numeric" placeholder="6000000" />
-                <span>원</span>
-              </div>
+            <div class="goal-row">
+              <span class="goal-label">월 목표</span>
+              <input id="goalAmountInput" class="goal-input" type="text" inputmode="numeric" placeholder="6,000,000" autocomplete="off" />
+              <span class="goal-unit">원</span>
+              <button id="saveAppSettings" class="goal-save-btn">저장</button>
             </div>
-            <button id="saveAppSettings" class="full-btn">설정 저장</button>
           </section>
 
           <section class="settings-section">
@@ -396,7 +393,7 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./src/main.js?v=5"></script>
+    <script type="module" src="./src/main.js?v=6"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
