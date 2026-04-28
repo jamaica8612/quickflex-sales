@@ -403,12 +403,16 @@ function ensureFixedRecordRows(record) {
   if (record.off) return record;
   const allowed = fixedRoutes();
   if (!allowed.length) return record;
-  const byRoute = new Map(record.rows.map((row) => [joinStoredRoutes(row.route), row]));
-  const rows = fixedDefaultRows().map((row) => {
-    const existing = byRoute.get(row.route);
-    return existing ? { ...row, count: existing.count, unit: existing.unit || row.unit } : row;
+  // 기존 행에 들어있는 모든 라우트 수집 (사용자가 추가한 커스텀 라우트 포함)
+  const existingRoutes = new Set();
+  record.rows.forEach((row) => {
+    splitStoredRoutes(row.route).forEach((r) => existingRoutes.add(r));
   });
-  record.rows = rows;
+  // 고정 라우트 중 누락된 것만 행 앞에 추가
+  const missing = allowed.filter((r) => !existingRoutes.has(r));
+  if (missing.length) {
+    record.rows = [...buildGroupedRows(missing), ...record.rows];
+  }
   return record;
 }
 function effectiveUnit(row) {
@@ -984,13 +988,13 @@ function renderEntryRow(row, index) {
   const output = node.querySelector("output");
   const del = node.querySelector(".del-btn");
   routeInput.value = formatRouteLabel(row.route);
-  routeInput.readOnly = !isBackupDriver();
+  routeInput.readOnly = false;
   count.value = row.count || "";
   unit.value = row.unit || sharedRateForRoutes(row.route) || "";
   unit.title = "이 날짜에만 적용되는 단가입니다. 기본 단가는 바뀌지 않습니다.";
   unit.setAttribute("aria-label", "이 날짜 단가");
   output.textContent = fmtWon(toNum(count.value) * toNum(unit.value));
-  del.style.visibility = isBackupDriver() ? "visible" : "hidden";
+  del.style.visibility = "visible";
   routeInput.addEventListener("input", () => {
     routeInput.value = routeInput.value.toUpperCase();
     const expanded = expandRouteText(routeInput.value);
