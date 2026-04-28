@@ -12,15 +12,41 @@ export function extractJsonObject(text: string) {
   }
 }
 
+function normalizeRouteCode(value: unknown): string {
+  return String(value ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
 export function normalizeScheduleMap(parsed: unknown): ScheduleMap {
   const schedule: ScheduleMap = {};
   if (!parsed || typeof parsed !== "object") return schedule;
 
+  // 새 형식: { days: [{ date, routes }] }
+  const days = (parsed as { days?: unknown }).days;
+  if (Array.isArray(days)) {
+    days.forEach((entry) => {
+      if (!entry || typeof entry !== "object") return;
+      const day = entry as { date?: unknown; routes?: unknown };
+      const dateKey = String(day.date ?? "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
+      if (Array.isArray(day.routes)) {
+        const list = day.routes.map(normalizeRouteCode).filter((route) => /^\d{3}[A-Z]$/.test(route));
+        schedule[dateKey] = list.length ? list : null;
+      } else {
+        schedule[dateKey] = null;
+      }
+    });
+    return schedule;
+  }
+
+  // 레거시 형식: { "YYYY-MM-DD": [...] | null }
   Object.entries(parsed as Record<string, unknown>).forEach(([dateKey, routes]) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
-    schedule[dateKey] = Array.isArray(routes)
-      ? routes.map((route) => String(route).trim().toUpperCase()).filter(Boolean)
-      : null;
+    if (Array.isArray(routes)) {
+      const list = routes.map(normalizeRouteCode).filter((route) => /^\d{3}[A-Z]$/.test(route));
+      schedule[dateKey] = list.length ? list : null;
+    } else {
+      schedule[dateKey] = null;
+    }
   });
 
   return schedule;
