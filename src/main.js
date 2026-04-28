@@ -279,6 +279,13 @@ function escapeAttr(value) {
 }
 function splitStoredRoutes(value) { return routeListFromText(value); }
 function joinStoredRoutes(routes) { return routeListFromText(Array.isArray(routes) ? routes.join("|") : routes).join("|"); }
+// "319AB" → ["319A","319B"], "319A 320B" → ["319A","320B"]
+function expandRouteText(text) {
+  return routeListFromText(text).flatMap((r) => {
+    const m = r.match(/^(\d+)([A-Z]{2,})$/);
+    return m ? m[2].split("").map((c) => m[1] + c) : [r];
+  });
+}
 function compactRouteList(routes) {
   const groups = new Map();
   routeListFromText(routes).forEach((route) => {
@@ -971,7 +978,7 @@ function renderEntryRow(row, index) {
   const unit = node.querySelector(".unit");
   const output = node.querySelector("output");
   const del = node.querySelector(".del-btn");
-  routeInput.value = splitStoredRoutes(row.route)[0] ?? "";
+  routeInput.value = splitStoredRoutes(row.route).join(" ");
   routeInput.readOnly = !isBackupDriver();
   count.value = row.count || "";
   unit.value = row.unit || sharedRateForRoutes(row.route) || "";
@@ -980,11 +987,24 @@ function renderEntryRow(row, index) {
   output.textContent = fmtWon(toNum(count.value) * toNum(unit.value));
   del.style.visibility = isBackupDriver() ? "visible" : "hidden";
   routeInput.addEventListener("input", () => {
-    const raw = routeInput.value.trim().toUpperCase();
-    routeInput.value = raw;
+    const raw = routeInput.value.toUpperCase();
     const record = getRecord(state.selectedDate, true);
     record.rows[index].route = raw;
-    const autoUnit = rateFor(raw);
+    const autoUnit = sharedRateForRoutes(raw) || rateFor(raw);
+    if (autoUnit > 0) {
+      record.rows[index].unit = autoUnit;
+      unit.value = autoUnit;
+      output.textContent = fmtWon(toNum(count.value) * autoUnit);
+    }
+    scheduleSave({ dateKeys: [state.selectedDate] });
+    refreshTotals();
+  });
+  routeInput.addEventListener("blur", () => {
+    const expanded = expandRouteText(routeInput.value);
+    routeInput.value = expanded.join(" ");
+    const record = getRecord(state.selectedDate, true);
+    record.rows[index].route = joinStoredRoutes(expanded);
+    const autoUnit = sharedRateForRoutes(record.rows[index].route);
     if (autoUnit > 0) {
       record.rows[index].unit = autoUnit;
       unit.value = autoUnit;
