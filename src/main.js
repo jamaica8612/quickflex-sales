@@ -1,7 +1,7 @@
 "use strict";
 
 import { DB_KEY, DEFAULT_BACKUP_UNIT, GOAL, PUBLIC_SUPABASE_CONFIG, TABLES, WEEKDAYS } from "./config.js";
-import { fmtCount, fmtWon } from "./lib/format.js";
+import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
 const LEGACY_USER_NAMES = new Map([["kim-gwanhyun", "김관현"]]);
@@ -96,7 +96,6 @@ const el = {
   workDaysHome: $("workDaysHome"),
   meterFill: $("meterFill"),
   monthTitle: $("monthTitle"),
-  periodRangeShort: $("periodRangeShort"),
   monthCalendar: $("monthCalendar"),
   prevMonth: $("prevMonth"),
   nextMonth: $("nextMonth"),
@@ -111,12 +110,16 @@ const el = {
   nextDay: $("nextDay"),
   selectedDateTitle: $("selectedDateTitle"),
   offToggle: $("offToggle"),
-  copySchedule: $("copySchedule"),
   addRoute: $("addRoute"),
   entryRows: $("entryRows"),
   freshCount: $("freshCount"),
   freshUnit: $("freshUnit"),
   freshRevenue: $("freshRevenue"),
+  freshSingleRow: $("freshSingleRow"),
+  freshDualRow: $("freshDualRow"),
+  freshSoloCount: $("freshSoloCount"),
+  freshLinkedCount: $("freshLinkedCount"),
+  freshDualRevenue: $("freshDualRevenue"),
   backupRow: $("backupRow"),
   backupCount: $("backupCount"),
   backupUnit: $("backupUnit"),
@@ -133,8 +136,10 @@ const el = {
   statsFresh: $("statsFresh"),
   statsAverage: $("statsAverage"),
   statsBestDay: $("statsBestDay"),
+  statsWorstDay: $("statsWorstDay"),
   statsPrevMonth: $("statsPrevMonth"),
   statsNextMonth: $("statsNextMonth"),
+  dailyChart: $("dailyChart"),
   dailyList: $("dailyList"),
   yearlyStats: $("yearlyStats"),
   totalStats: $("totalStats"),
@@ -307,13 +312,16 @@ function sharedRateForRoutes(routes) {
 }
 function defaultFreshUnit(value) { return value == null || value === "" ? 100 : value; }
 function defaultBackupUnit(value) { return value == null || value === "" ? DEFAULT_BACKUP_UNIT : value; }
-function emptyRecord() { return { off: false, rows: [], freshCount: "", freshUnit: 100, backupUnit: DEFAULT_BACKUP_UNIT, driverType: isBackupDriver() ? "backup" : "fixed" }; }
+function freshbagMode() { return state.profile?.freshbag_mode || "single"; }
+function emptyRecord() { return { off: false, rows: [], freshCount: "", freshUnit: 100, freshSoloCount: "", freshLinkedCount: "", backupUnit: DEFAULT_BACKUP_UNIT, driverType: isBackupDriver() ? "backup" : "fixed" }; }
 function normalizeRecordShape(record) {
   const next = {
     off: Boolean(record?.off),
     rows: Array.isArray(record?.rows) ? record.rows.map((row) => ({ ...row })) : [],
     freshCount: record?.freshCount ?? "",
     freshUnit: defaultFreshUnit(record?.freshUnit),
+    freshSoloCount: record?.freshSoloCount ?? "",
+    freshLinkedCount: record?.freshLinkedCount ?? "",
     backupUnit: defaultBackupUnit(record?.backupUnit),
     driverType: record?.driverType || (isBackupDriver() ? "backup" : "fixed"),
   };
@@ -399,9 +407,10 @@ function calcRecordDetails(record) {
     const count = toNum(row.count);
     return { count: sum.count + count, revenue: sum.revenue + count * effectiveUnit(row) };
   }, { count: 0, revenue: 0 });
-  const freshCount = toNum(rec.freshCount);
-  const freshUnit = toNum(defaultFreshUnit(rec.freshUnit));
-  const freshRevenue = freshCount * freshUnit;
+  const isDual = freshbagMode() === "dual";
+  const freshCount = isDual ? toNum(rec.freshSoloCount) + toNum(rec.freshLinkedCount) : toNum(rec.freshCount);
+  const freshUnit = isDual ? 0 : toNum(defaultFreshUnit(rec.freshUnit));
+  const freshRevenue = isDual ? toNum(rec.freshSoloCount) * 200 + toNum(rec.freshLinkedCount) * 100 : freshCount * freshUnit;
   const backupApplies = rec.driverType === "backup";
   const backupUnit = backupApplies ? toNum(defaultBackupUnit(rec.backupUnit)) : 0;
   const backupRevenue = backupApplies ? routeTotal.count * backupUnit : 0;
@@ -422,20 +431,23 @@ function calcRecord(record) {
 }
 function summarizePeriod(year = state.year, month = state.month) {
   let best = { dateKey: "", revenue: 0 };
+  let worst = { dateKey: "", revenue: Infinity };
   const total = periodKeysFor(year, month).reduce((sum, dateKey) => {
     const record = getRecord(dateKey, false);
     const calc = calcRecord(record);
     if (calc.revenue > best.revenue) best = { dateKey, revenue: calc.revenue };
+    if (!record.off && calc.revenue > 0 && calc.revenue < worst.revenue) worst = { dateKey, revenue: calc.revenue };
     return {
       count: sum.count + calc.count,
       revenue: sum.revenue + calc.revenue,
       workDays: sum.workDays + (calc.revenue > 0 ? 1 : 0),
       offDays: sum.offDays + (record.off ? 1 : 0),
-      fresh: sum.fresh + (record.off ? 0 : toNum(record.freshCount)),
+      fresh: sum.fresh + (record.off ? 0 : calc.freshCount),
     };
   }, { count: 0, revenue: 0, workDays: 0, offDays: 0, fresh: 0 });
   total.average = total.workDays ? total.revenue / total.workDays : 0;
   total.best = best;
+  total.worst = worst.revenue < Infinity ? worst : { dateKey: "", revenue: 0 };
   return total;
 }
 
@@ -537,6 +549,10 @@ function applyProfileUi() {
   document.querySelectorAll(".admin-only").forEach((node) => node.classList.toggle("hidden", !isAdmin));
   if (!isAdmin && el.app.dataset.view === "admin") showView("home");
   el.openDbSettings.style.display = hasPublicDbConfig() && !isAdmin ? "none" : "";
+  const mode = profile.freshbag_mode || "single";
+  document.querySelectorAll('input[name="freshbagMode"]').forEach((radio) => {
+    radio.checked = radio.value === mode;
+  });
 }
 async function connectDb(url, key, persist = false) {
   const client = buildClient(url, key);
@@ -599,8 +615,10 @@ async function loadProfile() {
   state.profile = inserted;
 }
 async function saveProfile() {
+  const selectedMode = document.querySelector('input[name="freshbagMode"]:checked')?.value || "single";
   const payload = {
     display_name: el.profileDisplayName.value.trim() || driverName(),
+    freshbag_mode: selectedMode,
     updated_at: new Date().toISOString(),
   };
   const { data, error } = await state.db.from(TABLES.profiles).update(payload).eq("id", currentUserId()).select("*").single();
@@ -697,6 +715,8 @@ function entriesFromDb(dayRows, itemRows) {
       rows: [],
       freshCount: row.fresh_count ?? "",
       freshUnit: row.fresh_unit ?? 100,
+      freshSoloCount: row.fresh_solo_count ?? "",
+      freshLinkedCount: row.fresh_linked_count ?? "",
       backupUnit: row.backup_unit ?? DEFAULT_BACKUP_UNIT,
       driverType: row.driver_type || "backup",
     });
@@ -761,6 +781,8 @@ async function persistDay(dateKey) {
     is_off: rec.off,
     fresh_count: rec.off ? 0 : toNum(rec.freshCount),
     fresh_unit: toNum(defaultFreshUnit(rec.freshUnit)),
+    fresh_solo_count: rec.off ? 0 : toNum(rec.freshSoloCount),
+    fresh_linked_count: rec.off ? 0 : toNum(rec.freshLinkedCount),
     backup_unit: isBackupDriver() ? toNum(defaultBackupUnit(rec.backupUnit)) : 0,
     driver_type: isBackupDriver() ? "backup" : "fixed",
     updated_at: new Date().toISOString(),
@@ -846,7 +868,6 @@ function renderSummary() {
   const { start, end } = periodBounds();
   const total = summarizePeriod();
   el.periodRange.textContent = `정산기간 ${formatShort(start)} ~ ${formatShort(end)}`;
-  el.periodRangeShort.textContent = `${String(start.getMonth() + 1).padStart(2, "0")}.${String(start.getDate()).padStart(2, "0")} ~ ${String(end.getMonth() + 1).padStart(2, "0")}.${String(end.getDate()).padStart(2, "0")}`;
   el.monthTitle.textContent = `${state.year}년 ${String(state.month).padStart(2, "0")}월`;
   el.periodRevenue.textContent = fmtWon(total.revenue);
   el.periodCount.textContent = fmtCount(total.count);
@@ -870,7 +891,7 @@ function renderMonth() {
     cell.type = "button";
     cell.className = `day-cell${inPeriod ? "" : " outside"}${dateKey === state.selectedDate ? " selected" : ""}${dateKey === todayKey() ? " today-cell" : ""}${record.off ? " off" : ""}`;
     const routeText = record.off ? "" : formatRecordRoutes(record.rows);
-    const value = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : (calc.revenue ? fmtWon(calc.revenue) : "");
+    const value = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : (calc.revenue ? fmtNum(calc.revenue) : "");
     cell.innerHTML = `<span class="day-number">${date.getDate()}</span><span class="day-value">${value}</span><span class="day-routes">${routeText}</span>`;
     cell.addEventListener("click", () => selectDate(dateKey));
     el.monthCalendar.appendChild(cell);
@@ -918,39 +939,44 @@ function renderEntryForm() {
     record.rows = fixedDefaultRows();
     record.rows.forEach((row, index) => renderEntryRow(row, index));
   }
+  const dual = freshbagMode() === "dual";
+  el.freshSingleRow.classList.toggle("hidden", dual);
+  el.freshDualRow.classList.toggle("hidden", !dual);
   el.freshCount.value = record.freshCount || "";
   el.freshUnit.value = defaultFreshUnit(record.freshUnit);
+  el.freshSoloCount.value = record.freshSoloCount || "";
+  el.freshLinkedCount.value = record.freshLinkedCount || "";
   el.backupUnit.value = defaultBackupUnit(record.backupUnit);
   refreshTotals();
 }
 function renderEntryRow(row, index) {
   const node = el.entryTemplate.content.firstElementChild.cloneNode(true);
-  const select = node.querySelector("select");
+  const routeInput = node.querySelector(".route");
   const count = node.querySelector(".count");
   const unit = node.querySelector(".unit");
   const output = node.querySelector("output");
   const del = node.querySelector(".del-btn");
-  select.innerHTML = routeOptions(row.route);
-  if (splitStoredRoutes(row.route).length > 1) {
-    const option = document.createElement("option");
-    option.value = row.route;
-    option.textContent = formatRouteLabel(row.route);
-    option.selected = true;
-    select.prepend(option);
-  }
-  select.disabled = !isBackupDriver();
+  routeInput.value = splitStoredRoutes(row.route)[0] ?? "";
+  routeInput.readOnly = !isBackupDriver();
   count.value = row.count || "";
   unit.value = row.unit || sharedRateForRoutes(row.route) || "";
   unit.title = "이 날짜에만 적용되는 단가입니다. 기본 단가는 바뀌지 않습니다.";
   unit.setAttribute("aria-label", "이 날짜 단가");
   output.textContent = fmtWon(toNum(count.value) * toNum(unit.value));
   del.style.visibility = isBackupDriver() ? "visible" : "hidden";
-  select.addEventListener("change", () => {
+  routeInput.addEventListener("input", () => {
+    const raw = routeInput.value.trim().toUpperCase();
+    routeInput.value = raw;
     const record = getRecord(state.selectedDate, true);
-    record.rows[index].route = select.value;
-    record.rows[index].unit = rateFor(select.value);
+    record.rows[index].route = raw;
+    const autoUnit = rateFor(raw);
+    if (autoUnit > 0) {
+      record.rows[index].unit = autoUnit;
+      unit.value = autoUnit;
+      output.textContent = fmtWon(toNum(count.value) * autoUnit);
+    }
     scheduleSave({ dateKeys: [state.selectedDate] });
-    renderEntryForm();
+    refreshTotals();
   });
   count.addEventListener("input", () => {
     const record = getRecord(state.selectedDate, true);
@@ -963,20 +989,6 @@ function renderEntryRow(row, index) {
     record.rows[index].unit = unit.value;
     scheduleSave({ dateKeys: [state.selectedDate] });
     refreshTotals();
-  });
-  unit.addEventListener("change", () => {
-    const routeList = splitStoredRoutes(select.value || row.route);
-    if (routeList.length !== 1) return;
-    const route = routeList[0];
-    const nextUnit = toNum(unit.value);
-    const currentUnit = sharedRateForRoutes(route) || rateFor(route);
-    if (!route || nextUnit <= 0 || nextUnit === currentUnit) return;
-    if (!window.confirm(`${route} 기본 단가도 ${fmtWon(nextUnit)}으로 바꿀까요?\n\n확인: 설정 단가도 변경\n취소: 이 날짜에만 적용`)) return;
-    if (upsertRate(route, nextUnit)) {
-      scheduleSave({ rates: true, immediate: true });
-      renderRates();
-      toast(`${route} 기본 단가를 ${fmtWon(nextUnit)}으로 변경했습니다.`, "success");
-    }
   });
   del.addEventListener("click", () => {
     const record = getRecord(state.selectedDate, true);
@@ -993,6 +1005,8 @@ function syncFormToRecord() {
   const record = getRecord(state.selectedDate, true);
   record.freshCount = el.freshCount.value;
   record.freshUnit = el.freshUnit.value;
+  record.freshSoloCount = el.freshSoloCount.value;
+  record.freshLinkedCount = el.freshLinkedCount.value;
   record.backupUnit = isBackupDriver() ? el.backupUnit.value : 0;
   return record;
 }
@@ -1006,6 +1020,7 @@ function refreshTotals() {
     if (!toNum(unitInput.value) && row?.unit) unitInput.value = row.unit;
   });
   el.freshRevenue.textContent = fmtWon(details.freshRevenue);
+  el.freshDualRevenue.textContent = fmtWon(details.freshRevenue);
   el.backupCount.textContent = fmtCount(details.count);
   el.backupRevenue.textContent = fmtWon(details.backupRevenue);
   el.selectedDayTotal.textContent = fmtWon(details.revenue);
@@ -1200,11 +1215,23 @@ function renderStats() {
   el.statsFresh.textContent = fmtCount(total.fresh);
   el.statsAverage.textContent = fmtWon(total.average);
   el.statsBestDay.textContent = total.best.dateKey ? `${formatLongShort(total.best.dateKey)} ${fmtWon(total.best.revenue)}` : "-";
+  el.statsWorstDay.textContent = total.worst.dateKey ? `${formatLongShort(total.worst.dateKey)} ${fmtWon(total.worst.revenue)}` : "-";
   renderDailyStats();
   renderYearlyStats();
   renderTotalStats();
 }
+function renderDailyChart() {
+  const keys = periodKeysFor(state.statsYear, state.statsMonth);
+  const revenues = keys.map((k) => { const r = getRecord(k, false); return { rev: calcRecord(r).revenue, off: r.off }; });
+  const max = Math.max(...revenues.map((r) => r.rev), 1);
+  el.dailyChart.innerHTML = revenues.map(({ rev, off }, i) => {
+    const pct = Math.round(rev / max * 100);
+    const d = parseDateKey(keys[i]);
+    return `<div class="chart-bar-wrap"><div class="chart-bar${off ? " is-off" : ""}" style="height:${pct}%" title="${fmtWon(rev)}"></div><span class="chart-label">${d.getDate()}</span></div>`;
+  }).join("");
+}
 function renderDailyStats() {
+  renderDailyChart();
   const keys = periodKeysFor(state.statsYear, state.statsMonth).filter((dateKey) => hasMeaningfulRecord(getRecord(dateKey, false)));
   el.dailyList.innerHTML = keys.length ? keys.map((dateKey) => {
     const record = getRecord(dateKey, false);
@@ -1771,14 +1798,6 @@ function bindEvents() {
     renderEntryForm();
     refreshTotals();
   });
-  el.copySchedule.addEventListener("click", () => {
-    const record = getRecord(state.selectedDate, true);
-    if (!isBackupDriver()) record.rows = fixedDefaultRows();
-    else if (!record.rows.length && state.rates.length) record.rows.push({ route: state.rates[0].route, count: "", unit: state.rates[0].unit });
-    else record.rows.forEach((row) => { if (!toNum(row.unit)) row.unit = sharedRateForRoutes(row.route) || rateFor(row.route); });
-    scheduleSave({ dateKeys: [state.selectedDate] });
-    renderEntryForm();
-  });
   el.addRoute.addEventListener("click", () => {
     const record = getRecord(state.selectedDate, true);
     record.off = false;
@@ -1790,6 +1809,17 @@ function bindEvents() {
     scheduleSave({ dateKeys: [state.selectedDate] });
     refreshTotals();
   }));
+  [el.freshSoloCount, el.freshLinkedCount].forEach((input) => input.addEventListener("input", () => {
+    syncFormToRecord();
+    scheduleSave({ dateKeys: [state.selectedDate] });
+    refreshTotals();
+  }));
+  document.querySelectorAll('input[name="freshbagMode"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (state.profile) state.profile.freshbag_mode = radio.value;
+      renderEntryForm();
+    });
+  });
   el.saveRecord.addEventListener("click", saveCurrentRecordAndGoHome);
   el.modeBtns.forEach((button) => button.addEventListener("click", () => {
     state.mode = button.dataset.mode;
