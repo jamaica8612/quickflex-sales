@@ -455,7 +455,7 @@ function summarizePeriod(year = state.year, month = state.month) {
   let worst = { dateKey: "", revenue: Infinity };
   const total = periodKeysFor(year, month).reduce((sum, dateKey) => {
     const record = getRecord(dateKey, false);
-    const calc = calcRecord(record);
+    const calc = calcRecordDetails(record);
     if (calc.revenue > best.revenue) best = { dateKey, revenue: calc.revenue };
     if (!record.off && calc.revenue > 0 && calc.revenue < worst.revenue) worst = { dateKey, revenue: calc.revenue };
     return {
@@ -463,7 +463,7 @@ function summarizePeriod(year = state.year, month = state.month) {
       revenue: sum.revenue + calc.revenue,
       workDays: sum.workDays + (calc.revenue > 0 ? 1 : 0),
       offDays: sum.offDays + (record.off ? 1 : 0),
-      fresh: sum.fresh + (record.off ? 0 : calc.freshCount),
+      fresh: sum.fresh + calc.freshCount,
     };
   }, { count: 0, revenue: 0, workDays: 0, offDays: 0, fresh: 0 });
   total.average = total.workDays ? total.revenue / total.workDays : 0;
