@@ -29,7 +29,7 @@
               <strong id="periodRevenue">0원</strong>
             </div>
             <div class="summary-meter"><span id="meterFill"></span></div>
-            <p class="meter-label">목표 600만원 대비 진행률</p>
+            <p class="meter-label" id="meterLabel">목표 600만원 대비 진행률</p>
             <div class="summary-grid">
               <div><span>배송건수</span><strong id="periodCount">0건</strong></div>
               <div><span>일평균</span><strong id="dailyAverage">0원</strong></div>
@@ -177,14 +177,36 @@
               <div id="fixedRoutesText" class="readonly-value">-</div>
               <input id="fixedRoutesInput" type="hidden" />
             </div>
+            <button id="saveProfile" class="full-btn">내 정보 저장</button>
+          </section>
+
+          <section class="settings-section">
+            <h2>입력 설정</h2>
             <div class="settings-field">
               <label>프레시백 입력 방식</label>
-              <div class="radio-group">
-                <label><input type="radio" name="freshbagMode" value="single" checked /> 한 가지 (기본 100원)</label>
-                <label><input type="radio" name="freshbagMode" value="dual" /> 단독·연계 (단독 200원 / 연계 100원)</label>
+              <div class="mode-toggle">
+                <label class="mode-option">
+                  <input type="radio" name="freshbagMode" value="single" checked />
+                  <span>단일<small>기본 100원</small></span>
+                </label>
+                <label class="mode-option">
+                  <input type="radio" name="freshbagMode" value="dual" />
+                  <span>단독·연계<small>단독 200 / 연계 100</small></span>
+                </label>
               </div>
             </div>
-            <button id="saveProfile" class="full-btn">내 정보 저장</button>
+          </section>
+
+          <section class="settings-section">
+            <h2>목표 설정</h2>
+            <div class="settings-field">
+              <label>월 목표 금액</label>
+              <div class="input-suffix-wrap">
+                <input id="goalAmountInput" type="number" min="0" inputmode="numeric" placeholder="6000000" />
+                <span>원</span>
+              </div>
+            </div>
+            <button id="saveAppSettings" class="full-btn">설정 저장</button>
           </section>
 
           <section class="settings-section">
@@ -374,7 +396,7 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./src/main.js?v=4"></script>
+    <script type="module" src="./src/main.js?v=5"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});

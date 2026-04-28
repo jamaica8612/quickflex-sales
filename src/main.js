@@ -1,6 +1,10 @@
 "use strict";
 
 import { DB_KEY, DEFAULT_BACKUP_UNIT, GOAL, PUBLIC_SUPABASE_CONFIG, TABLES, WEEKDAYS } from "./config.js";
+
+const GOAL_KEY = "quickflex-goal";
+function getGoal() { return parseInt(localStorage.getItem(GOAL_KEY) || "", 10) || GOAL; }
+function saveGoalLocal(val) { const n = parseInt(val, 10); if (n > 0) localStorage.setItem(GOAL_KEY, n); }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
@@ -95,6 +99,9 @@ const el = {
   dailyAverage: $("dailyAverage"),
   workDaysHome: $("workDaysHome"),
   meterFill: $("meterFill"),
+  meterLabel: $("meterLabel"),
+  goalAmountInput: $("goalAmountInput"),
+  saveAppSettings: $("saveAppSettings"),
   monthTitle: $("monthTitle"),
   monthCalendar: $("monthCalendar"),
   prevMonth: $("prevMonth"),
@@ -553,6 +560,8 @@ function applyProfileUi() {
   document.querySelectorAll('input[name="freshbagMode"]').forEach((radio) => {
     radio.checked = radio.value === mode;
   });
+  const storedGoal = localStorage.getItem(GOAL_KEY);
+  el.goalAmountInput.value = storedGoal || "";
 }
 async function connectDb(url, key, persist = false) {
   const client = buildClient(url, key);
@@ -873,7 +882,9 @@ function renderSummary() {
   el.periodCount.textContent = fmtCount(total.count);
   el.dailyAverage.textContent = fmtWon(total.average);
   el.workDaysHome.textContent = `${total.workDays}일`;
-  el.meterFill.style.width = `${Math.min(100, total.revenue / GOAL * 100)}%`;
+  const goal = getGoal();
+  el.meterFill.style.width = `${Math.min(100, total.revenue / goal * 100)}%`;
+  el.meterLabel.textContent = `목표 ${fmtWon(goal)} 대비 진행률`;
 }
 function renderMonth() {
   const { start } = periodBounds();
@@ -1208,7 +1219,7 @@ function renderStats() {
   el.statsMonthTitle.textContent = `${state.statsYear}년 ${String(state.statsMonth).padStart(2, "0")}월`;
   el.statsRange.textContent = `${formatShort(start)} ~ ${formatShort(end)}`;
   el.statsRevenue.textContent = fmtWon(total.revenue);
-  el.statsMeterFill.style.width = `${Math.min(100, total.revenue / GOAL * 100)}%`;
+  el.statsMeterFill.style.width = `${Math.min(100, total.revenue / getGoal() * 100)}%`;
   el.statsWorkDays.textContent = `${total.workDays}일`;
   el.statsOffDays.textContent = `${total.offDays}일`;
   el.statsCount.textContent = fmtCount(total.count);
@@ -1220,14 +1231,20 @@ function renderStats() {
   renderYearlyStats();
   renderTotalStats();
 }
+function fmtRevShort(val) {
+  if (!val) return "";
+  if (val >= 10000) return `${Math.round(val / 10000)}만`;
+  return `${Math.round(val / 1000)}천`;
+}
 function renderDailyChart() {
   const keys = periodKeysFor(state.statsYear, state.statsMonth);
   const revenues = keys.map((k) => { const r = getRecord(k, false); return { rev: calcRecord(r).revenue, off: r.off }; });
-  const max = Math.max(...revenues.map((r) => r.rev), 1);
+  const max = Math.max(...revenues.filter((r) => !r.off).map((r) => r.rev), 1);
   el.dailyChart.innerHTML = revenues.map(({ rev, off }, i) => {
-    const pct = Math.round(rev / max * 100);
+    const pct = off ? 0 : Math.max(Math.round(rev / max * 100), rev > 0 ? 4 : 0);
     const d = parseDateKey(keys[i]);
-    return `<div class="chart-bar-wrap"><div class="chart-bar${off ? " is-off" : ""}" style="height:${pct}%" title="${fmtWon(rev)}"></div><span class="chart-label">${d.getDate()}</span></div>`;
+    const amountLabel = !off && rev > 0 ? `<span class="chart-amount">${fmtRevShort(rev)}</span>` : "";
+    return `<div class="chart-bar-wrap"><div class="chart-bar${off ? " is-off" : ""}" style="height:${pct}%">${amountLabel}</div><span class="chart-label">${d.getDate()}</span></div>`;
   }).join("");
 }
 function renderDailyStats() {
@@ -1843,6 +1860,14 @@ function bindEvents() {
   el.adminPrevMonth.addEventListener("click", () => moveAdminMonth(-1));
   el.adminNextMonth.addEventListener("click", () => moveAdminMonth(1));
   el.saveProfile.addEventListener("click", () => saveProfile().catch((error) => toast(`프로필 저장 실패: ${error.message}`, "error")));
+  el.saveAppSettings.addEventListener("click", () => {
+    const val = parseInt(el.goalAmountInput.value, 10);
+    if (!val || val <= 0) return toast("올바른 목표 금액을 입력해 주세요.", "error");
+    saveGoalLocal(val);
+    renderSummary();
+    renderStats();
+    toast("설정을 저장했습니다.", "success");
+  });
   el.saveRate.addEventListener("click", () => {
     if (!upsertRate(el.rateRoute.value, el.rateUnit.value)) return toast("구역과 단가를 확인해 주세요.", "error");
     el.rateRoute.value = "";
