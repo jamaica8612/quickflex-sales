@@ -978,7 +978,7 @@ function renderEntryRow(row, index) {
   const unit = node.querySelector(".unit");
   const output = node.querySelector("output");
   const del = node.querySelector(".del-btn");
-  routeInput.value = splitStoredRoutes(row.route).join(" ");
+  routeInput.value = formatRouteLabel(row.route);
   routeInput.readOnly = !isBackupDriver();
   count.value = row.count || "";
   unit.value = row.unit || sharedRateForRoutes(row.route) || "";
@@ -987,10 +987,12 @@ function renderEntryRow(row, index) {
   output.textContent = fmtWon(toNum(count.value) * toNum(unit.value));
   del.style.visibility = isBackupDriver() ? "visible" : "hidden";
   routeInput.addEventListener("input", () => {
-    const raw = routeInput.value.toUpperCase();
+    routeInput.value = routeInput.value.toUpperCase();
+    const expanded = expandRouteText(routeInput.value);
+    const joined = joinStoredRoutes(expanded);
     const record = getRecord(state.selectedDate, true);
-    record.rows[index].route = raw;
-    const autoUnit = sharedRateForRoutes(raw) || rateFor(raw);
+    record.rows[index].route = joined || routeInput.value;
+    const autoUnit = sharedRateForRoutes(joined) || rateFor(expanded[0] || "");
     if (autoUnit > 0) {
       record.rows[index].unit = autoUnit;
       unit.value = autoUnit;
@@ -1001,10 +1003,11 @@ function renderEntryRow(row, index) {
   });
   routeInput.addEventListener("blur", () => {
     const expanded = expandRouteText(routeInput.value);
-    routeInput.value = expanded.join(" ");
+    const joined = joinStoredRoutes(expanded);
     const record = getRecord(state.selectedDate, true);
-    record.rows[index].route = joinStoredRoutes(expanded);
-    const autoUnit = sharedRateForRoutes(record.rows[index].route);
+    record.rows[index].route = joined || routeInput.value;
+    routeInput.value = joined ? formatRouteLabel(joined) : routeInput.value.trim().toUpperCase();
+    const autoUnit = sharedRateForRoutes(joined);
     if (autoUnit > 0) {
       record.rows[index].unit = autoUnit;
       unit.value = autoUnit;
