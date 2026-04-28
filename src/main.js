@@ -104,6 +104,7 @@ const el = {
   dailyAverage: $("dailyAverage"),
   workDaysHome: $("workDaysHome"),
   meterFill: $("meterFill"),
+  meterPct: $("meterPct"),
   meterLabel: $("meterLabel"),
   goalAmountInput: $("goalAmountInput"),
   saveAppSettings: $("saveAppSettings"),
@@ -142,6 +143,8 @@ const el = {
   statsRange: $("statsRange"),
   statsRevenue: $("statsRevenue"),
   statsMeterFill: $("statsMeterFill"),
+  statsMeterPct: $("statsMeterPct"),
+  statsMeterLabel: $("statsMeterLabel"),
   statsWorkDays: $("statsWorkDays"),
   statsOffDays: $("statsOffDays"),
   statsCount: $("statsCount"),
@@ -894,7 +897,9 @@ function renderSummary() {
   el.dailyAverage.textContent = fmtWon(total.average);
   el.workDaysHome.textContent = `${total.workDays}일`;
   const goal = getGoal();
-  el.meterFill.style.width = `${Math.min(100, total.revenue / goal * 100)}%`;
+  const pct = Math.min(100, total.revenue / goal * 100);
+  el.meterFill.style.width = `${pct}%`;
+  el.meterPct.textContent = `${pct.toFixed(1)}%`;
   el.meterLabel.textContent = `목표 ${fmtWon(goal)} 대비 진행률`;
 }
 function renderMonth() {
@@ -1246,7 +1251,10 @@ function renderStats() {
   el.statsMonthTitle.textContent = `${state.statsYear}년 ${String(state.statsMonth).padStart(2, "0")}월`;
   el.statsRange.textContent = `${formatShort(start)} ~ ${formatShort(end)}`;
   el.statsRevenue.textContent = fmtWon(total.revenue);
-  el.statsMeterFill.style.width = `${Math.min(100, total.revenue / getGoal() * 100)}%`;
+  const statsPct = Math.min(100, total.revenue / getGoal() * 100);
+  el.statsMeterFill.style.width = `${statsPct}%`;
+  el.statsMeterPct.textContent = `${statsPct.toFixed(1)}%`;
+  el.statsMeterLabel.textContent = `목표 ${fmtWon(getGoal())} 대비 진행률`;
   el.statsWorkDays.textContent = `${total.workDays}일`;
   el.statsOffDays.textContent = `${total.offDays}일`;
   el.statsCount.textContent = fmtCount(total.count);

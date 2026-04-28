@@ -28,7 +28,10 @@
               <span>정산 예상액</span>
               <strong id="periodRevenue">0원</strong>
             </div>
-            <div class="summary-meter"><span id="meterFill"></span></div>
+            <div class="meter-wrap">
+              <div class="summary-meter"><span id="meterFill"></span></div>
+              <span class="meter-pct" id="meterPct">0%</span>
+            </div>
             <p class="meter-label" id="meterLabel">목표 600만원 대비 진행률</p>
             <div class="summary-grid">
               <div><span>배송건수</span><strong id="periodCount">0건</strong></div>
@@ -131,7 +134,11 @@
           <div class="summary-card compact">
             <span>정산 예상액</span>
             <strong id="statsRevenue">0원</strong>
-            <div class="summary-meter"><span id="statsMeterFill"></span></div>
+            <div class="meter-wrap">
+              <div class="summary-meter"><span id="statsMeterFill"></span></div>
+              <span class="meter-pct" id="statsMeterPct">0%</span>
+            </div>
+            <p class="meter-label" id="statsMeterLabel">목표 600만원 대비 진행률</p>
           </div>
           <div class="stats-tabs">
             <button class="stats-tab active" data-tab="daily">일간</button>
@@ -392,7 +399,7 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./src/main.js?v=9"></script>
+    <script type="module" src="./src/main.js?v=10"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
