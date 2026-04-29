@@ -189,6 +189,50 @@ before insert on public.quickflex_profiles
 for each row
 execute function public.quickflex_bootstrap_first_profile();
 
+create or replace function public.quickflex_ensure_profile(
+  profile_email text,
+  profile_display_name text,
+  profile_driver_type text
+)
+returns public.quickflex_profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  result public.quickflex_profiles;
+begin
+  if auth.uid() is null then
+    raise exception 'login is required';
+  end if;
+
+  insert into public.quickflex_profiles (id, email, display_name, driver_type, status, role, fixed_routes)
+  values (
+    auth.uid(),
+    profile_email,
+    coalesce(nullif(profile_display_name, ''), '사용자'),
+    case when profile_driver_type = 'fixed' then 'fixed' else 'backup' end,
+    'pending',
+    'driver',
+    '{}'
+  )
+  on conflict (id) do nothing;
+
+  select *
+  into result
+  from public.quickflex_profiles
+  where id = auth.uid();
+
+  if result.id is null then
+    raise exception 'profile could not be created';
+  end if;
+
+  return result;
+end;
+$$;
+
+grant execute on function public.quickflex_ensure_profile(text, text, text) to authenticated;
+
 drop policy if exists "quickflex profiles select own or admin" on public.quickflex_profiles;
 drop policy if exists "quickflex profiles insert own" on public.quickflex_profiles;
 drop policy if exists "quickflex profiles update own" on public.quickflex_profiles;
