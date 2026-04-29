@@ -39,17 +39,39 @@ html[data-theme="dark"], body[data-theme="dark"] {
   --text-sub: rgba(243,244,246,.75);
   --muted: #8B95A9;
   --soft: #5A6478;
-  --gold: #FFC226;
-  --gold2: #FFE08A;
-  --primary-bg: rgba(255,194,38,.15);
-  --primary-dark: #FFD35A;
-  --primary-border: rgba(255,194,38,.28);
+  --gold: #D6A545;
+  --gold2: #E4C174;
+  --primary-bg: rgba(214,165,69,.14);
+  --primary-dark: #E4C174;
+  --primary-border: rgba(214,165,69,.26);
   --blue: #8BA4D6;
   --red-bg: rgba(255,66,66,.14);
   --shadow-card: 0 2px 12px rgba(0,0,0,.4);
-  --shadow-cta: 0 4px 14px rgba(255,194,38,.24);
-  --shadow-total: 0 6px 22px rgba(255,194,38,.20);
+  --shadow-cta: 0 4px 14px rgba(214,165,69,.18);
+  --shadow-total: 0 6px 22px rgba(214,165,69,.16);
   color-scheme: dark;
+}
+html[data-theme="dark"] .mode-btn.active,
+html[data-theme="dark"] .primary-pill,
+html[data-theme="dark"] .full-btn,
+html[data-theme="dark"] .rate-editor button,
+html[data-theme="dark"] .stats-tab.active,
+html[data-theme="dark"] .stats-range-tabs > button.active,
+html[data-theme="dark"] .stats-range-custom > button,
+html[data-theme="dark"] .theme-toggle button.active,
+html[data-theme="dark"] .goal-save-btn,
+html[data-theme="dark"] .total-card,
+body[data-theme="dark"] .mode-btn.active,
+body[data-theme="dark"] .primary-pill,
+body[data-theme="dark"] .full-btn,
+body[data-theme="dark"] .rate-editor button,
+body[data-theme="dark"] .stats-tab.active,
+body[data-theme="dark"] .stats-range-tabs > button.active,
+body[data-theme="dark"] .stats-range-custom > button,
+body[data-theme="dark"] .theme-toggle button.active,
+body[data-theme="dark"] .goal-save-btn,
+body[data-theme="dark"] .total-card {
+  color: #151922;
 }
 
 * { box-sizing: border-box; }
@@ -202,6 +224,7 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 .sat { color: var(--blue) !important; }
 .calendar-grid { grid-auto-rows: 78px; min-height: 468px; }
 .day-cell {
+  position: relative;
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   display: grid;
@@ -235,6 +258,21 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
   color: var(--muted);
 }
 .today-cell .day-number { background: var(--gold); color: #fff; }
+.day-cell.holiday .day-number { color: var(--red); }
+.today-cell.holiday .day-number { color: #fff; }
+.day-holiday {
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  max-width: 34px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--red);
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 1;
+}
 .day-value {
   display: block;
   min-width: 0;
@@ -460,13 +498,13 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
   position: absolute;
   top: 6px;
   right: 6px;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 999px;
-  background: var(--red-bg);
-  border: 1px solid rgba(255,66,66,.3);
-  color: var(--red);
-  font-size: 14px;
+  background: var(--panel3);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
   font-weight: 950;
   line-height: 1;
 }
