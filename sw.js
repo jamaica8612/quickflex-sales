@@ -1,4 +1,4 @@
-const CACHE_NAME = "quickflex-shell-v40";
+const CACHE_NAME = "quickflex-shell-v41";
 const SHELL_FILES = [
   "./",
   "./index.html",
