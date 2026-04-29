@@ -1,6 +1,93 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-27 (ocr ux account off-day pass)
+Last updated: 2026-04-30 (Claude design handoff)
+
+## 2026-04-30 Claude Design Handoff (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+Production URL: `https://jamaica8612.github.io/quickflex-sales/`
+
+### User Request
+
+The user plans to ask Claude to redesign the whole app UI so it feels consistent with the project. Claude should continue from this local folder and keep the current feature behavior intact while changing the visual design.
+
+### Current Frontend State
+
+- Entry point: `index.html` loads `./src/main.js?v=30`.
+- Service worker cache: `sw.js` uses `quickflex-shell-v54`.
+- Main runtime still lives mostly in `src/main.js`; `app.js` is only a compatibility bootstrap.
+- Visual system is mainly in `styles.css`. For a design pass, expect most edits to be `styles.css` plus small markup adjustments in `index.html` or targeted render functions in `src/main.js`.
+- Production Supabase public config is in `src/config.js`; do not move secrets into frontend files.
+
+### Recent Feature Updates To Preserve
+
+- Goal amount is now database-first:
+  - `quickflex_profiles.goal_amount integer not null default 6000000`.
+  - `getGoal()` reads from `state.profile.goal_amount`, not browser localStorage.
+  - Saving the monthly goal updates `quickflex_profiles.goal_amount`.
+  - Legacy `quickflex_route_rates.route = '__GOAL__'` values are migrated once into the profile goal if needed.
+- Login/profile creation now uses RPC:
+  - `public.quickflex_ensure_profile(profile_email, profile_display_name, profile_driver_type)`.
+  - The SQL body must include the full `$function$ ... $function$` block and the grant.
+  - This was added to avoid RLS errors when a new login needs its first `quickflex_profiles` row.
+- Home goal meter layout was adjusted:
+  - The goal-vs-progress text belongs above the meter text area, while the percent value stays on the right side of the bar.
+- Calendar Today button behavior:
+  - Pressing `오늘` should move the calendar back to today's settlement month and select today.
+- Route/rate management:
+  - Users can delete only their own personal route-rate rows.
+  - Inherited/admin default routes should not show a delete button.
+  - Deleting a personal route does not change older daily records because historical revenue uses `unit_snapshot`.
+  - Unknown custom backup routes ask for confirmation using the "새 업무 구역" wording before saving as a personal route.
+  - Fixed drivers must still be limited to admin-assigned `fixed_routes`.
+- Settings order:
+  - `스케줄 가져오기` is intentionally placed directly under the name/profile save area.
+- Stats design was recently made more consistent with the project, but the user still wants Claude to do a broader UI redesign.
+
+### Database / Supabase Notes
+
+- Canonical schema file: `supabase-schema.sql`.
+- `supabase/schema.sql` is intentionally only a pointer.
+- If applying DB SQL manually, copy the latest `supabase-schema.sql` from top to bottom. Do not stop at:
+  `set search_path = public`
+  because `quickflex_ensure_profile` needs the following `$function$` body.
+- First profile bootstrap still makes the first inserted profile an approved admin.
+- RLS is expected to stay enabled. Do not add browser-only persistence for production data.
+
+### Design Constraints For Claude
+
+- Keep the app mobile-first; the main tested viewport has been around 708 x 1104.
+- Do not turn the app into a landing page. The first screen after login should remain the usable app.
+- Preserve bottom navigation views: `달력`, `통계`, `관리`, `설정` where admin visibility still depends on role.
+- Avoid broad rewrites of `src/main.js`; patch targeted render functions only when markup structure must change.
+- If cached assets change, bump both:
+  - `sw.js` `CACHE_NAME`
+  - `index.html` asset query for `src/main.js` if JS changed
+- After frontend changes, run:
+
+```powershell
+node --check app.js
+node --check sw.js
+node --check src/main.js
+git diff --check
+```
+
+### Suggested Design Starting Points
+
+- `styles.css`: primary visual redesign surface.
+- `index.html`: app shell, bottom nav, settings sections, modal/static markup.
+- `src/main.js` targeted areas:
+  - summary card and meter rendering
+  - calendar cells and selected-day dock
+  - settings route-rate chips and delete controls
+  - stats screen period controls and chart sections
+  - admin cards and route bundle cards
+
+### Last Known Checks
+
+- Before this handoff, the working tree was clean.
+- Latest pushed commit before this note: `87cd0a3 Fix ensure profile SQL function body`.
+- Recent validation passed: `node --check app.js`, `node --check sw.js`, `node --check src/main.js`, `git diff --check`.
 
 ## 2026-04-27 OCR UX Account Off-Day Pass (Codex)
 
