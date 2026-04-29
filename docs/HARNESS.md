@@ -52,25 +52,22 @@ Examples:
 
 ## OCR Harness
 
-Schedule OCR runs as **client-side table segmentation + server-side Google Cloud Vision** for the cells that actually need OCR. The Edge Function (`supabase/functions/ocr-schedule`) supports two request modes:
+Schedule OCR runs as **server-side Google Cloud Vision on the full image**. The browser sends one authenticated request to the Edge Function (`supabase/functions/ocr-schedule`) with `mode: "vision-schedule"` and the full schedule image.
 
-- `mode: "cells"` (default browser path) — body carries `cells: [{ id, base64, mimeType }]`. Server calls Cloud Vision `images:annotate` (`TEXT_DETECTION`) in batches of up to 16 with `Promise.all`, returns `{ provider, results: [{ id, text, confidence }] }`.
+- `mode: "vision-schedule"` (default browser path) — body carries `{ imageBase64, mimeType, ownerName, year, month }`. Server calls Cloud Vision `DOCUMENT_TEXT_DETECTION` once, uses word bounding boxes to find the date row and the matching driver row, and returns `{ schedule, rawText, provider, model }`.
+- `mode: "cells"` (legacy fallback) — body carries `cells: [{ id, base64, mimeType }]`. Server calls Cloud Vision `images:annotate` (`TEXT_DETECTION`) in batches of up to 16 with `Promise.all`, returns `{ provider, results: [{ id, text, confidence }] }`.
 - Default (no `mode`) — legacy full-image flow that calls the provider harness (Gemini, etc.).
 
-Client rules (mobile memory safety + cost control):
-- Always run OpenCV on a downscaled analysis canvas (max width ~900px); never on the original image.
-- Wrap every `cv.Mat` in `try/finally` and `delete()` all intermediates (`gray`, `binary`, `horizontal`, `vertical`, `grid`, `contours`, `hierarchy`, etc.).
-- Reuse a module-scoped analysis canvas and a single cell-crop canvas; do not `createElement` a canvas per cell.
+Client rules:
 - Validate the entered driver name client-side before sending anything to Cloud Vision (Vision is paid).
-- OCR the name column once (one batch call), then OCR only the matched row's date cells (one batch call). Two round-trips total.
-- Decide off-days client-side by average pixel color (pink/red) and skip OCR for those cells entirely.
-- Yield to the UI between heavy stages (`requestIdleCallback` or `setTimeout 0`).
-- Wrap stages with `console.time("detectTable" | "ocrNames" | "ocrSchedule")` for mobile profiling.
+- Send the original image once; do not require OpenCV for the default schedule OCR path.
+- Keep the OCR status focused on server analysis, not client-side table segmentation.
 
 Server rules:
 - Read the API key from `GOOGLE_CLOUD_VISION_API_KEY` (fallback `CLOUD_VISION_API_KEY`); never accept the key from the request body.
-- Send `languageHints: ["ko", "en"]` and use `TEXT_DETECTION` (single line per cell).
-- Per-batch failures must not crash the entire response; missing cells return `text: ""`.
+- For `vision-schedule`, send `languageHints: ["ko", "en"]` and use `DOCUMENT_TEXT_DETECTION`.
+- Use Cloud Vision word bounding boxes to group rows, map date columns, and extract only the requested driver's route codes.
+- For legacy `cells`, per-batch failures must not crash the entire response; missing cells return `text: ""`.
 
 Provider contract:
 

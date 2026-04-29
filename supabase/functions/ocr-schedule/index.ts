@@ -1,5 +1,6 @@
 import { createOcrProvider } from "./harness.ts";
 import { handleCellsOcr } from "./cells.ts";
+import { extractVisionSchedule } from "./vision-schedule.ts";
 import type { OcrRequest } from "./types.ts";
 
 const corsHeaders = {
@@ -50,7 +51,6 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: "imageBase64 값이 필요합니다." }, 400);
     }
 
-    const provider = createOcrProvider();
     const input = {
       imageBase64,
       mimeType,
@@ -58,6 +58,13 @@ Deno.serve(async (request) => {
       year,
       month,
     };
+
+    if (body.mode === "vision-schedule") {
+      const result = await extractVisionSchedule(input);
+      return jsonResponse(result);
+    }
+
+    const provider = createOcrProvider();
     const result = kind === "settlement"
       ? await provider.extractSettlement(input)
       : await provider.extractSchedule(input);
