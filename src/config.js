@@ -3,6 +3,8 @@ export const PUBLIC_SUPABASE_CONFIG = {
   anonKey: "sb_publishable_prnLDb7bcWORu7wrqTRsXQ_NWJL8Jnk",
 };
 
+export const PUBLIC_SITE_URL = "https://jamaica8612.github.io/quickflex-sales/";
+
 export const TABLES = {
   profiles: "quickflex_profiles",
   rates: "quickflex_route_rates",

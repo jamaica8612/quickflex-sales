@@ -6,6 +6,7 @@ import {
   DEFAULT_ROUTE_BUNDLES,
   DEFAULT_ROUTE_MASTER,
   GOAL,
+  PUBLIC_SITE_URL,
   PUBLIC_SUPABASE_CONFIG,
   SAMPLE_SETTLEMENT,
   TABLES,
@@ -759,9 +760,7 @@ async function sendPasswordReset() {
   el.authError.textContent = "";
   const email = el.authEmail.value.trim();
   if (!email) throw new Error("비밀번호를 재설정할 이메일을 입력해 주세요.");
-  const redirectTo = location.protocol === "file:"
-    ? "https://jamaica8612.github.io/quickflex-sales/"
-    : `${location.origin}${location.pathname}`;
+  const redirectTo = PUBLIC_SITE_URL;
   const { error } = await state.db.auth.resetPasswordForEmail(email, { redirectTo });
   if (error) throw error;
   toast("비밀번호 재설정 메일을 보냈습니다.", "success");
