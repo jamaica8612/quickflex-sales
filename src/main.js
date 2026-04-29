@@ -259,6 +259,11 @@ function periodKeysFor(year, month) {
   return keys;
 }
 function periodKeys() { return periodKeysFor(state.year, state.month); }
+function periodForDate(date = new Date()) {
+  const month = date.getDate() <= 25 ? date.getMonth() + 1 : date.getMonth() + 2;
+  const periodDate = new Date(date.getFullYear(), month - 1, 1);
+  return { year: periodDate.getFullYear(), month: periodDate.getMonth() + 1 };
+}
 function prevPeriod(year = state.year, month = state.month) {
   const date = new Date(year, month - 2, 1);
   return { year: date.getFullYear(), month: date.getMonth() + 1 };
@@ -1209,6 +1214,14 @@ function selectDate(dateKey) {
   state.selectedDate = dateKey;
   renderMonth();
   renderHomeSelection();
+}
+function selectToday() {
+  const todayDate = new Date();
+  const period = periodForDate(todayDate);
+  state.year = period.year;
+  state.month = period.month;
+  selectDate(toDateKey(todayDate));
+  renderSummary();
 }
 function moveMonth(amount) {
   const date = new Date(state.year, state.month - 1 + amount, 1);
@@ -2523,7 +2536,7 @@ function bindEvents() {
   el.backFromSettings.addEventListener("click", () => showView("home"));
   el.prevMonth.addEventListener("click", () => moveMonth(-1));
   el.nextMonth.addEventListener("click", () => moveMonth(1));
-  el.todayButton.addEventListener("click", () => selectDate(todayKey()));
+  el.todayButton.addEventListener("click", selectToday);
   el.homeOffToggle.addEventListener("click", () => {
     const record = getRecord(state.selectedDate, true);
     record.off = !record.off;
