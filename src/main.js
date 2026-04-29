@@ -469,8 +469,9 @@ function normalizeRecordShape(record) {
       route: joinStoredRoutes(expandRouteText(row.route)),
       count: row.count ?? "",
       unit: row.unit ?? sharedRateForRoutes(row.route) ?? 0,
+      draft: Boolean(row.draft),
     }))
-    .filter((row) => row.route || toNum(row.count) > 0 || toNum(row.unit) > 0);
+    .filter((row) => row.draft || row.route || toNum(row.count) > 0 || toNum(row.unit) > 0);
   next.rows.forEach((row) => {
     if (!toNum(row.unit) && row.route) row.unit = sharedRateForRoutes(row.route) || rateFor(row.route);
   });
@@ -493,7 +494,10 @@ function mergeGroupedRows(rows) {
   const merged = [];
   rows.forEach((row) => {
     const routes = splitStoredRoutes(row.route);
-    if (!routes.length) return;
+    if (!routes.length) {
+      if (row.draft) merged.push({ route: "", count: row.count ?? "", unit: row.unit ?? 0, draft: true });
+      return;
+    }
     const unit = toNum(row.unit) || sharedRateForRoutes(routes) || 0;
     const prefix = routes[0].slice(0, 3);
     const canGroup = unit > 0 && routes.every((route) => route.slice(0, 3) === prefix);
@@ -1151,6 +1155,7 @@ function renderEntryRow(row, index) {
     const joined = joinStoredRoutes(expanded);
     const record = getRecord(state.selectedDate, true);
     record.rows[index].route = joined || routeInput.value;
+    record.rows[index].draft = !joined;
     const autoUnit = autoUnitForRoutes(joined || expanded);
     record.rows[index].unit = autoUnit;
     unit.value = autoUnit || "";
@@ -1163,6 +1168,7 @@ function renderEntryRow(row, index) {
     const joined = joinStoredRoutes(expanded);
     const record = getRecord(state.selectedDate, true);
     record.rows[index].route = joined || routeInput.value;
+    record.rows[index].draft = !joined;
     routeInput.value = joined ? formatRouteLabel(joined) : routeInput.value.trim().toUpperCase();
     const autoUnit = autoUnitForRoutes(joined || expanded);
     record.rows[index].unit = autoUnit;
@@ -2209,7 +2215,7 @@ function bindEvents() {
     const record = getRecord(state.selectedDate, true);
     record.off = false;
     const firstRate = isBackupDriver() ? state.rates[0] || state.defaultRates[0] : null;
-    record.rows.push({ route: firstRate?.route || "", count: "", unit: firstRate?.unit || 0 });
+    record.rows.push({ route: firstRate?.route || "", count: "", unit: firstRate?.unit || 0, draft: !firstRate });
     scheduleSave({ dateKeys: [state.selectedDate] });
     renderEntryForm();
   });
