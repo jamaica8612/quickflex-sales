@@ -386,7 +386,7 @@ function correctRouteList(routes) {
 }
 function activeRouteBundles() {
   const dbBundles = (state.routeBundles || [])
-    .filter((bundle) => bundle.active !== false && Array.isArray(bundle.routes) && bundle.routes.length >= 2)
+    .filter((bundle) => bundle.active !== false && Array.isArray(bundle.routes) && bundle.routes.length >= 1)
     .map((bundle) => routeListFromText(bundle.routes));
   const seen = new Set(dbBundles.map((bundle) => joinStoredRoutes(bundle)));
   const fallback = DEFAULT_ROUTE_BUNDLES.filter((bundle) => !seen.has(joinStoredRoutes(bundle)));
@@ -1638,7 +1638,7 @@ function normalizeBundleRows(rows) {
       active: row.active !== false,
       sort_order: toNum(row.sort_order),
     }))
-    .filter((row) => row.label && row.routes.length >= 2)
+    .filter((row) => row.label && row.routes.length >= 1)
     .sort((a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label));
 }
 async function loadRouteBundles({ includeInactive = false } = {}) {
@@ -1663,12 +1663,12 @@ function parseBundleDraft(text) {
       const label = (parts.length > 1 ? parts[0] : compactRouteList(routes)).trim();
       return { label, routes, sort_order: index };
     })
-    .filter((row) => row.label && row.routes.length >= 2);
+    .filter((row) => row.label && row.routes.length >= 1);
 }
 async function saveRouteBundle({ id = null, label, routes, active = true, sort_order = 0 }) {
   const cleanRoutes = routeListFromText(routes);
   const cleanLabel = String(label || compactRouteList(cleanRoutes)).trim();
-  if (!cleanLabel || cleanRoutes.length < 2) throw new Error("묶음 이름과 2개 이상의 구역이 필요합니다.");
+  if (!cleanLabel || cleanRoutes.length < 1) throw new Error("묶음 이름과 1개 이상의 구역이 필요합니다.");
   const payload = {
     label: cleanLabel,
     routes: cleanRoutes,
