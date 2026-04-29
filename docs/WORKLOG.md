@@ -1,6 +1,40 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-30 (gray+yellow redesign finish)
+Last updated: 2026-04-30 (calendar holiday and dark tone polish)
+
+## 2026-04-30 Calendar Holiday And Dark Tone Polish (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+
+### Changed Files
+
+- `src/main.js`
+  - Added Korean holiday lookup for fixed-date holidays and 2026 lunar/substitute/election holidays.
+  - Calendar cells now show a small holiday badge and use the holiday name when the cell has no route/value text.
+- `styles.css`
+  - Softened dark-mode yellow from bright `#FFC226` to muted amber `#D6A545`.
+  - Dark-mode primary buttons now use dark text on amber for a calmer look.
+  - Route delete buttons changed from red to a quieter gray chip and reduced from 20px to 18px.
+  - Added calendar holiday badge styling.
+- `index.html`
+  - Bumped `styles.css` and `src/main.js` asset query versions.
+- `sw.js`
+  - Bumped cache to `quickflex-shell-v56`.
+
+### Checks Run
+
+```powershell
+node --check app.js
+node --check sw.js
+node --check src/main.js
+git diff --check
+```
+
+Browser QA:
+- Local `http://localhost:5500/index.html`.
+- Verified May 2026 holiday labels, muted dark amber theme, quiet route delete button, and console errors 0.
+
+---
 
 ## 2026-04-30 Gray+Yellow Redesign Finish (Codex)
 

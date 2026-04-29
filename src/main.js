@@ -50,6 +50,48 @@ try { applyTheme(localStorage.getItem("quickflex-theme") || "light"); } catch (_
 const GOAL_SETTING_ROUTE = "__GOAL__";
 function getGoal() { return toNum(state.profile?.goal_amount) || GOAL; }
 function goalRawValue() { return parseInt((el.goalAmountInput.value || "").replace(/,/g, ""), 10) || 0; }
+
+const FIXED_KOREAN_HOLIDAYS = {
+  "01-01": "신정",
+  "03-01": "삼일절",
+  "05-05": "어린이날",
+  "06-06": "현충일",
+  "08-15": "광복절",
+  "10-03": "개천절",
+  "10-09": "한글날",
+  "12-25": "성탄절",
+};
+const KOREAN_HOLIDAYS = {
+  "2026-01-01": "신정",
+  "2026-02-16": "설날",
+  "2026-02-17": "설날",
+  "2026-02-18": "설날",
+  "2026-03-01": "삼일절",
+  "2026-03-02": "대체공휴일",
+  "2026-05-05": "어린이날",
+  "2026-05-24": "부처님오신날",
+  "2026-05-25": "대체공휴일",
+  "2026-06-03": "지방선거",
+  "2026-06-06": "현충일",
+  "2026-08-15": "광복절",
+  "2026-08-17": "대체공휴일",
+  "2026-09-24": "추석",
+  "2026-09-25": "추석",
+  "2026-09-26": "추석",
+  "2026-10-03": "개천절",
+  "2026-10-05": "대체공휴일",
+  "2026-10-09": "한글날",
+  "2026-12-25": "성탄절",
+};
+function koreanHoliday(dateKey) {
+  return KOREAN_HOLIDAYS[dateKey] || FIXED_KOREAN_HOLIDAYS[dateKey.slice(5)] || "";
+}
+function holidayShortLabel(name) {
+  if (!name) return "";
+  if (name.includes("대체")) return "대체";
+  if (name.includes("부처님")) return "부처님";
+  return name.length > 4 ? name.slice(0, 4) : name;
+}
 function formatGoalInput() {
   const raw = goalRawValue();
   el.goalAmountInput.value = raw > 0 ? raw.toLocaleString("ko-KR") : "";
@@ -1220,12 +1262,16 @@ function renderMonth() {
     const record = getRecord(dateKey, false);
     const calc = calcRecord(record);
     const inPeriod = periodKeys().includes(dateKey);
+    const holidayName = koreanHoliday(dateKey);
     const cell = document.createElement("button");
     cell.type = "button";
-    cell.className = `day-cell${inPeriod ? "" : " outside"}${dateKey === state.selectedDate ? " selected" : ""}${dateKey === todayKey() ? " today-cell" : ""}${record.off ? " off" : ""}`;
+    cell.className = `day-cell${inPeriod ? "" : " outside"}${dateKey === state.selectedDate ? " selected" : ""}${dateKey === todayKey() ? " today-cell" : ""}${record.off ? " off" : ""}${holidayName ? " holiday" : ""}`;
     const routeText = record.off ? "" : formatRecordRoutes(record.rows);
     const value = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : (calc.revenue ? fmtNum(calc.revenue) : "");
-    cell.innerHTML = `<span class="day-number">${date.getDate()}</span><span class="day-value">${value}</span><span class="day-routes">${routeText}</span>`;
+    const routeOrHoliday = routeText || (!value && holidayName ? holidayName : "");
+    const holidayBadge = holidayName ? `<span class="day-holiday">${holidayShortLabel(holidayName)}</span>` : "";
+    if (holidayName) cell.title = holidayName;
+    cell.innerHTML = `<span class="day-number">${date.getDate()}</span>${holidayBadge}<span class="day-value">${value}</span><span class="day-routes">${routeOrHoliday}</span>`;
     cell.addEventListener("click", () => selectDate(dateKey));
     el.monthCalendar.appendChild(cell);
   }
