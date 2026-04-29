@@ -72,6 +72,8 @@ const state = {
   saveTimer: null,
   flushing: false,
   flushAgain: false,
+  recordDraftDate: "",
+  recordDraft: null,
 };
 
 let ocrDraftMap = null;
@@ -406,6 +408,31 @@ function getRecord(dateKey, create = false) {
   return state.entries[dateKey];
 }
 function setRecord(dateKey, record) { state.entries[dateKey] = normalizeRecordShape(record); }
+function cloneRecord(record) {
+  return normalizeRecordShape(JSON.parse(JSON.stringify(record || emptyRecord())));
+}
+function startRecordDraft(dateKey = state.selectedDate) {
+  state.recordDraftDate = dateKey;
+  state.recordDraft = cloneRecord(getRecord(dateKey, false));
+  return state.recordDraft;
+}
+function currentRecordDraft() {
+  if (state.recordDraftDate !== state.selectedDate || !state.recordDraft) return startRecordDraft();
+  return state.recordDraft;
+}
+function discardRecordDraft() {
+  state.recordDraftDate = "";
+  state.recordDraft = null;
+}
+function commitRecordDraft() {
+  if (!state.recordDraft || !state.recordDraftDate) return;
+  const record = cloneRecord(state.recordDraft);
+  record.rows = record.rows
+    .filter((row) => row.route || toNum(row.count) > 0 || toNum(row.unit) > 0)
+    .map(({ draft, ...row }) => row);
+  setRecord(state.recordDraftDate, record);
+  discardRecordDraft();
+}
 function hasMeaningfulRecord(record) {
   const rec = normalizeRecordShape(record);
   return rec.off || rec.rows.length > 0 || toNum(rec.freshCount) > 0 || toNum(rec.freshUnit) !== 100 || (isBackupDriver() && toNum(rec.backupUnit) !== DEFAULT_BACKUP_UNIT);
@@ -1034,9 +1061,8 @@ function routeOptions(selected) {
 }
 function renderEntryForm() {
   const existed = Boolean(state.entries[state.selectedDate]);
-  let record = getRecord(state.selectedDate, true);
+  let record = currentRecordDraft();
   if (record.off) record.rows = [];
-  setRecord(state.selectedDate, record);
   el.selectedDateTitle.textContent = formatRecordTitleDate(state.selectedDate);
   el.offToggle.checked = record.off;
   el.entryRows.innerHTML = "";
@@ -1074,20 +1100,19 @@ function renderEntryRow(row, index) {
     routeInput.value = routeInput.value.toUpperCase();
     const expanded = expandRouteText(routeInput.value);
     const joined = joinStoredRoutes(expanded);
-    const record = getRecord(state.selectedDate, true);
+    const record = currentRecordDraft();
     record.rows[index].route = joined || routeInput.value;
     record.rows[index].draft = !joined;
     const autoUnit = autoUnitForRoutes(joined || expanded);
     record.rows[index].unit = autoUnit;
     unit.value = autoUnit || "";
     output.textContent = fmtWon(toNum(count.value) * autoUnit);
-    scheduleSave({ dateKeys: [state.selectedDate] });
     refreshTotals();
   });
   routeInput.addEventListener("blur", () => {
     const expanded = expandRouteText(routeInput.value);
     const joined = joinStoredRoutes(expanded);
-    const record = getRecord(state.selectedDate, true);
+    const record = currentRecordDraft();
     record.rows[index].route = joined || routeInput.value;
     record.rows[index].draft = !joined;
     routeInput.value = joined ? formatRouteLabel(joined) : routeInput.value.trim().toUpperCase();
@@ -1095,34 +1120,28 @@ function renderEntryRow(row, index) {
     record.rows[index].unit = autoUnit;
     unit.value = autoUnit || "";
     output.textContent = fmtWon(toNum(count.value) * autoUnit);
-    scheduleSave({ dateKeys: [state.selectedDate] });
     refreshTotals();
   });
   count.addEventListener("input", () => {
-    const record = getRecord(state.selectedDate, true);
+    const record = currentRecordDraft();
     record.rows[index].count = count.value;
-    scheduleSave({ dateKeys: [state.selectedDate] });
     refreshTotals();
   });
   unit.addEventListener("input", () => {
-    const record = getRecord(state.selectedDate, true);
+    const record = currentRecordDraft();
     record.rows[index].unit = unit.value;
-    scheduleSave({ dateKeys: [state.selectedDate] });
     refreshTotals();
   });
   del.addEventListener("click", () => {
-    const record = getRecord(state.selectedDate, true);
+    const record = currentRecordDraft();
     record.rows.splice(index, 1);
-    scheduleSave({ dateKeys: [state.selectedDate], immediate: true });
     renderEntryForm();
-    renderSummary();
-    renderMonth();
-    renderHomeSelection();
+    refreshTotals();
   });
   el.entryRows.appendChild(node);
 }
 function syncFormToRecord() {
-  const record = getRecord(state.selectedDate, true);
+  const record = currentRecordDraft();
   record.freshCount = el.freshCount.value;
   record.freshUnit = el.freshUnit.value;
   record.freshSoloCount = el.freshSoloCount.value;
@@ -1150,6 +1169,7 @@ function refreshTotals() {
 }
 async function saveCurrentRecordAndGoHome() {
   syncFormToRecord();
+  commitRecordDraft();
   scheduleSave({ dateKeys: [state.selectedDate], immediate: true });
   await ensurePendingSavesFlushed();
   renderAll();
@@ -2119,34 +2139,30 @@ function bindEvents() {
     scheduleSave({ dateKeys: [state.selectedDate] });
     renderAll();
   });
-  el.openRecord.addEventListener("click", () => showView("record"));
-  el.backToCalendar.addEventListener("click", () => showView("home"));
-  el.prevDay.addEventListener("click", () => { selectDate(addDays(state.selectedDate, -1)); renderEntryForm(); });
-  el.nextDay.addEventListener("click", () => { selectDate(addDays(state.selectedDate, 1)); renderEntryForm(); });
+  el.openRecord.addEventListener("click", () => { startRecordDraft(); showView("record"); });
+  el.backToCalendar.addEventListener("click", () => { discardRecordDraft(); renderAll(); showView("home"); });
+  el.prevDay.addEventListener("click", () => { discardRecordDraft(); selectDate(addDays(state.selectedDate, -1)); renderEntryForm(); });
+  el.nextDay.addEventListener("click", () => { discardRecordDraft(); selectDate(addDays(state.selectedDate, 1)); renderEntryForm(); });
   el.offToggle.addEventListener("change", () => {
-    const record = getRecord(state.selectedDate, true);
+    const record = currentRecordDraft();
     record.off = el.offToggle.checked;
     if (record.off) record.rows = [];
     else if (!isBackupDriver()) record.rows = fixedDefaultRows();
-    scheduleSave({ dateKeys: [state.selectedDate] });
     renderEntryForm();
     refreshTotals();
   });
   el.addRoute.addEventListener("click", () => {
-    const record = getRecord(state.selectedDate, true);
+    const record = currentRecordDraft();
     record.off = false;
     const firstRate = isBackupDriver() ? state.rates[0] || state.defaultRates[0] : null;
     record.rows.push({ route: firstRate?.route || "", count: "", unit: firstRate?.unit || 0, draft: !firstRate });
-    scheduleSave({ dateKeys: [state.selectedDate] });
     renderEntryForm();
   });
   [el.freshCount, el.freshUnit, el.backupUnit].forEach((input) => input.addEventListener("input", () => {
-    scheduleSave({ dateKeys: [state.selectedDate] });
     refreshTotals();
   }));
   [el.freshSoloCount, el.freshLinkedCount].forEach((input) => input.addEventListener("input", () => {
     syncFormToRecord();
-    scheduleSave({ dateKeys: [state.selectedDate] });
     refreshTotals();
   }));
   document.querySelectorAll('input[name="freshbagMode"]').forEach((radio) => {
