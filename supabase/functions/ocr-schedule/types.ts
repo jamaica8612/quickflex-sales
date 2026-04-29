@@ -50,6 +50,7 @@ export type OcrHarnessResult = {
   rawText: string;
   provider: string;
   model: string;
+  debug?: unknown;
 };
 
 export type SettlementOcrResult = {

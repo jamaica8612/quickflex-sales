@@ -1884,6 +1884,56 @@ async function fileToBase64(file) {
     reader.readAsDataURL(file);
   });
 }
+function loadImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = (error) => { URL.revokeObjectURL(url); reject(error); };
+    img.src = url;
+  });
+}
+function averageRgbFromImageData(imageData) {
+  const data = imageData.data;
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let i = 0; i < data.length; i += 16) {
+    r += data[i];
+    g += data[i + 1];
+    b += data[i + 2];
+    n += 1;
+  }
+  return n ? { r: r / n, g: g / n, b: b / n } : { r: 255, g: 255, b: 255 };
+}
+function isPinkOffColor({ r, g, b }) {
+  return r > 205 && g > 120 && g < 215 && b > 130 && b < 225 && r - g > 18 && r - b > 18;
+}
+async function detectPinkOffDates(file, debug) {
+  const columns = Array.isArray(debug?.columns) ? debug.columns : [];
+  const ownerRow = debug?.ownerRow;
+  if (!columns.length || !ownerRow || !Number.isFinite(ownerRow.cy)) return new Set();
+  const img = await loadImageFile(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth || img.width;
+  canvas.height = img.naturalHeight || img.height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const rowHeight = Math.max(18, Number(ownerRow.bottom || ownerRow.cy) - Number(ownerRow.top || ownerRow.cy));
+  const y = Math.max(0, Math.round(Number(ownerRow.cy) - rowHeight * 0.45));
+  const h = Math.max(8, Math.min(canvas.height - y, Math.round(rowHeight * 0.9)));
+  const offDates = new Set();
+  columns.forEach((column) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(column.date || ""))) return;
+    const left = Number(column.left);
+    const right = Number(column.right);
+    if (!Number.isFinite(left) || !Number.isFinite(right) || right <= left) return;
+    const pad = Math.max(4, (right - left) * 0.18);
+    const x = Math.max(0, Math.round(left + pad));
+    const w = Math.max(8, Math.min(canvas.width - x, Math.round(right - left - pad * 2)));
+    const avg = averageRgbFromImageData(ctx.getImageData(x, y, w, h));
+    if (isPinkOffColor(avg)) offDates.add(column.date);
+  });
+  return offDates;
+}
 function cleanOcrErrorMessage(message) {
   const text = String(message || "").trim();
   if (!text) return "OCR 처리 중 오류가 발생했습니다.";
@@ -1945,11 +1995,13 @@ async function runOcr() {
         month: state.month,
       }),
     });
-    const { schedule } = await readOcrResponse(response);
+    const result = await readOcrResponse(response);
+    const { schedule } = result;
+    const pinkOffDates = await detectPinkOffDates(file, result?.debug).catch(() => new Set());
     const map = {};
     Object.entries(schedule || {}).forEach(([dateKey, routes]) => {
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
-        map[dateKey] = Array.isArray(routes) ? routes : null;
+        map[dateKey] = pinkOffDates.has(dateKey) ? null : Array.isArray(routes) ? routes : null;
       }
     });
     if (!Object.keys(map).length) throw new Error("유효한 스케줄이 없습니다.");

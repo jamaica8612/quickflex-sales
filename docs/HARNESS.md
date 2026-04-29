@@ -64,6 +64,7 @@ Client rules:
 - Validate the entered driver name client-side before sending anything to Cloud Vision (Vision is paid).
 - Send the original image once; do not require OpenCV for the default schedule OCR path.
 - Keep the OCR status focused on server analysis, not client-side table segmentation.
+- Use server-returned OCR row/column coordinates to sample the original image for pink off-day cells; this is simple canvas color sampling, not OpenCV table segmentation.
 - Fixed drivers use OCR only for off/work-day detection; work days are filled from that user's `fixed_routes`.
 - Backup drivers keep OCR route extraction, correct each single route code against route candidates, then complete DB-managed route bundles when at least two routes from that bundle are observed. Built-in bundles are fallback only and stay conservative: they complete only one missing route.
 

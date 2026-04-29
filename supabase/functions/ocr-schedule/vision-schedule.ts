@@ -32,6 +32,8 @@ type OcrWord = {
 type OcrRow = {
   words: OcrWord[];
   cy: number;
+  top: number;
+  bottom: number;
   text: string;
 };
 
@@ -157,11 +159,13 @@ function buildRows(words: OcrWord[]): OcrRow[] {
   for (const word of [...words].sort((a, b) => a.cy - b.cy || a.x - b.x)) {
     let row = rows.find((candidate) => Math.abs(candidate.cy - word.cy) <= tolerance);
     if (!row) {
-      row = { words: [], cy: word.cy, text: "" };
+      row = { words: [], cy: word.cy, top: word.y, bottom: word.y + word.h, text: "" };
       rows.push(row);
     }
     row.words.push(word);
     row.cy = row.words.reduce((sum, w) => sum + w.cy, 0) / row.words.length;
+    row.top = Math.min(...row.words.map((w) => w.y));
+    row.bottom = Math.max(...row.words.map((w) => w.y + w.h));
   }
   return rows
     .map((row) => {
@@ -236,8 +240,9 @@ function buildSchedule(
   dates: Array<{ day: number; x: number }>,
   year: number,
   month: number,
-): ScheduleMap {
+): { schedule: ScheduleMap; columns: Array<{ date: string; left: number; right: number }> } {
   const schedule: ScheduleMap = {};
+  const columns: Array<{ date: string; left: number; right: number }> = [];
   dates.forEach((date, index) => {
     const { left, right } = columnBounds(dates, index);
     const text = ownerRow.words
@@ -245,6 +250,7 @@ function buildSchedule(
       .map((word) => word.text)
       .join(" ");
     const key = dateKey(year, month, date.day);
+    columns.push({ date: key, left, right });
     if (!text.trim() || OFF_PATTERN.test(normalizeText(text))) {
       schedule[key] = null;
       return;
@@ -252,7 +258,7 @@ function buildSchedule(
     const routes = uniqueRoutes(text);
     schedule[key] = routes;
   });
-  return schedule;
+  return { schedule, columns };
 }
 
 export async function extractVisionSchedule(input: OcrHarnessInput): Promise<OcrHarnessResult> {
@@ -260,12 +266,16 @@ export async function extractVisionSchedule(input: OcrHarnessInput): Promise<Ocr
   const rows = buildRows(words);
   const { row: headerRow, dates } = findHeaderRow(rows);
   const ownerRow = findOwnerRow(rows, headerRow, input.ownerName);
-  const schedule = buildSchedule(ownerRow, dates, input.year, input.month);
+  const { schedule, columns } = buildSchedule(ownerRow, dates, input.year, input.month);
 
   return {
     schedule,
     rawText,
     provider: "cloud-vision",
     model: "document-text-detection",
+    debug: {
+      columns,
+      ownerRow: { top: ownerRow.top, bottom: ownerRow.bottom, cy: ownerRow.cy },
+    },
   };
 }
