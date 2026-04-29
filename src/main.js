@@ -80,6 +80,7 @@ const state = {
   adminStatsDetailUser: "",
   adminTab: "summary",
   rates: [],
+  defaultRates: [],
   routeBundles: [],
   entries: {},
   db: null,
@@ -431,7 +432,9 @@ function profileNameForDisplay(profile) {
 }
 function rateFor(route) {
   const normalized = normalizeRoute(route);
-  return state.rates.find((rate) => rate.route === normalized)?.unit || 0;
+  return state.rates.find((rate) => rate.route === normalized)?.unit
+    || state.defaultRates.find((rate) => rate.route === normalized)?.unit
+    || 0;
 }
 function sharedRateForRoutes(routes) {
   const list = splitStoredRoutes(routes);
@@ -761,9 +764,6 @@ async function saveProfile() {
   if (error) throw error;
   state.profile = data;
   applyProfileUi();
-  Object.keys(state.entries).forEach((dateKey) => {
-    if (!isBackupDriver()) ensureFixedRecordRows(state.entries[dateKey]);
-  });
   renderAll();
   if (el.app.dataset.view === "record") renderEntryForm();
   toast("내 정보를 저장했습니다.", "success");
@@ -822,6 +822,7 @@ async function logout() {
   state.session = null;
   state.profile = null;
   state.rates = [];
+  state.defaultRates = [];
   state.routeBundles = [];
   state.entries = {};
   renderAll();
@@ -864,33 +865,41 @@ function entriesFromDb(dayRows, itemRows) {
   });
   Object.keys(entries).forEach((dateKey) => {
     entries[dateKey] = normalizeRecordShape(entries[dateKey]);
-    if (!isBackupDriver()) ensureFixedRecordRows(entries[dateKey]);
+    if (!isBackupDriver() && !entries[dateKey].rows.length) ensureFixedRecordRows(entries[dateKey]);
   });
   return entries;
 }
 async function loadFromDb() {
   if (!state.db || !currentUserId()) return;
   const userId = currentUserId();
-  const [ratesResult, daysResult, itemsResult, bundlesResult] = await Promise.all([
+  const defaultRatesQuery = state.profile?.role === "admin"
+    ? Promise.resolve({ data: [], error: null })
+    : state.db.from(TABLES.rates).select("*").neq("user_id", userId).order("route");
+  const [ratesResult, defaultRatesResult, daysResult, itemsResult, bundlesResult] = await Promise.all([
     state.db.from(TABLES.rates).select("*").eq("user_id", userId).order("route"),
+    defaultRatesQuery,
     state.db.from(TABLES.days).select("*").eq("user_id", userId),
     state.db.from(TABLES.items).select("*").eq("user_id", userId).order("sort_order"),
     state.db.from(TABLES.bundles).select("*").eq("active", true).order("sort_order").order("label"),
   ]);
   if (ratesResult.error) throw ratesResult.error;
+  if (defaultRatesResult.error) throw defaultRatesResult.error;
   if (daysResult.error) throw daysResult.error;
   if (itemsResult.error) throw itemsResult.error;
   if (bundlesResult.error) throw bundlesResult.error;
   state.rates = ratesFromDb(ratesResult.data);
+  state.defaultRates = ratesFromDb(defaultRatesResult.data);
   state.routeBundles = bundlesResult.data || [];
   state.entries = entriesFromDb(daysResult.data, itemsResult.data);
   const hadRates = state.rates.length > 0;
-  if (!state.rates.length) {
+  if (!state.rates.length && !state.defaultRates.length) {
     state.rates = avgRates(SAMPLE_SETTLEMENT);
   }
-  const merged = mergeDefaultRouteMaster(state.rates);
-  state.rates = merged.rates;
-  if (!hadRates || merged.changed) await persistRates();
+  if (state.rates.length || !state.defaultRates.length) {
+    const merged = mergeDefaultRouteMaster(state.rates);
+    state.rates = merged.rates;
+    if (!hadRates || merged.changed) await persistRates();
+  }
   setDbBadge(true, "동기화됨");
 }
 async function persistRates() {
@@ -1065,21 +1074,21 @@ function moveMonth(amount) {
 
 function routeOptions(selected) {
   const selectedRoutes = splitStoredRoutes(selected);
-  const optionRoutes = new Set(state.rates.map((rate) => rate.route));
+  const optionRoutes = new Set([...state.rates, ...state.defaultRates].map((rate) => rate.route));
   selectedRoutes.forEach((route) => optionRoutes.add(route));
   if (!isBackupDriver()) fixedRoutes().forEach((route) => optionRoutes.add(route));
   return [...optionRoutes].sort().map((route) => `<option value="${route}"${selectedRoutes[0] === route ? " selected" : ""}>${route}</option>`).join("");
 }
 function renderEntryForm() {
+  const existed = Boolean(state.entries[state.selectedDate]);
   let record = getRecord(state.selectedDate, true);
   if (record.off) record.rows = [];
-  if (!isBackupDriver()) record = ensureFixedRecordRows(record);
   setRecord(state.selectedDate, record);
   el.selectedDateTitle.textContent = formatRecordTitleDate(state.selectedDate);
   el.offToggle.checked = record.off;
   el.entryRows.innerHTML = "";
   record.rows.forEach((row, index) => renderEntryRow(row, index));
-  if (!record.rows.length && !record.off && !isBackupDriver() && fixedRoutes().length) {
+  if (!existed && !record.rows.length && !record.off && !isBackupDriver() && fixedRoutes().length) {
     record.rows = fixedDefaultRows();
     record.rows.forEach((row, index) => renderEntryRow(row, index));
   }
@@ -1199,18 +1208,25 @@ async function saveCurrentRecordAndGoHome() {
 
 function renderRates() {
   const allowedRoutes = new Set(fixedRoutes());
-  const visibleRates = isBackupDriver() ? state.rates : state.rates.filter((rate) => allowedRoutes.has(rate.route));
+  const mergedRates = mergeDefaultRatesForDisplay();
+  const visibleRates = isBackupDriver() ? mergedRates : mergedRates.filter((rate) => allowedRoutes.has(rate.route));
   el.rateList.innerHTML = visibleRates.length
     ? visibleRates.map((rate) => `<button class="rate-chip" data-route="${rate.route}" type="button"><strong>${rate.route}</strong><span>${fmtWon(rate.unit)}</span></button>`).join("")
     : `<div class="daily-card"><span>${isBackupDriver() ? "등록된 단가가 없습니다." : "고정 라우트를 먼저 등록하면 해당 단가만 표시됩니다."}</span></div>`;
   el.rateList.querySelectorAll(".rate-chip").forEach((button) => {
     button.addEventListener("click", () => {
-      const rate = state.rates.find((item) => item.route === button.dataset.route);
+      const rate = mergedRates.find((item) => item.route === button.dataset.route);
       if (!rate) return;
       el.rateRoute.value = rate.route;
       el.rateUnit.value = rate.unit;
     });
   });
+}
+function mergeDefaultRatesForDisplay() {
+  const byRoute = new Map();
+  state.defaultRates.forEach((rate) => byRoute.set(rate.route, rate));
+  state.rates.forEach((rate) => byRoute.set(rate.route, rate));
+  return [...byRoute.values()].sort((a, b) => a.route.localeCompare(b.route));
 }
 function upsertRate(routeValue, unitValue) {
   const route = normalizeRoute(routeValue);
@@ -2169,7 +2185,10 @@ function bindEvents() {
   el.addRoute.addEventListener("click", () => {
     const record = getRecord(state.selectedDate, true);
     record.off = false;
-    record.rows.push({ route: state.rates[0]?.route || "", count: "", unit: state.rates[0]?.unit || 0 });
+    const firstRate = isBackupDriver()
+      ? state.rates[0] || state.defaultRates[0]
+      : [...state.rates, ...state.defaultRates].find((rate) => fixedRoutes().includes(rate.route)) || state.rates[0] || state.defaultRates[0];
+    record.rows.push({ route: firstRate?.route || "", count: "", unit: firstRate?.unit || 0 });
     scheduleSave({ dateKeys: [state.selectedDate] });
     renderEntryForm();
   });
