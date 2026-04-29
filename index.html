@@ -275,6 +275,7 @@
             <button class="stats-tab" data-admin-tab="routes">라우트</button>
             <button class="stats-tab" data-admin-tab="users">사용자</button>
             <button class="stats-tab" data-admin-tab="settlement">정산표</button>
+            <button class="stats-tab" data-admin-tab="bundles">OCR보정</button>
           </div>
 
           <section class="admin-panel active" data-admin-panel="summary">
@@ -287,6 +288,27 @@
 
           <section class="admin-panel" data-admin-panel="users">
             <div id="adminProfiles" class="admin-list"></div>
+          </section>
+
+          <section class="admin-panel" data-admin-panel="bundles">
+            <section class="settings-section">
+              <h2>OCR 보정 묶음</h2>
+              <div class="settings-field">
+                <label>묶음 이름</label>
+                <input id="adminBundleLabel" type="text" placeholder="예: 319ABCD" />
+              </div>
+              <div class="settings-field">
+                <label>구역 코드</label>
+                <input id="adminBundleRoutes" type="text" placeholder="예: 319A, 319B, 319C, 319D" />
+              </div>
+              <button id="saveAdminBundle" class="full-btn">묶음 추가</button>
+              <details>
+                <summary>초안 한 번에 입력</summary>
+                <textarea id="adminBundleBulk" placeholder="319ABCD = 319A, 319B, 319C, 319D&#10;405AC410B = 405A, 405C, 410B"></textarea>
+                <button id="importAdminBundles" class="secondary-btn wide">초안 저장</button>
+              </details>
+            </section>
+            <div id="adminBundleList" class="admin-list"></div>
           </section>
 
           <section class="admin-panel" data-admin-panel="settlement">

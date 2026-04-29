@@ -143,3 +143,4 @@ Increase the `vN` number on each release (`v2`, `v3`, ...), and keep `SHELL_FILE
 - [ ] `sw.js` `CACHE_NAME` is bumped and `SHELL_FILES` includes changed assets.
 - [ ] `node --check` passes for `app.js`, `sw.js`, and `src/**/*.js`.
 - [ ] Login, signup, pending approval, approved user entry, and admin-only screens are tested.
+- [ ] Admin OCR route bundle management loads and saves `quickflex_route_bundles` after schema changes.
