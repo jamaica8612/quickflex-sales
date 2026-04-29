@@ -23,7 +23,7 @@ This file is the shared working contract for Codex, Claude Code, and future agen
 - `backup` drivers can add many routes and use backup bonus.
 - `fixed` drivers use `fixed_routes`, hide backup bonus, and should see only their assigned routes on the record screen.
 - Route rates live in `quickflex_route_rates`.
-- OCR route bundle correction patterns live in `quickflex_route_bundles` and are managed by admins. A pattern may contain one or more routes; multi-route patterns can complete one missing route from a known bundle.
+- OCR route bundle correction patterns live in `quickflex_route_bundles` and are managed by admins. A pattern may contain one or more routes; DB-managed multi-route patterns can complete missing routes once at least two routes from that pattern are observed.
 - Route rate history is not used. Keep one current default unit price per Route in `quickflex_route_rates`.
 - Day records live in `quickflex_day_records`.
 - Route item snapshots live in `quickflex_day_route_items`.
@@ -65,7 +65,7 @@ Client rules:
 - Send the original image once; do not require OpenCV for the default schedule OCR path.
 - Keep the OCR status focused on server analysis, not client-side table segmentation.
 - Fixed drivers use OCR only for off/work-day detection; work days are filled from that user's `fixed_routes`.
-- Backup drivers keep OCR route extraction, correct each single route code against route candidates, then complete known route bundles from DB (`quickflex_route_bundles`) only when one code is missing from an otherwise matched bundle. Built-in bundles are fallback only.
+- Backup drivers keep OCR route extraction, correct each single route code against route candidates, then complete DB-managed route bundles when at least two routes from that bundle are observed. Built-in bundles are fallback only and stay conservative: they complete only one missing route.
 
 Server rules:
 - Read the API key from `GOOGLE_CLOUD_VISION_API_KEY` (fallback `CLOUD_VISION_API_KEY`); never accept the key from the request body.
