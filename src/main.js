@@ -387,18 +387,23 @@ function correctRouteList(routes) {
 function activeRouteBundles() {
   const dbBundles = (state.routeBundles || [])
     .filter((bundle) => bundle.active !== false && Array.isArray(bundle.routes) && bundle.routes.length >= 1)
-    .map((bundle) => routeListFromText(bundle.routes));
-  const seen = new Set(dbBundles.map((bundle) => joinStoredRoutes(bundle)));
-  const fallback = DEFAULT_ROUTE_BUNDLES.filter((bundle) => !seen.has(joinStoredRoutes(bundle)));
+    .map((bundle) => ({ routes: routeListFromText(bundle.routes), trusted: true }));
+  const seen = new Set(dbBundles.map((bundle) => joinStoredRoutes(bundle.routes)));
+  const fallback = DEFAULT_ROUTE_BUNDLES
+    .filter((bundle) => !seen.has(joinStoredRoutes(bundle)))
+    .map((bundle) => ({ routes: bundle, trusted: false }));
   return [...dbBundles, ...fallback];
 }
 function completeRouteBundles(routes) {
   const result = [...routes];
   const seen = new Set(result);
-  activeRouteBundles().forEach((bundle) => {
+  activeRouteBundles().forEach(({ routes: bundle, trusted }) => {
     const observed = bundle.filter((route) => seen.has(route));
     const missing = bundle.filter((route) => !seen.has(route));
-    if (observed.length >= 2 && missing.length === 1) {
+    const shouldComplete = trusted
+      ? observed.length >= 2 && missing.length >= 1
+      : observed.length >= 2 && missing.length === 1;
+    if (shouldComplete) {
       bundle.forEach((route) => {
         if (!seen.has(route)) {
           seen.add(route);
