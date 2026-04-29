@@ -8,6 +8,7 @@ export const TABLES = {
   rates: "quickflex_route_rates",
   days: "quickflex_day_records",
   items: "quickflex_day_route_items",
+  bundles: "quickflex_route_bundles",
 };
 
 export const DB_KEY = "quickflex-supabase-config";

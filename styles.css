@@ -452,6 +452,7 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 .admin-card { background: var(--panel2); border: 1px solid var(--line); border-radius: 16px; padding: 12px; display: grid; gap: 10px; }
 .admin-card-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .admin-route-field { display: grid; gap: 6px; }
+.inline-check { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; color: var(--muted); font-size: 12px; font-weight: 850; }
 .admin-revenue-list,
 .admin-route-list { display: grid; gap: 10px; }
 .admin-revenue-card {

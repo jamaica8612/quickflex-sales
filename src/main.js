@@ -80,6 +80,7 @@ const state = {
   adminStatsDetailUser: "",
   adminTab: "summary",
   rates: [],
+  routeBundles: [],
   entries: {},
   db: null,
   session: null,
@@ -182,6 +183,12 @@ const el = {
   adminNextMonth: $("adminNextMonth"),
   adminRevenueList: $("adminRevenueList"),
   adminRouteList: $("adminRouteList"),
+  adminBundleLabel: $("adminBundleLabel"),
+  adminBundleRoutes: $("adminBundleRoutes"),
+  saveAdminBundle: $("saveAdminBundle"),
+  adminBundleBulk: $("adminBundleBulk"),
+  importAdminBundles: $("importAdminBundles"),
+  adminBundleList: $("adminBundleList"),
   backFromSettings: $("backFromSettings"),
   logoutBtn: $("logoutBtn"),
   syncStatus: $("syncStatus"),
@@ -377,10 +384,18 @@ function correctRouteList(routes) {
     .filter((route) => route && !seen.has(route) && seen.add(route));
   return completeRouteBundles(corrected);
 }
+function activeRouteBundles() {
+  const dbBundles = (state.routeBundles || [])
+    .filter((bundle) => bundle.active !== false && Array.isArray(bundle.routes) && bundle.routes.length >= 2)
+    .map((bundle) => routeListFromText(bundle.routes));
+  const seen = new Set(dbBundles.map((bundle) => joinStoredRoutes(bundle)));
+  const fallback = DEFAULT_ROUTE_BUNDLES.filter((bundle) => !seen.has(joinStoredRoutes(bundle)));
+  return [...dbBundles, ...fallback];
+}
 function completeRouteBundles(routes) {
   const result = [...routes];
   const seen = new Set(result);
-  DEFAULT_ROUTE_BUNDLES.forEach((bundle) => {
+  activeRouteBundles().forEach((bundle) => {
     const observed = bundle.filter((route) => seen.has(route));
     const missing = bundle.filter((route) => !seen.has(route));
     if (observed.length >= 2 && missing.length === 1) {
@@ -802,6 +817,7 @@ async function logout() {
   state.session = null;
   state.profile = null;
   state.rates = [];
+  state.routeBundles = [];
   state.entries = {};
   renderAll();
   showPending(false);
@@ -850,15 +866,18 @@ function entriesFromDb(dayRows, itemRows) {
 async function loadFromDb() {
   if (!state.db || !currentUserId()) return;
   const userId = currentUserId();
-  const [ratesResult, daysResult, itemsResult] = await Promise.all([
+  const [ratesResult, daysResult, itemsResult, bundlesResult] = await Promise.all([
     state.db.from(TABLES.rates).select("*").eq("user_id", userId).order("route"),
     state.db.from(TABLES.days).select("*").eq("user_id", userId),
     state.db.from(TABLES.items).select("*").eq("user_id", userId).order("sort_order"),
+    state.db.from(TABLES.bundles).select("*").eq("active", true).order("sort_order").order("label"),
   ]);
   if (ratesResult.error) throw ratesResult.error;
   if (daysResult.error) throw daysResult.error;
   if (itemsResult.error) throw itemsResult.error;
+  if (bundlesResult.error) throw bundlesResult.error;
   state.rates = ratesFromDb(ratesResult.data);
+  state.routeBundles = bundlesResult.data || [];
   state.entries = entriesFromDb(daysResult.data, itemsResult.data);
   const hadRates = state.rates.length > 0;
   if (!state.rates.length) {
@@ -1451,8 +1470,15 @@ async function renderAdminDashboard() {
     if (state.adminTab === "summary") await renderAdminRevenueStats();
     if (state.adminTab === "routes") await renderAdminRouteStats();
     if (state.adminTab === "users") await renderAdminProfiles();
+    if (state.adminTab === "bundles") await renderAdminBundles();
   } catch (error) {
-    const target = state.adminTab === "routes" ? el.adminRouteList : state.adminTab === "users" ? el.adminProfiles : el.adminRevenueList;
+    const target = state.adminTab === "routes"
+      ? el.adminRouteList
+      : state.adminTab === "users"
+        ? el.adminProfiles
+        : state.adminTab === "bundles"
+          ? el.adminBundleList
+          : el.adminRevenueList;
     if (target) target.innerHTML = `<div class="daily-card"><span>${error.message}</span></div>`;
   }
 }
@@ -1602,6 +1628,134 @@ async function renderAdminRouteStats() {
       <div class="admin-route-users">${users || "<span>사용자 기록 없음</span>"}</div>
     </div>`;
   }).join("") : `<div class="daily-card"><span>선택한 정산기간 라우트 기록이 없습니다.</span></div>`;
+}
+function normalizeBundleRows(rows) {
+  return (rows || [])
+    .map((row) => ({
+      ...row,
+      label: String(row.label || "").trim(),
+      routes: routeListFromText(row.routes),
+      active: row.active !== false,
+      sort_order: toNum(row.sort_order),
+    }))
+    .filter((row) => row.label && row.routes.length >= 2)
+    .sort((a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label));
+}
+async function loadRouteBundles({ includeInactive = false } = {}) {
+  if (!state.db) return [];
+  let query = state.db.from(TABLES.bundles).select("*").order("sort_order").order("label");
+  if (!includeInactive) query = query.eq("active", true);
+  const { data, error } = await query;
+  if (error) throw error;
+  const bundles = normalizeBundleRows(data);
+  if (!includeInactive) state.routeBundles = bundles;
+  return bundles;
+}
+function parseBundleDraft(text) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      const parts = line.split("=");
+      const routeText = parts.length > 1 ? parts.slice(1).join("=") : line;
+      const routes = routeListFromText(routeText);
+      const label = (parts.length > 1 ? parts[0] : compactRouteList(routes)).trim();
+      return { label, routes, sort_order: index };
+    })
+    .filter((row) => row.label && row.routes.length >= 2);
+}
+async function saveRouteBundle({ id = null, label, routes, active = true, sort_order = 0 }) {
+  const cleanRoutes = routeListFromText(routes);
+  const cleanLabel = String(label || compactRouteList(cleanRoutes)).trim();
+  if (!cleanLabel || cleanRoutes.length < 2) throw new Error("묶음 이름과 2개 이상의 구역이 필요합니다.");
+  const payload = {
+    label: cleanLabel,
+    routes: cleanRoutes,
+    active: Boolean(active),
+    sort_order: toNum(sort_order),
+    updated_at: new Date().toISOString(),
+  };
+  const query = id
+    ? state.db.from(TABLES.bundles).update(payload).eq("id", id)
+    : state.db.from(TABLES.bundles).upsert(payload, { onConflict: "label" });
+  const { error } = await query;
+  if (error) throw error;
+  state.routeBundles = await loadRouteBundles();
+}
+async function renderAdminBundles() {
+  if (!el.adminBundleList || state.profile?.role !== "admin") return;
+  if (!state.db) {
+    el.adminBundleList.innerHTML = `<div class="daily-card"><span>DB 연결 후 확인할 수 있습니다.</span></div>`;
+    return;
+  }
+  el.adminBundleList.innerHTML = `<div class="daily-card"><span>OCR 보정 묶음을 불러오는 중입니다.</span></div>`;
+  const bundles = await loadRouteBundles({ includeInactive: true });
+  state.routeBundles = bundles.filter((bundle) => bundle.active);
+  el.adminBundleList.innerHTML = bundles.length ? bundles.map((bundle) => `
+    <div class="admin-card" data-bundle-id="${bundle.id}">
+      <div class="admin-card-row">
+        <input data-field="label" type="text" value="${escapeAttr(bundle.label)}" aria-label="묶음 이름" />
+        <input data-field="sort_order" type="number" value="${toNum(bundle.sort_order)}" aria-label="정렬" />
+        <label class="inline-check"><input data-field="active" type="checkbox"${bundle.active ? " checked" : ""} /> 사용</label>
+      </div>
+      <label class="admin-route-field">
+        <span>구역 코드</span>
+        <input data-field="routes" type="text" value="${escapeAttr(bundle.routes.join(", "))}" />
+      </label>
+      <div class="admin-card-row">
+        <button class="secondary-btn" data-action="save-bundle">저장</button>
+        <button class="secondary-btn danger" data-action="delete-bundle">삭제</button>
+      </div>
+    </div>
+  `).join("") : `<div class="daily-card"><span>등록된 OCR 보정 묶음이 없습니다.</span></div>`;
+}
+async function addAdminBundleFromInputs() {
+  await saveRouteBundle({
+    label: el.adminBundleLabel.value,
+    routes: el.adminBundleRoutes.value,
+    sort_order: (state.routeBundles || []).length,
+  });
+  el.adminBundleLabel.value = "";
+  el.adminBundleRoutes.value = "";
+  await renderAdminBundles();
+  toast("OCR 보정 묶음을 저장했습니다.", "success");
+}
+async function importAdminBundles() {
+  const rows = parseBundleDraft(el.adminBundleBulk.value);
+  if (!rows.length) throw new Error("저장할 묶음 초안을 찾지 못했습니다.");
+  const payload = rows.map((row) => ({
+    label: row.label,
+    routes: row.routes,
+    active: true,
+    sort_order: row.sort_order,
+    updated_at: new Date().toISOString(),
+  }));
+  const { error } = await state.db.from(TABLES.bundles).upsert(payload, { onConflict: "label" });
+  if (error) throw error;
+  el.adminBundleBulk.value = "";
+  state.routeBundles = await loadRouteBundles();
+  await renderAdminBundles();
+  toast(`${payload.length}개 묶음을 저장했습니다.`, "success");
+}
+async function saveAdminBundleCard(card) {
+  await saveRouteBundle({
+    id: card.dataset.bundleId,
+    label: card.querySelector('[data-field="label"]').value,
+    routes: card.querySelector('[data-field="routes"]').value,
+    active: card.querySelector('[data-field="active"]').checked,
+    sort_order: card.querySelector('[data-field="sort_order"]').value,
+  });
+  await renderAdminBundles();
+  toast("OCR 보정 묶음을 저장했습니다.", "success");
+}
+async function deleteAdminBundleCard(card) {
+  if (!window.confirm("이 OCR 보정 묶음을 삭제할까요?")) return;
+  const { error } = await state.db.from(TABLES.bundles).delete().eq("id", card.dataset.bundleId);
+  if (error) throw error;
+  state.routeBundles = await loadRouteBundles();
+  await renderAdminBundles();
+  toast("OCR 보정 묶음을 삭제했습니다.", "success");
 }
 function moveStatsMonth(amount) {
   const date = new Date(state.statsYear, state.statsMonth - 1 + amount, 1);
@@ -1999,6 +2153,8 @@ function bindEvents() {
   }));
   el.adminPrevMonth.addEventListener("click", () => moveAdminMonth(-1));
   el.adminNextMonth.addEventListener("click", () => moveAdminMonth(1));
+  el.saveAdminBundle.addEventListener("click", () => addAdminBundleFromInputs().catch((error) => toast(`묶음 저장 실패: ${error.message}`, "error")));
+  el.importAdminBundles.addEventListener("click", () => importAdminBundles().catch((error) => toast(`초안 저장 실패: ${error.message}`, "error")));
   el.saveProfile.addEventListener("click", () => saveProfile().catch((error) => toast(`프로필 저장 실패: ${error.message}`, "error")));
   el.goalAmountInput.addEventListener("input", () => {
     const pos = el.goalAmountInput.selectionStart;
@@ -2131,6 +2287,18 @@ function bindEvents() {
     const button = event.target.closest('[data-action="save-admin"]');
     if (!button) return;
     saveAdminProfile(button.closest(".admin-card")).catch((error) => toast(`저장 실패: ${error.message}`, "error"));
+  });
+  el.adminBundleList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-action]");
+    if (!button) return;
+    const card = button.closest("[data-bundle-id]");
+    if (!card) return;
+    if (button.dataset.action === "save-bundle") {
+      saveAdminBundleCard(card).catch((error) => toast(`묶음 저장 실패: ${error.message}`, "error"));
+    }
+    if (button.dataset.action === "delete-bundle") {
+      deleteAdminBundleCard(card).catch((error) => toast(`묶음 삭제 실패: ${error.message}`, "error"));
+    }
   });
 }
 

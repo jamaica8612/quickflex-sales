@@ -23,6 +23,7 @@ This file is the shared working contract for Codex, Claude Code, and future agen
 - `backup` drivers can add many routes and use backup bonus.
 - `fixed` drivers use `fixed_routes`, hide backup bonus, and should see only their assigned routes on the record screen.
 - Route rates live in `quickflex_route_rates`.
+- OCR route bundle correction patterns live in `quickflex_route_bundles` and are managed by admins.
 - Route rate history is not used. Keep one current default unit price per Route in `quickflex_route_rates`.
 - Day records live in `quickflex_day_records`.
 - Route item snapshots live in `quickflex_day_route_items`.
@@ -40,6 +41,7 @@ This file is the shared working contract for Codex, Claude Code, and future agen
 - Users may edit their own display name, driver type, and fixed routes. They must not be able to approve themselves.
 - Admins may read all users' rates, records, and route item snapshots for revenue review.
 - Admin writes should stay limited to profile approval/type changes; do not let admins edit another driver's sales records from the admin dashboard.
+- Admins can manage OCR route bundle corrections in `quickflex_route_bundles`; approved drivers can read active bundles for OCR correction.
 
 ## Route Grouping
 
@@ -63,7 +65,7 @@ Client rules:
 - Send the original image once; do not require OpenCV for the default schedule OCR path.
 - Keep the OCR status focused on server analysis, not client-side table segmentation.
 - Fixed drivers use OCR only for off/work-day detection; work days are filled from that user's `fixed_routes`.
-- Backup drivers keep OCR route extraction, correct each single route code against route candidates, then complete known route bundles only when one code is missing from an otherwise matched bundle.
+- Backup drivers keep OCR route extraction, correct each single route code against route candidates, then complete known route bundles from DB (`quickflex_route_bundles`) only when one code is missing from an otherwise matched bundle. Built-in bundles are fallback only.
 
 Server rules:
 - Read the API key from `GOOGLE_CLOUD_VISION_API_KEY` (fallback `CLOUD_VISION_API_KEY`); never accept the key from the request body.
