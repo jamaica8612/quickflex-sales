@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=23" />
+    <link rel="stylesheet" href="./styles.css?v=24" />
   </head>
   <body>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -133,7 +133,6 @@
             <strong class="ssc-range" id="statsSummaryRange">-</strong>
             <div class="ssc-rows">
               <div><span>총 매출</span><strong id="statsSummaryTotal">0원</strong></div>
-              <div><span>예상 매출</span><strong id="statsRevenue">0원</strong></div>
             </div>
             <div class="ssc-meter">
               <div class="ssc-meter-bar"><span id="statsMeterFill"></span></div>
@@ -144,13 +143,11 @@
             </div>
           </div>
           <div class="stats-range-tabs" id="statsRangeTabs">
-            <button data-range="thisMonth" class="active">이번달</button>
-            <button data-range="lastMonth">지난달</button>
-            <button data-range="last3">지난3개월</button>
-            <button data-range="last6">지난6개월</button>
-            <button data-range="last12">지난1년</button>
-            <button data-range="all">전체</button>
-            <button data-range="custom">직접입력</button>
+            <button data-range="thisMonth" class="active">이번</button>
+            <button data-range="lastMonth">지난</button>
+            <button data-range="last3">3개월</button>
+            <button data-range="last12">1년</button>
+            <button data-range="custom">직접</button>
           </div>
           <div class="stats-range-custom" id="statsRangeCustom" hidden>
             <input type="date" id="statsRangeFrom" />
@@ -445,7 +442,7 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./src/main.js?v=24"></script>
+    <script type="module" src="./src/main.js?v=25"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});

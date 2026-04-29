@@ -643,7 +643,7 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
   font-size: 15px;
   font-weight: 900;
 }
-.stats-summary-card .ssc-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stats-summary-card .ssc-rows { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .stats-summary-card .ssc-rows > div {
   background: rgba(255,255,255,.03);
   border: 1px solid var(--line);
@@ -690,12 +690,12 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 /* === stats-range-tabs === */
 .stats-range-tabs {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 7px;
 }
 .stats-range-tabs > button {
-  min-height: 38px;
-  padding: 0 8px;
+  min-height: 36px;
+  padding: 0 4px;
   border-radius: 999px;
   background: transparent;
   border: 1px solid var(--line);
@@ -817,10 +817,9 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 
 @media (max-width: 480px) {
   .stats-summary-card { padding: 16px; }
-  .stats-summary-card .ssc-rows { grid-template-columns: 1fr; }
   .stats-summary-card .ssc-rows strong { font-size: 19px; }
-  .stats-range-tabs { grid-template-columns: repeat(3, 1fr); }
-  .stats-range-tabs > button { font-size: 11px; }
+  .stats-range-tabs { gap: 5px; }
+  .stats-range-tabs > button { min-height: 34px; font-size: 11px; }
   .revenue-list .rev-label { font-size: 13px; }
   .revenue-list .rev-amount { font-size: 14px; }
 }

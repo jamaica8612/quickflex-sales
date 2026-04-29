@@ -1540,7 +1540,7 @@ function renderStats() {
   el.statsRange.textContent = `${formatShort(cycleStart)} ~ ${formatShort(cycleEnd)}`;
   if (el.statsSummaryRange) el.statsSummaryRange.textContent = formatRangeLabel(start, end);
   if (el.statsSummaryTotal) el.statsSummaryTotal.textContent = fmtWon(visible.revenue);
-  el.statsRevenue.textContent = fmtWon(total.revenue);
+  if (el.statsRevenue) el.statsRevenue.textContent = fmtWon(total.revenue);
   const goal = getGoal();
   const statsPct = goal ? Math.min(100, visible.revenue / goal * 100) : 0;
   el.statsMeterFill.style.width = `${statsPct}%`;
