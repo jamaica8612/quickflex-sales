@@ -1,6 +1,104 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-30 (Claude design handoff)
+Last updated: 2026-04-30 (gray+yellow redesign finish)
+
+## 2026-04-30 Gray+Yellow Redesign Finish (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+
+### Changed Files
+
+- `index.html`
+  - Added the `이번 정산기간` badge beside the home summary label to better match the handoff alignment.
+- `styles.css`
+  - Changed Claude's blue primary tokens to a softer charcoal/gray light theme.
+  - Kept dark mode as a yellow-accent theme using `--gold: #FFC226`.
+  - Added `--primary-border` so pills, selected states, and totals stay visually consistent across light/dark.
+  - Fixed hidden chart tooltip styling with `.stats-chart-tooltip[hidden]`.
+- `src/main.js`
+  - Added a subtle canvas fill gradient under the stats chart line while preserving the existing stats data flow.
+
+### Checks Run
+
+```powershell
+node --check app.js
+node --check sw.js
+node --check src/main.js
+git diff --check
+```
+
+Browser QA:
+- Local server at `http://localhost:5500/index.html`.
+- Verified light gray theme, dark yellow theme toggle, 26→25 settlement header, Today button month reset, stats quick tabs/chart, calendar route surface, admin view shell, and console errors 0.
+
+---
+
+## 2026-04-30 White+Blue Redesign Pass (Claude)
+
+Workspace: `C:\work\quickflex-sales`
+Source design: `C:\Users\jamai\Downloads\퀵플-handoff.zip` (`퀵플렉스 Redesign.html`)
+
+### Goal
+
+Wanted DS 풍 white + blue 라이트 테마로 앱 전체(홈/기록/통계/설정) 톤 전환 + 라이트/다크 토글.
+디자인 핸드오프 README 지시("Match the visual output; don't copy the prototype's internal structure")에 따라 React mock 마크업/JS는 무시하고 기존 셀렉터에 새 색·폰트·아이콘만 매핑.
+
+### Changed Files
+
+- `index.html`
+  - Pretendard Variable CDN `<link>` 추가.
+  - 하단 네비 4탭(`달력/통계/관리/설정`)에 22×22 SVG 아이콘 추가, 텍스트 라벨은 아래에.
+  - 모든 round-btn(prev/next/back, 8개)의 `‹ ›`를 16×16 chevron SVG로 교체.
+  - `#openSettings` 톱니 글자 → gear SVG.
+  - `#addRoute` 구역 추가 버튼 앞에 plus SVG.
+  - 설정에 신규 섹션 `<h2>화면</h2>` + `.theme-toggle`(라이트/다크 버튼 + sun/moon SVG) 추가.
+  - 캐시 쿼리 `styles.css?v=26→27`, `src/main.js?v=30→31`.
+- `styles.css`
+  - `:root` 토큰을 light+blue로 교체 (변수명 `--gold`/`--red`/`--panel`/... 보존, 값만 교체).
+  - `html[data-theme="dark"], body[data-theme="dark"]` 오버라이드 블록 신설.
+  - body font-family 에 `Pretendard Variable` 우선.
+  - `.app/.home-header/.summary-card/.summary-meter/.icon-btn/.round-btn/.today-btn/.mode-btn.active/.day-cell/.day-value/.day-routes/.day-dock/.ghost-pill/.primary-pill/.full-btn/.entry-row output/.calc-row output/.total-card/.readonly-value/.mode-option(checked)/.rate-editor button/.rate-delete/.text-example/.daily-metrics span/.bottom-nav/.nav-tab/.stats-summary-card/.stats-tab.active/.stats-range-tabs > button.active/.stats-chart-card/.stats-chart-tooltip/.revenue-list .rev-row/.revenue-list .rev-sum/.goal-save-btn/.overlay/.auth-card` 등 색·그림자·border 재배색.
+  - 신규 `.theme-toggle` 스타일.
+  - sub-header `backdrop-filter` 제거 (라이트 톤에서 어색).
+- `src/main.js`
+  - 상단에 `THEME_KEY/applyTheme()` 추가 (라이트=기본, dark/light 토글, localStorage 저장, 호출 시 `renderStats()` 자동 재호출로 차트도 즉시 재도색).
+  - bindEvents 영역에 `[data-theme-set]` 클릭 바인딩 추가.
+  - `renderStatsChart`의 grid/선/점 색을 `getComputedStyle`로 `--gold/--line/--muted/--soft` CSS 변수에서 읽도록 변경.
+- `sw.js`
+  - `CACHE_NAME` `quickflex-shell-v54` → `quickflex-shell-v55`.
+
+### Preserved (regression-safe)
+
+- 정산 사이클 26→25 (`periodBounds`) — redesign mock의 `3/21~4/20`은 무시.
+- 목표 DB-first (`getGoal()` → `state.profile.goal_amount`) — 변경 없음.
+- 라우트 컴팩션 `319ABC`, 단가 미정 0원, 휴무일 라우트 숨김.
+- 비밀번호 찾기, 탈퇴 요청, OCR 메시지, OCR 보정 묶음.
+- 관리자(view-admin) 5탭, Supabase 연결 시트, auth/pending/setup overlay.
+- 통계 강화 기능 전부 유지(빠른 선택 5종 / Canvas 그래프 / 매출 라우트 체크박스 / 일간 카드 펼침) — 색만 blue로 변경.
+- 고정/백업기사 분기, 사용자 본인 라우트만 삭제, 설정 순서.
+
+### Checks To Run
+
+```powershell
+node --check app.js
+node --check sw.js
+node --check src/main.js
+git diff --check
+```
+
+브라우저:
+- 통계 화면 진입 → 흰 카드 + blue 강조, 빠른 선택 active blue pill, 그래프 선 blue.
+- 설정 → 화면 → 다크 클릭 → 즉시 dark 전환, 새로고침 후에도 유지(`localStorage.quickflex-theme`).
+- 26→25 사이클 헤더(`2026.04.26 ~ 2026.05.25`).
+- 캘린더 선택/오늘/휴무 셀 색.
+- 기록 화면 합계 카드 blue, 저장 버튼 blue 그림자.
+- 콘솔 에러 0건. 네트워크 탭 `styles.css?v=27`, `main.js?v=31`, Pretendard CDN 200, sw.js v55.
+
+### Hand-off Note
+
+토큰 한도 등으로 Claude가 끝내지 못하면 Codex가 본 파일과 `C:\Users\jamai\.claude\plans\github-jamaica8612-quickflex-sales-fizzy-rain.md`를 참조해 잔여 작업을 마무리 가능. 디자인 토큰/SVG path는 위 plans 문서에 그대로 적혀 있음.
+
+---
 
 ## 2026-04-30 Claude Design Handoff (Codex)
 
