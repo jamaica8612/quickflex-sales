@@ -1,6 +1,10 @@
 // OCR provider 추상화 레이어.
 // 사용처에서는 활성 provider를 모르고 recognize() 만 호출.
 // 새 provider 추가/교체는 PROVIDERS에 등록 + setOcrProvider() 만 호출.
+//
+// NOTE: 스케줄 OCR은 src/ocr/scheduleOcr.js가 직접 cloudVisionCells 모듈을 사용해
+// 셀 배치를 Supabase Edge Function (mode="cells")으로 보낸다. 이 파일은 임시 단일 셀
+// OCR이 필요한 경우(예: 디버그 도구)를 위해 남겨둔다.
 
 import { tesseractRecognize, tesseractRecognizeMany, tesseractWarmup } from "./providers/tesseract.js";
 import { googleVisionRecognize, googleVisionRecognizeMany, googleVisionWarmup } from "./providers/googleVision.js";

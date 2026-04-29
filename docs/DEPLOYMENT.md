@@ -94,6 +94,28 @@ Deploy OCR changes with:
 npx supabase functions deploy ocr-schedule
 ```
 
+### Required Secrets
+
+Schedule OCR runs in two modes inside the same `ocr-schedule` function:
+
+- **Cell-batch mode (default for browser)** — Browser splits the table client-side and sends only the needed cell images. Server calls Google Cloud Vision `images:annotate` (`TEXT_DETECTION`) in batches.
+- **Full-image mode (legacy)** — Browser sends one image; server runs the Gemini provider.
+
+Set the following Supabase secrets:
+
+```powershell
+# Cell-batch mode (Cloud Vision)
+npx supabase secrets set GOOGLE_CLOUD_VISION_API_KEY=<your-google-cloud-vision-api-key>
+
+# Full-image fallback (Gemini)
+npx supabase secrets set GEMINI_API_KEY=<your-gemini-api-key>
+npx supabase secrets set OCR_PROVIDER=gemini    # or cloud-vision for hybrid full-image mode
+```
+
+Local development uses `supabase/.env` (gitignored) with the same variable names. Never put `GOOGLE_CLOUD_VISION_API_KEY` or `GEMINI_API_KEY` in any frontend file or commit them.
+
+Cost guard: only authenticated users can call the function (`verify_jwt = true`). The browser further reduces calls by ① validating the entered driver name before sending anything, and ② skipping OCR for cells with pink/red background (휴무).
+
 ## Route Rates
 
 - Use one current default unit price per Route in `quickflex_route_rates`.
