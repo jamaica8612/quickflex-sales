@@ -44,9 +44,7 @@
         <main class="calendar-panel">
           <div class="calendar-toolbar">
             <button class="round-btn" id="prevMonth" aria-label="이전 달">‹</button>
-            <div>
-              <strong id="monthTitle">-</strong>
-            </div>
+            <strong id="monthTitle">-</strong>
             <button class="round-btn" id="nextMonth" aria-label="다음 달">›</button>
             <button class="today-btn" id="todayButton">오늘</button>
           </div>
@@ -75,7 +73,6 @@
           <button class="round-btn" id="backToCalendar" aria-label="달력으로">‹</button>
           <button class="round-btn" id="prevDay" aria-label="이전 날짜">‹</button>
           <div class="sub-title">
-            <span>매출 기록</span>
             <strong id="selectedDateTitle">-</strong>
           </div>
           <button class="round-btn" id="nextDay" aria-label="다음 날짜">›</button>
@@ -231,10 +228,6 @@
             <p id="ocrStatus" class="hint">근무표 이미지 선택 후 OCR 실행을 누르세요.</p>
             <div id="schedulePreview" class="image-preview"></div>
             <div id="scheduleDraftSection" class="hidden">
-              <div class="ocr-adjust-row">
-                <button id="shiftScheduleBack" class="secondary-btn">-1일 보정</button>
-                <button id="shiftScheduleForward" class="secondary-btn">+1일 보정</button>
-              </div>
               <div id="scheduleDraftCards" class="draft-list"></div>
               <button id="parseSchedule" class="full-btn">스케줄 반영</button>
             </div>
@@ -421,7 +414,7 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./src/main.js?v=18"></script>
+    <script type="module" src="./src/main.js?v=19"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});

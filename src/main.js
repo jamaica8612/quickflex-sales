@@ -33,7 +33,8 @@ import {
 } from "./lib/route.js";
 
 const GOAL_KEY = "quickflex-goal";
-function getGoal() { return parseInt(localStorage.getItem(GOAL_KEY) || "", 10) || GOAL; }
+const GOAL_SETTING_ROUTE = "__GOAL__";
+function getGoal() { return toNum(state.goalAmount) || parseInt(localStorage.getItem(GOAL_KEY) || "", 10) || GOAL; }
 function saveGoalLocal(val) { const n = parseInt(val, 10); if (n > 0) localStorage.setItem(GOAL_KEY, n); }
 function goalRawValue() { return parseInt((el.goalAmountInput.value || "").replace(/,/g, ""), 10) || 0; }
 function formatGoalInput() {
@@ -62,6 +63,7 @@ const state = {
   adminTab: "summary",
   rates: [],
   defaultRates: [],
+  goalAmount: 0,
   routeBundles: [],
   entries: {},
   db: null,
@@ -190,8 +192,6 @@ const el = {
   schedulePreview: $("schedulePreview"),
   scheduleDraftSection: $("scheduleDraftSection"),
   scheduleDraftCards: $("scheduleDraftCards"),
-  shiftScheduleBack: $("shiftScheduleBack"),
-  shiftScheduleForward: $("shiftScheduleForward"),
   parseSchedule: $("parseSchedule"),
   scheduleCsvInput: $("scheduleCsvInput"),
   parseScheduleCsv: $("parseScheduleCsv"),
@@ -648,8 +648,8 @@ function applyProfileUi() {
   document.querySelectorAll('input[name="freshbagMode"]').forEach((radio) => {
     radio.checked = radio.value === mode;
   });
-  const storedGoal = parseInt(localStorage.getItem(GOAL_KEY) || "", 10) || 0;
-  el.goalAmountInput.value = storedGoal > 0 ? storedGoal.toLocaleString("ko-KR") : "";
+  const goal = getGoal();
+  el.goalAmountInput.value = goal > 0 ? goal.toLocaleString("ko-KR") : "";
 }
 async function connectDb(url, key, persist = false) {
   const client = buildClient(url, key);
@@ -727,6 +727,26 @@ async function saveProfile() {
   if (el.app.dataset.view === "record") renderEntryForm();
   toast("내 정보를 저장했습니다.", "success");
 }
+async function saveGoalAmount() {
+  const goal = goalRawValue();
+  if (!goal || goal <= 0) return toast("올바른 목표 금액을 입력해 주세요.", "error");
+  saveGoalLocal(goal);
+  state.goalAmount = goal;
+  if (state.db && currentUserId()) {
+    const { error } = await state.db
+      .from(TABLES.rates)
+      .upsert({
+        user_id: currentUserId(),
+        route: GOAL_SETTING_ROUTE,
+        current_unit: goal,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id,route" });
+    if (error) throw error;
+  }
+  renderSummary();
+  renderStats();
+  toast("목표를 저장했습니다.", "success");
+}
 async function login() {
   el.authError.textContent = "";
   const { data, error } = await state.db.auth.signInWithPassword({ email: el.authEmail.value.trim(), password: el.authPassword.value });
@@ -789,7 +809,7 @@ async function logout() {
 
 function ratesFromDb(rows) {
   return (rows || []).map((row) => ({ route: normalizeRoute(row.route), unit: toNum(row.current_unit), count: 0, amount: 0 }))
-    .filter((row) => row.route)
+    .filter((row) => row.route && row.route !== GOAL_SETTING_ROUTE)
     .sort((a, b) => a.route.localeCompare(b.route));
 }
 function mergeDefaultRouteMaster(rates) {
@@ -862,6 +882,8 @@ async function loadFromDb() {
   if (daysResult.error) throw daysResult.error;
   if (itemsResult.error) throw itemsResult.error;
   if (bundlesResult.error) throw bundlesResult.error;
+  const goalRate = (ratesResult.data || []).find((row) => normalizeRoute(row.route) === GOAL_SETTING_ROUTE);
+  state.goalAmount = toNum(goalRate?.current_unit);
   state.rates = ratesFromDb(ratesResult.data);
   state.defaultRates = ratesFromDb(defaultRatesResult.data);
   state.routeBundles = bundlesResult.data || [];
@@ -883,7 +905,7 @@ async function loadFromDb() {
 }
 async function persistRates() {
   const userId = currentUserId();
-  const cleanRates = state.rates.filter((rate) => normalizeRoute(rate.route) && toNum(rate.unit) >= 0);
+  const cleanRates = state.rates.filter((rate) => normalizeRoute(rate.route) && normalizeRoute(rate.route) !== GOAL_SETTING_ROUTE && toNum(rate.unit) >= 0);
   const { error: upsertError } = await state.db.from(TABLES.rates).upsert(cleanRates.map((rate) => ({
     user_id: userId,
     route: normalizeRoute(rate.route),
@@ -1854,8 +1876,9 @@ function renderDraftCards() {
   }
   el.scheduleDraftCards.innerHTML = Object.keys(ocrDraftMap).sort().map((dateKey) => {
     const routes = ocrDraftMap[dateKey];
-    const chips = (routes || []).map((route) => `<span class="draft-chip">${route}<button data-action="remove" data-date="${dateKey}" data-route="${route}">×</button></span>`).join("");
-    return `<div class="draft-card"><div class="draft-card-header"><strong>${formatLongShort(dateKey)}</strong><button class="draft-off-btn${routes === null ? " active" : ""}" data-action="off" data-date="${dateKey}">${routes === null ? "휴무" : "근무"}</button></div><div>${routes === null ? "휴무" : `${chips}<button class="draft-add-btn" data-action="add" data-date="${dateKey}">+ 추가</button>`}</div></div>`;
+    const chips = (routes || []).map((route) => `<span class="draft-chip">${route}<button type="button" data-action="remove" data-date="${dateKey}" data-route="${route}">×</button></span>`).join("");
+    const addControl = `<span class="draft-add-row"><input class="draft-add-input" data-date="${dateKey}" type="text" placeholder="구역" autocapitalize="characters" /><button class="draft-add-btn" type="button" data-action="add" data-date="${dateKey}">추가</button></span>`;
+    return `<div class="draft-card"><div class="draft-card-header"><strong>${formatLongShort(dateKey)}</strong><button class="draft-off-btn${routes === null ? " active" : ""}" type="button" data-action="off" data-date="${dateKey}">${routes === null ? "휴무" : "근무"}</button></div><div>${routes === null ? "휴무" : `${chips}${addControl}`}</div></div>`;
   }).join("");
 }
 function draftWorkRoutes() {
@@ -2108,6 +2131,12 @@ function bindEvents() {
     }
     login().catch((error) => { el.authError.textContent = error.message; });
   });
+  [el.authEmail, el.authPassword].forEach((input) => input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.isComposing) return;
+    if (state.authMode === "signup" || state.authMode === "reset") return;
+    event.preventDefault();
+    login().catch((error) => { el.authError.textContent = error.message; });
+  }));
   el.signupBtn.addEventListener("click", () => {
     if (state.authMode === "reset") {
       updatePassword().catch((error) => { el.authError.textContent = error.message; });
@@ -2203,14 +2232,7 @@ function bindEvents() {
     const diff = el.goalAmountInput.value.length - prevLen;
     el.goalAmountInput.setSelectionRange(pos + diff, pos + diff);
   });
-  el.saveAppSettings.addEventListener("click", () => {
-    const val = goalRawValue();
-    if (!val || val <= 0) return toast("올바른 목표 금액을 입력해 주세요.", "error");
-    saveGoalLocal(val);
-    renderSummary();
-    renderStats();
-    toast("설정을 저장했습니다.", "success");
-  });
+  el.saveAppSettings.addEventListener("click", () => saveGoalAmount().catch((error) => toast(`목표 저장 실패: ${error.message}`, "error")));
   el.saveRate.addEventListener("click", async () => {
     if (!upsertRate(el.rateRoute.value, el.rateUnit.value)) return toast("구역과 단가를 확인해 주세요.", "error");
     el.rateRoute.value = "";
@@ -2250,16 +2272,6 @@ function bindEvents() {
     el.settlementStatus.textContent = "정산표 이미지가 선택됐습니다. OCR 실행을 누르면 Route별 단가 후보를 계산합니다.";
   });
   el.runSettlementOcr.addEventListener("click", runSettlementOcr);
-  el.shiftScheduleBack.addEventListener("click", () => {
-    if (!ocrDraftMap) return toast("보정할 OCR 초안이 없습니다.", "error");
-    ocrDraftMap = shiftDateMap(ocrDraftMap, -1);
-    renderDraftCards();
-  });
-  el.shiftScheduleForward.addEventListener("click", () => {
-    if (!ocrDraftMap) return toast("보정할 OCR 초안이 없습니다.", "error");
-    ocrDraftMap = shiftDateMap(ocrDraftMap, 1);
-    renderDraftCards();
-  });
   el.scheduleDraftCards.addEventListener("click", (event) => {
     const button = event.target.closest("[data-action]");
     if (!button || !ocrDraftMap) return;
@@ -2267,10 +2279,16 @@ function bindEvents() {
     if (button.dataset.action === "off") ocrDraftMap[dateKey] = ocrDraftMap[dateKey] === null ? draftWorkRoutes() : null;
     if (button.dataset.action === "remove") ocrDraftMap[dateKey] = (ocrDraftMap[dateKey] || []).filter((route) => route !== button.dataset.route);
     if (button.dataset.action === "add") {
-      const route = prompt("추가할 구역을 입력하세요. 예: 302B");
+      const input = el.scheduleDraftCards.querySelector(`.draft-add-input[data-date="${dateKey}"]`);
+      const route = input?.value || "";
+      if (!route.trim()) {
+        input?.focus();
+        return;
+      }
       if (route) {
         const corrected = correctRouteList(route);
         ocrDraftMap[dateKey] = [...(ocrDraftMap[dateKey] || []), ...(corrected.length ? corrected : routeListFromText(route))];
+        if (input) input.value = "";
       }
     }
     renderDraftCards();

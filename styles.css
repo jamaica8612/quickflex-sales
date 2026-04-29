@@ -123,9 +123,8 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 .summary-grid strong { font-size: 16px; }
 
 .calendar-panel { background: var(--panel); }
-.calendar-toolbar { padding: 14px 16px 10px; }
-.calendar-toolbar > div { flex: 1; }
-.calendar-toolbar strong { display: block; font-size: 22px; }
+.calendar-toolbar { padding: 14px 16px 10px; display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px auto; }
+.calendar-toolbar strong { display: block; font-size: 22px; text-align: center; }
 .meter-label { font-size: 11px; color: var(--muted); text-align: center; margin: -10px 0 10px; }
 .today-btn, .ghost-pill, .primary-pill, .secondary-btn, .full-btn {
   border-radius: 999px;
@@ -237,7 +236,7 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 .sub-title span, .sub-title em { display: block; color: var(--muted); font-size: 12px; font-style: normal; }
 .sub-title strong { display: block; font-size: 17px; }
 .view-record .sub-title strong {
-  font-size: 16px;
+  font-size: 24px;
   white-space: nowrap;
 }
 .off-toggle input { display: none; }
@@ -446,6 +445,9 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 .draft-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .draft-chip { display: inline-flex; gap: 5px; align-items: center; margin: 3px; padding: 5px 8px; border-radius: 999px; background: var(--panel3); font-size: 12px; font-weight: 850; }
 .draft-chip button, .draft-add-btn { color: var(--muted); background: transparent; }
+.draft-add-row { display: inline-flex; align-items: center; gap: 6px; margin: 3px; }
+.draft-add-input { width: 78px; min-height: 34px; padding: 5px 8px; border-radius: 999px; font-size: 12px; font-weight: 850; text-transform: uppercase; }
+.draft-add-btn { min-height: 34px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; }
 .draft-off-btn { border-radius: 999px; background: transparent; border: 1px solid var(--line); color: var(--muted); padding: 5px 10px; }
 .draft-off-btn.active { color: var(--red); border-color: var(--red); }
 .admin-list { display: grid; gap: 8px; }
