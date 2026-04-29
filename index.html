@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=20" />
+    <link rel="stylesheet" href="./styles.css?v=23" />
   </head>
   <body>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -128,37 +128,68 @@
           <button class="round-btn" id="statsNextMonth">›</button>
         </header>
         <main class="settings-body">
-          <div class="summary-card compact">
-            <span>정산 예상액</span>
-            <strong id="statsRevenue">0원</strong>
-            <div class="meter-wrap">
-              <div class="summary-meter"><span id="statsMeterFill"></span></div>
-              <span class="meter-pct" id="statsMeterPct">0%</span>
+          <div class="stats-summary-card">
+            <span class="ssc-label">선택 기간</span>
+            <strong class="ssc-range" id="statsSummaryRange">-</strong>
+            <div class="ssc-rows">
+              <div><span>총 매출</span><strong id="statsSummaryTotal">0원</strong></div>
+              <div><span>예상 매출</span><strong id="statsRevenue">0원</strong></div>
             </div>
-            <p class="meter-label" id="statsMeterLabel">목표 600만원 대비 진행률</p>
+            <div class="ssc-meter">
+              <div class="ssc-meter-bar"><span id="statsMeterFill"></span></div>
+              <div class="ssc-meter-foot">
+                <span id="statsMeterPct">0%</span>
+                <span id="statsMeterLabel">목표 미설정</span>
+              </div>
+            </div>
+          </div>
+          <div class="stats-range-tabs" id="statsRangeTabs">
+            <button data-range="thisMonth" class="active">이번달</button>
+            <button data-range="lastMonth">지난달</button>
+            <button data-range="last3">지난3개월</button>
+            <button data-range="last6">지난6개월</button>
+            <button data-range="last12">지난1년</button>
+            <button data-range="all">전체</button>
+            <button data-range="custom">직접입력</button>
+          </div>
+          <div class="stats-range-custom" id="statsRangeCustom" hidden>
+            <input type="date" id="statsRangeFrom" />
+            <span>~</span>
+            <input type="date" id="statsRangeTo" />
+            <button id="statsRangeApply">적용</button>
+          </div>
+          <div class="stats-chart-card">
+            <canvas id="statsChart" height="200"></canvas>
+            <p class="stats-chart-hint">그래프를 터치하여 상세 데이터를 확인하세요</p>
+            <div class="stats-chart-tooltip" id="statsChartTooltip" hidden></div>
           </div>
           <div class="stats-tabs">
-            <button class="stats-tab active" data-tab="daily">일간</button>
-            <button class="stats-tab" data-tab="monthly">월간</button>
-            <button class="stats-tab" data-tab="yearly">연간</button>
-            <button class="stats-tab" data-tab="total">누적</button>
+            <button class="stats-tab active" data-tab="monthly">월간 통계</button>
+            <button class="stats-tab" data-tab="revenue">매출</button>
+            <button class="stats-tab" data-tab="daily">일간</button>
+            <button class="stats-tab" data-tab="yearly" hidden>연간</button>
+            <button class="stats-tab" data-tab="total" hidden>누적</button>
           </div>
-          <section class="stats-panel active" data-panel="daily">
-            <div id="dailyList" class="daily-list"></div>
-          </section>
-          <section class="stats-panel" data-panel="monthly">
+          <section class="stats-panel active" data-panel="monthly">
             <div class="stats-list">
               <div><span>총 근무일</span><strong id="statsWorkDays">0일</strong></div>
-              <div><span>휴무</span><strong id="statsOffDays">0일</strong></div>
+              <div><span>휴무일</span><strong id="statsOffDays">0일</strong></div>
               <div><span>총 물량</span><strong id="statsCount">0건</strong></div>
               <div><span>프레시백</span><strong id="statsFresh">0건</strong></div>
-              <div><span>일 평균 매출</span><strong id="statsAverage">0원</strong></div>
+              <div><span>일평균 물량</span><strong id="statsAvgCount">0건</strong></div>
+              <div><span>일평균 매출</span><strong id="statsAverage">0원</strong></div>
               <div><span>최고 매출일</span><strong id="statsBestDay">-</strong></div>
               <div><span>최저 매출일</span><strong id="statsWorstDay">-</strong></div>
             </div>
           </section>
-          <section class="stats-panel" data-panel="yearly"><div id="yearlyStats" class="stats-list"></div></section>
-          <section class="stats-panel" data-panel="total"><div id="totalStats" class="stats-list"></div></section>
+          <section class="stats-panel" data-panel="revenue">
+            <div id="revenueList" class="revenue-list"></div>
+          </section>
+          <section class="stats-panel" data-panel="daily">
+            <div id="dailyList" class="daily-list"></div>
+          </section>
+          <section class="stats-panel" data-panel="yearly" hidden><div id="yearlyStats" class="stats-list"></div></section>
+          <section class="stats-panel" data-panel="total" hidden><div id="totalStats" class="stats-list"></div></section>
         </main>
       </section>
 
@@ -414,7 +445,7 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./src/main.js?v=21"></script>
+    <script type="module" src="./src/main.js?v=24"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});

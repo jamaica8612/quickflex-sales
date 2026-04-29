@@ -77,6 +77,12 @@ const state = {
   flushAgain: false,
   recordDraftDate: "",
   recordDraft: null,
+  statsRangeMode: "thisMonth",
+  statsRangeCustom: { from: "", to: "" },
+  revenueVisibility: (() => {
+    try { return JSON.parse(localStorage.getItem("quickflex-revenue-vis") || "{}") || {}; }
+    catch (_) { return {}; }
+  })(),
 };
 
 let ocrDraftMap = null;
@@ -147,10 +153,21 @@ const el = {
   saveRecord: $("saveRecord"),
   statsMonthTitle: $("statsMonthTitle"),
   statsRange: $("statsRange"),
+  statsSummaryRange: $("statsSummaryRange"),
+  statsSummaryTotal: $("statsSummaryTotal"),
   statsRevenue: $("statsRevenue"),
   statsMeterFill: $("statsMeterFill"),
   statsMeterPct: $("statsMeterPct"),
   statsMeterLabel: $("statsMeterLabel"),
+  statsRangeTabs: $("statsRangeTabs"),
+  statsRangeCustom: $("statsRangeCustom"),
+  statsRangeFrom: $("statsRangeFrom"),
+  statsRangeTo: $("statsRangeTo"),
+  statsRangeApply: $("statsRangeApply"),
+  statsChart: $("statsChart"),
+  statsChartTooltip: $("statsChartTooltip"),
+  revenueList: $("revenueList"),
+  statsAvgCount: $("statsAvgCount"),
   statsWorkDays: $("statsWorkDays"),
   statsOffDays: $("statsOffDays"),
   statsCount: $("statsCount"),
@@ -532,6 +549,141 @@ function calcRecordDetails(record) {
 function calcRecord(record) {
   const details = calcRecordDetails(record);
   return { count: details.count, revenue: details.revenue };
+}
+function routeRevenueKey(route) { return `route:${route || "?"}`; }
+function isVisibleKey(key) { return state.revenueVisibility[key] !== false; }
+function recordRouteAggregates(record) {
+  const rec = normalizeRecordShape(record);
+  const out = new Map();
+  if (rec.off) return out;
+  rec.rows.forEach((row) => {
+    splitStoredRoutes(row.route).forEach((r) => {
+      const count = toNum(row.count);
+      const unit = effectiveUnit(row);
+      const share = splitStoredRoutes(row.route).length || 1;
+      const entry = out.get(r) || { count: 0, revenue: 0 };
+      entry.count += count / share;
+      entry.revenue += (count * unit) / share;
+      out.set(r, entry);
+    });
+  });
+  return out;
+}
+function recordVisibleRevenue(record) {
+  const details = calcRecordDetails(record);
+  let visible = 0;
+  recordRouteAggregates(record).forEach((agg, route) => {
+    if (isVisibleKey(routeRevenueKey(route))) visible += agg.revenue;
+  });
+  if (isVisibleKey("fresh")) visible += details.freshRevenue;
+  if (isVisibleKey("backup")) visible += details.backupRevenue;
+  return visible;
+}
+function summarizeKeys(keys, opts = {}) {
+  const useVisibility = !!opts.visibility;
+  let best = { dateKey: "", revenue: 0 };
+  let worst = { dateKey: "", revenue: Infinity };
+  const total = keys.reduce((sum, dateKey) => {
+    const record = getRecord(dateKey, false);
+    const calc = calcRecordDetails(record);
+    const revenue = useVisibility ? recordVisibleRevenue(record) : calc.revenue;
+    if (revenue > best.revenue) best = { dateKey, revenue };
+    if (!record.off && revenue > 0 && revenue < worst.revenue) worst = { dateKey, revenue };
+    return {
+      count: sum.count + calc.count,
+      revenue: sum.revenue + revenue,
+      workDays: sum.workDays + (calc.revenue > 0 ? 1 : 0),
+      offDays: sum.offDays + (record.off ? 1 : 0),
+      fresh: sum.fresh + calc.freshCount,
+    };
+  }, { count: 0, revenue: 0, workDays: 0, offDays: 0, fresh: 0 });
+  total.average = total.workDays ? total.revenue / total.workDays : 0;
+  total.avgCount = total.workDays ? total.count / total.workDays : 0;
+  total.best = best;
+  total.worst = worst.revenue < Infinity ? worst : { dateKey: "", revenue: 0 };
+  return total;
+}
+function getStatsKeys() {
+  const mode = state.statsRangeMode || "thisMonth";
+  if (mode === "thisMonth") return periodKeysFor(state.statsYear, state.statsMonth);
+  if (mode === "lastMonth") {
+    const prev = prevPeriod(state.statsYear, state.statsMonth);
+    return periodKeysFor(prev.year, prev.month);
+  }
+  if (mode === "last3" || mode === "last6" || mode === "last12") {
+    const n = mode === "last3" ? 3 : (mode === "last6" ? 6 : 12);
+    const keys = [];
+    let cur = { year: state.statsYear, month: state.statsMonth };
+    for (let i = 0; i < n; i += 1) {
+      keys.unshift(...periodKeysFor(cur.year, cur.month));
+      cur = prevPeriod(cur.year, cur.month);
+    }
+    return keys;
+  }
+  if (mode === "all") {
+    return Object.keys(state.entries).sort();
+  }
+  if (mode === "custom") {
+    const { from, to } = state.statsRangeCustom || {};
+    if (!from || !to) return [];
+    const start = parseDateKey(from);
+    const end = parseDateKey(to);
+    if (!start || !end || start > end) return [];
+    const keys = [];
+    const cur = new Date(start);
+    while (cur <= end) {
+      keys.push(toDateKey(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return keys;
+  }
+  return periodKeysFor(state.statsYear, state.statsMonth);
+}
+function getStatsBounds() {
+  const keys = getStatsKeys();
+  if (!keys.length) return { start: null, end: null };
+  return { start: parseDateKey(keys[0]), end: parseDateKey(keys[keys.length - 1]) };
+}
+function formatRangeLabel(start, end) {
+  if (!start || !end) return "-";
+  const fmt = (d) => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+  return `${fmt(start)} ~ ${fmt(end)}`;
+}
+function formatKoreanWon(value) {
+  const n = Math.round(value);
+  if (n === 0) return "0";
+  const abs = Math.abs(n);
+  if (abs >= 100000000) return `${(n / 100000000).toFixed(abs >= 1000000000 ? 0 : 1).replace(/\.0$/, "")}억`;
+  if (abs >= 10000) return `${Math.round(n / 10000)}만`;
+  return n.toLocaleString("ko-KR");
+}
+function aggregateRevenueByItem(keys) {
+  const routes = new Map();
+  let freshCount = 0;
+  let freshRevenue = 0;
+  let backupRevenue = 0;
+  keys.forEach((dateKey) => {
+    const record = getRecord(dateKey, false);
+    const details = calcRecordDetails(record);
+    recordRouteAggregates(record).forEach((agg, route) => {
+      const entry = routes.get(route) || { count: 0, revenue: 0 };
+      entry.count += agg.count;
+      entry.revenue += agg.revenue;
+      routes.set(route, entry);
+    });
+    freshCount += details.freshCount;
+    freshRevenue += details.freshRevenue;
+    backupRevenue += details.backupRevenue;
+  });
+  const items = [];
+  Array.from(routes.entries())
+    .sort((a, b) => b[1].revenue - a[1].revenue)
+    .forEach(([route, agg]) => {
+      items.push({ key: routeRevenueKey(route), label: route, count: Math.round(agg.count), revenue: Math.round(agg.revenue), kind: "route" });
+    });
+  if (freshCount > 0 || freshRevenue > 0) items.push({ key: "fresh", label: "프레시백 매출", count: freshCount, revenue: Math.round(freshRevenue), kind: "fresh" });
+  if (backupRevenue > 0) items.push({ key: "backup", label: "백업수당 매출", count: 0, revenue: Math.round(backupRevenue), kind: "backup" });
+  return items;
 }
 function summarizePeriod(year = state.year, month = state.month) {
   let best = { dateKey: "", revenue: 0 };
@@ -1379,33 +1531,47 @@ async function applySettlementRows(rows) {
 }
 
 function renderStats() {
-  const { start, end } = periodBounds(state.statsYear, state.statsMonth);
-  const total = summarizePeriod(state.statsYear, state.statsMonth);
+  const { start: cycleStart, end: cycleEnd } = periodBounds(state.statsYear, state.statsMonth);
+  const keys = getStatsKeys();
+  const { start, end } = getStatsBounds();
+  const total = summarizeKeys(keys);
+  const visible = summarizeKeys(keys, { visibility: true });
   el.statsMonthTitle.textContent = `${state.statsYear}년 ${String(state.statsMonth).padStart(2, "0")}월`;
-  el.statsRange.textContent = `${formatShort(start)} ~ ${formatShort(end)}`;
+  el.statsRange.textContent = `${formatShort(cycleStart)} ~ ${formatShort(cycleEnd)}`;
+  if (el.statsSummaryRange) el.statsSummaryRange.textContent = formatRangeLabel(start, end);
+  if (el.statsSummaryTotal) el.statsSummaryTotal.textContent = fmtWon(visible.revenue);
   el.statsRevenue.textContent = fmtWon(total.revenue);
-  const statsPct = Math.min(100, total.revenue / getGoal() * 100);
+  const goal = getGoal();
+  const statsPct = goal ? Math.min(100, visible.revenue / goal * 100) : 0;
   el.statsMeterFill.style.width = `${statsPct}%`;
   el.statsMeterPct.textContent = `${statsPct.toFixed(1)}%`;
-  el.statsMeterLabel.textContent = `목표 ${fmtWon(getGoal())} 대비 진행률`;
+  el.statsMeterLabel.textContent = goal ? `목표 ${fmtWon(goal)} (설정됨)` : "목표 미설정";
   el.statsWorkDays.textContent = `${total.workDays}일`;
   el.statsOffDays.textContent = `${total.offDays}일`;
   el.statsCount.textContent = fmtCount(total.count);
   el.statsFresh.textContent = fmtCount(total.fresh);
+  if (el.statsAvgCount) el.statsAvgCount.textContent = fmtCount(Math.round(total.avgCount));
   el.statsAverage.textContent = fmtWon(total.average);
   el.statsBestDay.textContent = total.best.dateKey ? `${formatLongShort(total.best.dateKey)} ${fmtWon(total.best.revenue)}` : "-";
   el.statsWorstDay.textContent = total.worst.dateKey ? `${formatLongShort(total.worst.dateKey)} ${fmtWon(total.worst.revenue)}` : "-";
-  renderDailyStats();
+  syncStatsRangeButtons();
+  renderRevenueList(keys);
+  renderStatsChart(keys);
+  renderDailyStatsFor(keys);
   renderYearlyStats();
   renderTotalStats();
 }
-function renderDailyStats() {
-  const keys = periodKeysFor(state.statsYear, state.statsMonth).filter((dateKey) => hasMeaningfulRecord(getRecord(dateKey, false)));
+function renderDailyStats() { renderDailyStatsFor(getStatsKeys()); }
+function renderDailyStatsFor(allKeys) {
+  const keys = (allKeys || []).filter((dateKey) => hasMeaningfulRecord(getRecord(dateKey, false)));
   el.dailyList.innerHTML = keys.length ? keys.map((dateKey) => {
     const record = getRecord(dateKey, false);
     const details = calcRecordDetails(record);
     const open = state.statsDetailDate === dateKey;
-    const routes = record.rows.map((row) => `${formatRouteLabel(row.route)} ${fmtCount(row.count)} × ${fmtWon(effectiveUnit(row))}`).join("<br>");
+    const routes = record.rows.map((row) => {
+      const sub = toNum(row.count) * effectiveUnit(row);
+      return `<div class="dd-row"><span>${formatRouteLabel(row.route)} · ${fmtCount(row.count)}건 × ${fmtWon(effectiveUnit(row))}</span><strong>${fmtWon(sub)}</strong></div>`;
+    }).join("");
     const routePreview = record.off ? "휴무" : (formatRecordRoutes(record.rows) || "라우트 없음");
     return `<div class="daily-card stat-day-card">
       <button type="button" data-date="${dateKey}">
@@ -1422,7 +1588,13 @@ function renderDailyStats() {
           ${details.backupRevenue ? `<span>백업 ${fmtWon(details.backupRevenue)}</span>` : ""}
         </div>
       </button>
-      ${open ? `<div class="daily-detail">${record.off ? "휴무" : routes || "라우트 없음"}${details.freshRevenue ? `<br>프레시백 ${fmtWon(details.freshRevenue)}` : ""}</div>` : ""}
+      ${open ? `<div class="daily-detail">${
+        record.off ? "<div class=\"dd-row\"><span>휴무</span></div>" :
+        `${routes || "<div class=\"dd-row\"><span>라우트 없음</span></div>"}` +
+        `${details.freshRevenue ? `<div class="dd-row"><span>프레시백 ${fmtCount(details.freshCount)}건</span><strong>${fmtWon(details.freshRevenue)}</strong></div>` : ""}` +
+        `${details.backupRevenue ? `<div class="dd-row"><span>백업수당</span><strong>${fmtWon(details.backupRevenue)}</strong></div>` : ""}` +
+        `<div class="dd-row dd-total"><span>합계</span><strong>${fmtWon(details.revenue)}</strong></div>`
+      }</div>` : ""}
     </div>`;
   }).join("") : `<div class="daily-card"><span>기록된 날짜가 없습니다.</span></div>`;
   el.dailyList.querySelectorAll("button[data-date]").forEach((button) => {
@@ -1458,6 +1630,160 @@ function renderTotalStats() {
     <div><span>누적 근무일</span><strong>${totals.workDays}일</strong></div>
     <div><span>누적 휴무</span><strong>${totals.offDays}일</strong></div>
     <div><span>누적 프레시백</span><strong>${fmtCount(totals.fresh)}</strong></div>`;
+}
+function syncStatsRangeButtons() {
+  if (!el.statsRangeTabs) return;
+  el.statsRangeTabs.querySelectorAll("button[data-range]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.range === state.statsRangeMode);
+  });
+  if (el.statsRangeCustom) el.statsRangeCustom.hidden = state.statsRangeMode !== "custom";
+  const navDisabled = state.statsRangeMode !== "thisMonth";
+  if (el.statsPrevMonth) el.statsPrevMonth.classList.toggle("is-disabled", navDisabled);
+  if (el.statsNextMonth) el.statsNextMonth.classList.toggle("is-disabled", navDisabled);
+}
+function renderRevenueList(keys) {
+  if (!el.revenueList) return;
+  const items = aggregateRevenueByItem(keys);
+  if (!items.length) {
+    el.revenueList.innerHTML = `<div class="rev-empty">기록된 매출 항목이 없습니다.</div>`;
+    return;
+  }
+  let visibleTotal = 0;
+  const rowsHtml = items.map((item) => {
+    const checked = isVisibleKey(item.key);
+    if (checked) visibleTotal += item.revenue;
+    const meta = item.kind === "route" ? `${fmtCount(item.count)} 건` : (item.kind === "fresh" ? `${fmtCount(item.count)} 건` : "");
+    return `<label class="rev-row${checked ? "" : " is-off"}">
+      <input type="checkbox" data-rev-key="${escapeAttr(item.key)}" ${checked ? "checked" : ""} />
+      <span class="rev-label">${escapeAttr(item.label)}</span>
+      ${meta ? `<span class="rev-meta">${meta}</span>` : ""}
+      <strong class="rev-amount">${fmtWon(item.revenue)}</strong>
+    </label>`;
+  }).join("");
+  el.revenueList.innerHTML = `${rowsHtml}<div class="rev-row rev-sum"><span class="rev-label">선택 합계</span><strong class="rev-amount">${fmtWon(visibleTotal)}</strong></div>`;
+  el.revenueList.querySelectorAll("input[data-rev-key]").forEach((cb) => {
+    cb.addEventListener("change", () => {
+      state.revenueVisibility[cb.dataset.revKey] = cb.checked;
+      try { localStorage.setItem("quickflex-revenue-vis", JSON.stringify(state.revenueVisibility)); } catch (_) {}
+      renderStats();
+    });
+  });
+}
+const statsChartState = { keys: [], series: [], points: [], hoverIndex: -1 };
+function niceStep(rawStep) {
+  if (rawStep <= 0) return 1;
+  const exp = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const norm = rawStep / exp;
+  const candidate = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10;
+  return candidate * exp;
+}
+function renderStatsChart(keys) {
+  const canvas = el.statsChart;
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.parentElement ? canvas.parentElement.clientWidth - 24 : 320;
+  const cssH = 200;
+  canvas.style.width = `${cssW}px`;
+  canvas.style.height = `${cssH}px`;
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+  const series = keys.map((dateKey) => {
+    const record = getRecord(dateKey, false);
+    const details = calcRecordDetails(record);
+    return { dateKey, revenue: recordVisibleRevenue(record), count: details.count, freshCount: details.freshCount };
+  });
+  statsChartState.keys = keys;
+  statsChartState.series = series;
+  statsChartState.points = [];
+  statsChartState.hoverIndex = -1;
+  if (el.statsChartTooltip) el.statsChartTooltip.hidden = true;
+  if (!series.length) {
+    ctx.fillStyle = "#98a2b3";
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("표시할 데이터가 없습니다", cssW / 2, cssH / 2);
+    return;
+  }
+  const margin = { l: 48, r: 12, t: 14, b: 26 };
+  const w = cssW - margin.l - margin.r;
+  const h = cssH - margin.t - margin.b;
+  const maxVal = Math.max(...series.map((s) => s.revenue), 100000);
+  const step = niceStep(maxVal / 5);
+  const yMax = Math.ceil(maxVal / step) * step;
+  ctx.strokeStyle = "rgba(148,163,184,.15)";
+  ctx.fillStyle = "#98a2b3";
+  ctx.font = "10px system-ui, sans-serif";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.lineWidth = 1;
+  for (let v = 0; v <= yMax; v += step) {
+    const y = margin.t + h - (v / yMax) * h;
+    ctx.beginPath();
+    ctx.moveTo(margin.l, y);
+    ctx.lineTo(margin.l + w, y);
+    ctx.stroke();
+    ctx.fillText(formatKoreanWon(v), margin.l - 6, y);
+  }
+  const xFor = (i) => series.length === 1 ? margin.l + w / 2 : margin.l + (i / (series.length - 1)) * w;
+  const yFor = (v) => margin.t + h - (v / yMax) * h;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  const labelCount = Math.min(5, series.length);
+  for (let i = 0; i < labelCount; i += 1) {
+    const idx = Math.round((i / Math.max(1, labelCount - 1)) * (series.length - 1));
+    const d = parseDateKey(series[idx].dateKey);
+    if (!d) continue;
+    ctx.fillText(`${d.getMonth() + 1}/${d.getDate()}`, xFor(idx), margin.t + h + 6);
+  }
+  ctx.strokeStyle = "#ffc226";
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  series.forEach((s, i) => {
+    const x = xFor(i);
+    const y = yFor(s.revenue);
+    statsChartState.points.push({ x, y, ...s });
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  series.forEach((s, i) => {
+    const x = xFor(i);
+    const y = yFor(s.revenue);
+    ctx.beginPath();
+    ctx.fillStyle = s.revenue > 0 ? "#ffc226" : "rgba(255,194,38,.32)";
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+function showChartTooltip(clientX) {
+  const canvas = el.statsChart;
+  const tooltip = el.statsChartTooltip;
+  if (!canvas || !tooltip || !statsChartState.points.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const localX = clientX - rect.left;
+  let nearest = 0;
+  let nearestDx = Infinity;
+  statsChartState.points.forEach((p, i) => {
+    const dx = Math.abs(p.x - localX);
+    if (dx < nearestDx) { nearestDx = dx; nearest = i; }
+  });
+  const point = statsChartState.points[nearest];
+  if (!point) return;
+  tooltip.innerHTML = `<strong>${formatLongShort(point.dateKey)}</strong>` +
+    `<div>매출 <b>${fmtWon(point.revenue)}</b></div>` +
+    `<div>총 물량 <b>${fmtCount(point.count)}</b></div>` +
+    `<div>프레시백 <b>${fmtCount(point.freshCount)}</b></div>`;
+  tooltip.hidden = false;
+  const cardRect = canvas.parentElement.getBoundingClientRect();
+  let left = point.x - tooltip.offsetWidth / 2;
+  const maxLeft = cardRect.width - tooltip.offsetWidth - 4;
+  if (left < 4) left = 4;
+  if (left > maxLeft) left = maxLeft;
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${Math.max(0, point.y - tooltip.offsetHeight - 10)}px`;
 }
 function adminRecordDetails(day, items) {
   if (day.is_off) return { revenue: 0, count: 0, freshCount: 0, backupRevenue: 0, routeRevenue: 0 };
@@ -2220,8 +2546,53 @@ function bindEvents() {
     el.statsPanels.forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === tab.dataset.tab));
     renderStats();
   }));
-  el.statsPrevMonth.addEventListener("click", () => moveStatsMonth(-1));
-  el.statsNextMonth.addEventListener("click", () => moveStatsMonth(1));
+  el.statsPrevMonth.addEventListener("click", () => { if (state.statsRangeMode !== "thisMonth") return; moveStatsMonth(-1); });
+  el.statsNextMonth.addEventListener("click", () => { if (state.statsRangeMode !== "thisMonth") return; moveStatsMonth(1); });
+  if (el.statsRangeTabs) {
+    el.statsRangeTabs.querySelectorAll("button[data-range]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const next = btn.dataset.range;
+        state.statsRangeMode = next;
+        if (next === "thisMonth") {
+          const now = new Date();
+          const m = now.getDate() <= 25 ? now.getMonth() + 1 : now.getMonth() + 2;
+          const d = new Date(now.getFullYear(), m - 1, 1);
+          state.statsYear = d.getFullYear();
+          state.statsMonth = d.getMonth() + 1;
+        }
+        if (next === "custom") {
+          if (!state.statsRangeCustom.from || !state.statsRangeCustom.to) {
+            const today = new Date();
+            const monthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+            state.statsRangeCustom = { from: toDateKey(monthAgo), to: toDateKey(today) };
+            if (el.statsRangeFrom) el.statsRangeFrom.value = state.statsRangeCustom.from;
+            if (el.statsRangeTo) el.statsRangeTo.value = state.statsRangeCustom.to;
+          }
+        }
+        renderStats();
+      });
+    });
+  }
+  if (el.statsRangeApply) {
+    el.statsRangeApply.addEventListener("click", () => {
+      state.statsRangeCustom = { from: el.statsRangeFrom.value || "", to: el.statsRangeTo.value || "" };
+      state.statsRangeMode = "custom";
+      renderStats();
+    });
+  }
+  if (el.statsChart) {
+    const handler = (e) => {
+      const ev = e.touches ? e.touches[0] : e;
+      showChartTooltip(ev.clientX);
+    };
+    el.statsChart.addEventListener("click", handler);
+    el.statsChart.addEventListener("touchstart", handler, { passive: true });
+    document.addEventListener("click", (e) => {
+      if (!el.statsChartTooltip || el.statsChartTooltip.hidden) return;
+      if (e.target === el.statsChart) return;
+      el.statsChartTooltip.hidden = true;
+    });
+  }
   el.adminTabs.forEach((tab) => tab.addEventListener("click", () => {
     if (state.profile?.role !== "admin") return;
     state.adminTab = tab.dataset.adminTab;
