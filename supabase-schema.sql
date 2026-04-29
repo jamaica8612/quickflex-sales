@@ -6,6 +6,7 @@ create table if not exists public.quickflex_profiles (
   status text not null default 'pending' check (status in ('pending', 'approved', 'blocked')),
   role text not null default 'driver' check (role in ('driver', 'admin')),
   fixed_routes text[] not null default '{}',
+  goal_amount integer not null default 6000000,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -60,6 +61,7 @@ alter table public.quickflex_profiles
   add column if not exists status text not null default 'pending',
   add column if not exists role text not null default 'driver',
   add column if not exists fixed_routes text[] not null default '{}',
+  add column if not exists goal_amount integer not null default 6000000,
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now(),
   add column if not exists freshbag_mode text not null default 'single';

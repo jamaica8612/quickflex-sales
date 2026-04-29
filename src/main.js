@@ -32,10 +32,8 @@ import {
   splitStoredRoutes,
 } from "./lib/route.js";
 
-const GOAL_KEY = "quickflex-goal";
 const GOAL_SETTING_ROUTE = "__GOAL__";
-function getGoal() { return toNum(state.goalAmount) || parseInt(localStorage.getItem(GOAL_KEY) || "", 10) || GOAL; }
-function saveGoalLocal(val) { const n = parseInt(val, 10); if (n > 0) localStorage.setItem(GOAL_KEY, n); }
+function getGoal() { return toNum(state.profile?.goal_amount) || GOAL; }
 function goalRawValue() { return parseInt((el.goalAmountInput.value || "").replace(/,/g, ""), 10) || 0; }
 function formatGoalInput() {
   const raw = goalRawValue();
@@ -63,7 +61,6 @@ const state = {
   adminTab: "summary",
   rates: [],
   defaultRates: [],
-  goalAmount: 0,
   routeBundles: [],
   entries: {},
   db: null,
@@ -891,19 +888,16 @@ async function saveProfile() {
 async function saveGoalAmount() {
   const goal = goalRawValue();
   if (!goal || goal <= 0) return toast("올바른 목표 금액을 입력해 주세요.", "error");
-  saveGoalLocal(goal);
-  state.goalAmount = goal;
-  if (state.db && currentUserId()) {
-    const { error } = await state.db
-      .from(TABLES.rates)
-      .upsert({
-        user_id: currentUserId(),
-        route: GOAL_SETTING_ROUTE,
-        current_unit: goal,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id,route" });
-    if (error) throw error;
-  }
+  if (!state.db || !currentUserId()) throw new Error("DB 연결이 필요합니다.");
+  const { data, error } = await state.db
+    .from(TABLES.profiles)
+    .update({ goal_amount: goal, updated_at: new Date().toISOString() })
+    .eq("id", currentUserId())
+    .select("*")
+    .single();
+  if (error) throw error;
+  state.profile = data;
+  applyProfileUi();
   renderSummary();
   renderStats();
   toast("목표를 저장했습니다.", "success");
@@ -983,24 +977,6 @@ function mergeDefaultRouteMaster(rates) {
   });
   return { rates: [...byRoute.values()].sort((a, b) => a.route.localeCompare(b.route)), changed };
 }
-function mergeDefaultRatesIntoUserRates(userRates, defaultRates) {
-  const byRoute = new Map((userRates || []).map((rate) => [normalizeRoute(rate.route), { ...rate, route: normalizeRoute(rate.route), unit: toNum(rate.unit) }]));
-  let changed = false;
-  (defaultRates || []).forEach((rate) => {
-    const route = normalizeRoute(rate.route);
-    const unit = toNum(rate.unit);
-    if (!route || unit < 0) return;
-    const existing = byRoute.get(route);
-    if (!existing) {
-      byRoute.set(route, { ...rate, route, unit });
-      changed = true;
-    } else if (toNum(existing.unit) <= 0 && unit > 0) {
-      byRoute.set(route, { ...existing, unit });
-      changed = true;
-    }
-  });
-  return { rates: [...byRoute.values()].sort((a, b) => a.route.localeCompare(b.route)), changed };
-}
 function entriesFromDb(dayRows, itemRows) {
   const entries = {};
   (dayRows || []).forEach((row) => {
@@ -1025,6 +1001,20 @@ function entriesFromDb(dayRows, itemRows) {
   });
   return entries;
 }
+async function migrateLegacyGoalAmount(legacyGoal) {
+  const currentGoal = toNum(state.profile?.goal_amount);
+  if (!legacyGoal || legacyGoal <= 0 || (currentGoal && currentGoal !== GOAL)) return;
+  state.profile = { ...(state.profile || {}), goal_amount: legacyGoal };
+  if (!state.db || !currentUserId()) return;
+  const { data, error } = await state.db
+    .from(TABLES.profiles)
+    .update({ goal_amount: legacyGoal, updated_at: new Date().toISOString() })
+    .eq("id", currentUserId())
+    .select("*")
+    .single();
+  if (!error && data) state.profile = data;
+  if (error) console.warn("[goal migration]", error);
+}
 async function loadFromDb() {
   if (!state.db || !currentUserId()) return;
   const userId = currentUserId();
@@ -1044,7 +1034,7 @@ async function loadFromDb() {
   if (itemsResult.error) throw itemsResult.error;
   if (bundlesResult.error) throw bundlesResult.error;
   const goalRate = (ratesResult.data || []).find((row) => normalizeRoute(row.route) === GOAL_SETTING_ROUTE);
-  state.goalAmount = toNum(goalRate?.current_unit);
+  await migrateLegacyGoalAmount(toNum(goalRate?.current_unit));
   state.rates = ratesFromDb(ratesResult.data);
   state.defaultRates = ratesFromDb(defaultRatesResult.data);
   state.routeBundles = bundlesResult.data || [];
@@ -1053,11 +1043,7 @@ async function loadFromDb() {
   if (!state.rates.length && !state.defaultRates.length) {
     state.rates = avgRates(SAMPLE_SETTLEMENT);
   }
-  if (state.defaultRates.length) {
-    const merged = mergeDefaultRatesIntoUserRates(state.rates, state.defaultRates);
-    state.rates = merged.rates;
-    if (merged.changed) await persistRates();
-  } else if (state.rates.length || !state.defaultRates.length) {
+  if (!state.defaultRates.length && !hadRates && (state.rates.length || !state.defaultRates.length)) {
     const merged = mergeDefaultRouteMaster(state.rates);
     state.rates = merged.rates;
     if (!hadRates || merged.changed) await persistRates();
@@ -1363,15 +1349,35 @@ function renderRates() {
   const allowedRoutes = new Set(fixedRoutes());
   const mergedRates = mergeDefaultRatesForDisplay();
   const visibleRates = isBackupDriver() ? mergedRates : mergedRates.filter((rate) => allowedRoutes.has(rate.route));
+  const personalRoutes = new Set(state.rates.map((rate) => rate.route));
   el.rateList.innerHTML = visibleRates.length
-    ? visibleRates.map((rate) => `<button class="rate-chip" data-route="${rate.route}" type="button"><strong>${rate.route}</strong><span>${fmtWon(rate.unit)}</span></button>`).join("")
+    ? visibleRates.map((rate) => {
+      const route = escapeAttr(rate.route);
+      const deleteButton = personalRoutes.has(rate.route) ? `<button class="rate-delete" data-route="${route}" type="button" aria-label="${route} 구역 삭제">×</button>` : "";
+      return `<div class="rate-chip" data-route="${route}" role="button" tabindex="0"><strong>${route}</strong><span>${fmtWon(rate.unit)}</span>${deleteButton}</div>`;
+    }).join("")
     : `<div class="daily-card"><span>${isBackupDriver() ? "등록된 단가가 없습니다." : "고정 라우트를 먼저 등록하면 해당 단가만 표시됩니다."}</span></div>`;
   el.rateList.querySelectorAll(".rate-chip").forEach((button) => {
-    button.addEventListener("click", () => {
+    const selectRate = () => {
       const rate = mergedRates.find((item) => item.route === button.dataset.route);
       if (!rate) return;
       el.rateRoute.value = rate.route;
       el.rateUnit.value = rate.unit;
+    };
+    button.addEventListener("click", (event) => {
+      if (event.target.closest(".rate-delete")) return;
+      selectRate();
+    });
+    button.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      selectRate();
+    });
+  });
+  el.rateList.querySelectorAll(".rate-delete").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      deleteRate(button.dataset.route).catch((error) => toast(`구역 삭제 실패: ${error.message}`, "error"));
     });
   });
 }
@@ -1380,6 +1386,31 @@ function mergeDefaultRatesForDisplay() {
   state.defaultRates.forEach((rate) => byRoute.set(rate.route, rate));
   state.rates.forEach((rate) => byRoute.set(rate.route, rate));
   return [...byRoute.values()].sort((a, b) => a.route.localeCompare(b.route));
+}
+function isKnownRateRoute(route) {
+  const normalized = normalizeRoute(route);
+  return DEFAULT_ROUTE_MASTER.includes(normalized)
+    || state.rates.some((rate) => rate.route === normalized)
+    || state.defaultRates.some((rate) => rate.route === normalized);
+}
+async function deleteRate(routeValue) {
+  const route = normalizeRoute(routeValue);
+  if (!route) return;
+  if (!state.rates.some((rate) => rate.route === route)) return toast("삭제할 개인 구역이 없습니다.", "error");
+  if (!window.confirm(`${route} 구역을 내 단가 목록에서 삭제할까요? 기존 기록의 매출은 유지됩니다.`)) return;
+  state.rates = state.rates.filter((rate) => rate.route !== route);
+  if (state.db && currentUserId()) {
+    const { error } = await state.db.from(TABLES.rates).delete().eq("user_id", currentUserId()).eq("route", route);
+    if (error) throw error;
+  }
+  if (el.rateRoute.value.trim().toUpperCase() === route) {
+    el.rateRoute.value = "";
+    el.rateUnit.value = "";
+  }
+  renderRates();
+  renderAll();
+  if (el.app.dataset.view === "record") renderEntryForm();
+  toast(`${route} 구역을 삭제했습니다.`, "success");
 }
 function upsertRate(routeValue, unitValue) {
   const route = normalizeRoute(routeValue);
@@ -2613,6 +2644,11 @@ function bindEvents() {
   });
   el.saveAppSettings.addEventListener("click", () => saveGoalAmount().catch((error) => toast(`목표 저장 실패: ${error.message}`, "error")));
   el.saveRate.addEventListener("click", async () => {
+    const route = normalizeRoute(el.rateRoute.value);
+    if (route && isBackupDriver() && !isKnownRateRoute(route)) {
+      const ok = window.confirm(`새 업무 구역 ${route}를 추가할까요? 추가하면 달력과 기록하기 화면에서 계속 사용할 수 있습니다.`);
+      if (!ok) return;
+    }
     if (!upsertRate(el.rateRoute.value, el.rateUnit.value)) return toast("구역과 단가를 확인해 주세요.", "error");
     el.rateRoute.value = "";
     el.rateUnit.value = "";
