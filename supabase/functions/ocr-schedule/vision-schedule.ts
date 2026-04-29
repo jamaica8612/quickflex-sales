@@ -37,6 +37,13 @@ type OcrRow = {
   text: string;
 };
 
+type HeaderDate = {
+  day: number;
+  x: number;
+  month?: number;
+  explicit: boolean;
+};
+
 function getVisionKey(): string {
   const key =
     (Deno.env.get("GOOGLE_CLOUD_VISION_API_KEY") || "").trim() ||
@@ -47,6 +54,14 @@ function getVisionKey(): string {
 
 function dateKey(year: number, month: number, day: number): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function dateKeyForHeader(year: number, inputMonth: number, headerDate: HeaderDate): string {
+  const month = headerDate.month || inputMonth;
+  let resolvedYear = year;
+  if (inputMonth === 1 && month === 12) resolvedYear -= 1;
+  if (inputMonth === 12 && month === 1) resolvedYear += 1;
+  return dateKey(resolvedYear, month, headerDate.day);
 }
 
 function normalizeText(value: string): string {
@@ -176,35 +191,55 @@ function buildRows(words: OcrWord[]): OcrRow[] {
     .sort((a, b) => a.cy - b.cy);
 }
 
-function parseDay(text: string): number | null {
+function parseHeaderDate(text: string): HeaderDate | null {
   const clean = normalizeText(text);
   if (/\d{3}[A-Z]/.test(clean)) return null;
-  const slash = clean.match(/(?:\d{1,2})[./-](\d{1,2})/);
-  const value = slash ? Number(slash[1]) : Number((clean.match(/\d{1,2}/) || [])[0]);
-  return Number.isFinite(value) && value >= 1 && value <= 31 ? value : null;
+  const full = clean.match(/(\d{1,2})[./-](\d{1,2})/);
+  if (full) {
+    const month = Number(full[1]);
+    const day = Number(full[2]);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return { month, day, x: 0, explicit: true };
+    return null;
+  }
+  const single = clean.match(/^(\d{1,2})(?:[월화수목금토일])?$/);
+  if (!single) return null;
+  const day = Number(single[1]);
+  return day >= 1 && day <= 31 ? { day, x: 0, explicit: false } : null;
 }
 
-function findHeaderRow(rows: OcrRow[]): { row: OcrRow; dates: Array<{ day: number; x: number }> } {
-  let best: { row: OcrRow; dates: Array<{ day: number; x: number }>; score: number } | null = null;
+function dedupeHeaderDates(dates: HeaderDate[]): HeaderDate[] {
+  const deduped: HeaderDate[] = [];
+  for (const date of dates.sort((a, b) => a.x - b.x)) {
+    const prev = deduped[deduped.length - 1];
+    if (prev && prev.day === date.day && prev.month === date.month && Math.abs(prev.x - date.x) < 12) continue;
+    deduped.push(date);
+  }
+  return deduped;
+}
+
+function findHeaderRow(rows: OcrRow[]): { row: OcrRow; dates: HeaderDate[] } {
+  let best: { row: OcrRow; dates: HeaderDate[]; score: number } | null = null;
   for (const row of rows) {
     const dates = row.words
-      .map((word) => ({ day: parseDay(word.text), x: word.cx }))
-      .filter((item): item is { day: number; x: number } => item.day !== null);
-    const uniqueDays = new Set(dates.map((d) => d.day));
-    const score = uniqueDays.size * 10 - row.cy / 1000;
+      .map((word) => {
+        const parsed = parseHeaderDate(word.text);
+        return parsed ? { ...parsed, x: word.cx } : null;
+      })
+      .filter((item): item is HeaderDate => item !== null);
+    const explicitDates = dates.filter((date) => date.explicit);
+    const usableDates = explicitDates.length >= 3 ? explicitDates : dates;
+    const deduped = dedupeHeaderDates(usableDates);
+    const uniqueDays = new Set(deduped.map((d) => `${d.month || ""}-${d.day}`));
+    const spread = deduped.length > 1 ? Math.max(...deduped.map((d) => d.x)) - Math.min(...deduped.map((d) => d.x)) : 0;
+    const explicitBonus = explicitDates.length >= 3 ? 1000 : 0;
+    const score = explicitBonus + uniqueDays.size * 100 + spread / 10 - row.cy / 10;
     if (uniqueDays.size >= 3 && (!best || score > best.score)) {
-      best = { row, dates, score };
+      best = { row, dates: deduped, score };
     }
   }
   if (!best) throw new Error("스케줄 날짜 행을 찾지 못했습니다. 날짜 숫자가 보이는 원본 이미지를 사용해 주세요.");
 
-  const deduped: Array<{ day: number; x: number }> = [];
-  for (const date of best.dates.sort((a, b) => a.x - b.x)) {
-    const prev = deduped[deduped.length - 1];
-    if (prev && prev.day === date.day && Math.abs(prev.x - date.x) < 12) continue;
-    deduped.push(date);
-  }
-  return { row: best.row, dates: deduped };
+  return { row: best.row, dates: best.dates };
 }
 
 function findOwnerRow(rows: OcrRow[], headerRow: OcrRow, ownerName: string): OcrRow {
@@ -226,7 +261,7 @@ function findOwnerRow(rows: OcrRow[], headerRow: OcrRow, ownerName: string): Ocr
   return best.row;
 }
 
-function columnBounds(dates: Array<{ day: number; x: number }>, index: number): { left: number; right: number } {
+function columnBounds(dates: HeaderDate[], index: number): { left: number; right: number } {
   const current = dates[index];
   const prev = dates[index - 1];
   const next = dates[index + 1];
@@ -237,7 +272,7 @@ function columnBounds(dates: Array<{ day: number; x: number }>, index: number): 
 
 function buildSchedule(
   ownerRow: OcrRow,
-  dates: Array<{ day: number; x: number }>,
+  dates: HeaderDate[],
   year: number,
   month: number,
 ): { schedule: ScheduleMap; columns: Array<{ date: string; left: number; right: number }> } {
@@ -249,7 +284,7 @@ function buildSchedule(
       .filter((word) => word.cx >= left && word.cx < right)
       .map((word) => word.text)
       .join(" ");
-    const key = dateKey(year, month, date.day);
+    const key = dateKeyForHeader(year, month, date);
     columns.push({ date: key, left, right });
     if (!text.trim() || OFF_PATTERN.test(normalizeText(text))) {
       schedule[key] = null;
