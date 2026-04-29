@@ -305,6 +305,58 @@ function formatRouteLabel(value) {
 function formatRecordRoutes(rows) {
   return compactRouteList((rows || []).flatMap((row) => splitStoredRoutes(row.route)));
 }
+function routeCandidateSet() {
+  const candidates = new Set(DEFAULT_ROUTE_MASTER.map(normalizeRoute));
+  state.rates.forEach((rate) => {
+    const route = normalizeRoute(rate.route);
+    if (/^\d{3}[A-Z]$/.test(route)) candidates.add(route);
+  });
+  fixedRoutes().forEach((route) => {
+    if (/^\d{3}[A-Z]$/.test(route)) candidates.add(route);
+  });
+  return candidates;
+}
+function routeDistance(a, b) {
+  if (a.length !== b.length) return 99;
+  const confusion = { O: "0", 0: "O", I: "1", 1: "I", L: "1", S: "5", 5: "S", B: "8", 8: "B", Z: "2", 2: "Z" };
+  let score = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] === b[i]) continue;
+    if (confusion[a[i]] === b[i]) score += 0.35;
+    else score += 1;
+  }
+  return score;
+}
+function correctRoute(route, candidates = routeCandidateSet()) {
+  const raw = normalizeRoute(route).replace(/[^0-9A-Z]/g, "");
+  if (!raw) return "";
+  if (candidates.has(raw)) return raw;
+  const normalized = raw
+    .slice(0, 3).replace(/[OIL]/g, "0").replace(/S/g, "5").replace(/B/g, "8")
+    + raw.slice(3).replace(/0/g, "O").replace(/1/g, "I").replace(/5/g, "S").replace(/8/g, "B");
+  if (candidates.has(normalized)) return normalized;
+  let best = "";
+  let bestScore = 99;
+  for (const candidate of candidates) {
+    const score = routeDistance(raw, candidate);
+    if (score < bestScore) {
+      best = candidate;
+      bestScore = score;
+    } else if (score === bestScore) {
+      best = "";
+    }
+  }
+  if (bestScore <= 1) return best;
+  return /^\d{3}[A-Z]$/.test(raw) ? raw : "";
+}
+function correctRouteList(routes) {
+  const candidates = routeCandidateSet();
+  const seen = new Set();
+  return routeListFromText(routes)
+    .flatMap(expandRouteText)
+    .map((route) => correctRoute(route, candidates))
+    .filter((route) => route && !seen.has(route) && seen.add(route));
+}
 function currentUserId() { return state.session?.user?.id || ""; }
 function isBackupDriver() { return (state.profile?.driver_type || "backup") === "backup"; }
 function fixedRoutes() { return Array.isArray(state.profile?.fixed_routes) ? state.profile.fixed_routes.map(normalizeRoute).filter(Boolean) : []; }
@@ -1597,7 +1649,20 @@ function shiftDateMap(dateMap, days) {
   return shifted;
 }
 function setOcrDraft(map) {
-  ocrDraftMap = map ? { ...map } : null;
+  if (!map) {
+    ocrDraftMap = null;
+  } else {
+    ocrDraftMap = {};
+    Object.entries(map).forEach(([dateKey, routes]) => {
+      if (routes === null) {
+        ocrDraftMap[dateKey] = null;
+      } else if (isBackupDriver()) {
+        ocrDraftMap[dateKey] = correctRouteList(routes);
+      } else {
+        ocrDraftMap[dateKey] = fixedRoutes();
+      }
+    });
+  }
   el.scheduleDraftSection.classList.toggle("hidden", !(ocrDraftMap && Object.keys(ocrDraftMap).length));
   renderDraftCards();
 }
@@ -1688,7 +1753,7 @@ async function runOcr() {
     const map = {};
     Object.entries(schedule || {}).forEach(([dateKey, routes]) => {
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
-        map[dateKey] = Array.isArray(routes) && routes.length ? routes.map(normalizeRoute) : null;
+        map[dateKey] = Array.isArray(routes) ? routes : null;
       }
     });
     if (!Object.keys(map).length) throw new Error("유효한 스케줄이 없습니다.");
@@ -1960,7 +2025,10 @@ function bindEvents() {
     if (button.dataset.action === "remove") ocrDraftMap[dateKey] = (ocrDraftMap[dateKey] || []).filter((route) => route !== button.dataset.route);
     if (button.dataset.action === "add") {
       const route = prompt("추가할 구역을 입력하세요. 예: 302B");
-      if (route) ocrDraftMap[dateKey] = [...(ocrDraftMap[dateKey] || []), normalizeRoute(route)];
+      if (route) {
+        const corrected = correctRouteList(route);
+        ocrDraftMap[dateKey] = [...(ocrDraftMap[dateKey] || []), ...(corrected.length ? corrected : routeListFromText(route))];
+      }
     }
     renderDraftCards();
   });

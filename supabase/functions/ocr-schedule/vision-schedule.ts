@@ -250,7 +250,7 @@ function buildSchedule(
       return;
     }
     const routes = uniqueRoutes(text);
-    schedule[key] = routes.length ? routes : null;
+    schedule[key] = routes;
   });
   return schedule;
 }
