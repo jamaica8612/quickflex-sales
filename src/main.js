@@ -862,11 +862,23 @@ async function loadProfile() {
     state.profile = data;
     return;
   }
+  const displayName = user.user_metadata?.display_name || user.email?.split("@")[0] || "사용자";
+  const driverType = user.user_metadata?.driver_type === "fixed" ? "fixed" : "backup";
+  const { data: ensured, error: rpcError } = await state.db.rpc("quickflex_ensure_profile", {
+    profile_email: user.email,
+    profile_display_name: displayName,
+    profile_driver_type: driverType,
+  });
+  if (!rpcError && ensured) {
+    state.profile = Array.isArray(ensured) ? ensured[0] : ensured;
+    return;
+  }
+  if (rpcError && !/quickflex_ensure_profile|Could not find the function/i.test(rpcError.message || "")) throw rpcError;
   const profile = {
     id: user.id,
     email: user.email,
-    display_name: user.user_metadata?.display_name || user.email?.split("@")[0] || "사용자",
-    driver_type: user.user_metadata?.driver_type === "fixed" ? "fixed" : "backup",
+    display_name: displayName,
+    driver_type: driverType,
     status: "pending",
     role: "driver",
     fixed_routes: [],
