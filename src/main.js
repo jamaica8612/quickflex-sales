@@ -1802,7 +1802,7 @@ function applySchedule(map) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
     const record = getRecord(dateKey, true);
     record.off = routes === null;
-    record.rows = routes === null ? [] : (isBackupDriver() ? buildGroupedRows(routes) : fixedDefaultRows());
+    record.rows = routes === null ? [] : buildGroupedRows(routes);
     record.freshCount = "";
     record.freshUnit = 100;
     record.backupUnit = DEFAULT_BACKUP_UNIT;
@@ -1859,10 +1859,9 @@ function setOcrDraft(map) {
     Object.entries(map).forEach(([dateKey, routes]) => {
       if (routes === null) {
         ocrDraftMap[dateKey] = null;
-      } else if (isBackupDriver()) {
-        ocrDraftMap[dateKey] = correctRouteList(routes);
       } else {
-        ocrDraftMap[dateKey] = fixedRoutes();
+        const corrected = correctRouteList(routes);
+        ocrDraftMap[dateKey] = corrected.length ? corrected : draftWorkRoutes();
       }
     });
   }
