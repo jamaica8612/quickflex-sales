@@ -10,7 +10,7 @@ import {
   PUBLIC_SUPABASE_CONFIG,
   SAMPLE_SETTLEMENT,
   TABLES,
-} from "./config.js";
+} from "./config.js?v=2";
 import {
   addDays,
   formatLong,
@@ -742,7 +742,7 @@ function showDeploymentConfigError() {
   el.setupOverlay.classList.add("visible");
   el.setupUrl.closest(".setup-fields")?.classList.add("hidden");
   el.setupConnect.classList.add("hidden");
-  el.setupError.textContent = "배포 설정 오류: 운영 주소에서는 Supabase 공개 설정이 필요합니다. app.js의 PUBLIC_SUPABASE_CONFIG에 Project URL과 anon public key를 넣어 배포하세요.";
+  el.setupError.textContent = "배포 설정 오류: 운영 주소에서는 Supabase 공개 설정이 필요합니다. src/config.js의 PUBLIC_SUPABASE_CONFIG에 Project URL과 anon public key를 넣어 배포하세요.";
 }
 function buildClient(url, anonKey) {
   if (!window.supabase || !url || !anonKey) return null;
