@@ -118,6 +118,22 @@ as $$
   );
 $$;
 
+create or replace function public.quickflex_is_admin_rate_owner(owner_id text)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1
+    from public.quickflex_profiles
+    where id::text = owner_id
+      and role = 'admin'
+      and status = 'approved'
+  );
+$$;
+
 create or replace function public.quickflex_guard_profile_update()
 returns trigger
 language plpgsql
@@ -211,7 +227,16 @@ create policy "quickflex route rates select"
 on public.quickflex_route_rates
 for select
 to authenticated
-using (public.quickflex_is_admin() or (user_id = auth.uid()::text and public.quickflex_is_approved()));
+using (
+  public.quickflex_is_admin()
+  or (
+    public.quickflex_is_approved()
+    and (
+      user_id = auth.uid()::text
+      or public.quickflex_is_admin_rate_owner(user_id)
+    )
+  )
+);
 
 create policy "quickflex route rates insert"
 on public.quickflex_route_rates
