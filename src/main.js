@@ -1659,23 +1659,47 @@ function previewImageFile(file, target, altText) {
 async function runOcr() {
   const file = el.scheduleImage.files?.[0];
   if (!file) return toast("스케줄 이미지를 먼저 선택해 주세요.", "error");
+  const owner = String(driverName() || "").trim();
+  if (owner.length < 2) {
+    return toast("기사 이름을 정확히 입력한 뒤 다시 실행해 주세요.", "error");
+  }
+  const baseUrl = getEdgeFunctionUrl("ocr-schedule");
+  if (!baseUrl) return toast("Supabase 연결이 필요합니다.", "error");
+
   el.runScheduleOcr.disabled = true;
-  el.ocrStatus.textContent = "OCR 엔진 로딩 중...";
-  try {
-    // 클라이언트 사이드 파이프라인: OpenCV.js 표 분할 + Tesseract.js OCR
-    const { detectSchedule } = await import("./ocr/scheduleOcr.js");
-    const stageLabel = {
-      "loading-engines": "OCR 엔진 로딩 중...",
-      "segmenting": "표 분할 중...",
-      "recognizing": "셀별 인식 중...",
-      "parsing": "스케줄 분석 중...",
-      "done": "분석 완료",
-    };
-    const { schedule } = await detectSchedule(file, driverName(), state.year, state.month, (stage, info) => {
-      let text = stageLabel[stage] || stage;
-      if (stage === "recognizing" && info?.total) text = `셀별 인식 중... (${info.total}개)`;
-      el.ocrStatus.textContent = text;
+  el.ocrStatus.textContent = "표 분할 준비 중...";
+  const stageLabel = {
+    "segmenting": "표 분할 중...",
+    "ocr-names": "이름 열 인식 중 (Cloud Vision 호출)...",
+    "ocr-schedule": "스케줄 행 인식 중 (Cloud Vision 호출)...",
+    "done": "분석 완료",
+  };
+
+  // Edge Function 호출자 — Cloud Vision은 서버 환경변수(GOOGLE_CLOUD_VISION_API_KEY)로만 접근.
+  const fetchEdge = async (fnName, body) => {
+    const fnUrl = getEdgeFunctionUrl(fnName);
+    if (!fnUrl) throw new Error("Supabase Edge Function URL을 확인할 수 없습니다.");
+    const response = await fetch(fnUrl, {
+      method: "POST",
+      headers: await authHeaders(),
+      body: JSON.stringify(body),
     });
+    return readOcrResponse(response);
+  };
+
+  try {
+    const { detectSchedule } = await import("./ocr/scheduleOcr.js");
+    const { schedule } = await detectSchedule(
+      file,
+      owner,
+      state.year,
+      state.month,
+      (stage, info) => {
+        const base = stageLabel[stage] || stage;
+        el.ocrStatus.textContent = stage === "segmenting" && info?.label ? `표 분할 중 — ${info.label}` : base;
+      },
+      fetchEdge,
+    );
     const map = {};
     Object.entries(schedule || {}).forEach(([dateKey, routes]) => {
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {

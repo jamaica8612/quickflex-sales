@@ -1,4 +1,5 @@
 import { createOcrProvider } from "./harness.ts";
+import { handleCellsOcr } from "./cells.ts";
 import type { OcrRequest } from "./types.ts";
 
 const corsHeaders = {
@@ -28,6 +29,16 @@ Deno.serve(async (request) => {
 
   try {
     const body = await request.json() as OcrRequest;
+
+    // 셀 배치 OCR 모드: 브라우저에서 분할한 셀 이미지를 Cloud Vision text_detection으로 일괄 처리.
+    if (body.mode === "cells") {
+      if (!Array.isArray(body.cells) || !body.cells.length) {
+        return jsonResponse({ error: "cells 배열이 필요합니다." }, 400);
+      }
+      const result = await handleCellsOcr(body.cells);
+      return jsonResponse(result);
+    }
+
     const imageBase64 = String(body.imageBase64 || "").trim();
     const mimeType = String(body.mimeType || "image/jpeg").trim();
     const ownerName = String(body.ownerName || "김관현").trim();

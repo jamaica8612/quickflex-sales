@@ -8,6 +8,9 @@ const TARGET_CELL_HEIGHT = 80; // 작은 셀은 이 픽셀까지 업스케일
 
 let scriptPromise = null;
 let workerPromise = null;
+// 작은 셀 업스케일용 재사용 캔버스 (셀마다 createElement 하지 않는다).
+let upscaleCanvas = null;
+let upscaleCtx = null;
 
 function loadScript(url) {
   if (window.Tesseract) return Promise.resolve();
@@ -41,32 +44,27 @@ async function getWorker() {
 }
 
 function preprocessForOcr(input) {
-  // input을 canvas로 정규화 + 작은 이미지는 업스케일
+  // input을 canvas로 정규화 + 작은 이미지는 업스케일.
+  // segmenter가 넘기는 cellCanvas는 이미 캔버스이므로 대부분 첫 분기로 빠진다.
   let canvas;
   if (input instanceof HTMLCanvasElement) {
     canvas = input;
-  } else if (input instanceof HTMLImageElement) {
-    canvas = document.createElement("canvas");
-    canvas.width = input.naturalWidth || input.width;
-    canvas.height = input.naturalHeight || input.height;
-    canvas.getContext("2d").drawImage(input, 0, 0);
-  } else if (input instanceof ImageData) {
-    canvas = document.createElement("canvas");
-    canvas.width = input.width;
-    canvas.height = input.height;
-    canvas.getContext("2d").putImageData(input, 0, 0);
   } else {
-    return input; // Blob/string은 Tesseract가 자체 처리
+    return input; // Blob/Image/ImageData는 Tesseract가 자체 처리 (드물게 사용)
   }
   if (canvas.height >= TARGET_CELL_HEIGHT) return canvas;
   const scale = TARGET_CELL_HEIGHT / canvas.height;
-  const out = document.createElement("canvas");
-  out.width = Math.max(1, Math.round(canvas.width * scale));
-  out.height = Math.max(1, Math.round(canvas.height * scale));
-  const ctx = out.getContext("2d");
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(canvas, 0, 0, out.width, out.height);
-  return out;
+  const w = Math.max(1, Math.round(canvas.width * scale));
+  const h = Math.max(1, Math.round(canvas.height * scale));
+  if (!upscaleCanvas) {
+    upscaleCanvas = document.createElement("canvas");
+    upscaleCtx = upscaleCanvas.getContext("2d");
+  }
+  upscaleCanvas.width = w;
+  upscaleCanvas.height = h;
+  upscaleCtx.imageSmoothingQuality = "high";
+  upscaleCtx.drawImage(canvas, 0, 0, w, h);
+  return upscaleCanvas;
 }
 
 export async function tesseractRecognize(input) {
