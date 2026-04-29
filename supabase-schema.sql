@@ -198,7 +198,7 @@ returns public.quickflex_profiles
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $function$
 declare
   result public.quickflex_profiles;
 begin
@@ -210,7 +210,7 @@ begin
   values (
     auth.uid(),
     profile_email,
-    coalesce(nullif(profile_display_name, ''), '사용자'),
+    coalesce(nullif(profile_display_name, ''), 'user'),
     case when profile_driver_type = 'fixed' then 'fixed' else 'backup' end,
     'pending',
     'driver',
@@ -229,7 +229,7 @@ begin
 
   return result;
 end;
-$$;
+$function$;
 
 grant execute on function public.quickflex_ensure_profile(text, text, text) to authenticated;
 
