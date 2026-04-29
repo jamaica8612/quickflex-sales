@@ -32,6 +32,21 @@ import {
   splitStoredRoutes,
 } from "./lib/route.js";
 
+const THEME_KEY = "quickflex-theme";
+function applyTheme(theme) {
+  const t = theme === "dark" ? "dark" : "light";
+  if (document.documentElement) document.documentElement.dataset.theme = t;
+  if (document.body) document.body.dataset.theme = t;
+  try { localStorage.setItem(THEME_KEY, t); } catch (_) {}
+  document.querySelectorAll("[data-theme-set]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.themeSet === t);
+  });
+  if (typeof renderStats === "function") {
+    try { renderStats(); } catch (_) {}
+  }
+}
+try { applyTheme(localStorage.getItem("quickflex-theme") || "light"); } catch (_) {}
+
 const GOAL_SETTING_ROUTE = "__GOAL__";
 function getGoal() { return toNum(state.profile?.goal_amount) || GOAL; }
 function goalRawValue() { return parseInt((el.goalAmountInput.value || "").replace(/,/g, ""), 10) || 0; }
@@ -1769,9 +1784,13 @@ function renderStatsChart(keys) {
   const maxVal = Math.max(...series.map((s) => s.revenue), 100000);
   const step = niceStep(maxVal / 5);
   const yMax = Math.ceil(maxVal / step) * step;
-  ctx.strokeStyle = "rgba(148,163,184,.15)";
-  ctx.fillStyle = "#98a2b3";
-  ctx.font = "10px system-ui, sans-serif";
+  const cs = getComputedStyle(document.documentElement);
+  const primaryColor = (cs.getPropertyValue("--gold") || "#0066FF").trim() || "#0066FF";
+  const gridColor = (cs.getPropertyValue("--line") || "rgba(112,115,124,.18)").trim() || "rgba(112,115,124,.18)";
+  const labelColor = (cs.getPropertyValue("--muted") || "#70737C").trim() || "#70737C";
+  ctx.strokeStyle = gridColor;
+  ctx.fillStyle = labelColor;
+  ctx.font = "10px 'Pretendard Variable', Pretendard, system-ui, sans-serif";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   ctx.lineWidth = 1;
@@ -1794,7 +1813,7 @@ function renderStatsChart(keys) {
     if (!d) continue;
     ctx.fillText(`${d.getMonth() + 1}/${d.getDate()}`, xFor(idx), margin.t + h + 6);
   }
-  ctx.strokeStyle = "#ffc226";
+  ctx.strokeStyle = primaryColor;
   ctx.lineWidth = 2.5;
   ctx.lineJoin = "round";
   ctx.beginPath();
@@ -1804,12 +1823,31 @@ function renderStatsChart(keys) {
     statsChartState.points.push({ x, y, ...s });
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   });
+  if (statsChartState.points.length) {
+    const first = statsChartState.points[0];
+    const last = statsChartState.points[statsChartState.points.length - 1];
+    const fillGradient = ctx.createLinearGradient(0, margin.t, 0, margin.t + h);
+    fillGradient.addColorStop(0, primaryColor);
+    fillGradient.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.save();
+    ctx.lineTo(last.x, margin.t + h);
+    ctx.lineTo(first.x, margin.t + h);
+    ctx.closePath();
+    ctx.globalAlpha = .14;
+    ctx.fillStyle = fillGradient;
+    ctx.fill();
+    ctx.restore();
+    ctx.beginPath();
+    statsChartState.points.forEach((point, i) => {
+      if (i === 0) ctx.moveTo(point.x, point.y); else ctx.lineTo(point.x, point.y);
+    });
+  }
   ctx.stroke();
   series.forEach((s, i) => {
     const x = xFor(i);
     const y = yFor(s.revenue);
     ctx.beginPath();
-    ctx.fillStyle = s.revenue > 0 ? "#ffc226" : "rgba(255,194,38,.32)";
+    ctx.fillStyle = s.revenue > 0 ? primaryColor : (cs.getPropertyValue("--soft").trim() || "#AEB0B6");
     ctx.arc(x, y, 3, 0, Math.PI * 2);
     ctx.fill();
   });
@@ -2668,6 +2706,10 @@ function bindEvents() {
     el.goalAmountInput.setSelectionRange(pos + diff, pos + diff);
   });
   el.saveAppSettings.addEventListener("click", () => saveGoalAmount().catch((error) => toast(`목표 저장 실패: ${error.message}`, "error")));
+  document.querySelectorAll("[data-theme-set]").forEach((btn) => {
+    btn.addEventListener("click", () => applyTheme(btn.dataset.themeSet));
+  });
+  applyTheme(localStorage.getItem(THEME_KEY) || "light");
   el.saveRate.addEventListener("click", async () => {
     const route = normalizeRoute(el.rateRoute.value);
     if (route && isBackupDriver() && !isKnownRateRoute(route)) {
