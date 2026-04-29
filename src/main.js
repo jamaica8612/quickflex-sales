@@ -311,10 +311,11 @@ function splitStoredRoutes(value) { return routeListFromText(value); }
 function joinStoredRoutes(routes) { return routeListFromText(Array.isArray(routes) ? routes.join("|") : routes).join("|"); }
 // "319AB" → ["319A","319B"], "319A 320B" → ["319A","320B"]
 function expandRouteText(text) {
+  const seen = new Set();
   return routeListFromText(text).flatMap((r) => {
     const m = r.match(/^(\d+)([A-Z]{2,})$/);
     return m ? m[2].split("").map((c) => m[1] + c) : [r];
-  });
+  }).filter((route) => route && !seen.has(route) && seen.add(route));
 }
 function compactRouteList(routes) {
   const groups = new Map();
@@ -417,7 +418,7 @@ function completeRouteBundles(routes) {
 }
 function currentUserId() { return state.session?.user?.id || ""; }
 function isBackupDriver() { return (state.profile?.driver_type || "backup") === "backup"; }
-function fixedRoutes() { return Array.isArray(state.profile?.fixed_routes) ? state.profile.fixed_routes.map(normalizeRoute).filter(Boolean) : []; }
+function fixedRoutes() { return Array.isArray(state.profile?.fixed_routes) ? expandRouteText(state.profile.fixed_routes.join(",")) : []; }
 function driverName() { return state.profile?.display_name || state.session?.user?.email || "매출관리"; }
 function statusLabel(status) {
   if (status === "approved") return "승인";
@@ -437,11 +438,16 @@ function rateFor(route) {
     || 0;
 }
 function sharedRateForRoutes(routes) {
-  const list = splitStoredRoutes(routes);
+  const list = expandRouteText(routes);
   if (!list.length) return 0;
   const units = list.map(rateFor).filter((unit) => unit > 0);
   if (!units.length) return 0;
   return units.every((unit) => unit === units[0]) ? units[0] : 0;
+}
+function autoUnitForRoutes(routes) {
+  const list = expandRouteText(routes);
+  if (!list.length) return 0;
+  return sharedRateForRoutes(list) || rateFor(list[0]) || 0;
 }
 function defaultFreshUnit(value) { return value == null || value === "" ? 100 : value; }
 function defaultBackupUnit(value) { return value == null || value === "" ? DEFAULT_BACKUP_UNIT : value; }
@@ -460,7 +466,7 @@ function normalizeRecordShape(record) {
   };
   next.rows = next.rows
     .map((row) => ({
-      route: joinStoredRoutes(row.route),
+      route: joinStoredRoutes(expandRouteText(row.route)),
       count: row.count ?? "",
       unit: row.unit ?? sharedRateForRoutes(row.route) ?? 0,
     }))
@@ -505,7 +511,7 @@ function mergeGroupedRows(rows) {
   return merged;
 }
 function buildGroupedRows(routes) {
-  return mergeGroupedRows(routeListFromText(routes).map((route) => ({ route, count: "", unit: rateFor(route) })));
+  return mergeGroupedRows(expandRouteText(routes).map((route) => ({ route, count: "", unit: rateFor(route) })));
 }
 function fixedDefaultRows() {
   return buildGroupedRows(fixedRoutes()).map((row) => ({ ...row, count: "" }));
@@ -845,6 +851,24 @@ function mergeDefaultRouteMaster(rates) {
   });
   return { rates: [...byRoute.values()].sort((a, b) => a.route.localeCompare(b.route)), changed };
 }
+function mergeDefaultRatesIntoUserRates(userRates, defaultRates) {
+  const byRoute = new Map((userRates || []).map((rate) => [normalizeRoute(rate.route), { ...rate, route: normalizeRoute(rate.route), unit: toNum(rate.unit) }]));
+  let changed = false;
+  (defaultRates || []).forEach((rate) => {
+    const route = normalizeRoute(rate.route);
+    const unit = toNum(rate.unit);
+    if (!route || unit < 0) return;
+    const existing = byRoute.get(route);
+    if (!existing) {
+      byRoute.set(route, { ...rate, route, unit });
+      changed = true;
+    } else if (toNum(existing.unit) <= 0 && unit > 0) {
+      byRoute.set(route, { ...existing, unit });
+      changed = true;
+    }
+  });
+  return { rates: [...byRoute.values()].sort((a, b) => a.route.localeCompare(b.route)), changed };
+}
 function entriesFromDb(dayRows, itemRows) {
   const entries = {};
   (dayRows || []).forEach((row) => {
@@ -895,7 +919,11 @@ async function loadFromDb() {
   if (!state.rates.length && !state.defaultRates.length) {
     state.rates = avgRates(SAMPLE_SETTLEMENT);
   }
-  if (state.rates.length || !state.defaultRates.length) {
+  if (state.defaultRates.length) {
+    const merged = mergeDefaultRatesIntoUserRates(state.rates, state.defaultRates);
+    state.rates = merged.rates;
+    if (merged.changed) await persistRates();
+  } else if (state.rates.length || !state.defaultRates.length) {
     const merged = mergeDefaultRouteMaster(state.rates);
     state.rates = merged.rates;
     if (!hadRates || merged.changed) await persistRates();
@@ -1123,12 +1151,10 @@ function renderEntryRow(row, index) {
     const joined = joinStoredRoutes(expanded);
     const record = getRecord(state.selectedDate, true);
     record.rows[index].route = joined || routeInput.value;
-    const autoUnit = sharedRateForRoutes(joined) || rateFor(expanded[0] || "");
-    if (autoUnit > 0) {
-      record.rows[index].unit = autoUnit;
-      unit.value = autoUnit;
-      output.textContent = fmtWon(toNum(count.value) * autoUnit);
-    }
+    const autoUnit = autoUnitForRoutes(joined || expanded);
+    record.rows[index].unit = autoUnit;
+    unit.value = autoUnit || "";
+    output.textContent = fmtWon(toNum(count.value) * autoUnit);
     scheduleSave({ dateKeys: [state.selectedDate] });
     refreshTotals();
   });
@@ -1138,12 +1164,10 @@ function renderEntryRow(row, index) {
     const record = getRecord(state.selectedDate, true);
     record.rows[index].route = joined || routeInput.value;
     routeInput.value = joined ? formatRouteLabel(joined) : routeInput.value.trim().toUpperCase();
-    const autoUnit = sharedRateForRoutes(joined);
-    if (autoUnit > 0) {
-      record.rows[index].unit = autoUnit;
-      unit.value = autoUnit;
-      output.textContent = fmtWon(toNum(count.value) * autoUnit);
-    }
+    const autoUnit = autoUnitForRoutes(joined || expanded);
+    record.rows[index].unit = autoUnit;
+    unit.value = autoUnit || "";
+    output.textContent = fmtWon(toNum(count.value) * autoUnit);
     scheduleSave({ dateKeys: [state.selectedDate] });
     refreshTotals();
   });
@@ -1279,12 +1303,11 @@ function askChangedRatePolicy(changedRates) {
   const suffix = changedRates.length > 12 ? `\n외 ${changedRates.length - 12}개` : "";
   return window.confirm(`기존 단가와 다른 구역이 있습니다.\n\n${preview}${suffix}\n\n정산표 기준 새 단가로 바꿀까요?\n확인: 새 단가로 변경\n취소: 기존 단가 유지`);
 }
-async function backupRateTargetUserIds() {
+async function approvedRateTargetUserIds() {
   if (state.profile?.role !== "admin" || !state.db) return [currentUserId()];
   const { data, error } = await state.db
     .from(TABLES.profiles)
     .select("id,driver_type,status")
-    .eq("driver_type", "backup")
     .eq("status", "approved");
   if (error) throw error;
   const ids = (data || []).map((profile) => profile.id).filter(Boolean);
@@ -1360,7 +1383,7 @@ async function applySettlementRows(rows) {
   ];
   const createdPreview = created.length ? `새 구역 ${created.map((rate) => rate.route).join(", ")}은 기본 단가로 추가합니다.` : "새 구역은 없습니다.";
   const changedPreview = changed.length ? `단가가 다른 구역 ${changed.length}개는 ${shouldUpdateChanged ? "정산표 단가로 변경" : "기존 단가 유지"}합니다.` : "단가가 다른 구역은 없습니다.";
-  if (!window.confirm(`${createdPreview}\n${changedPreview}\n\n백업기사들이 볼 수 있도록 DB 기본 단가에 반영할까요?`)) {
+  if (!window.confirm(`${createdPreview}\n${changedPreview}\n\n승인된 사용자들의 DB 기본 단가에 반영할까요?`)) {
     toast("단가 반영을 취소했습니다.", "error");
     return false;
   }
@@ -1370,11 +1393,11 @@ async function applySettlementRows(rows) {
     else state.rates.push(rate);
   });
   state.rates = mergeDefaultRouteMaster(state.rates).rates;
-  const targetUserIds = await backupRateTargetUserIds();
+  const targetUserIds = await approvedRateTargetUserIds();
   await persistRatesForUsers(state.rates, targetUserIds);
   renderRates();
   renderAll();
-  toast(`정산표 단가와 기본 구역 ${state.rates.length}개를 백업기사 ${targetUserIds.length}명 기준으로 반영했습니다.`, "success");
+  toast(`정산표 단가와 기본 구역 ${state.rates.length}개를 승인 사용자 ${targetUserIds.length}명 기준으로 반영했습니다.`, "success");
   return true;
 }
 
@@ -2099,7 +2122,7 @@ async function saveAdminProfile(card) {
   const id = card.dataset.id;
   const status = card.querySelector('[data-field="status"]').value;
   const driverType = card.querySelector('[data-field="driver_type"]').value;
-  const fixedRoutes = routeListFromText(card.querySelector('[data-field="fixed_routes"]')?.value || "");
+  const fixedRoutes = expandRouteText(card.querySelector('[data-field="fixed_routes"]')?.value || "");
   const { error } = await state.db.from(TABLES.profiles).update({
     status,
     driver_type: driverType,
@@ -2107,7 +2130,7 @@ async function saveAdminProfile(card) {
     updated_at: new Date().toISOString(),
   }).eq("id", id);
   if (error) throw error;
-  if (status === "approved" && driverType === "backup" && state.rates.length) {
+  if (status === "approved" && state.rates.length) {
     await persistRatesForUsers(state.rates, [id]);
   }
   toast("사용자 정보를 저장했습니다.", "success");
@@ -2185,9 +2208,7 @@ function bindEvents() {
   el.addRoute.addEventListener("click", () => {
     const record = getRecord(state.selectedDate, true);
     record.off = false;
-    const firstRate = isBackupDriver()
-      ? state.rates[0] || state.defaultRates[0]
-      : [...state.rates, ...state.defaultRates].find((rate) => fixedRoutes().includes(rate.route)) || state.rates[0] || state.defaultRates[0];
+    const firstRate = isBackupDriver() ? state.rates[0] || state.defaultRates[0] : null;
     record.rows.push({ route: firstRate?.route || "", count: "", unit: firstRate?.unit || 0 });
     scheduleSave({ dateKeys: [state.selectedDate] });
     renderEntryForm();
@@ -2248,14 +2269,25 @@ function bindEvents() {
     renderStats();
     toast("설정을 저장했습니다.", "success");
   });
-  el.saveRate.addEventListener("click", () => {
+  el.saveRate.addEventListener("click", async () => {
     if (!upsertRate(el.rateRoute.value, el.rateUnit.value)) return toast("구역과 단가를 확인해 주세요.", "error");
     el.rateRoute.value = "";
     el.rateUnit.value = "";
     renderRates();
     renderAll();
     scheduleSave({ rates: true, immediate: true });
-    toast("단가를 저장했습니다.", "success");
+    try {
+      await ensurePendingSavesFlushed();
+      if (state.profile?.role === "admin" && state.rates.length) {
+        const targetUserIds = await approvedRateTargetUserIds();
+        await persistRatesForUsers(state.rates, targetUserIds);
+        toast(`단가를 저장하고 승인 사용자 ${targetUserIds.length}명에게 반영했습니다.`, "success");
+      } else {
+        toast("단가를 저장했습니다.", "success");
+      }
+    } catch (error) {
+      toast(`단가 저장 실패: ${error.message}`, "error");
+    }
   });
   el.parseCsv.addEventListener("click", () => {
     const rows = parseSettlementCsv(el.csvInput.value);
