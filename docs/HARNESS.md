@@ -63,7 +63,7 @@ Client rules:
 - Send the original image once; do not require OpenCV for the default schedule OCR path.
 - Keep the OCR status focused on server analysis, not client-side table segmentation.
 - Fixed drivers use OCR only for off/work-day detection; work days are filled from that user's `fixed_routes`.
-- Backup drivers keep OCR route extraction, then correct each single route code against the route master, current rate routes, and the user's fixed route candidates.
+- Backup drivers keep OCR route extraction, correct each single route code against route candidates, then complete known route bundles only when one code is missing from an otherwise matched bundle.
 
 Server rules:
 - Read the API key from `GOOGLE_CLOUD_VISION_API_KEY` (fallback `CLOUD_VISION_API_KEY`); never accept the key from the request body.
