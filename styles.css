@@ -111,12 +111,12 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
   font-weight: 950;
   letter-spacing: -1px;
 }
-.meter-wrap { display: flex; align-items: center; gap: 10px; margin: 16px 0; }
+.meter-wrap { display: flex; align-items: center; gap: 10px; margin: 8px 0 16px; }
 .meter-wrap .summary-meter { flex: 1; margin: 0; }
 .summary-meter { height: 5px; background: #30384d; border-radius: 999px; overflow: hidden; }
 .summary-meter span { display: block; width: 0; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold2)); transition: width .4s ease; }
 .meter-pct { font-size: 12px; font-weight: 900; color: var(--gold); white-space: nowrap; min-width: 38px; text-align: right; flex-shrink: 0; }
-.meter-label { font-size: 11px; color: var(--muted); text-align: center; margin: -6px 0 10px; }
+.meter-label { font-size: 11px; color: var(--muted); text-align: center; margin: 12px 0 0; }
 .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; }
 .summary-grid div + div { border-left: 1px solid var(--line); }
 .summary-grid span { display: block; color: var(--soft); font-size: 12px; font-weight: 800; }
@@ -125,7 +125,7 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 .calendar-panel { background: var(--panel); }
 .calendar-toolbar { padding: 14px 16px 10px; display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px auto; }
 .calendar-toolbar strong { display: block; font-size: 22px; text-align: center; }
-.meter-label { font-size: 11px; color: var(--muted); text-align: center; margin: -10px 0 10px; }
+.meter-label { font-size: 11px; color: var(--muted); text-align: center; margin: 12px 0 0; }
 .today-btn, .ghost-pill, .primary-pill, .secondary-btn, .full-btn {
   border-radius: 999px;
   font-weight: 850;
@@ -381,14 +381,31 @@ h1 { margin: 0; font-size: 24px; letter-spacing: -0.3px; }
 .rate-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .rate-list > .daily-card { grid-column: 1 / -1; }
 .rate-chip {
+  position: relative;
   border-radius: 12px;
   background: var(--panel2);
   border: 1px solid var(--line);
-  padding: 10px 6px;
+  padding: 10px 28px 10px 6px;
   text-align: center;
+  color: var(--text);
+  cursor: pointer;
 }
 .rate-chip strong { display: block; font-size: 13px; }
 .rate-chip span { color: var(--muted); font-size: 11px; }
+.rate-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(251,113,133,.12);
+  border: 1px solid rgba(251,113,133,.3);
+  color: var(--red);
+  font-size: 14px;
+  font-weight: 950;
+  line-height: 1;
+}
 .settings-row {
   width: 100%;
   min-height: 48px;
