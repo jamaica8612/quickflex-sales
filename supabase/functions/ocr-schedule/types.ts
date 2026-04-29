@@ -6,7 +6,7 @@ export type OcrRequest = {
   month?: number;
   kind?: "schedule" | "settlement";
   // 셀 단위 OCR 모드 (브라우저에서 표 분할 후 셀 이미지만 전송)
-  mode?: "schedule" | "cells";
+  mode?: "schedule" | "cells" | "vision-schedule";
   cells?: CellOcrInput[];
 };
 
