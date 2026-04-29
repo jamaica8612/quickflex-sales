@@ -45,6 +45,25 @@ const DEFAULT_ROUTE_MASTER = [
   "425B", "425C", "425D",
   "428A", "428B", "428C", "428D",
 ];
+const DEFAULT_ROUTE_BUNDLES = [
+  ["403A", "403B"], ["403C", "403D"],
+  ["405A", "405C", "410B"], ["405B", "405D"],
+  ["407A", "407C"], ["407B", "407D"],
+  ["427A", "427B", "427C", "427D"],
+  ["425B", "425D"], ["428C", "428D"], ["428A", "428B"],
+  ["410A", "410C", "410D"], ["425A", "425C"],
+  ["304A", "304B", "304D"], ["308B", "308C"],
+  ["302A", "303D"], ["302C", "304C"],
+  ["311A", "311B"], ["311C", "311D", "322D"],
+  ["316A", "316B", "313A"], ["316C", "316D"],
+  ["318A", "318B"], ["318C", "318D", "313D"],
+  ["319A", "319B", "319C", "319D"],
+  ["314A", "314B"], ["314C", "314D"],
+  ["324A", "324B"], ["324C", "324D"],
+  ["322A", "322B", "322C"],
+  ["308A", "308D"], ["313B", "313C"], ["303C", "302D"],
+  ["310C", "310D"], ["303A", "302B"],
+];
 
 const today = new Date();
 const initialPeriodMonth = today.getDate() <= 25 ? today.getMonth() + 1 : today.getMonth() + 2;
@@ -352,10 +371,28 @@ function correctRoute(route, candidates = routeCandidateSet()) {
 function correctRouteList(routes) {
   const candidates = routeCandidateSet();
   const seen = new Set();
-  return routeListFromText(routes)
+  const corrected = routeListFromText(routes)
     .flatMap(expandRouteText)
     .map((route) => correctRoute(route, candidates))
     .filter((route) => route && !seen.has(route) && seen.add(route));
+  return completeRouteBundles(corrected);
+}
+function completeRouteBundles(routes) {
+  const result = [...routes];
+  const seen = new Set(result);
+  DEFAULT_ROUTE_BUNDLES.forEach((bundle) => {
+    const observed = bundle.filter((route) => seen.has(route));
+    const missing = bundle.filter((route) => !seen.has(route));
+    if (observed.length >= 2 && missing.length === 1) {
+      bundle.forEach((route) => {
+        if (!seen.has(route)) {
+          seen.add(route);
+          result.push(route);
+        }
+      });
+    }
+  });
+  return result;
 }
 function currentUserId() { return state.session?.user?.id || ""; }
 function isBackupDriver() { return (state.profile?.driver_type || "backup") === "backup"; }
