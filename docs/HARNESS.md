@@ -23,7 +23,7 @@ This file is the shared working contract for Codex, Claude Code, and future agen
 - `backup` drivers can add many routes and use backup bonus.
 - `fixed` drivers use `fixed_routes`, hide backup bonus, and should see only their assigned routes on the record screen.
 - Route rates live in `quickflex_route_rates`.
-- OCR route bundle correction patterns live in `quickflex_route_bundles` and are managed by admins.
+- OCR route bundle correction patterns live in `quickflex_route_bundles` and are managed by admins. A pattern may contain one or more routes; multi-route patterns can complete one missing route from a known bundle.
 - Route rate history is not used. Keep one current default unit price per Route in `quickflex_route_rates`.
 - Day records live in `quickflex_day_records`.
 - Route item snapshots live in `quickflex_day_route_items`.
