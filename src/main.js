@@ -258,6 +258,15 @@ function escapeAttr(value) {
 }
 function routeCandidateSet() {
   const candidates = new Set(DEFAULT_ROUTE_MASTER.map(normalizeRoute));
+  DEFAULT_ROUTE_BUNDLES.flat().forEach((route) => {
+    const normalized = normalizeRoute(route);
+    if (/^\d{3}[A-Z]$/.test(normalized)) candidates.add(normalized);
+  });
+  (state.routeBundles || []).forEach((bundle) => {
+    routeListFromText(bundle.routes).forEach((route) => {
+      if (/^\d{3}[A-Z]$/.test(route)) candidates.add(route);
+    });
+  });
   state.rates.forEach((rate) => {
     const route = normalizeRoute(rate.route);
     if (/^\d{3}[A-Z]$/.test(route)) candidates.add(route);
