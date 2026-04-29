@@ -2,3 +2,4 @@ local-server.js
 server-*.log
 supabase/.temp/
 .claude/
+node_modules/

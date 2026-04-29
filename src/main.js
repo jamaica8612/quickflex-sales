@@ -1,6 +1,35 @@
 "use strict";
 
-import { DB_KEY, DEFAULT_BACKUP_UNIT, GOAL, PUBLIC_SUPABASE_CONFIG, TABLES, WEEKDAYS } from "./config.js";
+import {
+  DB_KEY,
+  DEFAULT_BACKUP_UNIT,
+  DEFAULT_ROUTE_BUNDLES,
+  DEFAULT_ROUTE_MASTER,
+  GOAL,
+  PUBLIC_SUPABASE_CONFIG,
+  SAMPLE_SETTLEMENT,
+  TABLES,
+} from "./config.js";
+import {
+  addDays,
+  formatLong,
+  formatLongShort,
+  formatRecordTitleDate,
+  formatShort,
+  parseDateKey,
+  todayKey,
+  toDateKey,
+} from "./lib/date.js";
+import {
+  compactRouteList,
+  expandRouteText,
+  formatRecordRoutes,
+  formatRouteLabel,
+  joinStoredRoutes,
+  normalizeRoute,
+  routeListFromText,
+  splitStoredRoutes,
+} from "./lib/route.js";
 
 const GOAL_KEY = "quickflex-goal";
 function getGoal() { return parseInt(localStorage.getItem(GOAL_KEY) || "", 10) || GOAL; }
@@ -11,59 +40,10 @@ function formatGoalInput() {
   el.goalAmountInput.value = raw > 0 ? raw.toLocaleString("ko-KR") : "";
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
+import { toNum } from "./lib/revenue.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
 const LEGACY_USER_NAMES = new Map([["kim-gwanhyun", "김관현"]]);
-
-const SAMPLE_SETTLEMENT = [
-  ["302B", 306, 347310], ["302C", 237, 231075], ["303A", 220, 212300], ["303B", 573, 544350],
-  ["304C", 53, 49025], ["308B", 165, 159225], ["308C", 154, 148610], ["310C", 473, 404415],
-  ["310D", 370, 334895], ["311C", 139, 142475], ["311D", 173, 173865], ["313B", 194, 163930],
-  ["313C", 57, 52725], ["313D", 186, 162750], ["314A", 305, 236375], ["314B", 210, 166950],
-  ["316C", 177, 146025], ["316D", 80, 70000], ["318A", 179, 142305], ["318B", 132, 108900],
-  ["318C", 360, 286200], ["318D", 58, 46110], ["319A", 212, 174900], ["319B", 189, 155925],
-  ["319C", 106, 108650], ["322A", 281, 231825], ["322B", 230, 212750], ["322C", 224, 229600],
-  ["322D", 179, 183475], ["324C", 127, 117475], ["324D", 50, 53750], ["407B", 218, 179850],
-  ["407D", 54, 44550],
-];
-const DEFAULT_ROUTE_MASTER = [
-  "302A", "302B", "302C", "302D",
-  "303A", "303B",
-  "304A", "304B", "304C", "304D",
-  "308B", "308C",
-  "310A", "310C", "310D",
-  "311A", "311B", "311C", "311D",
-  "313A", "313B", "313C", "313D",
-  "314A", "314B", "314C", "314D",
-  "316A", "316B", "316C", "316D",
-  "318A", "318B", "318C", "318D",
-  "319A", "319B", "319C",
-  "322A", "322B", "322C", "322D",
-  "324A", "324B", "324C", "324D",
-  "407A", "407B", "407C", "407D",
-  "410A", "410B", "410C", "410D",
-  "425B", "425C", "425D",
-  "428A", "428B", "428C", "428D",
-];
-const DEFAULT_ROUTE_BUNDLES = [
-  ["403A", "403B"], ["403C", "403D"],
-  ["405A", "405C", "410B"], ["405B", "405D"],
-  ["407A", "407C"], ["407B", "407D"],
-  ["427A", "427B", "427C", "427D"],
-  ["425B", "425D"], ["428C", "428D"], ["428A", "428B"],
-  ["410A", "410C", "410D"], ["425A", "425C"],
-  ["304A", "304B", "304D"], ["308B", "308C"],
-  ["302A", "303D"], ["302C", "304C"],
-  ["311A", "311B"], ["311C", "311D", "322D"],
-  ["316A", "316B", "313A"], ["316C", "316D"],
-  ["318A", "318B"], ["318C", "318D", "313D"],
-  ["319A", "319B", "319C", "319D"],
-  ["314A", "314B"], ["314C", "314D"],
-  ["324A", "324B"], ["324C", "324D"],
-  ["322A", "322B", "322C"],
-  ["308A", "308D"], ["313B", "313C"], ["303C", "302D"],
-  ["310C", "310D"], ["303A", "302B"],
-];
 
 const today = new Date();
 const initialPeriodMonth = today.getDate() <= 25 ? today.getMonth() + 1 : today.getMonth() + 2;
@@ -248,31 +228,6 @@ function toast(message, type = "") {
   toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2800);
 }
 
-function toDateKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-function parseDateKey(key) { return new Date(`${key}T00:00:00`); }
-function addDays(key, amount) {
-  const date = parseDateKey(key);
-  date.setDate(date.getDate() + amount);
-  return toDateKey(date);
-}
-function todayKey() { return toDateKey(new Date()); }
-function formatShort(date) {
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`;
-}
-function formatLong(key) {
-  const date = parseDateKey(key);
-  return `${date.getFullYear()}년 ${String(date.getMonth() + 1).padStart(2, "0")}월 ${String(date.getDate()).padStart(2, "0")}일(${WEEKDAYS[date.getDay()]})`;
-}
-function formatRecordTitleDate(key) {
-  const date = parseDateKey(key);
-  return `${String(date.getFullYear()).slice(2)}년 ${String(date.getMonth() + 1).padStart(2, "0")}월 ${String(date.getDate()).padStart(2, "0")}일`;
-}
-function formatLongShort(key) {
-  const date = parseDateKey(key);
-  return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}(${WEEKDAYS[date.getDay()]})`;
-}
 function periodBounds(year = state.year, month = state.month) {
   return { start: new Date(year, month - 2, 26), end: new Date(year, month - 1, 25) };
 }
@@ -291,47 +246,12 @@ function prevPeriod(year = state.year, month = state.month) {
   const date = new Date(year, month - 2, 1);
   return { year: date.getFullYear(), month: date.getMonth() + 1 };
 }
-function toNum(value) { return Number(String(value ?? "").replace(/[^\d.-]/g, "")) || 0; }
-function normalizeRoute(value) { return String(value || "").trim().toUpperCase(); }
-function routeListFromText(value) {
-  return String(value || "")
-    .split(/[,\s/|]+/)
-    .map(normalizeRoute)
-    .filter(Boolean)
-    .filter((route, index, list) => list.indexOf(route) === index);
-}
 function escapeAttr(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("\"", "&quot;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
-}
-function splitStoredRoutes(value) { return routeListFromText(value); }
-function joinStoredRoutes(routes) { return routeListFromText(Array.isArray(routes) ? routes.join("|") : routes).join("|"); }
-// "319AB" → ["319A","319B"], "319A 320B" → ["319A","320B"]
-function expandRouteText(text) {
-  const seen = new Set();
-  return routeListFromText(text).flatMap((r) => {
-    const m = r.match(/^(\d+)([A-Z]{2,})$/);
-    return m ? m[2].split("").map((c) => m[1] + c) : [r];
-  }).filter((route) => route && !seen.has(route) && seen.add(route));
-}
-function compactRouteList(routes) {
-  const groups = new Map();
-  routeListFromText(routes).forEach((route) => {
-    const prefix = route.slice(0, 3);
-    const suffix = route.slice(3);
-    if (!groups.has(prefix)) groups.set(prefix, []);
-    if (!groups.get(prefix).includes(suffix)) groups.get(prefix).push(suffix);
-  });
-  return [...groups.entries()].map(([prefix, suffixes]) => `${prefix}${suffixes.join("")}`).join(" ");
-}
-function formatRouteLabel(value) {
-  return compactRouteList(splitStoredRoutes(value));
-}
-function formatRecordRoutes(rows) {
-  return compactRouteList((rows || []).flatMap((row) => splitStoredRoutes(row.route)));
 }
 function routeCandidateSet() {
   const candidates = new Set(DEFAULT_ROUTE_MASTER.map(normalizeRoute));
