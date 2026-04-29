@@ -729,9 +729,9 @@ async function connectDb(url, key, persist = false) {
   await bootSignedInUser();
 }
 async function bootSignedInUser() {
-  showAuth(false);
   await loadProfile();
   if (state.profile?.status !== "approved") {
+    showAuth(false);
     showPending(true);
     return;
   }
@@ -739,6 +739,7 @@ async function bootSignedInUser() {
   applyProfileUi();
   await loadFromDb();
   renderAll();
+  showAuth(false);
   if (state.profile?.role === "admin" && el.app.dataset.view === "admin") await renderAdminDashboard();
 }
 async function loadProfile() {
