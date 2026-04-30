@@ -246,23 +246,21 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
 .summary-grid strong { font-family: var(--font-numeric); font-size: 15px; font-weight: 800; }
 
 .calendar-panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  margin-top: 10px;
-  overflow: hidden;
-  position: relative;
-  isolation: isolate;
-  background-clip: padding-box;
-  box-shadow: var(--shadow-card);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  margin-top: 8px;
+  overflow: visible;
+  position: static;
+  isolation: auto;
+  background-clip: border-box;
+  box-shadow: none;
 }
 .calendar-toolbar {
   padding: 18px 14px 10px;
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) 38px auto;
-  background: inherit;
-  border-top-left-radius: inherit;
-  border-top-right-radius: inherit;
+  background: transparent;
 }
 .calendar-toolbar strong { display: block; font-size: 17px; font-weight: 850; letter-spacing: -0.3px; text-align: center; }
 .meter-label { font-size: 10px; color: var(--soft); text-align: center; margin: 0 0 14px; order: 3; }
@@ -325,7 +323,7 @@ body:not([data-theme="dark"]) .theme-toggle button:not(.active) {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   padding: 0 14px 12px;
-  background: inherit;
+  background: transparent;
 }
 .mode-btn {
   height: 36px;
@@ -357,10 +355,10 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
 }
 .week-head, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
 .week-head {
-  background: var(--panel);
-  border-top: 1px solid var(--line);
+  background: transparent;
+  border-top: 0;
   border-bottom: 1px solid var(--line);
-  overflow: hidden;
+  overflow: visible;
 }
 .week-head span { text-align: center; padding: 8px 0; color: var(--muted); font-weight: 850; font-size: 11px; }
 .sun { color: var(--red) !important; }
@@ -368,8 +366,8 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
 .calendar-grid {
   grid-auto-rows: 76px;
   min-height: 0;
-  background: var(--panel);
-  overflow: hidden;
+  background: transparent;
+  overflow: visible;
 }
 .day-cell {
   position: relative;
@@ -733,7 +731,11 @@ body:not([data-theme="dark"]) .rate-editor button {
   border-radius: 12px;
   background: var(--panel2);
   border: 1px solid var(--line);
-  padding: 10px 24px 9px 8px;
+  min-height: 54px;
+  padding: 9px 22px 8px 8px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
   text-align: center;
   color: var(--text);
   cursor: pointer;
@@ -743,8 +745,9 @@ body:not([data-theme="dark"]) .rate-editor button {
 .rate-chip strong {
   display: block;
   font-size: 12px;
-  line-height: 1.15;
+  line-height: 1.2;
   letter-spacing: 0;
+  font-weight: 750;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -754,8 +757,9 @@ body:not([data-theme="dark"]) .rate-editor button {
   color: var(--muted);
   font-family: var(--font-numeric);
   font-size: 10px;
-  line-height: 1.15;
+  line-height: 1.2;
   letter-spacing: 0;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -779,8 +783,8 @@ body:not([data-theme="dark"]) .rate-editor button {
 }
 @media (max-width: 430px) {
   .calendar-panel {
-    border-radius: 16px;
-    margin-top: 8px;
+    border-radius: 0;
+    margin-top: 6px;
   }
   .week-head span {
     font-size: 10px;
@@ -794,13 +798,17 @@ body:not([data-theme="dark"]) .rate-editor button {
   }
   .rate-chip {
     border-radius: 11px;
-    padding: 9px 22px 8px 6px;
+    min-height: 50px;
+    padding: 8px 20px 7px 6px;
+    gap: 3px;
   }
   .rate-chip strong {
     font-size: 11px;
+    line-height: 1.15;
   }
   .rate-chip span {
     font-size: 9px;
+    line-height: 1.15;
   }
   .rate-delete {
     top: 5px;
@@ -1528,7 +1536,11 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
   .entry-head, .entry-row { grid-template-columns: 1fr .75fr .78fr .9fr 28px; gap: 6px; }
   .entry-row input, .entry-row select { font-size: 13px; padding: 8px 6px; }
   .calc-row { grid-template-columns: auto .8fr auto .8fr 1fr; gap: 8px; }
-  .rate-list { grid-template-columns: repeat(3, 1fr); }
+  .rate-list { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+  .rate-chip { min-height: 48px; padding: 7px 18px 6px 5px; }
+  .rate-chip strong { font-size: 10.5px; line-height: 1.1; }
+  .rate-chip span { font-size: 8.5px; line-height: 1.1; }
+  .rate-delete { top: 4px; right: 4px; width: 14px; height: 14px; font-size: 12px; }
   .admin-card-row { grid-template-columns: 1fr 1fr; }
   .admin-card-row [data-action="save-admin"] { grid-column: 1 / -1; }
 }
