@@ -408,9 +408,10 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
 .day-cell.outside .day-routes {
   color: var(--soft);
 }
-.day-cell.selected { box-shadow: inset 0 0 0 2px var(--gold); background: var(--primary-bg); }
+.day-cell.selected { box-shadow: inset 0 0 0 2px var(--gold); background: var(--panel); }
 .day-cell.selected.today-cell { background: var(--panel); }
 .day-cell.selected.today-cell.off { background: var(--panel2); }
+.day-cell.selected.off { background: var(--panel2); }
 .day-cell.off { background: var(--panel2); }
 .day-cell.off .day-value {
   color: var(--red);
@@ -442,6 +443,12 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
 .day-cell.selected.today-cell.holiday .day-number {
   background: var(--gold);
   color: #fff;
+}
+html[data-theme="dark"] .day-cell.selected.today-cell .day-number,
+body[data-theme="dark"] .day-cell.selected.today-cell .day-number,
+html[data-theme="dark"] .day-cell.selected.today-cell.holiday .day-number,
+body[data-theme="dark"] .day-cell.selected.today-cell.holiday .day-number {
+  color: #11151f;
 }
 .day-holiday {
   display: none;
@@ -736,7 +743,12 @@ body:not([data-theme="dark"]) .rate-editor button {
   color: var(--gold);
 }
 .mode-option input[type="radio"]:checked + span small {
-  color: var(--gold2);
+  color: var(--text);
+}
+
+html:not([data-theme="dark"]) .mode-option input[type="radio"]:checked + span small,
+body:not([data-theme="dark"]) .mode-option input[type="radio"]:checked + span small {
+  color: var(--muted);
 }
 
 
@@ -1139,9 +1151,9 @@ body:not([data-theme="dark"]) .rate-editor button {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 18px;
+  padding: 16px;
   display: grid;
-  gap: 14px;
+  gap: 12px;
   box-shadow: var(--shadow-card);
 }
 .stats-summary-card .ssc-label {
@@ -1154,31 +1166,40 @@ body:not([data-theme="dark"]) .rate-editor button {
   font-size: 12px;
   font-weight: 500;
 }
-.stats-summary-card .ssc-rows { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.stats-summary-card .ssc-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .stats-summary-card .ssc-rows > div {
   background: var(--panel2);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  padding: 10px 11px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.stats-summary-card .ssc-rows > div.ssc-main {
+  grid-column: 1 / -1;
+  background: var(--primary-bg);
+  border-color: var(--primary-border);
 }
 .stats-summary-card .ssc-rows span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
 }
 .stats-summary-card .ssc-rows strong {
   color: var(--gold);
   font-family: var(--font-amount);
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 720;
   letter-spacing: 0;
-  line-height: 1;
+  line-height: 1.05;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stats-summary-card .ssc-rows > div.ssc-main strong {
+  font-size: 27px;
 }
 .ssc-meter { display: grid; gap: 7px; }
 .ssc-meter-bar {
@@ -1323,7 +1344,7 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 16px;
-  padding: 14px 12px 9px;
+  padding: 12px 10px 8px;
   box-shadow: var(--shadow-card);
 }
 .stats-chart-card canvas { display: block; width: 100%; }
@@ -1352,29 +1373,64 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
 .stats-chart-tooltip b { color: var(--text); font-weight: 900; }
 
 /* === revenue list (체크박스 매출 항목) === */
-.revenue-list { display: grid; gap: 8px; }
+.revenue-list { display: grid; gap: 10px; }
+.revenue-list .rev-section {
+  display: grid;
+  gap: 7px;
+}
+.revenue-list .rev-section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 4px 8px;
+  padding: 0 2px;
+}
+.revenue-list .rev-section-head span {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 850;
+}
+.revenue-list .rev-section-head em {
+  grid-column: 1;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 650;
+}
+.revenue-list .rev-section-head strong {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  color: var(--gold);
+  font-size: 14px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.revenue-list .rev-section-rows {
+  display: grid;
+  gap: 6px;
+}
 .revenue-list .rev-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: var(--panel2);
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 12px 14px;
+  border-radius: 12px;
+  padding: 10px 11px;
   cursor: pointer;
 }
 .revenue-list .rev-row.is-off {
   opacity: .55;
 }
 .revenue-list .rev-row input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   accent-color: var(--gold);
   flex-shrink: 0;
 }
-.revenue-list .rev-label { flex: 1; min-width: 0; font-weight: 800; color: var(--text); font-size: 14px; }
-.revenue-list .rev-meta { color: var(--muted); font-size: 12px; flex-shrink: 0; }
-.revenue-list .rev-amount { color: var(--gold); font-weight: 900; font-size: 15px; flex-shrink: 0; }
+.revenue-list .rev-label { flex: 1; min-width: 0; font-weight: 760; color: var(--text); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.revenue-list .rev-meta { color: var(--muted); font-size: 11px; flex-shrink: 0; }
+.revenue-list .rev-amount { color: var(--gold); font-weight: 900; font-size: 14px; flex-shrink: 0; white-space: nowrap; }
 .revenue-list .rev-sum {
   background: var(--primary-bg);
   border-color: var(--primary-border);
@@ -1394,8 +1450,11 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
 .round-btn.is-disabled { opacity: .4; pointer-events: none; }
 
 @media (max-width: 480px) {
-  .stats-summary-card { padding: 16px; }
-  .stats-summary-card .ssc-rows strong { font-size: 19px; }
+  .stats-summary-card { padding: 14px; }
+  .stats-summary-card .ssc-rows { gap: 7px; }
+  .stats-summary-card .ssc-rows > div { padding: 9px 10px; }
+  .stats-summary-card .ssc-rows strong { font-size: 18px; }
+  .stats-summary-card .ssc-rows > div.ssc-main strong { font-size: 24px; }
   .stats-range-tabs { gap: 5px; }
   .stats-range-tabs > button { min-height: 34px; font-size: 11px; }
   .revenue-list .rev-label { font-size: 13px; }

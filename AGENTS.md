@@ -10,4 +10,5 @@ Core rules:
 - Preserve the Supabase database-first flow. Do not add browser-only persistence for production data.
 - Keep OCR logic behind the harness in `supabase/functions/ocr-schedule/`.
 - Validate browser JavaScript with `node --check app.js` and `node --check sw.js` before handoff.
+- Match the user's conversational tone in a friendly, informal way; if a request is unrealistic, risky, or technically unsound, say so directly and clearly instead of softening the feedback too much.
 
