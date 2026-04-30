@@ -425,6 +425,8 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
   font-weight: 700;
   color: var(--muted);
 }
+.calendar-grid .day-cell:nth-child(7n + 1) .day-number { color: var(--red); }
+.calendar-grid .day-cell:nth-child(7n) .day-number { color: var(--gold2); }
 .today-cell .day-number { background: var(--gold); color: #fff; }
 .day-cell.holiday .day-number { color: var(--red); }
 .today-cell.holiday .day-number { color: #fff; }
