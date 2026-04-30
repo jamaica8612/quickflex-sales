@@ -235,7 +235,7 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
   grid-column: 1 / -1;
   color: var(--gold);
   font-family: var(--font-amount);
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 680;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
