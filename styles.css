@@ -368,7 +368,7 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
 .week-head, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
 .week-head {
   background: transparent;
-  border-top: 0;
+  border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   overflow: visible;
 }
@@ -728,11 +728,17 @@ body:not([data-theme="dark"]) .rate-editor button {
   color: var(--gold);
 }
 .mode-option input[type="radio"]:checked + span small {
-  color: var(--primary-dark);
+  color: var(--gold2);
 }
 
 
 .rate-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 74px; gap: 8px; }
+.rate-editor input {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 600;
+}
 .rate-editor button {
   min-height: 34px;
   border-radius: 10px;
@@ -819,6 +825,9 @@ body:not([data-theme="dark"]) .rate-editor button {
   .rate-list {
     gap: 6px;
   }
+  .rate-editor input {
+    font-size: 11.5px;
+  }
   .rate-chip {
     border-radius: 11px;
     min-height: 50px;
@@ -856,6 +865,16 @@ body:not([data-theme="dark"]) .rate-editor button {
   font-weight: 700;
 }
 .settings-row + .settings-row { margin-top: 8px; }
+.settings-row-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.settings-row-pair .settings-row {
+  justify-content: center;
+  text-align: center;
+}
+.settings-row-pair .settings-row + .settings-row { margin-top: 0; }
 .settings-row em { font-style: normal; color: var(--muted); font-size: 12px; }
 .danger { color: #B02A37; background: rgba(220,53,69,.06); border-color: rgba(220,53,69,.16); }
 .subtle-danger { color: #9A3C45; background: rgba(220,53,69,.04); border-color: rgba(220,53,69,.12); }
@@ -1002,19 +1021,20 @@ body:not([data-theme="dark"]) .rate-editor button {
   background: var(--panel2);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 8px 10px;
+  padding: 10px 12px;
 }
 .goal-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 850;
   color: var(--muted);
   white-space: nowrap;
   flex-shrink: 0;
+  margin-right: 2px;
 }
 .goal-input {
   flex: 1 1 0;
   min-width: 0;
-  max-width: 170px;
+  max-width: 156px;
   border: none;
   background: transparent;
   font-size: 14px;
@@ -1032,7 +1052,7 @@ body:not([data-theme="dark"]) .rate-editor button {
 .goal-save-btn {
   flex-shrink: 0;
   min-height: 34px;
-  padding: 0 13px;
+  padding: 0 14px;
   border-radius: 10px;
   background: var(--gold);
   color: #fff;

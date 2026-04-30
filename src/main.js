@@ -996,14 +996,13 @@ async function saveGoalAmount() {
   const goal = goalRawValue();
   if (!goal || goal <= 0) return toast("올바른 목표 금액을 입력해 주세요.", "error");
   if (!state.db || !currentUserId()) throw new Error("DB 연결이 필요합니다.");
-  const { data, error } = await state.db
+  const updatedAt = new Date().toISOString();
+  const { error } = await state.db
     .from(TABLES.profiles)
-    .update({ goal_amount: goal, updated_at: new Date().toISOString() })
-    .eq("id", currentUserId())
-    .select("*")
-    .single();
+    .update({ goal_amount: goal, updated_at: updatedAt })
+    .eq("id", currentUserId());
   if (error) throw error;
-  state.profile = data;
+  state.profile = { ...(state.profile || {}), goal_amount: goal, updated_at: updatedAt };
   applyProfileUi();
   renderSummary();
   renderStats();
