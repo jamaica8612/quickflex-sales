@@ -1,6 +1,81 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-30 (progress and numeric spacing follow-up)
+Last updated: 2026-04-30 (stats and settings light polish)
+
+## 2026-04-30 Stats And Settings Light Polish (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+
+### Changed Files
+
+- `src/main.js`
+  - Changed home and stats daily average values to compact `만원` formatting.
+- `index.html`
+  - Moved the goal save button into its own action row below the goal input.
+  - Bumped `styles.css` and `src/main.js` to `v=41`.
+- `styles.css`
+  - Rounded the home summary card cleanly on all sides and softened the settings/stats light-mode controls to match the reference.
+  - Reduced visual weight across stats range tabs, stats list rows, settings section controls, and the home off button.
+  - Changed stats and settings navigation buttons to white or light gray where requested.
+  - Restyled schedule upload/OCR buttons to light gray and separated the goal save button sizing from the inline input row.
+- `sw.js`
+  - Bumped cache to `quickflex-shell-v70`.
+
+---
+
+## 2026-04-30 Wanted Sans Numeric Pass (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+
+### Changed Files
+
+- `assets/fonts/WantedSansVariable.woff2`
+  - Added the local Wanted Sans variable webfont from the official `wanteddev/wanted-sans` project.
+- `styles.css`
+  - Added local `@font-face` for `Wanted Sans Variable`.
+  - Added `--font-numeric` and applied it to the largest revenue figures, progress percentage, summary stats, calendar day numbers, calendar compact values, and the home dock amount.
+  - Kept the main UI text on Pretendard and moved numeric tightening to the number-only font stack.
+- `index.html`
+  - Bumped `styles.css` to `v=39` and `src/main.js` to `v=39`.
+- `sw.js`
+  - Added `./assets/fonts/WantedSansVariable.woff2` to `SHELL_FILES` and bumped cache to `quickflex-shell-v68`.
+
+### Notes
+
+- Source reference: `wanteddev/wanted-sans` webfont docs and latest release `v1.0.3`.
+
+---
+
+## 2026-04-30 Letter-Spacing Tune-Up And Calendar Bold Removal (Claude)
+
+Workspace: `C:\work\quickflex-sales`
+
+### User Request
+
+핸드오프 mock 대비 현재 앱이 "엉성"해 보이는 이유로 자간과 캘린더 셀의 굵기 두 가지를 지목.
+
+### Changed Files
+
+- `styles.css`
+  - `.summary-row strong` / `.summary-card.compact strong` — 글자를 가로로 찌그러뜨리던 `transform: scaleX(.94)` 제거하고 `letter-spacing: -0.6px` 로 자연스럽게 좁힘. 정산 예상액 큰 숫자의 핸드오프 대비 위화감 핵심 원인.
+  - `h1` — `letter-spacing: -0.3px`.
+  - `.calendar-toolbar strong` — `letter-spacing: -0.3px`.
+  - `.total-card strong` — `letter-spacing: -0.5px`.
+  - `.day-value` — `font-weight: 850 → 600`, `letter-spacing: -0.2px`. 캘린더 셀 매출과 휴무 텍스트(`.day-cell.off .day-value` 가 동일 selector 상속) 가 동시에 라이트 톤으로 정돈됨.
+  - `.day-number` — `font-weight: 800 → 700`.
+- `index.html`
+  - `styles.css?v=37` → `v=38`.
+- `sw.js`
+  - `CACHE_NAME` `quickflex-shell-v66` → `v67`.
+
+### Checks Run
+
+Browser QA (`http://localhost:5500`):
+- 정산 예상액 글자 찌그러짐 사라짐 확인.
+- 캘린더 매출/휴무 텍스트 라이트 톤 확인.
+- 콘솔 에러 0.
+
+---
 
 ## 2026-04-30 Progress And Numeric Spacing Follow-Up (Codex)
 

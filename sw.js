@@ -1,10 +1,11 @@
-const CACHE_NAME = "quickflex-shell-v66";
+const CACHE_NAME = "quickflex-shell-v70";
 const SHELL_FILES = [
   "./",
   "./index.html",
   "./intro.html",
   "./styles.css",
   "./assets/fonts/PretendardVariable.woff2",
+  "./assets/fonts/WantedSansVariable.woff2",
   "./app.js",
   "./src/main.js",
   "./src/config.js",
