@@ -249,10 +249,21 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 18px;
+  margin-top: 10px;
   overflow: hidden;
+  position: relative;
+  isolation: isolate;
+  background-clip: padding-box;
   box-shadow: var(--shadow-card);
 }
-.calendar-toolbar { padding: 18px 14px 10px; display: grid; grid-template-columns: 38px minmax(0, 1fr) 38px auto; }
+.calendar-toolbar {
+  padding: 18px 14px 10px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 38px auto;
+  background: inherit;
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+}
 .calendar-toolbar strong { display: block; font-size: 17px; font-weight: 850; letter-spacing: -0.3px; text-align: center; }
 .meter-label { font-size: 10px; color: var(--soft); text-align: center; margin: 0 0 14px; order: 3; }
 .today-btn, .ghost-pill, .primary-pill, .secondary-btn, .full-btn {
@@ -309,7 +320,13 @@ body:not([data-theme="dark"]) .theme-toggle button:not(.active) {
   border-color: var(--line);
   color: var(--muted);
 }
-.mode-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 14px 12px; }
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 0 14px 12px;
+  background: inherit;
+}
 .mode-btn {
   height: 36px;
   border-radius: 999px;
@@ -763,6 +780,7 @@ body:not([data-theme="dark"]) .rate-editor button {
 @media (max-width: 430px) {
   .calendar-panel {
     border-radius: 16px;
+    margin-top: 8px;
   }
   .week-head span {
     font-size: 10px;
