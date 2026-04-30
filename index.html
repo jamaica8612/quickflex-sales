@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=37" />
+    <link rel="stylesheet" href="./styles.css?v=41" />
   </head>
   <body>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -272,6 +272,8 @@
               <span class="goal-label">월 목표</span>
               <input id="goalAmountInput" class="goal-input" type="text" inputmode="numeric" placeholder="6,000,000" autocomplete="off" />
               <span class="goal-unit">원</span>
+            </div>
+            <div class="goal-actions">
               <button id="saveAppSettings" class="goal-save-btn">저장</button>
             </div>
           </section>
@@ -469,7 +471,7 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./src/main.js?v=37"></script>
+    <script type="module" src="./src/main.js?v=41"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});

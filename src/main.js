@@ -742,6 +742,12 @@ function formatKoreanWon(value) {
   if (abs >= 10000) return `${Math.round(n / 10000)}만`;
   return n.toLocaleString("ko-KR");
 }
+function formatCompactWonWithUnit(value) {
+  const n = Math.round(Number(value) || 0);
+  if (!n) return "0원";
+  if (Math.abs(n) >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, "")}만원`;
+  return `${n.toLocaleString("ko-KR")}원`;
+}
 function aggregateRevenueByItem(keys) {
   const routes = new Map();
   let freshCount = 0;
@@ -1269,7 +1275,7 @@ function renderSummary() {
   el.periodRange.textContent = `정산기간 ${formatPeriodRangeSimple(start, end)}`;
   el.periodRevenue.textContent = fmtWon(total.revenue);
   el.periodCount.textContent = fmtCount(total.count);
-  el.dailyAverage.textContent = fmtWon(total.average);
+  el.dailyAverage.textContent = formatCompactWonWithUnit(total.average);
   el.workDaysHome.textContent = `${total.workDays}일`;
   const goal = getGoal();
   const pct = Math.min(100, total.revenue / goal * 100);
@@ -1699,7 +1705,7 @@ function renderStats() {
   el.statsCount.textContent = fmtCount(total.count);
   el.statsFresh.textContent = fmtCount(total.fresh);
   if (el.statsAvgCount) el.statsAvgCount.textContent = fmtCount(Math.round(total.avgCount));
-  el.statsAverage.textContent = fmtWon(total.average);
+  el.statsAverage.textContent = formatCompactWonWithUnit(total.average);
   el.statsBestDay.textContent = total.best.dateKey ? `${formatLongShort(total.best.dateKey)} ${fmtWon(total.best.revenue)}` : "-";
   el.statsWorstDay.textContent = total.worst.dateKey ? `${formatLongShort(total.worst.dateKey)} ${fmtWon(total.worst.revenue)}` : "-";
   syncStatsRangeButtons();
