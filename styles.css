@@ -245,7 +245,13 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
 .summary-grid span { display: block; color: var(--soft); font-size: 11px; font-weight: 650; margin-bottom: 2px; }
 .summary-grid strong { font-family: var(--font-numeric); font-size: 15px; font-weight: 800; }
 
-.calendar-panel { background: var(--panel); }
+.calendar-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
 .calendar-toolbar { padding: 18px 14px 10px; display: grid; grid-template-columns: 38px minmax(0, 1fr) 38px auto; }
 .calendar-toolbar strong { display: block; font-size: 17px; font-weight: 850; letter-spacing: -0.3px; text-align: center; }
 .meter-label { font-size: 10px; color: var(--soft); text-align: center; margin: 0 0 14px; order: 3; }
@@ -333,11 +339,21 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
   color: #FFFFFF;
 }
 .week-head, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
-.week-head { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.week-head {
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
 .week-head span { text-align: center; padding: 8px 0; color: var(--muted); font-weight: 850; font-size: 11px; }
 .sun { color: var(--red) !important; }
 .sat { color: var(--blue) !important; }
-.calendar-grid { grid-auto-rows: 76px; min-height: 0; }
+.calendar-grid {
+  grid-auto-rows: 76px;
+  min-height: 0;
+  background: var(--panel);
+  overflow: hidden;
+}
 .day-cell {
   position: relative;
   border-right: 1px solid var(--line);
@@ -684,7 +700,7 @@ body:not([data-theme="dark"]) .rate-editor button {
 }
 
 
-.rate-editor { display: grid; grid-template-columns: 1fr 1fr 74px; gap: 8px; }
+.rate-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 74px; gap: 8px; }
 .rate-editor button {
   min-height: 34px;
   border-radius: 10px;
@@ -693,24 +709,44 @@ body:not([data-theme="dark"]) .rate-editor button {
   font-size: 12px;
   font-weight: 700;
 }
-.rate-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.rate-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .rate-list > .daily-card { grid-column: 1 / -1; }
 .rate-chip {
   position: relative;
   border-radius: 12px;
   background: var(--panel2);
   border: 1px solid var(--line);
-  padding: 10px 28px 10px 6px;
+  padding: 10px 24px 9px 8px;
   text-align: center;
   color: var(--text);
   cursor: pointer;
+  min-width: 0;
+  overflow: hidden;
 }
-.rate-chip strong { display: block; font-size: 13px; }
-.rate-chip span { color: var(--muted); font-size: 11px; }
+.rate-chip strong {
+  display: block;
+  font-size: 12px;
+  line-height: 1.15;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rate-chip span {
+  display: block;
+  color: var(--muted);
+  font-family: var(--font-numeric);
+  font-size: 10px;
+  line-height: 1.15;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .rate-delete {
   position: absolute;
-  top: 7px;
-  right: 7px;
+  top: 6px;
+  right: 6px;
   width: 16px;
   height: 16px;
   border-radius: 999px;
@@ -723,6 +759,38 @@ body:not([data-theme="dark"]) .rate-editor button {
   display: grid;
   place-items: center;
   opacity: .78;
+}
+@media (max-width: 430px) {
+  .calendar-panel {
+    border-radius: 16px;
+  }
+  .week-head span {
+    font-size: 10px;
+    padding: 7px 0;
+  }
+  .calendar-grid {
+    grid-auto-rows: 74px;
+  }
+  .rate-list {
+    gap: 6px;
+  }
+  .rate-chip {
+    border-radius: 11px;
+    padding: 9px 22px 8px 6px;
+  }
+  .rate-chip strong {
+    font-size: 11px;
+  }
+  .rate-chip span {
+    font-size: 9px;
+  }
+  .rate-delete {
+    top: 5px;
+    right: 5px;
+    width: 15px;
+    height: 15px;
+    font-size: 13px;
+  }
 }
 .settings-row {
   width: 100%;
