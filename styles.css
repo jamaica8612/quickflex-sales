@@ -1152,20 +1152,25 @@ body:not([data-theme="dark"]) .rate-editor button {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 12px;
-  display: grid;
-  gap: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 .stats-summary-card .ssc-rows span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
+  white-space: nowrap;
 }
 .stats-summary-card .ssc-rows strong {
   color: var(--gold);
   font-family: var(--font-amount);
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 720;
   letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
 }
 .ssc-meter { display: grid; gap: 7px; }
 .ssc-meter-bar {
@@ -1204,8 +1209,9 @@ body:not([data-theme="dark"]) .rate-editor button {
   background: transparent;
   border: 1px solid var(--line);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 650;
+  white-space: nowrap;
 }
 .stats-range-tabs > button.active {
   background: var(--gold);

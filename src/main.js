@@ -565,6 +565,12 @@ function buildGroupedRows(routes) {
 function fixedDefaultRows() {
   return buildGroupedRows(fixedRoutes()).map((row) => ({ ...row, count: "" }));
 }
+function defaultEntryRows() {
+  if (!isBackupDriver()) return fixedDefaultRows();
+  const firstRate = state.rates[0] || state.defaultRates[0];
+  if (!firstRate) return [{ route: "", count: "", unit: 0, draft: true }];
+  return [{ route: firstRate.route, count: "", unit: firstRate.unit || 0, draft: false }];
+}
 function ensureFixedRecordRows(record) {
   if (isBackupDriver()) return record;
   if (record.off) return record;
@@ -1358,8 +1364,9 @@ function renderEntryForm() {
   el.offToggle.checked = record.off;
   el.entryRows.innerHTML = "";
   record.rows.forEach((row, index) => renderEntryRow(row, index));
-  if (!existed && !record.rows.length && !record.off && !isBackupDriver() && fixedRoutes().length) {
-    record.rows = fixedDefaultRows();
+  const defaultRows = defaultEntryRows();
+  if (!existed && !record.rows.length && !record.off && defaultRows.length) {
+    record.rows = defaultRows;
     record.rows.forEach((row, index) => renderEntryRow(row, index));
   }
   const dual = freshbagMode() === "dual";
@@ -2674,7 +2681,7 @@ function bindEvents() {
     const record = getRecord(state.selectedDate, true);
     record.off = !record.off;
     if (record.off) record.rows = [];
-    else if (!isBackupDriver()) record.rows = fixedDefaultRows();
+    else record.rows = defaultEntryRows();
     scheduleSave({ dateKeys: [state.selectedDate] });
     renderAll();
   });
@@ -2686,7 +2693,7 @@ function bindEvents() {
     const record = currentRecordDraft();
     record.off = el.offToggle.checked;
     if (record.off) record.rows = [];
-    else if (!isBackupDriver()) record.rows = fixedDefaultRows();
+    else record.rows = defaultEntryRows();
     renderEntryForm();
     refreshTotals();
   });
