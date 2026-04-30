@@ -1443,3 +1443,41 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
   letter-spacing: -0.02em !important;
   transform: none !important;
 }
+
+/* 숫자 자연스럽게 - Pretendard proportional */
+#periodRevenue,
+#homeSelectedTotal,
+#selectedDayTotal,
+#statsSummaryTotal {
+  font-family: var(--font-ui) !important;
+  font-variant-numeric: proportional-nums !important;
+  font-feature-settings: "pnum" !important;
+  letter-spacing: -0.04em !important;
+  transform: none !important;
+  font-weight: 850 !important;
+}
+
+#dailyAverage,
+#periodCount,
+#workDaysHome,
+.summary-grid strong,
+.total-card strong,
+.entry-row output,
+.calc-row output {
+  font-family: var(--font-ui) !important;
+  font-variant-numeric: proportional-nums !important;
+  font-feature-settings: "pnum" !important;
+  letter-spacing: -0.02em !important;
+  transform: none !important;
+}
+
+.day-value,
+.day-number,
+.meter-pct,
+.day-dock strong,
+.summary-row strong {
+  font-family: var(--font-ui) !important;
+  font-variant-numeric: proportional-nums !important;
+  font-feature-settings: "pnum" !important;
+  transform: none !important;
+}
