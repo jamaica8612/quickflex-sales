@@ -1422,12 +1422,15 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
   .admin-card-row [data-action="save-admin"] { grid-column: 1 / -1; }
 }
 
-/* 숫자 자간 보정 */
+
+/* 숫자 자간 테스트 - 일부러 크게 */
 #periodRevenue,
 #homeSelectedTotal,
 #selectedDayTotal,
 #statsSummaryTotal,
 #dailyAverage,
+#periodCount,
+#workDaysHome,
 .day-value,
 .day-dock strong,
 .summary-row strong,
@@ -1435,12 +1438,9 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
 .total-card strong,
 .entry-row output,
 .calc-row output {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
-  letter-spacing: -0.025em !important;
-}
-
-.summary-row strong,
-.day-dock strong {
+  font-family: var(--font-numeric) !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+  letter-spacing: 0.12em !important;
   transform: none !important;
 }
