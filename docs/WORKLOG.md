@@ -1,6 +1,38 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-30 (calendar holiday and dark tone polish)
+Last updated: 2026-04-30 (dark tone and typography polish)
+
+## 2026-04-30 Dark Tone And Typography Polish (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+
+### Changed Files
+
+- `styles.css`
+  - Raised the dark-mode amber from `#D6A545` to `#E0B24D` so it feels warmer without returning to neon yellow.
+  - Reduced the `오늘` pill to 36px height and 13px text.
+  - Softened several heavy UI font weights around settings details, OCR draft chips, work/off buttons, output pills, and CTAs.
+  - Changed route-rate delete buttons to the same quiet, backgroundless `x` treatment used in schedule draft chips.
+  - Reduced mobile record date title from 24px to 20px to avoid clipping.
+- `index.html`
+  - Bumped `styles.css` asset query to `v=29`.
+- `sw.js`
+  - Bumped cache to `quickflex-shell-v57`.
+
+### Checks Run
+
+```powershell
+node --check app.js
+node --check sw.js
+node --check src/main.js
+git diff --check
+```
+
+Browser QA:
+- Local `http://localhost:5500/index.html`.
+- Verified dark amber tone, smaller Today button, quieter route delete x, refined settings/draft text weights, and console errors 0.
+
+---
 
 ## 2026-04-30 Calendar Holiday And Dark Tone Polish (Codex)
 
