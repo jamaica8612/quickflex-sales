@@ -664,8 +664,9 @@ function summarizeKeys(keys, opts = {}) {
     const record = getRecord(dateKey, false);
     const calc = calcRecordDetails(record);
     const revenue = useVisibility ? recordVisibleRevenue(record) : calc.revenue;
-    if (revenue > best.revenue) best = { dateKey, revenue };
-    if (!record.off && revenue > 0 && revenue < worst.revenue) worst = { dateKey, revenue };
+    const isWorkedDay = !record.off && calc.revenue > 0 && revenue > 0;
+    if (isWorkedDay && revenue > best.revenue) best = { dateKey, revenue };
+    if (isWorkedDay && revenue < worst.revenue) worst = { dateKey, revenue };
     return {
       count: sum.count + calc.count,
       revenue: sum.revenue + revenue,
@@ -781,6 +782,27 @@ function aggregateRevenueByItem(keys) {
   if (freshCount > 0 || freshRevenue > 0) items.push({ key: "fresh", label: "프레시백 매출", count: freshCount, revenue: Math.round(freshRevenue), kind: "fresh" });
   if (backupRevenue > 0) items.push({ key: "backup", label: "백업수당 매출", count: 0, revenue: Math.round(backupRevenue), kind: "backup" });
   return items;
+}
+function aggregateRevenueGroups(items) {
+  return items.reduce((groups, item) => {
+    if (item.kind === "route") {
+      groups.route.revenue += item.revenue;
+      groups.route.count += item.count;
+      groups.route.items.push(item);
+    } else if (item.kind === "fresh") {
+      groups.fresh.revenue += item.revenue;
+      groups.fresh.count += item.count;
+      groups.fresh.items.push(item);
+    } else if (item.kind === "backup") {
+      groups.backup.revenue += item.revenue;
+      groups.backup.items.push(item);
+    }
+    return groups;
+  }, {
+    route: { label: "라우트 매출", count: 0, revenue: 0, items: [] },
+    fresh: { label: "프레시백", count: 0, revenue: 0, items: [] },
+    backup: { label: "백업수당", count: 0, revenue: 0, items: [] },
+  });
 }
 function summarizePeriod(year = state.year, month = state.month) {
   let best = { dateKey: "", revenue: 0 };
@@ -1125,7 +1147,6 @@ async function migrateLegacyGoalAmount(legacyGoal) {
     .select("*")
     .single();
   if (!error && data) state.profile = data;
-  if (error) console.warn("[goal migration]", error);
 }
 async function loadFromDb() {
   if (!state.db || !currentUserId()) return;
@@ -1696,17 +1717,16 @@ function renderStats() {
   const keys = getStatsKeys();
   const { start, end } = getStatsBounds();
   const total = summarizeKeys(keys);
-  const visible = summarizeKeys(keys, { visibility: true });
   el.statsMonthTitle.textContent = `${state.statsYear}년 ${String(state.statsMonth).padStart(2, "0")}월`;
   el.statsRange.textContent = `${formatShort(cycleStart)} ~ ${formatShort(cycleEnd)}`;
   if (el.statsSummaryRange) el.statsSummaryRange.textContent = formatRangeLabel(start, end);
-  if (el.statsSummaryTotal) el.statsSummaryTotal.textContent = fmtWon(visible.revenue);
   if (el.statsRevenue) el.statsRevenue.textContent = fmtWon(total.revenue);
   const goal = getGoal();
-  const statsPct = goal ? Math.min(100, visible.revenue / goal * 100) : 0;
+  const statsPct = goal ? Math.min(100, total.revenue / goal * 100) : 0;
   el.statsMeterFill.style.width = `${statsPct}%`;
   el.statsMeterPct.textContent = `${Math.round(statsPct)}%`;
   el.statsMeterLabel.textContent = goal ? `목표 ${fmtWon(goal)} (설정됨)` : "목표 미설정";
+  renderStatsSummaryRows(total, statsPct);
   el.statsWorkDays.textContent = `${total.workDays}일`;
   el.statsOffDays.textContent = `${total.offDays}일`;
   el.statsCount.textContent = fmtCount(total.count);
@@ -1721,6 +1741,17 @@ function renderStats() {
   renderDailyStatsFor(keys);
   renderYearlyStats();
   renderTotalStats();
+}
+function renderStatsSummaryRows(total, statsPct) {
+  const rows = document.querySelector(".stats-summary-card .ssc-rows");
+  if (!rows) return;
+  rows.innerHTML = `
+    <div class="ssc-main"><span>총매출</span><strong>${fmtWon(total.revenue)}</strong></div>
+    <div><span>목표 대비</span><strong>${Math.round(statsPct)}%</strong></div>
+    <div><span>근무일</span><strong>${total.workDays}일</strong></div>
+    <div><span>일평균</span><strong>${formatCompactWonWithUnit(total.average)}</strong></div>
+    <div><span>총 배송건수</span><strong>${fmtCount(total.count)}</strong></div>
+  `;
 }
 function renderDailyStats() { renderDailyStatsFor(getStatsKeys()); }
 function renderDailyStatsFor(allKeys) {
@@ -1810,18 +1841,32 @@ function renderRevenueList(keys) {
     return;
   }
   let visibleTotal = 0;
-  const rowsHtml = items.map((item) => {
+  const renderRow = (item) => {
     const checked = isVisibleKey(item.key);
     if (checked) visibleTotal += item.revenue;
-    const meta = item.kind === "route" ? `${fmtCount(item.count)} 건` : (item.kind === "fresh" ? `${fmtCount(item.count)} 건` : "");
+    const meta = item.kind === "route" ? fmtCount(item.count) : (item.kind === "fresh" ? fmtCount(item.count) : "");
     return `<label class="rev-row${checked ? "" : " is-off"}">
       <input type="checkbox" data-rev-key="${escapeAttr(item.key)}" ${checked ? "checked" : ""} />
       <span class="rev-label">${escapeAttr(item.label)}</span>
       ${meta ? `<span class="rev-meta">${meta}</span>` : ""}
       <strong class="rev-amount">${fmtWon(item.revenue)}</strong>
     </label>`;
-  }).join("");
-  el.revenueList.innerHTML = `${rowsHtml}<div class="rev-row rev-sum"><span class="rev-label">선택 합계</span><strong class="rev-amount">${fmtWon(visibleTotal)}</strong></div>`;
+  };
+  const groups = aggregateRevenueGroups(items);
+  const sections = [groups.route, groups.fresh, groups.backup]
+    .filter((group) => group.items.length)
+    .map((group) => {
+      const meta = group.count ? fmtCount(group.count) : "";
+      return `<section class="rev-section">
+        <div class="rev-section-head">
+          <span>${group.label}</span>
+          ${meta ? `<em>${meta}</em>` : ""}
+          <strong>${fmtWon(group.revenue)}</strong>
+        </div>
+        <div class="rev-section-rows">${group.items.map(renderRow).join("")}</div>
+      </section>`;
+    }).join("");
+  el.revenueList.innerHTML = `${sections}<div class="rev-row rev-sum"><span class="rev-label">선택 합계</span><strong class="rev-amount">${fmtWon(visibleTotal)}</strong></div>`;
   el.revenueList.querySelectorAll("input[data-rev-key]").forEach((cb) => {
     cb.addEventListener("change", () => {
       state.revenueVisibility[cb.dataset.revKey] = cb.checked;
@@ -1843,7 +1888,7 @@ function renderStatsChart(keys) {
   if (!canvas) return;
   const dpr = window.devicePixelRatio || 1;
   const cssW = canvas.parentElement ? canvas.parentElement.clientWidth - 24 : 320;
-  const cssH = 200;
+  const cssH = 190;
   canvas.style.width = `${cssW}px`;
   canvas.style.height = `${cssH}px`;
   canvas.width = Math.round(cssW * dpr);
@@ -1868,7 +1913,7 @@ function renderStatsChart(keys) {
     ctx.fillText("표시할 데이터가 없습니다", cssW / 2, cssH / 2);
     return;
   }
-  const margin = { l: 48, r: 12, t: 14, b: 26 };
+  const margin = { l: 42, r: 10, t: 12, b: 26 };
   const w = cssW - margin.l - margin.r;
   const h = cssH - margin.t - margin.b;
   const maxVal = Math.max(...series.map((s) => s.revenue), 100000);
@@ -1903,42 +1948,21 @@ function renderStatsChart(keys) {
     if (!d) continue;
     ctx.fillText(`${d.getMonth() + 1}/${d.getDate()}`, xFor(idx), margin.t + h + 6);
   }
-  ctx.strokeStyle = primaryColor;
-  ctx.lineWidth = 2.5;
-  ctx.lineJoin = "round";
-  ctx.beginPath();
+  const barGap = Math.max(3, Math.min(8, w / Math.max(1, series.length) * .24));
+  const barW = Math.max(3, Math.min(18, w / Math.max(1, series.length) - barGap));
+  const zeroY = yFor(0);
   series.forEach((s, i) => {
     const x = xFor(i);
     const y = yFor(s.revenue);
     statsChartState.points.push({ x, y, ...s });
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  });
-  if (statsChartState.points.length) {
-    const first = statsChartState.points[0];
-    const last = statsChartState.points[statsChartState.points.length - 1];
-    const fillGradient = ctx.createLinearGradient(0, margin.t, 0, margin.t + h);
-    fillGradient.addColorStop(0, primaryColor);
-    fillGradient.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.save();
-    ctx.lineTo(last.x, margin.t + h);
-    ctx.lineTo(first.x, margin.t + h);
-    ctx.closePath();
-    ctx.globalAlpha = .14;
-    ctx.fillStyle = fillGradient;
-    ctx.fill();
-    ctx.restore();
-    ctx.beginPath();
-    statsChartState.points.forEach((point, i) => {
-      if (i === 0) ctx.moveTo(point.x, point.y); else ctx.lineTo(point.x, point.y);
-    });
-  }
-  ctx.stroke();
-  series.forEach((s, i) => {
-    const x = xFor(i);
-    const y = yFor(s.revenue);
-    ctx.beginPath();
+    const barH = Math.max(s.revenue > 0 ? 3 : 1, zeroY - y);
     ctx.fillStyle = s.revenue > 0 ? primaryColor : (cs.getPropertyValue("--soft").trim() || "#AEB0B6");
-    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.globalAlpha = s.revenue > 0 ? .9 : .35;
+    ctx.fillRect(x - barW / 2, zeroY - barH, barW, barH);
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.fillStyle = s.revenue > 0 ? "#fff" : (cs.getPropertyValue("--muted").trim() || "#70737C");
+    ctx.arc(x, y, s.revenue > 0 ? 2.2 : 1.8, 0, Math.PI * 2);
     ctx.fill();
   });
 }

@@ -736,23 +736,6 @@
         line-height: 1.55;
       }
 
-      .closing {
-        margin-top: 24px;
-        padding: 56px 0 8px;
-        border-top: 1px solid var(--line);
-        text-align: center;
-      }
-      .closing h2 {
-        margin: 0 0 12px;
-        font-size: 28px;
-      }
-      .closing p {
-        margin: 0 auto 24px;
-        max-width: 520px;
-        color: var(--muted);
-        font-size: 15px;
-        line-height: 1.6;
-      }
       footer {
         padding: 30px 0 8px;
         color: var(--soft);
@@ -818,23 +801,23 @@
           <span class="brand-mark">Q</span>
           <span class="brand-name">퀵플</span>
         </a>
-        <a class="mini-link" href="./index.html">앱 열기</a>
+        <a class="mini-link" href="./index.html">로그인하기</a>
       </nav>
 
       <section class="hero">
         <span class="badge">QUICKFLEX SALES</span>
-        <h1>배송 기록이 쌓이면, <strong>이번 달 매출이 보입니다</strong></h1>
+        <h1>매일 기록하면, <strong>정산기간 매출이 바로 보입니다</strong></h1>
         <p>
-          근무표를 가져오고, 하루 배송건수만 기록하면 정산 예상액과 구역별 통계를 한눈에 확인할 수 있습니다.
+          근무표를 가져오고 하루 배송건수를 기록하면 총매출, 목표 대비 진행률, 근무일, 일평균, 배송건수를 한 화면에서 확인할 수 있습니다.
         </p>
         <div class="cta-row">
-          <a class="cta primary" href="./index.html">앱 시작하기</a>
+          <a class="cta primary" href="./index.html">로그인하고 시작하기</a>
           <a class="cta ghost" href="#features">기능 둘러보기</a>
         </div>
         <div class="hero-points">
           <div class="point">
             <strong>근무표 가져오기</strong>
-            <span>일별 근무·휴무와 라우트 초안을 빠르게 만들고 반영 전 확인할 수 있습니다.</span>
+            <span>일별 근무·휴무와 구역 초안을 빠르게 만들고 반영 전 확인할 수 있습니다.</span>
           </div>
           <div class="point">
             <strong>매일 기록</strong>
@@ -842,11 +825,11 @@
           </div>
           <div class="point">
             <strong>정산 예상액</strong>
-            <span>정산기간 26일~25일 기준으로 누적 매출, 배송건수, 근무일을 한 화면에서 봅니다.</span>
+            <span>정산기간 26일~25일 기준으로 누적 매출과 목표 대비 흐름을 바로 봅니다.</span>
           </div>
           <div class="point">
-            <strong>단가 관리와 통계</strong>
-            <span>구역별 단가를 관리하고 월말에는 통계 화면에서 흐름을 정리할 수 있습니다.</span>
+            <strong>통계 정리</strong>
+            <span>구역 매출, 프레시백, 백업수당을 나눠 보고 일별 흐름을 확인합니다.</span>
           </div>
         </div>
       </section>
@@ -860,7 +843,7 @@
           </p>
           <ul>
             <li>정산 예상액 4,250,000원, 배송건수 4,180건, 근무일 18일 예시 표시</li>
-            <li>달력에서 근무일·휴무일과 라우트 코드를 함께 확인</li>
+            <li>달력에서 근무일·휴무일과 구역명을 함께 확인</li>
             <li>오늘 선택 금액과 기록 화면 이동 흐름이 자연스럽게 이어짐</li>
           </ul>
         </div>
@@ -898,10 +881,10 @@
           </div>
           <div class="calendar-grid">
             <div class="day-cell"><span class="day-number">26</span><span class="day-value off">휴무</span><span class="day-routes"></span></div>
-            <div class="day-cell today"><span class="day-number">27</span><span class="day-value">24.3만</span><span class="day-routes">302C 304C</span></div>
-            <div class="day-cell"><span class="day-number">28</span><span class="day-value">21.8만</span><span class="day-routes">310C</span></div>
-            <div class="day-cell"><span class="day-number">29</span><span class="day-value">23.5만</span><span class="day-routes">319A 319B</span></div>
-            <div class="day-cell"><span class="day-number">30</span><span class="day-value">24.2만</span><span class="day-routes">319C</span></div>
+            <div class="day-cell today"><span class="day-number">27</span><span class="day-value">24.3만</span><span class="day-routes">A구역 B구역</span></div>
+            <div class="day-cell"><span class="day-number">28</span><span class="day-value">21.8만</span><span class="day-routes">C구역</span></div>
+            <div class="day-cell"><span class="day-number">29</span><span class="day-value">23.5만</span><span class="day-routes">D구역 E구역</span></div>
+            <div class="day-cell"><span class="day-number">30</span><span class="day-value">24.2만</span><span class="day-routes">F구역</span></div>
             <div class="day-cell outside"><span class="day-number">1</span><span class="day-value"></span><span class="day-routes"></span></div>
             <div class="day-cell outside"><span class="day-number">2</span><span class="day-value"></span><span class="day-routes"></span></div>
           </div>
@@ -912,7 +895,7 @@
         <div class="copy">
           <h2><span class="num">2</span>하루 기록 입력은 짧고 단순하게</h2>
           <p>
-            하루 기록은 라우트, 건수, 단가를 기준으로 빠르게 입력합니다. 오늘 매출이 바로 계산되고,
+            하루 기록은 구역, 건수, 단가를 기준으로 빠르게 입력합니다. 오늘 매출이 바로 계산되고,
             저장한 뒤에는 그날 사용한 단가가 스냅샷으로 남아 과거 기록이 바뀌지 않습니다.
           </p>
           <ul>
@@ -927,7 +910,7 @@
               <h3>04/27 기록</h3>
               <span class="gear">저장</span>
             </div>
-            <span class="mock-period">라우트별 건수 입력 → 매출 계산</span>
+            <span class="mock-period">구역별 건수 입력 → 매출 계산</span>
           </div>
           <div class="record-body">
             <div class="entry-card">
@@ -935,20 +918,20 @@
                 <span>구역</span><span>단가</span><span>건수</span><span>매출</span>
               </div>
               <div class="entry-row">
-                <span class="pill">302C</span>
-                <span class="pill">965</span>
+                <span class="pill">A구역</span>
+                <span class="pill">기본</span>
                 <span class="pill">150</span>
                 <span class="out">144,750원</span>
               </div>
               <div class="entry-row">
-                <span class="pill">304C</span>
-                <span class="pill">915</span>
+                <span class="pill">B구역</span>
+                <span class="pill">기본</span>
                 <span class="pill">40</span>
                 <span class="out">36,600원</span>
               </div>
               <div class="entry-row">
-                <span class="pill">310C</span>
-                <span class="pill">915</span>
+                <span class="pill">C구역</span>
+                <span class="pill">기본</span>
                 <span class="pill">67</span>
                 <span class="out">61,150원</span>
               </div>
@@ -965,7 +948,7 @@
         <div class="copy">
           <h2><span class="num">3</span>근무표 이미지를 가져와 초안을 만듭니다</h2>
           <p>
-            스케줄 가져오기는 근무표 이미지에서 일별 근무·휴무와 라우트를 빠르게 초안으로 만드는 기능입니다.
+            스케줄 가져오기는 근무표 이미지에서 일별 근무·휴무와 구역을 빠르게 초안으로 만드는 기능입니다.
             반영 전에 결과를 확인하고 필요한 부분만 수정할 수 있어서, 입력 시간을 줄이는 데 초점을 맞춥니다.
           </p>
           <ul>
@@ -986,7 +969,7 @@
             <div class="settings-section">
               <h3>근무표 이미지 초안</h3>
               <p class="helper-note">
-                근무표 이미지에서 일별 근무/휴무와 라우트를 빠르게 초안으로 만들고, 반영 전 확인할 수 있습니다.
+                근무표 이미지에서 일별 근무/휴무와 구역을 빠르게 초안으로 만들고, 반영 전 확인할 수 있습니다.
               </p>
               <div class="schedule-sample" aria-label="근무표 이미지 예시">
                 <div class="bar"></div>
@@ -999,8 +982,8 @@
             <div class="settings-section">
               <h3>반영 전 확인</h3>
               <div class="archive-strip">
-                <div class="archive-row"><span>04/27</span><strong>302C, 304C</strong></div>
-                <div class="archive-row"><span>04/28</span><strong>310C</strong></div>
+                <div class="archive-row"><span>04/27</span><strong>A구역, B구역</strong></div>
+                <div class="archive-row"><span>04/28</span><strong>C구역</strong></div>
                 <div class="archive-row"><span>04/29</span><strong>휴무</strong></div>
               </div>
             </div>
@@ -1012,11 +995,11 @@
         <div class="copy">
           <h2><span class="num">4</span>단가 관리는 간단하게, 과거 기록은 그대로</h2>
           <p>
-            퀵플은 현재 사용하는 라우트 단가를 관리하면서도, 이미 저장된 과거 기록은 건드리지 않도록 구성돼 있습니다.
+            퀵플은 현재 사용하는 구역 단가를 관리하면서도, 이미 저장된 과거 기록은 건드리지 않도록 구성돼 있습니다.
             단가가 바뀌는 시점이 있어도 이전 매출이 뒤집히지 않게 보는 데 중점을 둡니다.
           </p>
           <ul>
-            <li>302C, 304C, 310C 같은 라우트 코드를 기준으로 단가 관리</li>
+            <li>A구역, B구역 같은 임의 구역명을 기준으로 단가 관리</li>
             <li>저장 당시 단가를 기록에 남겨 과거 매출 보존</li>
             <li>고정기사/백업기사 흐름과 함께 써도 무리 없게 설계</li>
           </ul>
@@ -1033,19 +1016,19 @@
             <div class="settings-section">
               <h3>현재 단가</h3>
               <div class="settings-grid">
-                <div class="rate-chip"><strong>302C</strong><span>965원</span></div>
-                <div class="rate-chip"><strong>304C</strong><span>915원</span></div>
-                <div class="rate-chip"><strong>310C</strong><span>915원</span></div>
-                <div class="rate-chip"><strong>319A</strong><span>875원</span></div>
-                <div class="rate-chip"><strong>319B</strong><span>875원</span></div>
-                <div class="rate-chip"><strong>319C</strong><span>1,025원</span></div>
+                <div class="rate-chip"><strong>A구역</strong><span>기본단가</span></div>
+                <div class="rate-chip"><strong>B구역</strong><span>기본단가</span></div>
+                <div class="rate-chip"><strong>C구역</strong><span>기본단가</span></div>
+                <div class="rate-chip"><strong>D구역</strong><span>추가단가</span></div>
+                <div class="rate-chip"><strong>E구역</strong><span>추가단가</span></div>
+                <div class="rate-chip"><strong>F구역</strong><span>특수단가</span></div>
               </div>
             </div>
             <div class="settings-section">
               <h3>기록 보존</h3>
               <div class="archive-strip">
-                <div class="archive-row"><span>04/27 저장 단가</span><strong>302C 965원</strong></div>
-                <div class="archive-row"><span>05/03 변경 후</span><strong>302C 985원</strong></div>
+                <div class="archive-row"><span>04/27 저장 단가</span><strong>A구역 기본단가</strong></div>
+                <div class="archive-row"><span>05/03 변경 후</span><strong>A구역 조정단가</strong></div>
               </div>
             </div>
           </div>
@@ -1054,15 +1037,15 @@
 
       <section class="feature">
         <div class="copy">
-          <h2><span class="num">5</span>통계로 월말 정산을 확인합니다</h2>
+          <h2><span class="num">5</span>통계로 정산 흐름을 바로 확인합니다</h2>
           <p>
-            기록이 쌓이면 통계 화면에서 정산기간 범위, 월별 흐름, 일별 기록을 함께 볼 수 있습니다.
-            월말에 따로 다시 계산하기보다, 중간중간 추세를 보고 미리 정리하는 데 잘 맞습니다.
+            기록이 쌓이면 통계 화면에서 이번 정산기간 총매출, 목표 대비 진행률, 근무일, 일평균, 총 배송건수를 바로 볼 수 있습니다.
+            월말에 따로 다시 계산하기보다, 중간중간 매출 흐름과 구성별 합계를 보고 미리 정리하는 데 잘 맞습니다.
           </p>
           <ul>
-            <li>정산기간 범위와 목표 대비 진행률 확인</li>
-            <li>월간 통계, 매출 흐름, 일별 상세를 같은 흐름으로 확인</li>
-            <li>휴무일·근무일·배송건수까지 월말 정산 전에 체크 가능</li>
+            <li>총매출, 목표 대비, 근무일, 일평균, 총 배송건수를 상단에서 확인</li>
+            <li>일별 막대 그래프로 매출 흐름과 터치 상세 확인</li>
+            <li>구역 매출, 프레시백, 백업수당을 나눠서 합계 확인</li>
           </ul>
         </div>
         <div class="mock">
@@ -1080,9 +1063,9 @@
           </div>
           <div class="stats-list">
             <div><span>정산기간 총매출</span><em>4,250,000원</em></div>
-            <div><span>배송건수</span><strong>4,180건</strong></div>
-            <div><span>근무일 / 휴무일</span><strong>18일 / 7일</strong></div>
-            <div><span>일평균 매출</span><strong>23.6만원</strong></div>
+            <div><span>목표 대비</span><strong>71%</strong></div>
+            <div><span>근무일 / 일평균</span><strong>18일 / 23.6만원</strong></div>
+            <div><span>총 배송건수</span><strong>4,180건</strong></div>
           </div>
         </div>
       </section>
@@ -1095,16 +1078,16 @@
             소개 페이지에서는 복잡한 설정 대신, 사용자가 안심하고 기록할 수 있다는 점만 짧게 안내합니다.
           </p>
           <ul>
+            <li>가입 요청 후 관리자 승인된 계정만 앱 사용</li>
             <li>운영 데이터는 로그인한 계정 기준으로 분리 저장</li>
             <li>API 키를 브라우저 화면에 직접 노출하지 않는 흐름 유지</li>
-            <li>기록 앱으로서 필요한 범위 안에서만 기능을 설명</li>
           </ul>
         </div>
         <div class="trust-box">
           <h3>안심하고 기록하기</h3>
+          <p>처음 사용하는 기사님은 가입 요청 후 관리자 승인을 받아 사용합니다.</p>
           <p>운영 데이터는 Supabase 계정 기준으로 저장됩니다.</p>
           <p>외부 OCR/API 처리는 브라우저에서 키를 직접 노출하지 않는 흐름을 기준으로 구성됩니다.</p>
-          <p>과장된 “완전 자동” 대신, 매일 기록과 검토 가능한 초안 흐름에 집중합니다.</p>
         </div>
       </section>
 
@@ -1127,17 +1110,6 @@
               그래도 바로 설치가 안 보이면 북마크로 저장해 두고 사용하는 방식도 충분히 실용적입니다.
             </div>
           </div>
-        </div>
-      </section>
-
-      <section class="closing">
-        <h2>오늘 입력하면 월말이 편해집니다</h2>
-        <p>
-          퀵플은 거창한 자동화보다, 매일 기록을 덜 번거롭게 만드는 쪽에 가깝습니다.
-          하루씩 쌓아 두면 월말 정산이 훨씬 단순해집니다.
-        </p>
-        <div class="cta-row">
-          <a class="cta primary" href="./index.html">앱 시작하기</a>
         </div>
       </section>
 
