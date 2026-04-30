@@ -404,10 +404,6 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
 .day-cell:nth-child(7n) { border-right: 0; }
 .day-cell.outside { opacity: .42; background: var(--panel2); }
 .day-cell.selected { box-shadow: inset 0 0 0 2px var(--gold); background: var(--primary-bg); }
-.day-cell.selected .day-number {
-  background: transparent;
-  color: var(--gold);
-}
 .day-cell.off { background: var(--panel2); }
 .day-cell.off .day-value {
   color: var(--red);
@@ -435,7 +431,7 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
 }
 .day-cell.selected.today-cell .day-number,
 .day-cell.selected.today-cell.holiday .day-number {
-  background: var(--gold);
+  background: var(--primary-dark);
   color: #fff;
 }
 .day-holiday {
