@@ -432,7 +432,7 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
 }
 .day-cell.selected.today-cell .day-number,
 .day-cell.selected.today-cell.holiday .day-number {
-  background: var(--primary-dark);
+  background: var(--gold);
   color: #fff;
 }
 .day-holiday {
