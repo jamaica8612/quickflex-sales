@@ -1441,6 +1441,6 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
   font-family: var(--font-numeric) !important;
   font-variant-numeric: tabular-nums !important;
   font-feature-settings: "tnum" !important;
-  letter-spacing: -0.04em !important;
+  letter-spacing: -0.06em !important;
   transform: none !important;
 }
