@@ -17,6 +17,7 @@
 :root {
   --font-ui: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-numeric: var(--font-ui);
+  --font-amount: "Wanted Sans Variable", var(--font-ui);
   --shell-bg: #EAECEF;
   --bg: #F7F7F8;
   --panel: #FFFFFF;
@@ -233,12 +234,12 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
   display: inline-block;
   grid-column: 1 / -1;
   color: var(--gold);
-  font-family: var(--font-numeric);
+  font-family: var(--font-amount);
   font-size: 30px;
-  font-weight: 850;
+  font-weight: 680;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
-  line-height: 1;
+  line-height: 1.04;
 }
 .meter-wrap { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; order: 2; }
 .meter-wrap .summary-meter { flex: 1; margin: 0; }
@@ -487,12 +488,12 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
 .day-dock strong {
   display: inline-block;
   color: var(--gold);
-  font-family: var(--font-numeric);
+  font-family: var(--font-amount);
   font-size: 18px;
-  font-weight: 850;
+  font-weight: 680;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
-  line-height: 1.05;
+  line-height: 1.08;
 }
 .ghost-pill { background: transparent; border: 1px solid var(--line); color: var(--muted); padding: 0 18px; }
 .ghost-pill.active { color: var(--red); border-color: var(--red); background: var(--red-bg); }
@@ -602,7 +603,7 @@ body:not([data-theme="dark"]) .day-dock .ghost-pill.active {
   color: var(--gold);
   font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
-  font-weight: 800;
+  font-weight: 700;
   font-size: 13px;
   letter-spacing: 0;
   white-space: nowrap;
@@ -625,7 +626,7 @@ body:not([data-theme="dark"]) .del-btn {
 .multiply { color: var(--muted); }
 .total-card { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; background: var(--primary-bg); color: var(--text); box-shadow: none; border: 1px solid var(--primary-border); }
 .total-card span { font-size: 14px; font-weight: 700; color: var(--gold); }
-.total-card strong { font-size: 26px; font-weight: 850; letter-spacing: 0; color: var(--gold); font-family: var(--font-numeric); font-variant-numeric: tabular-nums; }
+.total-card strong { font-size: 26px; font-weight: 700; letter-spacing: 0; color: var(--gold); font-family: var(--font-amount); font-variant-numeric: tabular-nums; line-height: 1.05; }
 .full-btn { width: 100%; min-height: 52px; border-radius: 14px; font-size: 16px; font-weight: 800; }
 html:not([data-theme="dark"]) #saveRecord,
 body:not([data-theme="dark"]) #saveRecord,
@@ -962,7 +963,7 @@ body:not([data-theme="dark"]) .rate-editor button {
   min-width: 0;
   flex-wrap: wrap;
 }
-.admin-revenue-total { color: var(--gold); font-size: 18px; font-weight: 950; }
+.admin-revenue-total { color: var(--gold); font-family: var(--font-amount); font-size: 18px; font-weight: 700; line-height: 1.06; }
 .admin-revenue-metrics,
 .admin-route-metrics {
   margin-top: 10px;
@@ -1068,7 +1069,9 @@ body:not([data-theme="dark"]) .rate-editor button {
 .daily-top strong:first-child { font-size: 15px; }
 .daily-top > strong:last-child {
   color: var(--gold);
+  font-family: var(--font-amount);
   font-size: 18px;
+  font-weight: 700;
   white-space: nowrap;
 }
 .daily-top span {
@@ -1101,7 +1104,7 @@ body:not([data-theme="dark"]) .rate-editor button {
 .daily-detail .dd-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .daily-detail .dd-row strong { color: var(--text); font-weight: 800; }
 .daily-detail .dd-row.dd-total { margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--line); }
-.daily-detail .dd-row.dd-total strong { color: var(--gold); font-size: 15px; }
+.daily-detail .dd-row.dd-total strong { color: var(--gold); font-family: var(--font-amount); font-size: 15px; font-weight: 700; line-height: 1.08; }
 
 /* === stats summary === */
 .stats-summary-card {
@@ -1139,9 +1142,9 @@ body:not([data-theme="dark"]) .rate-editor button {
 }
 .stats-summary-card .ssc-rows strong {
   color: var(--gold);
-  font-family: var(--font-numeric);
+  font-family: var(--font-amount);
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0;
 }
 .ssc-meter { display: grid; gap: 7px; }
@@ -1594,12 +1597,12 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
 #homeSelectedTotal,
 #selectedDayTotal,
 #statsSummaryTotal {
-  font-family: var(--font-ui) !important;
+  font-family: var(--font-amount) !important;
   font-variant-numeric: proportional-nums !important;
   font-feature-settings: "pnum" !important;
-  letter-spacing: -0.04em !important;
+  letter-spacing: -0.01em !important;
   transform: none !important;
-  font-weight: 850 !important;
+  font-weight: 680 !important;
 }
 
 #dailyAverage,
@@ -1609,10 +1612,10 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
 .total-card strong,
 .entry-row output,
 .calc-row output {
-  font-family: var(--font-ui) !important;
+  font-family: var(--font-amount) !important;
   font-variant-numeric: proportional-nums !important;
   font-feature-settings: "pnum" !important;
-  letter-spacing: -0.02em !important;
+  letter-spacing: -0.01em !important;
   transform: none !important;
 }
 
