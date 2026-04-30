@@ -1635,6 +1635,10 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
   font-weight: 680 !important;
 }
 
+#periodRevenue {
+  letter-spacing: -0.02em !important;
+}
+
 #dailyAverage,
 #periodCount,
 #workDaysHome,
