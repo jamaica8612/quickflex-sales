@@ -1,6 +1,24 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-30 (stats and settings light polish)
+Last updated: 2026-04-30 (number polish and light button cleanup)
+
+## 2026-04-30 Number Polish And Light Button Cleanup (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+
+### Changed Files
+
+- `styles.css`
+  - Removed the temporary `scaleX(.94)` number squeeze and let `Wanted Sans Variable` render numeric UI naturally.
+  - Cleaned up light-mode secondary button colors on record/settings views, softened total cards, reduced daily stat chip/card density, and removed the hard divider under the home header summary.
+- `src/main.js`
+  - Fixed duplicated `건건` text in stats daily detail rows.
+  - Added green synced-state styling hook for the settings header badge.
+  - Added spacing-friendly admin summary text formatting between profile names and driver type labels.
+- `index.html`
+  - Returned the goal save button to the same row as the goal amount input and bumped asset query versions to `v=46`.
+- `sw.js`
+  - Bumped shell cache to `quickflex-shell-v72` so updated font and style assets refresh cleanly.
 
 ## 2026-04-30 Stats And Settings Light Polish (Codex)
 

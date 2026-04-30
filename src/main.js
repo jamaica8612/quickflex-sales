@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 import {
   DB_KEY,
@@ -882,6 +882,7 @@ function setDbBadge(connected, text = "") {
   el.dbStatusBadge.textContent = connected ? (text || "연결됨") : "미연결";
   el.dbStatus.textContent = connected ? "DB에 연결되어 있습니다." : "DB 연결이 필요합니다.";
   el.syncStatus.textContent = connected ? (text || "DB 연결됨") : "미연결";
+  el.syncStatus.classList.toggle("sync-ok", connected);
 }
 function applyProfileUi() {
   const profile = state.profile || {};
@@ -1724,7 +1725,7 @@ function renderDailyStatsFor(allKeys) {
     const open = state.statsDetailDate === dateKey;
     const routes = record.rows.map((row) => {
       const sub = toNum(row.count) * effectiveUnit(row);
-      return `<div class="dd-row"><span>${formatRouteLabel(row.route)} · ${fmtCount(row.count)}건 × ${fmtWon(effectiveUnit(row))}</span><strong>${fmtWon(sub)}</strong></div>`;
+      return `<div class="dd-row"><span>${formatRouteLabel(row.route)} · ${fmtCount(row.count)} × ${fmtWon(effectiveUnit(row))}</span><strong>${fmtWon(sub)}</strong></div>`;
     }).join("");
     const routePreview = record.off ? "휴무" : (formatRecordRoutes(record.rows) || "라우트 없음");
     return `<div class="daily-card stat-day-card">
@@ -1745,7 +1746,7 @@ function renderDailyStatsFor(allKeys) {
       ${open ? `<div class="daily-detail">${
         record.off ? "<div class=\"dd-row\"><span>휴무</span></div>" :
         `${routes || "<div class=\"dd-row\"><span>라우트 없음</span></div>"}` +
-        `${details.freshRevenue ? `<div class="dd-row"><span>프레시백 ${fmtCount(details.freshCount)}건</span><strong>${fmtWon(details.freshRevenue)}</strong></div>` : ""}` +
+        `${details.freshRevenue ? `<div class="dd-row"><span>프레시백 ${fmtCount(details.freshCount)}</span><strong>${fmtWon(details.freshRevenue)}</strong></div>` : ""}` +
         `${details.backupRevenue ? `<div class="dd-row"><span>백업수당</span><strong>${fmtWon(details.backupRevenue)}</strong></div>` : ""}` +
         `<div class="dd-row dd-total"><span>합계</span><strong>${fmtWon(details.revenue)}</strong></div>`
       }</div>` : ""}
