@@ -160,15 +160,22 @@ label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: 13px;
 .app:not([data-driver-type="fixed"]) .fixed-only { display: none !important; }
 .app:not([data-role="admin"]) .admin-only { display: none !important; }
 .hidden { display: none !important; }
+.view-home {
+  background: linear-gradient(180deg, rgba(27,45,80,.68) 0%, #1A2232 22%, #171D2A 44%, var(--bg) 44%);
+}
+html:not([data-theme="dark"]) .view-home,
+body:not([data-theme="dark"]) .view-home {
+  background: linear-gradient(180deg, #F3F8FF 0%, #EEF5FF 24%, #EAF2FD 44%, var(--bg) 44%);
+}
 
 .home-header {
   padding: 48px 18px 0;
-  background: linear-gradient(180deg, rgba(27,45,80,.68) 0%, #1A2232 58%, #171D2A 100%);
+  background: transparent;
   border-bottom: 0;
 }
 html:not([data-theme="dark"]) .home-header,
 body:not([data-theme="dark"]) .home-header {
-  background: linear-gradient(180deg, #F3F8FF 0%, #EEF5FF 58%, #EAF2FD 100%);
+  background: transparent;
 }
 .home-top, .summary-row, .calendar-toolbar, .day-dock, .sub-header, .entry-actions, .two-buttons, .upload-row, .ocr-adjust-row {
   display: flex;
@@ -246,10 +253,10 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
 .summary-grid strong { font-family: var(--font-numeric); font-size: 15px; font-weight: 800; }
 
 .calendar-panel {
-  background: linear-gradient(180deg, #171D2A 0, #171D2A 110px, transparent 110px);
+  background: transparent;
   border: 0;
   border-radius: 0;
-  margin-top: 6px;
+  margin-top: 2px;
   overflow: visible;
   position: static;
   isolation: auto;
@@ -258,7 +265,7 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
 }
 html:not([data-theme="dark"]) .calendar-panel,
 body:not([data-theme="dark"]) .calendar-panel {
-  background: linear-gradient(180deg, #EAF2FD 0, #EAF2FD 110px, transparent 110px);
+  background: transparent;
 }
 .calendar-toolbar {
   padding: 18px 14px 10px;
@@ -788,12 +795,12 @@ body:not([data-theme="dark"]) .rate-editor button {
 @media (max-width: 430px) {
   .calendar-panel {
     border-radius: 0;
-    margin-top: 4px;
-    background: linear-gradient(180deg, #171D2A 0, #171D2A 104px, transparent 104px);
+    margin-top: 0;
+    background: transparent;
   }
   html:not([data-theme="dark"]) .calendar-panel,
   body:not([data-theme="dark"]) .calendar-panel {
-    background: linear-gradient(180deg, #EAF2FD 0, #EAF2FD 104px, transparent 104px);
+    background: transparent;
   }
   .week-head span {
     font-size: 10px;
