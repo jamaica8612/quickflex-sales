@@ -16,7 +16,7 @@
 
 :root {
   --font-ui: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-numeric: "Wanted Sans Variable", "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-numeric: var(--font-ui);
   --shell-bg: #EAECEF;
   --bg: #F7F7F8;
   --panel: #FFFFFF;
@@ -1422,8 +1422,7 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
   .admin-card-row [data-action="save-admin"] { grid-column: 1 / -1; }
 }
 
-
-/* 숫자 자간 테스트 - 일부러 크게 */
+/* 숫자 스타일 - Pretendard 통일 */
 #periodRevenue,
 #homeSelectedTotal,
 #selectedDayTotal,
@@ -1438,9 +1437,9 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
 .total-card strong,
 .entry-row output,
 .calc-row output {
-  font-family: var(--font-numeric) !important;
+  font-family: var(--font-ui) !important;
   font-variant-numeric: tabular-nums !important;
   font-feature-settings: "tnum" !important;
-  letter-spacing: -0.06em !important;
+  letter-spacing: -0.02em !important;
   transform: none !important;
 }
