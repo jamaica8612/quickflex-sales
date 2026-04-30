@@ -371,7 +371,14 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
   border-bottom: 1px solid var(--line);
   overflow: visible;
 }
-.week-head span { text-align: center; padding: 8px 0; color: var(--muted); font-weight: 850; font-size: 11px; }
+.week-head span {
+  text-align: center;
+  padding: 8px 0 9px;
+  line-height: 1;
+  color: var(--muted);
+  font-weight: 850;
+  font-size: 11px;
+}
 .sun { color: var(--red) !important; }
 .sat { color: var(--blue) !important; }
 .calendar-grid {
@@ -397,8 +404,7 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
 .day-cell:nth-child(7n) { border-right: 0; }
 .day-cell.outside { opacity: .42; background: var(--panel2); }
 .day-cell.selected { box-shadow: inset 0 0 0 2px var(--gold); background: var(--primary-bg); }
-.day-cell.selected .day-number,
-.day-cell.selected.today-cell .day-number {
+.day-cell.selected .day-number {
   background: transparent;
   color: var(--gold);
 }
@@ -423,11 +429,14 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
 .today-cell .day-number { background: var(--gold); color: #fff; }
 .day-cell.holiday .day-number { color: var(--red); }
 .today-cell.holiday .day-number { color: #fff; }
-.day-cell.selected .day-number,
-.day-cell.selected.today-cell .day-number,
-.day-cell.selected.today-cell.holiday .day-number {
+.day-cell.selected .day-number {
   background: transparent;
   color: var(--gold);
+}
+.day-cell.selected.today-cell .day-number,
+.day-cell.selected.today-cell.holiday .day-number {
+  background: var(--gold);
+  color: #fff;
 }
 .day-holiday {
   display: none;
@@ -743,11 +752,12 @@ body:not([data-theme="dark"]) .rate-editor button {
   background: var(--panel2);
   border: 1px solid var(--line);
   min-height: 54px;
-  padding: 9px 22px 8px 8px;
+  padding: 9px 22px 8px 10px;
   display: grid;
   align-content: center;
+  justify-items: start;
   gap: 4px;
-  text-align: center;
+  text-align: left;
   color: var(--text);
   cursor: pointer;
   min-width: 0;
@@ -804,7 +814,7 @@ body:not([data-theme="dark"]) .rate-editor button {
   }
   .week-head span {
     font-size: 10px;
-    padding: 7px 0;
+    padding: 7px 0 8px;
   }
   .calendar-grid {
     grid-auto-rows: 74px;
@@ -815,7 +825,7 @@ body:not([data-theme="dark"]) .rate-editor button {
   .rate-chip {
     border-radius: 11px;
     min-height: 50px;
-    padding: 8px 20px 7px 6px;
+    padding: 8px 20px 7px 8px;
     gap: 3px;
   }
   .rate-chip strong {
