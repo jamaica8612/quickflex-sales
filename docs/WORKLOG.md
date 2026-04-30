@@ -1,6 +1,177 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-30 (dark tone and typography polish)
+Last updated: 2026-04-30 (progress and numeric spacing follow-up)
+
+## 2026-04-30 Progress And Numeric Spacing Follow-Up (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+
+### Changed Files
+
+- `src/main.js`
+  - Restored calendar compact revenue to decimal `만` display, such as `37.1만`.
+  - Changed home and stats progress percentages to whole-number display.
+- `styles.css`
+  - Tightened the visual width of the largest revenue numbers and home dock amount using horizontal numeric scaling while keeping `letter-spacing: 0`.
+- `index.html`
+  - Bumped `styles.css` and `src/main.js` to `v=37`.
+- `sw.js`
+  - Bumped cache to `quickflex-shell-v66`.
+
+---
+
+## 2026-04-30 Home Calendar Trim And Metric Polish (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+
+### Changed Files
+
+- `src/main.js`
+  - Trimmed the home calendar to the final visible week of the settlement period instead of always rendering six weeks.
+  - Changed compact calendar revenue from decimal `만` units to rounded integer `만` units.
+- `styles.css`
+  - Moved the meter helper label visually below the progress graph, removed the selected-date circle treatment, and tightened large numeric display with tabular numerals, size, and line-height while keeping letter spacing at `0`.
+  - Removed the fixed calendar grid minimum height so the extra final row no longer leaves blank space.
+- `index.html`
+  - Bumped `styles.css` and `src/main.js` to `v=36`.
+- `sw.js`
+  - Bumped cache to `quickflex-shell-v65`.
+
+### Notes
+
+- Negative letter spacing was avoided; numeric density is handled through font sizing, line-height, and tabular numerals.
+
+---
+
+## 2026-04-30 Home Calendar Visual Polish (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+
+### Changed Files
+
+- `src/main.js`
+  - Simplified home period text to `정산기간 4/26 - 5/25`.
+  - Changed calendar revenue cells to compact `13.5만` style and home dock dates to `MM/DD`.
+  - Removed the top holiday short badge from calendar cell markup while keeping the holiday name below when appropriate.
+- `styles.css`
+  - Lightened the light-mode home header background, enlarged the driver name, tightened the period spacing, reduced calendar value/off-day sizes, made calendar nav buttons white, and made the home dock off button smaller with a white background.
+- `index.html`
+  - Bumped `styles.css` and `src/main.js` to `v=35`.
+- `sw.js`
+  - Bumped cache to `quickflex-shell-v64`.
+
+### Notes
+
+- Letter spacing remains non-negative per frontend layout rules; visual density is handled through font sizing and abbreviated labels.
+
+---
+
+## 2026-04-30 Unified Light Button Color (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+
+### Changed Files
+
+- `styles.css`
+  - Unified light-mode action button backgrounds to `#1A73E8` with white text.
+  - Changed previous light-mode save/delete/secondary action overrides away from green/red/gray and back to the single main blue.
+  - Kept inactive segmented controls visually neutral so selected/unselected states remain readable.
+- `index.html`
+  - Bumped `styles.css` to `v=34`.
+- `sw.js`
+  - Bumped cache to `quickflex-shell-v63`.
+
+### Notes
+
+- Dark-mode navy/yellow styling remains unchanged.
+
+---
+
+## 2026-04-30 Light Button Palette Polish (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+
+### Changed Files
+
+- `styles.css`
+  - Set the light-mode main action color to `#1A73E8`.
+  - Set light-mode save/complete actions to `#28A745`, delete/danger actions to `#DC3545`, and secondary actions to `#F1F3F5` with `#212529` text.
+  - Kept the dark-mode navy/yellow styling intact.
+- `index.html`
+  - Bumped `styles.css` to `v=33`.
+- `sw.js`
+  - Bumped cache to `quickflex-shell-v62`.
+
+### Notes
+
+- This is a light-mode visual-only button palette update.
+
+---
+
+## 2026-04-30 Dark Gold Visual Polish (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+
+### Changed Files
+
+- `styles.css`
+  - Shifted the app toward the provided clean mockup: dark navy surfaces, yellow primary accent, compact header/summary/calendar typography, and zeroed display letter spacing.
+  - Reduced several label sizes and heavy weights so the dashboard reads closer to the reference.
+- `src/main.js`
+  - Added a one-time dark-gold default migration so existing local browsers see the redesigned dark theme once, while future manual theme choices remain saved.
+- `index.html`
+  - Bumped `styles.css` to `v=32` and `src/main.js` to `v=34`.
+- `sw.js`
+  - Bumped cache to `quickflex-shell-v61`.
+
+### Notes
+
+- The first load after this redesign defaults to dark-gold once; users can switch themes afterward and that choice is respected.
+
+---
+
+## 2026-04-30 Pretendard Self-Host And Wanted DS Polish (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+
+### Changed Files
+
+- `assets/fonts/PretendardVariable.woff2`
+  - Added the local web variable font from `Pretendard-1.3.9.zip`.
+- `styles.css`
+  - Added local `@font-face` for Pretendard with `font-display: swap`.
+  - Aligned light/dark color tokens, primary blue, control heights, card radius, input treatment, and key dashboard surfaces to `퀵플렉스 Redesign.html`.
+- `index.html`
+  - Removed the jsDelivr Pretendard stylesheet and bumped `styles.css` to `v=31`.
+- `sw.js`
+  - Added the local font asset to `SHELL_FILES` and bumped cache to `quickflex-shell-v59`.
+
+### Notes
+
+- Static UI/PWA asset changes only. No Supabase, OCR, Auth, schema, or data-flow changes.
+
+---
+
+## 2026-04-30 Wanted Design Token Pass (Codex)
+
+Workspace: `C:\work\quickflex-sales`
+
+### Changed Files
+
+- `styles.css`
+  - Shifted the app foundation toward the public Wanted Design Library direction: neutral gray surfaces, blue primary action color, tighter border hierarchy, and light/dark theme token pairing.
+  - Kept existing CSS variable names to avoid broad component rewrites.
+  - Added focused input rings and fixed toast text contrast in light mode.
+- `index.html`
+  - Bumped `styles.css` asset query to `v=30`.
+- `sw.js`
+  - Bumped cache to `quickflex-shell-v58`.
+
+### Notes
+
+- The shared Figma page needs authenticated/API access for exact variable export, so this pass maps the public Wanted foundation direction into the existing QuickFlex CSS tokens.
+
+---
 
 ## 2026-04-30 Dark Tone And Typography Polish (Codex)
 

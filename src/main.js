@@ -33,6 +33,7 @@ import {
 } from "./lib/route.js";
 
 const THEME_KEY = "quickflex-theme";
+const THEME_DEFAULT_MARK_KEY = "quickflex-theme-default-dark-gold-v1";
 function applyTheme(theme) {
   const t = theme === "dark" ? "dark" : "light";
   if (document.documentElement) document.documentElement.dataset.theme = t;
@@ -45,7 +46,18 @@ function applyTheme(theme) {
     try { renderStats(); } catch (_) {}
   }
 }
-try { applyTheme(localStorage.getItem("quickflex-theme") || "light"); } catch (_) {}
+function getInitialTheme() {
+  try {
+    if (localStorage.getItem(THEME_DEFAULT_MARK_KEY) !== "1") {
+      localStorage.setItem(THEME_DEFAULT_MARK_KEY, "1");
+      return "dark";
+    }
+    return localStorage.getItem(THEME_KEY) || "dark";
+  } catch (_) {
+    return "dark";
+  }
+}
+try { applyTheme(getInitialTheme()); } catch (_) {}
 
 const GOAL_SETTING_ROUTE = "__GOAL__";
 function getGoal() { return toNum(state.profile?.goal_amount) || GOAL; }
@@ -708,6 +720,20 @@ function formatRangeLabel(start, end) {
   const fmt = (d) => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
   return `${fmt(start)} ~ ${fmt(end)}`;
 }
+function formatPeriodRangeSimple(start, end) {
+  const fmt = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+  return `${fmt(start)} - ${fmt(end)}`;
+}
+function formatMonthDay(key) {
+  const date = parseDateKey(key);
+  return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
+}
+function formatCalendarWon(value) {
+  const n = Math.round(Number(value) || 0);
+  if (!n) return "";
+  if (Math.abs(n) >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, "")}만`;
+  return n.toLocaleString("ko-KR");
+}
 function formatKoreanWon(value) {
   const n = Math.round(value);
   if (n === 0) return "0";
@@ -1240,6 +1266,7 @@ function renderSummary() {
   const total = summarizePeriod();
   el.periodRange.textContent = `정산기간 ${formatShort(start)} ~ ${formatShort(end)}`;
   el.monthTitle.textContent = `${state.year}년 ${String(state.month).padStart(2, "0")}월`;
+  el.periodRange.textContent = `정산기간 ${formatPeriodRangeSimple(start, end)}`;
   el.periodRevenue.textContent = fmtWon(total.revenue);
   el.periodCount.textContent = fmtCount(total.count);
   el.dailyAverage.textContent = fmtWon(total.average);
@@ -1247,15 +1274,18 @@ function renderSummary() {
   const goal = getGoal();
   const pct = Math.min(100, total.revenue / goal * 100);
   el.meterFill.style.width = `${pct}%`;
-  el.meterPct.textContent = `${pct.toFixed(1)}%`;
+  el.meterPct.textContent = `${Math.round(pct)}%`;
   el.meterLabel.textContent = `목표 ${fmtWon(goal)} 대비 진행률`;
 }
 function renderMonth() {
-  const { start } = periodBounds();
+  const { start, end } = periodBounds();
   const first = new Date(start);
   first.setDate(first.getDate() - first.getDay());
+  const last = new Date(end);
+  last.setDate(last.getDate() + (6 - last.getDay()));
+  const cellCount = Math.max(35, Math.ceil((last - first) / 86400000) + 1);
   el.monthCalendar.innerHTML = "";
-  for (let i = 0; i < 42; i += 1) {
+  for (let i = 0; i < cellCount; i += 1) {
     const date = new Date(first);
     date.setDate(first.getDate() + i);
     const dateKey = toDateKey(date);
@@ -1267,11 +1297,10 @@ function renderMonth() {
     cell.type = "button";
     cell.className = `day-cell${inPeriod ? "" : " outside"}${dateKey === state.selectedDate ? " selected" : ""}${dateKey === todayKey() ? " today-cell" : ""}${record.off ? " off" : ""}${holidayName ? " holiday" : ""}`;
     const routeText = record.off ? "" : formatRecordRoutes(record.rows);
-    const value = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : (calc.revenue ? fmtNum(calc.revenue) : "");
-    const routeOrHoliday = routeText || (!value && holidayName ? holidayName : "");
-    const holidayBadge = holidayName ? `<span class="day-holiday">${holidayShortLabel(holidayName)}</span>` : "";
+    const displayValue = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : formatCalendarWon(calc.revenue);
+    const displayRouteOrHoliday = routeText || (!displayValue && holidayName ? holidayName : "");
     if (holidayName) cell.title = holidayName;
-    cell.innerHTML = `<span class="day-number">${date.getDate()}</span>${holidayBadge}<span class="day-value">${value}</span><span class="day-routes">${routeOrHoliday}</span>`;
+    cell.innerHTML = `<span class="day-number">${date.getDate()}</span><span class="day-value">${displayValue}</span><span class="day-routes">${displayRouteOrHoliday}</span>`;
     cell.addEventListener("click", () => selectDate(dateKey));
     el.monthCalendar.appendChild(cell);
   }
@@ -1280,6 +1309,8 @@ function renderHomeSelection() {
   const record = getRecord(state.selectedDate, false);
   const calc = calcRecord(record);
   el.homeSelectedDate.textContent = formatLong(state.selectedDate);
+  el.homeSelectedTotal.textContent = record.off ? "휴무" : fmtWon(calc.revenue);
+  el.homeSelectedDate.textContent = formatMonthDay(state.selectedDate);
   el.homeSelectedTotal.textContent = record.off ? "휴무" : fmtWon(calc.revenue);
   el.homeOffToggle.classList.toggle("active", record.off);
 }
@@ -1661,7 +1692,7 @@ function renderStats() {
   const goal = getGoal();
   const statsPct = goal ? Math.min(100, visible.revenue / goal * 100) : 0;
   el.statsMeterFill.style.width = `${statsPct}%`;
-  el.statsMeterPct.textContent = `${statsPct.toFixed(1)}%`;
+  el.statsMeterPct.textContent = `${Math.round(statsPct)}%`;
   el.statsMeterLabel.textContent = goal ? `목표 ${fmtWon(goal)} (설정됨)` : "목표 미설정";
   el.statsWorkDays.textContent = `${total.workDays}일`;
   el.statsOffDays.textContent = `${total.offDays}일`;
@@ -2755,7 +2786,7 @@ function bindEvents() {
   document.querySelectorAll("[data-theme-set]").forEach((btn) => {
     btn.addEventListener("click", () => applyTheme(btn.dataset.themeSet));
   });
-  applyTheme(localStorage.getItem(THEME_KEY) || "light");
+  applyTheme(getInitialTheme());
   el.saveRate.addEventListener("click", async () => {
     const route = normalizeRoute(el.rateRoute.value);
     if (route && isBackupDriver() && !isKnownRateRoute(route)) {
