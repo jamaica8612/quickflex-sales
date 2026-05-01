@@ -587,6 +587,18 @@ function defaultEntryRows() {
   if (!firstRate) return [{ route: "", count: "", unit: 0, draft: true }];
   return [{ route: firstRate.route, count: "", unit: firstRate.unit || 0, draft: false }];
 }
+function mergeScheduleRowsWithExisting(existingRows, scheduleRoutes) {
+  const existingByRoute = new Map();
+  (existingRows || []).forEach((row) => {
+    splitStoredRoutes(row.route).forEach((route) => existingByRoute.set(route, row));
+  });
+  return buildGroupedRows(scheduleRoutes).map((row) => {
+    const matched = splitStoredRoutes(row.route).map((route) => existingByRoute.get(route)).find(Boolean);
+    return matched
+      ? { ...row, count: matched.count ?? "", unit: toNum(matched.unit) || row.unit || 0, draft: false }
+      : row;
+  });
+}
 function ensureFixedRecordRows(record) {
   if (isBackupDriver()) return record;
   if (record.off) return record;
@@ -2373,10 +2385,7 @@ function applySchedule(map) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
     const record = getRecord(dateKey, true);
     record.off = routes === null;
-    record.rows = routes === null ? [] : buildGroupedRows(routes);
-    record.freshCount = "";
-    record.freshUnit = 100;
-    record.backupUnit = DEFAULT_BACKUP_UNIT;
+    if (routes !== null) record.rows = mergeScheduleRowsWithExisting(record.rows, routes);
     setRecord(dateKey, record);
     changed.push(dateKey);
   });
