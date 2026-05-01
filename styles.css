@@ -954,6 +954,10 @@ body:not([data-theme="dark"]) .mode-option input[type="radio"]:checked + span sm
 .draft-off-btn.active { color: var(--red); border-color: var(--red); }
 .admin-list { display: grid; gap: 8px; }
 .admin-card { background: var(--panel2); border: 1px solid var(--line); border-radius: 16px; padding: 12px; display: grid; gap: 10px; }
+.admin-card.is-delete-request {
+  border-color: rgba(220,53,69,.34);
+  background: rgba(220,53,69,.07);
+}
 .admin-profile-head {
   display: flex;
   justify-content: space-between;
@@ -979,6 +983,11 @@ body:not([data-theme="dark"]) .mode-option input[type="radio"]:checked + span sm
   color: var(--gold);
   font-size: 11px;
   font-weight: 850;
+}
+.admin-card.is-delete-request .admin-status-pill {
+  background: rgba(220,53,69,.12);
+  border-color: rgba(220,53,69,.35);
+  color: var(--red);
 }
 .admin-meta-grid {
   display: grid;
@@ -1009,6 +1018,11 @@ body:not([data-theme="dark"]) .mode-option input[type="radio"]:checked + span sm
   grid-column: 1 / -1;
 }
 .admin-card-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.admin-delete-btn {
+  width: 100%;
+  min-height: 38px;
+  border-radius: 12px;
+}
 .admin-route-field { display: grid; gap: 6px; }
 .inline-check { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; color: var(--muted); font-size: 12px; font-weight: 850; }
 .admin-revenue-list,

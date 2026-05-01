@@ -455,6 +455,9 @@ function profileNameForDisplay(profile) {
   const emailPrefix = String(profile?.email || "").split("@")[0].trim();
   return emailPrefix || displayName || "사용자";
 }
+function isDeleteRequestedProfile(profile) {
+  return String(profile?.display_name || "").startsWith("[탈퇴요청]");
+}
 function formatDateTimeShort(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -2669,18 +2672,26 @@ async function renderAdminProfiles() {
     el.adminProfiles.innerHTML = `<p class="error-text">${error.message}</p>`;
     return;
   }
-  el.adminProfiles.innerHTML = (data || []).map((profile) => {
+  const profiles = [...(data || [])].sort((a, b) => {
+    const ar = isDeleteRequestedProfile(a) ? 1 : 0;
+    const br = isDeleteRequestedProfile(b) ? 1 : 0;
+    if (ar !== br) return br - ar;
+    return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+  });
+  el.adminProfiles.innerHTML = profiles.map((profile) => {
     const name = profileNameForDisplay(profile);
     const fixedRouteText = (profile.fixed_routes || []).join(", ");
     const goalAmount = toNum(profile.goal_amount) || GOAL;
     const roleLabel = profile.role === "admin" ? "관리자" : "기사";
-    return `<div class="admin-card" data-id="${escapeAttr(profile.id)}">
+    const deleteRequested = isDeleteRequestedProfile(profile);
+    const canDelete = profile.id !== currentUserId();
+    return `<div class="admin-card${deleteRequested ? " is-delete-request" : ""}" data-id="${escapeAttr(profile.id)}">
     <div class="admin-profile-head">
       <div>
         <strong>${escapeAttr(name)}</strong>
         <span class="hint">${escapeAttr(profile.email || "")}</span>
       </div>
-      <span class="admin-status-pill">${statusLabel(profile.status)}</span>
+      <span class="admin-status-pill">${deleteRequested ? "탈퇴요청" : statusLabel(profile.status)}</span>
     </div>
     <div class="admin-meta-grid">
       <span>역할 <b>${roleLabel}</b></span>
@@ -2707,6 +2718,7 @@ async function renderAdminProfiles() {
       <span>고정기사 라우트</span>
       <input data-field="fixed_routes" type="text" placeholder="예: 322A, 322B" value="${escapeAttr(fixedRouteText)}" />
     </label>
+    ${canDelete ? `<button class="secondary-btn danger admin-delete-btn" data-action="delete-admin" type="button">사용자 삭제</button>` : `<p class="hint">현재 로그인한 관리자 계정은 여기서 삭제할 수 없습니다.</p>`}
     <p class="hint">기사 유형을 고정으로 저장하면 해당 기사는 이 라우트만 기록 화면과 단가 관리에 표시됩니다.</p>
   </div>`;
   }).join("");
@@ -2731,6 +2743,24 @@ async function saveAdminProfile(card) {
     await persistRatesForUsers(state.rates, [id]);
   }
   toast("사용자 정보를 저장했습니다.", "success");
+  renderAdminDashboard();
+}
+async function deleteAdminProfile(card) {
+  const id = card?.dataset?.id || "";
+  if (!id) return;
+  if (id === currentUserId()) return toast("현재 로그인한 관리자 계정은 삭제할 수 없습니다.", "error");
+  const name = card.querySelector(".admin-profile-head strong")?.textContent || "사용자";
+  if (!window.confirm(`${name} 사용자를 앱에서 삭제할까요?\n\n이 작업은 해당 사용자의 앱 프로필, 기록, 단가 데이터를 삭제합니다. Supabase Auth 로그인 계정 자체는 삭제되지 않습니다.`)) return;
+  if (!window.confirm("정말 삭제할까요? 삭제된 앱 데이터는 되돌릴 수 없습니다.")) return;
+  const { error: itemError } = await state.db.from(TABLES.items).delete().eq("user_id", id);
+  if (itemError) throw itemError;
+  const { error: dayError } = await state.db.from(TABLES.days).delete().eq("user_id", id);
+  if (dayError) throw dayError;
+  const { error: rateError } = await state.db.from(TABLES.rates).delete().eq("user_id", id);
+  if (rateError) throw rateError;
+  const { error: profileError } = await state.db.from(TABLES.profiles).delete().eq("id", id);
+  if (profileError) throw profileError;
+  toast("사용자를 삭제했습니다.", "success");
   renderAdminDashboard();
 }
 
@@ -3041,8 +3071,14 @@ function bindEvents() {
   });
   el.adminProfiles.addEventListener("click", (event) => {
     const button = event.target.closest('[data-action="save-admin"]');
-    if (!button) return;
-    saveAdminProfile(button.closest(".admin-card")).catch((error) => toast(`저장 실패: ${error.message}`, "error"));
+    if (button) {
+      saveAdminProfile(button.closest(".admin-card")).catch((error) => toast(`저장 실패: ${error.message}`, "error"));
+      return;
+    }
+    const deleteButton = event.target.closest('[data-action="delete-admin"]');
+    if (deleteButton) {
+      deleteAdminProfile(deleteButton.closest(".admin-card")).catch((error) => toast(`삭제 실패: ${error.message}`, "error"));
+    }
   });
   el.adminBundleList.addEventListener("click", (event) => {
     const button = event.target.closest("[data-action]");

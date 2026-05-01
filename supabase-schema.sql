@@ -274,6 +274,7 @@ drop policy if exists "quickflex profiles select own or admin" on public.quickfl
 drop policy if exists "quickflex profiles insert own" on public.quickflex_profiles;
 drop policy if exists "quickflex profiles update own" on public.quickflex_profiles;
 drop policy if exists "quickflex profiles admin update" on public.quickflex_profiles;
+drop policy if exists "quickflex profiles admin delete" on public.quickflex_profiles;
 
 create policy "quickflex profiles select own or admin"
 on public.quickflex_profiles
@@ -300,6 +301,12 @@ for update
 to authenticated
 using (public.quickflex_is_admin())
 with check (public.quickflex_is_admin());
+
+create policy "quickflex profiles admin delete"
+on public.quickflex_profiles
+for delete
+to authenticated
+using (public.quickflex_is_admin() and id <> auth.uid());
 
 drop policy if exists "quickflex route rates select" on public.quickflex_route_rates;
 drop policy if exists "quickflex route rates insert" on public.quickflex_route_rates;
@@ -380,7 +387,7 @@ create policy "quickflex day records delete"
 on public.quickflex_day_records
 for delete
 to authenticated
-using (user_id = auth.uid()::text and public.quickflex_is_approved());
+using (public.quickflex_is_admin() or (user_id = auth.uid()::text and public.quickflex_is_approved()));
 
 drop policy if exists "quickflex day items select" on public.quickflex_day_route_items;
 drop policy if exists "quickflex day items insert" on public.quickflex_day_route_items;
@@ -410,7 +417,7 @@ create policy "quickflex day items delete"
 on public.quickflex_day_route_items
 for delete
 to authenticated
-using (user_id = auth.uid()::text and public.quickflex_is_approved());
+using (public.quickflex_is_admin() or (user_id = auth.uid()::text and public.quickflex_is_approved()));
 
 drop policy if exists "quickflex route bundles select" on public.quickflex_route_bundles;
 drop policy if exists "quickflex route bundles insert" on public.quickflex_route_bundles;
