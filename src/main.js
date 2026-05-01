@@ -551,6 +551,20 @@ function hasMeaningfulRecord(record) {
   const rec = normalizeRecordShape(record);
   return rec.off || rec.rows.length > 0 || toNum(rec.freshCount) > 0 || toNum(rec.freshUnit) !== 100 || (isBackupDriver() && toNum(rec.backupUnit) !== DEFAULT_BACKUP_UNIT);
 }
+function hasEnteredCounts(record) {
+  const rec = normalizeRecordShape(record);
+  return rec.rows.some((row) => toNum(row.count) > 0)
+    || toNum(rec.freshCount) > 0
+    || toNum(rec.freshSoloCount) > 0
+    || toNum(rec.freshLinkedCount) > 0;
+}
+function confirmOffWithExistingCounts(dateKeys) {
+  const keys = (Array.isArray(dateKeys) ? dateKeys : [dateKeys]).filter(Boolean);
+  if (!keys.length) return true;
+  const label = keys.slice(0, 5).map(formatLongShort).join(", ");
+  const suffix = keys.length > 5 ? ` 외 ${keys.length - 5}일` : "";
+  return window.confirm(`${label}${suffix}에 이미 입력한 배송건수가 있습니다.\n휴무로 바꾸면 해당 날짜의 저장된 건수와 매출이 삭제될 수 있습니다.\n그래도 휴무로 바꿀까요?`);
+}
 function mergeGroupedRows(rows) {
   const merged = [];
   rows.forEach((row) => {
@@ -2381,6 +2395,10 @@ function parseHeaderDate(value) {
 }
 function applySchedule(map) {
   const changed = [];
+  const offKeysWithCounts = Object.entries(map || {})
+    .filter(([dateKey, routes]) => /^\d{4}-\d{2}-\d{2}$/.test(dateKey) && routes === null && hasEnteredCounts(getRecord(dateKey, false)))
+    .map(([dateKey]) => dateKey);
+  if (offKeysWithCounts.length && !confirmOffWithExistingCounts(offKeysWithCounts)) return;
   Object.entries(map || {}).forEach(([dateKey, routes]) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
     const record = getRecord(dateKey, true);
@@ -2771,7 +2789,9 @@ function bindEvents() {
   el.todayButton.addEventListener("click", selectToday);
   el.homeOffToggle.addEventListener("click", () => {
     const record = getRecord(state.selectedDate, true);
-    record.off = !record.off;
+    const nextOff = !record.off;
+    if (nextOff && hasEnteredCounts(record) && !confirmOffWithExistingCounts(state.selectedDate)) return;
+    record.off = nextOff;
     if (record.off) record.rows = [];
     else record.rows = defaultEntryRows();
     scheduleSave({ dateKeys: [state.selectedDate] });
@@ -2783,6 +2803,10 @@ function bindEvents() {
   el.nextDay.addEventListener("click", () => { discardRecordDraft(); selectDate(addDays(state.selectedDate, 1)); renderEntryForm(); });
   el.offToggle.addEventListener("change", () => {
     const record = currentRecordDraft();
+    if (el.offToggle.checked && hasEnteredCounts(record) && !confirmOffWithExistingCounts(state.selectedDate)) {
+      el.offToggle.checked = false;
+      return;
+    }
     record.off = el.offToggle.checked;
     if (record.off) record.rows = [];
     else record.rows = defaultEntryRows();
