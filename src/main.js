@@ -443,13 +443,29 @@ function driverName() { return state.profile?.display_name || state.session?.use
 function statusLabel(status) {
   if (status === "approved") return "승인";
   if (status === "blocked") return "차단";
-  return "미승인";
+  return "대기";
 }
 function driverTypeLabel(driverType) {
   return driverType === "fixed" ? "고정기사" : "백업기사";
 }
 function profileNameForDisplay(profile) {
-  return profile?.display_name || LEGACY_USER_NAMES.get(profile?.id) || profile?.email || "사용자";
+  const displayName = String(profile?.display_name || "").trim();
+  if (displayName && displayName !== "사용자" && displayName.toLowerCase() !== "user") return displayName;
+  if (LEGACY_USER_NAMES.has(profile?.id)) return LEGACY_USER_NAMES.get(profile.id);
+  const emailPrefix = String(profile?.email || "").split("@")[0].trim();
+  return emailPrefix || displayName || "사용자";
+}
+function formatDateTimeShort(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("ko-KR", {
+    year: "2-digit",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 function rateFor(route) {
   const normalized = normalizeRoute(route);
@@ -1025,12 +1041,14 @@ async function saveGoalAmount() {
   if (!goal || goal <= 0) return toast("올바른 목표 금액을 입력해 주세요.", "error");
   if (!state.db || !currentUserId()) throw new Error("DB 연결이 필요합니다.");
   const updatedAt = new Date().toISOString();
-  const { error } = await state.db
+  const { data, error } = await state.db
     .from(TABLES.profiles)
     .update({ goal_amount: goal, updated_at: updatedAt })
-    .eq("id", currentUserId());
+    .eq("id", currentUserId())
+    .select("*")
+    .single();
   if (error) throw error;
-  state.profile = { ...(state.profile || {}), goal_amount: goal, updated_at: updatedAt };
+  state.profile = data || { ...(state.profile || {}), goal_amount: goal, updated_at: updatedAt };
   applyProfileUi();
   renderSummary();
   renderStats();
@@ -1060,9 +1078,19 @@ async function signup() {
   if (error) throw error;
   state.session = data.session;
   if (state.session) {
+    try {
+      await state.db.rpc("quickflex_ensure_profile", {
+        profile_email: el.authEmail.value.trim(),
+        profile_display_name: el.authName.value.trim(),
+        profile_driver_type: el.authDriverType.value === "fixed" ? "fixed" : "backup",
+      });
+    } catch (profileError) {
+      throw new Error(`가입은 접수됐지만 프로필 생성 확인에 실패했습니다. 관리자에게 이메일을 알려 주세요. (${profileError.message})`);
+    }
     await bootSignedInUser();
   } else {
     toast("가입 요청을 보냈습니다. 이메일 확인이 필요할 수 있습니다.", "success");
+    el.authError.textContent = "가입 요청을 보냈습니다. 관리자 화면에 보이지 않으면 이메일 확인 후 다시 로그인해 주세요.";
   }
 }
 async function sendPasswordReset() {
@@ -2614,30 +2642,61 @@ async function renderAdminProfiles() {
     el.adminProfiles.innerHTML = `<p class="error-text">${error.message}</p>`;
     return;
   }
-  el.adminProfiles.innerHTML = (data || []).map((profile) => `<div class="admin-card" data-id="${profile.id}">
-    <strong>${profileNameForDisplay(profile)}</strong>
-    <span class="hint">${profile.email || ""}</span>
+  el.adminProfiles.innerHTML = (data || []).map((profile) => {
+    const name = profileNameForDisplay(profile);
+    const fixedRouteText = (profile.fixed_routes || []).join(", ");
+    const goalAmount = toNum(profile.goal_amount) || GOAL;
+    const roleLabel = profile.role === "admin" ? "관리자" : "기사";
+    return `<div class="admin-card" data-id="${escapeAttr(profile.id)}">
+    <div class="admin-profile-head">
+      <div>
+        <strong>${escapeAttr(name)}</strong>
+        <span class="hint">${escapeAttr(profile.email || "")}</span>
+      </div>
+      <span class="admin-status-pill">${statusLabel(profile.status)}</span>
+    </div>
+    <div class="admin-meta-grid">
+      <span>역할 <b>${roleLabel}</b></span>
+      <span>기사유형 <b>${driverTypeLabel(profile.driver_type)}</b></span>
+      <span>월목표 <b>${fmtWon(goalAmount)}</b></span>
+      <span>가입 <b>${formatDateTimeShort(profile.created_at)}</b></span>
+      <span>수정 <b>${formatDateTimeShort(profile.updated_at)}</b></span>
+      <span class="admin-id-line">ID <b>${escapeAttr(profile.id || "-")}</b></span>
+    </div>
+    <label class="admin-route-field">
+      <span>표시 이름</span>
+      <input data-field="display_name" type="text" placeholder="이름" value="${escapeAttr(name)}" />
+    </label>
     <div class="admin-card-row">
       <select data-field="status"><option value="pending"${profile.status === "pending" ? " selected" : ""}>대기</option><option value="approved"${profile.status === "approved" ? " selected" : ""}>승인</option><option value="blocked"${profile.status === "blocked" ? " selected" : ""}>차단</option></select>
       <select data-field="driver_type"><option value="backup"${profile.driver_type === "backup" ? " selected" : ""}>백업</option><option value="fixed"${profile.driver_type === "fixed" ? " selected" : ""}>고정</option></select>
       <button class="secondary-btn" data-action="save-admin">저장</button>
     </div>
     <label class="admin-route-field">
+      <span>월 목표</span>
+      <input data-field="goal_amount" type="text" inputmode="numeric" placeholder="6,000,000" value="${escapeAttr(goalAmount.toLocaleString("ko-KR"))}" />
+    </label>
+    <label class="admin-route-field">
       <span>고정기사 라우트</span>
-      <input data-field="fixed_routes" type="text" placeholder="예: 322A, 322B" value="${escapeAttr((profile.fixed_routes || []).join(", "))}" />
+      <input data-field="fixed_routes" type="text" placeholder="예: 322A, 322B" value="${escapeAttr(fixedRouteText)}" />
     </label>
     <p class="hint">기사 유형을 고정으로 저장하면 해당 기사는 이 라우트만 기록 화면과 단가 관리에 표시됩니다.</p>
-  </div>`).join("");
+  </div>`;
+  }).join("");
 }
 async function saveAdminProfile(card) {
   const id = card.dataset.id;
   const status = card.querySelector('[data-field="status"]').value;
   const driverType = card.querySelector('[data-field="driver_type"]').value;
   const fixedRoutes = expandRouteText(card.querySelector('[data-field="fixed_routes"]')?.value || "");
+  const displayName = card.querySelector('[data-field="display_name"]')?.value.trim() || "사용자";
+  const goalAmount = parseInt((card.querySelector('[data-field="goal_amount"]')?.value || "").replace(/,/g, ""), 10) || GOAL;
   const { error } = await state.db.from(TABLES.profiles).update({
+    display_name: displayName,
     status,
     driver_type: driverType,
     fixed_routes: driverType === "fixed" ? fixedRoutes : [],
+    goal_amount: goalAmount,
     updated_at: new Date().toISOString(),
   }).eq("id", id);
   if (error) throw error;

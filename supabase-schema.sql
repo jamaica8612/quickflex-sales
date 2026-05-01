@@ -189,6 +189,35 @@ before insert on public.quickflex_profiles
 for each row
 execute function public.quickflex_bootstrap_first_profile();
 
+create or replace function public.quickflex_handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $function$
+begin
+  insert into public.quickflex_profiles (id, email, display_name, driver_type, status, role, fixed_routes)
+  values (
+    new.id,
+    new.email,
+    coalesce(nullif(new.raw_user_meta_data ->> 'display_name', ''), nullif(split_part(coalesce(new.email, ''), '@', 1), ''), '사용자'),
+    case when new.raw_user_meta_data ->> 'driver_type' = 'fixed' then 'fixed' else 'backup' end,
+    'pending',
+    'driver',
+    '{}'
+  )
+  on conflict (id) do nothing;
+
+  return new;
+end;
+$function$;
+
+drop trigger if exists quickflex_handle_new_auth_user_trigger on auth.users;
+create trigger quickflex_handle_new_auth_user_trigger
+after insert on auth.users
+for each row
+execute function public.quickflex_handle_new_auth_user();
+
 create or replace function public.quickflex_ensure_profile(
   profile_email text,
   profile_display_name text,
@@ -210,13 +239,21 @@ begin
   values (
     auth.uid(),
     profile_email,
-    coalesce(nullif(profile_display_name, ''), 'user'),
+    coalesce(nullif(profile_display_name, ''), nullif(split_part(coalesce(profile_email, ''), '@', 1), ''), '사용자'),
     case when profile_driver_type = 'fixed' then 'fixed' else 'backup' end,
     'pending',
     'driver',
     '{}'
   )
-  on conflict (id) do nothing;
+  on conflict (id) do update
+    set email = coalesce(public.quickflex_profiles.email, excluded.email),
+        display_name = case
+          when public.quickflex_profiles.display_name is null
+            or public.quickflex_profiles.display_name in ('', 'user', '사용자')
+          then excluded.display_name
+          else public.quickflex_profiles.display_name
+        end,
+        updated_at = now();
 
   select *
   into result
