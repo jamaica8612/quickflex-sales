@@ -2,6 +2,7 @@
   "name": "퀵플렉스 매출관리",
   "short_name": "퀵플렉스",
   "description": "쿠팡 퀵플렉스 기사 매출 기록과 정산 통계 관리",
+  "version": "1.0.0",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

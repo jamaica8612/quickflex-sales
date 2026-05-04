@@ -514,6 +514,20 @@ body[data-theme="dark"] .day-cell.selected.today-cell.holiday .day-number {
 .ghost-pill.active { color: var(--red); border-color: var(--red); background: var(--red-bg); }
 .primary-pill, .full-btn { background: var(--gold); color: #fff; box-shadow: var(--shadow-cta); }
 .primary-pill { min-height: 40px; padding: 0 20px; font-size: 13px; font-weight: 800; }
+.day-dock .ghost-pill {
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: 12px;
+  font-weight: 650;
+}
+html[data-theme="dark"] .day-dock #homeOffToggle,
+body[data-theme="dark"] .day-dock #homeOffToggle {
+  min-height: 36px;
+  height: 36px;
+  padding: 0 16px;
+  font-size: 12px;
+  font-weight: 650;
+}
 html:not([data-theme="dark"]) .ghost-pill.active,
 body:not([data-theme="dark"]) .ghost-pill.active,
 html:not([data-theme="dark"]) .off-toggle input:checked + span,

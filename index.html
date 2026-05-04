@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=51" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.0" />
   </head>
   <body>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -35,7 +35,7 @@
               <span class="meter-pct" id="meterPct">0%</span>
             </div>
             <div class="summary-grid">
-              <div><span>배송건수</span><strong id="periodCount">0건</strong></div>
+              <div><span>배송건수/평균건수</span><strong id="periodCount">0건/0건</strong></div>
               <div><span>일평균</span><strong id="dailyAverage">0원</strong></div>
               <div><span>근무일</span><strong id="workDaysHome">0일</strong></div>
             </div>
@@ -264,6 +264,7 @@
                 <span>다크</span>
               </button>
             </div>
+            <p class="hint">QuickFlex Sales v1.0.0</p>
           </section>
 
           <section class="settings-section">
@@ -471,7 +472,7 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./src/main.js?v=51"></script>
+    <script type="module" src="./src/main.js?v=1.0.0"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
