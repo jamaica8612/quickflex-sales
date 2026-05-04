@@ -12,12 +12,22 @@ export function bindSettingsEvents(ctx) {
     logout,
     openSheet,
     renderAll,
+    renderMonth,
     saveGoalAmount,
     saveProfile,
+    setCalendarRoutesPreference,
+    shouldShowCalendarRoutes,
     TABLES,
     toast,
   } = ctx;
 
+  document.querySelectorAll('input[name="calendarRoutes"]').forEach((radio) => {
+    radio.checked = shouldShowCalendarRoutes() === (radio.value === "show");
+    radio.addEventListener("change", () => {
+      setCalendarRoutesPreference(radio.value === "show");
+      renderAll();
+    });
+  });
   el.saveProfile.addEventListener("click", () => saveProfile().catch((error) => toast(`프로필 저장 실패: ${error.message}`, "error")));
   el.goalAmountInput.addEventListener("input", () => {
     const pos = el.goalAmountInput.selectionStart;

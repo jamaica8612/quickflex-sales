@@ -42,6 +42,7 @@ import { bindStatsEvents } from "./ui/stats.js";
 
 const THEME_KEY = "quickflex-theme";
 const THEME_DEFAULT_MARK_KEY = "quickflex-theme-default-dark-gold-v1";
+const CALENDAR_ROUTES_KEY = "quickflex-calendar-routes-visible";
 function applyTheme(theme) {
   const t = theme === "dark" ? "dark" : "light";
   if (document.documentElement) document.documentElement.dataset.theme = t;
@@ -116,6 +117,21 @@ function formatGoalInput() {
   const raw = goalRawValue();
   el.goalAmountInput.value = raw > 0 ? raw.toLocaleString("ko-KR") : "";
 }
+function getCalendarRoutesPreference() {
+  try {
+    const saved = localStorage.getItem(CALENDAR_ROUTES_KEY);
+    return saved === null ? null : saved === "1";
+  } catch (_) {
+    return null;
+  }
+}
+function setCalendarRoutesPreference(visible) {
+  try { localStorage.setItem(CALENDAR_ROUTES_KEY, visible ? "1" : "0"); } catch (_) {}
+}
+function shouldShowCalendarRoutes() {
+  const saved = getCalendarRoutesPreference();
+  return saved === null ? isBackupDriver() : saved;
+}
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
 
@@ -187,6 +203,7 @@ const el = {
   periodRange: $("periodRange"),
   periodRevenue: $("periodRevenue"),
   periodCount: $("periodCount"),
+  averageCountHome: $("averageCountHome"),
   dailyAverage: $("dailyAverage"),
   workDaysHome: $("workDaysHome"),
   meterFill: $("meterFill"),
@@ -1352,7 +1369,8 @@ function renderSummary() {
   el.monthTitle.textContent = `${state.year}년 ${String(state.month).padStart(2, "0")}월`;
   el.periodRange.textContent = `정산기간 ${formatPeriodRangeSimple(start, end)}`;
   el.periodRevenue.textContent = fmtWon(total.revenue);
-  el.periodCount.textContent = `${fmtCount(total.count)}/${fmtCount(Math.round(total.averageCount || 0))}`;
+  el.periodCount.textContent = fmtCount(total.count);
+  el.averageCountHome.textContent = fmtCount(Math.round(total.averageCount || 0));
   el.dailyAverage.textContent = formatCompactWonWithUnit(total.average);
   el.workDaysHome.textContent = `${total.workDays}일`;
   const goal = getGoal();
@@ -1380,9 +1398,9 @@ function renderMonth() {
     const cell = document.createElement("button");
     cell.type = "button";
     cell.className = `day-cell${inPeriod ? "" : " outside"}${dateKey === state.selectedDate ? " selected" : ""}${dateKey === todayKey() ? " today-cell" : ""}${record.off ? " off" : ""}${holidayName ? " holiday" : ""}`;
-    const routeText = record.off ? "" : formatRecordRoutes(record.rows);
+    const routeText = record.off || !shouldShowCalendarRoutes() ? "" : formatRecordRoutes(record.rows);
     const displayValue = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : formatCalendarWon(calc.revenue);
-    const displayRouteOrHoliday = routeText || (!displayValue && holidayName ? holidayName : "");
+    const displayRouteOrHoliday = routeText || holidayName;
     if (holidayName) cell.title = holidayName;
     cell.innerHTML = `<span class="day-number">${date.getDate()}</span><span class="day-value">${displayValue}</span><span class="day-routes">${displayRouteOrHoliday}</span>`;
     cell.addEventListener("click", () => selectDate(dateKey));
@@ -2831,7 +2849,9 @@ function bindEvents() {
     sendPasswordReset,
     setAuthMode,
     setOcrDraft,
+    setCalendarRoutesPreference,
     showChartTooltip,
+    shouldShowCalendarRoutes,
     showView,
     signup,
     startRecordDraft,
