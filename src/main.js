@@ -31,6 +31,14 @@ import {
   routeListFromText,
   splitStoredRoutes,
 } from "./lib/route.js";
+import { bindAdminEvents } from "./ui/admin.js";
+import { bindAuthEvents } from "./services/auth.js";
+import { mergeDefaultRouteMaster, ratesFromDb } from "./services/db.js";
+import { bindCalendarEvents } from "./ui/calendar.js";
+import { bindOcrEvents } from "./ui/ocr.js";
+import { bindRecordEvents } from "./ui/record.js";
+import { bindSettingsEvents } from "./ui/settings.js";
+import { bindStatsEvents } from "./ui/stats.js";
 
 const THEME_KEY = "quickflex-theme";
 const THEME_DEFAULT_MARK_KEY = "quickflex-theme-default-dark-gold-v1";
@@ -866,6 +874,7 @@ function summarizePeriod(year = state.year, month = state.month) {
     };
   }, { count: 0, revenue: 0, workDays: 0, offDays: 0, fresh: 0 });
   total.average = total.workDays ? total.revenue / total.workDays : 0;
+  total.averageCount = total.workDays ? total.count / total.workDays : 0;
   total.best = best;
   total.worst = worst.revenue < Infinity ? worst : { dateKey: "", revenue: 0 };
   return total;
@@ -1153,21 +1162,6 @@ async function logout() {
   showAuth(true);
 }
 
-function ratesFromDb(rows) {
-  return (rows || []).map((row) => ({ route: normalizeRoute(row.route), unit: toNum(row.current_unit), count: 0, amount: 0 }))
-    .filter((row) => row.route && row.route !== GOAL_SETTING_ROUTE)
-    .sort((a, b) => a.route.localeCompare(b.route));
-}
-function mergeDefaultRouteMaster(rates) {
-  const byRoute = new Map((rates || []).map((rate) => [normalizeRoute(rate.route), { ...rate, route: normalizeRoute(rate.route), unit: toNum(rate.unit) }]));
-  let changed = false;
-  DEFAULT_ROUTE_MASTER.forEach((route) => {
-    if (byRoute.has(route)) return;
-    byRoute.set(route, { route, unit: 0, count: 0, amount: 0 });
-    changed = true;
-  });
-  return { rates: [...byRoute.values()].sort((a, b) => a.route.localeCompare(b.route)), changed };
-}
 function entriesFromDb(dayRows, itemRows) {
   const entries = {};
   (dayRows || []).forEach((row) => {
@@ -1358,7 +1352,7 @@ function renderSummary() {
   el.monthTitle.textContent = `${state.year}년 ${String(state.month).padStart(2, "0")}월`;
   el.periodRange.textContent = `정산기간 ${formatPeriodRangeSimple(start, end)}`;
   el.periodRevenue.textContent = fmtWon(total.revenue);
-  el.periodCount.textContent = fmtCount(total.count);
+  el.periodCount.textContent = `${fmtCount(total.count)}/${fmtCount(Math.round(total.averageCount || 0))}`;
   el.dailyAverage.textContent = formatCompactWonWithUnit(total.average);
   el.workDaysHome.textContent = `${total.workDays}일`;
   const goal = getGoal();
@@ -2774,324 +2768,86 @@ function closeSheet() {
 }
 
 function bindEvents() {
-  el.setupConnect.addEventListener("click", async () => {
-    try {
-      el.setupError.textContent = "";
-      await connectDb(el.setupUrl.value, el.setupKey.value, true);
-    } catch (error) {
-      el.setupError.textContent = error.message;
-    }
-  });
-  el.loginBtn.addEventListener("click", () => {
-    if (state.authMode === "signup" || state.authMode === "reset") {
-      setAuthMode("login");
-      return;
-    }
-    login().catch((error) => { el.authError.textContent = error.message; });
-  });
-  [el.authEmail, el.authPassword].forEach((input) => input.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" || event.isComposing) return;
-    if (state.authMode === "signup" || state.authMode === "reset") return;
-    event.preventDefault();
-    login().catch((error) => { el.authError.textContent = error.message; });
-  }));
-  el.signupBtn.addEventListener("click", () => {
-    if (state.authMode === "reset") {
-      updatePassword().catch((error) => { el.authError.textContent = error.message; });
-      return;
-    }
-    if (state.authMode !== "signup") {
-      setAuthMode("signup");
-      return;
-    }
-    signup().catch((error) => { el.authError.textContent = error.message; });
-  });
-  el.forgotPasswordBtn.addEventListener("click", () => {
-    sendPasswordReset().catch((error) => { el.authError.textContent = error.message; });
-  });
-  el.pendingLogout.addEventListener("click", logout);
-  el.logoutBtn.addEventListener("click", logout);
-  el.navTabs.forEach((tab) => tab.addEventListener("click", () => showView(tab.dataset.view)));
-  el.openSettings.addEventListener("click", () => showView("settings"));
-  el.backFromSettings.addEventListener("click", () => showView("home"));
-  el.prevMonth.addEventListener("click", () => moveMonth(-1));
-  el.nextMonth.addEventListener("click", () => moveMonth(1));
-  el.todayButton.addEventListener("click", selectToday);
-  el.homeOffToggle.addEventListener("click", () => {
-    const record = getRecord(state.selectedDate, true);
-    const nextOff = !record.off;
-    if (nextOff && hasEnteredCounts(record) && !confirmOffWithExistingCounts(state.selectedDate)) return;
-    record.off = nextOff;
-    if (record.off) record.rows = [];
-    else record.rows = defaultEntryRows();
-    scheduleSave({ dateKeys: [state.selectedDate] });
-    renderAll();
-  });
-  el.openRecord.addEventListener("click", () => { startRecordDraft(); showView("record"); });
-  el.backToCalendar.addEventListener("click", () => { discardRecordDraft(); renderAll(); showView("home"); });
-  el.prevDay.addEventListener("click", () => { discardRecordDraft(); selectDate(addDays(state.selectedDate, -1)); renderEntryForm(); });
-  el.nextDay.addEventListener("click", () => { discardRecordDraft(); selectDate(addDays(state.selectedDate, 1)); renderEntryForm(); });
-  el.offToggle.addEventListener("change", () => {
-    const record = currentRecordDraft();
-    if (el.offToggle.checked && hasEnteredCounts(record) && !confirmOffWithExistingCounts(state.selectedDate)) {
-      el.offToggle.checked = false;
-      return;
-    }
-    record.off = el.offToggle.checked;
-    if (record.off) record.rows = [];
-    else record.rows = defaultEntryRows();
-    renderEntryForm();
-    refreshTotals();
-  });
-  el.addRoute.addEventListener("click", () => {
-    const record = currentRecordDraft();
-    record.off = false;
-    const firstRate = isBackupDriver() ? state.rates[0] || state.defaultRates[0] : null;
-    record.rows.push({ route: firstRate?.route || "", count: "", unit: firstRate?.unit || 0, draft: !firstRate });
-    renderEntryForm();
-  });
-  [el.freshCount, el.freshUnit, el.backupUnit].forEach((input) => input.addEventListener("input", () => {
-    refreshTotals();
-  }));
-  [el.freshSoloCount, el.freshLinkedCount].forEach((input) => input.addEventListener("input", () => {
-    syncFormToRecord();
-    refreshTotals();
-  }));
-  document.querySelectorAll('input[name="freshbagMode"]').forEach((radio) => {
-    radio.addEventListener("change", () => {
-      if (state.profile) state.profile.freshbag_mode = radio.value;
-      renderEntryForm();
-    });
-  });
-  el.saveRecord.addEventListener("click", saveCurrentRecordAndGoHome);
-  el.modeBtns.forEach((button) => button.addEventListener("click", () => {
-    state.mode = button.dataset.mode;
-    el.modeBtns.forEach((target) => target.classList.toggle("active", target === button));
-    renderMonth();
-  }));
-  el.statsTabs.forEach((tab) => tab.addEventListener("click", () => {
-    if (tab.dataset.tab === "admin" && state.profile?.role !== "admin") return;
-    state.statsDetailDate = "";
-    el.statsTabs.forEach((target) => target.classList.toggle("active", target === tab));
-    el.statsPanels.forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === tab.dataset.tab));
-    renderStats();
-  }));
-  el.statsPrevMonth.addEventListener("click", () => { if (state.statsRangeMode !== "thisMonth") return; moveStatsMonth(-1); });
-  el.statsNextMonth.addEventListener("click", () => { if (state.statsRangeMode !== "thisMonth") return; moveStatsMonth(1); });
-  if (el.statsRangeTabs) {
-    el.statsRangeTabs.querySelectorAll("button[data-range]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const next = btn.dataset.range;
-        state.statsRangeMode = next;
-        if (next === "thisMonth") {
-          const now = new Date();
-          const m = now.getDate() <= 25 ? now.getMonth() + 1 : now.getMonth() + 2;
-          const d = new Date(now.getFullYear(), m - 1, 1);
-          state.statsYear = d.getFullYear();
-          state.statsMonth = d.getMonth() + 1;
-        }
-        if (next === "custom") {
-          if (!state.statsRangeCustom.from || !state.statsRangeCustom.to) {
-            const today = new Date();
-            const monthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
-            state.statsRangeCustom = { from: toDateKey(monthAgo), to: toDateKey(today) };
-            if (el.statsRangeFrom) el.statsRangeFrom.value = state.statsRangeCustom.from;
-            if (el.statsRangeTo) el.statsRangeTo.value = state.statsRangeCustom.to;
-          }
-        }
-        renderStats();
-      });
-    });
-  }
-  if (el.statsRangeApply) {
-    el.statsRangeApply.addEventListener("click", () => {
-      state.statsRangeCustom = { from: el.statsRangeFrom.value || "", to: el.statsRangeTo.value || "" };
-      state.statsRangeMode = "custom";
-      renderStats();
-    });
-  }
-  if (el.statsChart) {
-    const handler = (e) => {
-      const ev = e.touches ? e.touches[0] : e;
-      showChartTooltip(ev.clientX);
-    };
-    el.statsChart.addEventListener("click", handler);
-    el.statsChart.addEventListener("touchstart", handler, { passive: true });
-    document.addEventListener("click", (e) => {
-      if (!el.statsChartTooltip || el.statsChartTooltip.hidden) return;
-      if (e.target === el.statsChart) return;
-      el.statsChartTooltip.hidden = true;
-    });
-  }
-  el.adminTabs.forEach((tab) => tab.addEventListener("click", () => {
-    if (state.profile?.role !== "admin") return;
-    state.adminTab = tab.dataset.adminTab;
-    renderAdminDashboard();
-  }));
-  el.adminPrevMonth.addEventListener("click", () => moveAdminMonth(-1));
-  el.adminNextMonth.addEventListener("click", () => moveAdminMonth(1));
-  el.saveAdminBundle.addEventListener("click", () => addAdminBundleFromInputs().catch((error) => toast(`묶음 저장 실패: ${error.message}`, "error")));
-  el.importAdminBundles.addEventListener("click", () => importAdminBundles().catch((error) => toast(`초안 저장 실패: ${error.message}`, "error")));
-  el.saveProfile.addEventListener("click", () => saveProfile().catch((error) => toast(`프로필 저장 실패: ${error.message}`, "error")));
-  el.goalAmountInput.addEventListener("input", () => {
-    const pos = el.goalAmountInput.selectionStart;
-    const prevLen = el.goalAmountInput.value.length;
-    const raw = parseInt(el.goalAmountInput.value.replace(/,/g, ""), 10) || 0;
-    el.goalAmountInput.value = raw > 0 ? raw.toLocaleString("ko-KR") : "";
-    const diff = el.goalAmountInput.value.length - prevLen;
-    el.goalAmountInput.setSelectionRange(pos + diff, pos + diff);
-  });
-  el.saveAppSettings.addEventListener("click", () => saveGoalAmount().catch((error) => toast(`목표 저장 실패: ${error.message}`, "error")));
-  document.querySelectorAll("[data-theme-set]").forEach((btn) => {
-    btn.addEventListener("click", () => applyTheme(btn.dataset.themeSet));
-  });
-  applyTheme(getInitialTheme());
-  el.saveRate.addEventListener("click", async () => {
-    const route = normalizeRoute(el.rateRoute.value);
-    if (route && isBackupDriver() && !isKnownRateRoute(route)) {
-      const ok = window.confirm(`새 업무 구역 ${route}를 추가할까요? 추가하면 달력과 기록하기 화면에서 계속 사용할 수 있습니다.`);
-      if (!ok) return;
-    }
-    if (!upsertRate(el.rateRoute.value, el.rateUnit.value)) return toast("구역과 단가를 확인해 주세요.", "error");
-    el.rateRoute.value = "";
-    el.rateUnit.value = "";
-    renderRates();
-    renderAll();
-    scheduleSave({ rates: true, immediate: true });
-    try {
-      await ensurePendingSavesFlushed();
-      if (state.profile?.role === "admin" && state.rates.length) {
-        const targetUserIds = await approvedRateTargetUserIds();
-        await persistRatesForUsers(state.rates, targetUserIds);
-        toast(`단가를 저장하고 승인 사용자 ${targetUserIds.length}명에게 반영했습니다.`, "success");
-      } else {
-        toast("단가를 저장했습니다.", "success");
-      }
-    } catch (error) {
-      toast(`단가 저장 실패: ${error.message}`, "error");
-    }
-  });
-  el.parseCsv.addEventListener("click", () => {
-    const rows = parseSettlementCsv(el.csvInput.value);
-    if (!rows.length) return;
-    applySettlementRows(rows.map(([route, deliveryCount, amount]) => ({ route, deliveryCount, amount })))
-      .catch((error) => toast(`정산표 단가 반영 실패: ${error.message}`, "error"));
-  });
-  el.scheduleImage.addEventListener("change", () => {
-    const file = el.scheduleImage.files?.[0];
-    if (!file) return;
-    previewImageFile(file, el.schedulePreview, "스케줄표 미리보기");
-  });
-  el.runScheduleOcr.addEventListener("click", runOcr);
-  el.settlementImage.addEventListener("change", () => {
-    const file = el.settlementImage.files?.[0];
-    if (!file) return;
-    previewImageFile(file, el.settlementPreview, "정산표 미리보기");
-    el.settlementStatus.textContent = "정산표 이미지가 선택됐습니다. OCR 실행을 누르면 Route별 단가 후보를 계산합니다.";
-  });
-  el.runSettlementOcr.addEventListener("click", runSettlementOcr);
-  el.scheduleDraftCards.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-action]");
-    if (!button || !ocrDraftMap) return;
-    const dateKey = button.dataset.date;
-    if (button.dataset.action === "off") ocrDraftMap[dateKey] = ocrDraftMap[dateKey] === null ? draftWorkRoutes() : null;
-    if (button.dataset.action === "remove") ocrDraftMap[dateKey] = (ocrDraftMap[dateKey] || []).filter((route) => route !== button.dataset.route);
-    if (button.dataset.action === "add") {
-      const input = el.scheduleDraftCards.querySelector(`.draft-add-input[data-date="${dateKey}"]`);
-      const route = input?.value || "";
-      if (!route.trim()) {
-        input?.focus();
-        return;
-      }
-      if (route) {
-        const corrected = correctRouteList(route);
-        ocrDraftMap[dateKey] = [...(ocrDraftMap[dateKey] || []), ...(corrected.length ? corrected : routeListFromText(route))];
-        if (input) input.value = "";
-      }
-    }
-    renderDraftCards();
-  });
-  el.parseSchedule.addEventListener("click", () => {
-    if (!ocrDraftMap) return toast("반영할 스케줄이 없습니다.", "error");
-    applySchedule(ocrDraftMap);
-    setOcrDraft(null);
-  });
-  el.parseScheduleCsv.addEventListener("click", () => parseScheduleCsv(el.scheduleCsvInput.value));
-  el.resetData.addEventListener("click", async () => {
-    if (!window.confirm("내 단가와 기록을 모두 삭제할까요?")) return;
-    const userId = currentUserId();
-    try {
-      await state.db.from(TABLES.items).delete().eq("user_id", userId);
-      await state.db.from(TABLES.days).delete().eq("user_id", userId);
-      await state.db.from(TABLES.rates).delete().eq("user_id", userId);
-      state.rates = [];
-      state.entries = {};
-      renderAll();
-      toast("내 데이터를 초기화했습니다.", "success");
-    } catch (error) {
-      toast(`초기화 실패: ${error.message}`, "error");
-    }
-  });
-  el.requestAccountDelete.addEventListener("click", async () => {
-    if (!window.confirm("탈퇴 요청을 남기고 내 기록과 단가 데이터를 삭제할까요?\n\n계정 완전 삭제는 관리자가 확인 후 처리합니다.")) return;
-    const userId = currentUserId();
-    try {
-      await state.db.from(TABLES.items).delete().eq("user_id", userId);
-      await state.db.from(TABLES.days).delete().eq("user_id", userId);
-      await state.db.from(TABLES.rates).delete().eq("user_id", userId);
-      await state.db.from(TABLES.profiles).update({
-        display_name: `[탈퇴요청] ${driverName()}`,
-        updated_at: new Date().toISOString(),
-      }).eq("id", userId);
-      toast("탈퇴 요청을 남겼습니다.", "success");
-      await logout();
-    } catch (error) {
-      toast(`탈퇴 요청 실패: ${error.message}`, "error");
-    }
-  });
-  el.openDbSettings.addEventListener("click", openSheet);
-  el.dbOverlay.addEventListener("click", closeSheet);
-  el.saveDbConfig.addEventListener("click", async () => {
-    try {
-      await connectDb(el.supabaseUrl.value, el.supabaseAnonKey.value, true);
-      closeSheet();
-    } catch (error) {
-      toast(`DB 연결 실패: ${error.message}`, "error");
-    }
-  });
-  el.syncNow.addEventListener("click", async () => {
-    try {
-      await ensurePendingSavesFlushed();
-      await loadFromDb();
-      renderAll();
-      toast("동기화 완료", "success");
-    } catch (error) {
-      toast(`동기화 실패: ${error.message}`, "error");
-    }
-  });
-  el.adminProfiles.addEventListener("click", (event) => {
-    const button = event.target.closest('[data-action="save-admin"]');
-    if (button) {
-      saveAdminProfile(button.closest(".admin-card")).catch((error) => toast(`저장 실패: ${error.message}`, "error"));
-      return;
-    }
-    const deleteButton = event.target.closest('[data-action="delete-admin"]');
-    if (deleteButton) {
-      deleteAdminProfile(deleteButton.closest(".admin-card")).catch((error) => toast(`삭제 실패: ${error.message}`, "error"));
-    }
-  });
-  el.adminBundleList.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-action]");
-    if (!button) return;
-    const card = button.closest("[data-bundle-id]");
-    if (!card) return;
-    if (button.dataset.action === "save-bundle") {
-      saveAdminBundleCard(card).catch((error) => toast(`묶음 저장 실패: ${error.message}`, "error"));
-    }
-    if (button.dataset.action === "delete-bundle") {
-      deleteAdminBundleCard(card).catch((error) => toast(`묶음 삭제 실패: ${error.message}`, "error"));
-    }
-  });
+  const shared = {
+    el,
+    state,
+    TABLES,
+    addAdminBundleFromInputs,
+    addDays,
+    applySchedule,
+    applySettlementRows,
+    applyTheme,
+    approvedRateTargetUserIds,
+    closeSheet,
+    confirmOffWithExistingCounts,
+    connectDb,
+    correctRouteList,
+    currentRecordDraft,
+    currentUserId,
+    defaultEntryRows,
+    deleteAdminBundleCard,
+    deleteAdminProfile,
+    discardRecordDraft,
+    draftWorkRoutes,
+    driverName,
+    ensurePendingSavesFlushed,
+    getRecord,
+    hasEnteredCounts,
+    importAdminBundles,
+    isBackupDriver,
+    isKnownRateRoute,
+    loadFromDb,
+    login,
+    logout,
+    moveAdminMonth,
+    moveMonth,
+    moveStatsMonth,
+    normalizeRoute,
+    ocrDraftState: { get: () => ocrDraftMap },
+    openSheet,
+    parseScheduleCsv,
+    parseSettlementCsv,
+    persistRatesForUsers,
+    previewImageFile,
+    refreshTotals,
+    renderAdminDashboard,
+    renderAll,
+    renderDraftCards,
+    renderEntryForm,
+    renderMonth,
+    renderRates,
+    renderStats,
+    routeListFromText,
+    runOcr,
+    runSettlementOcr,
+    saveAdminBundleCard,
+    saveAdminProfile,
+    saveCurrentRecordAndGoHome,
+    saveGoalAmount,
+    saveProfile,
+    scheduleSave,
+    selectDate,
+    selectToday,
+    sendPasswordReset,
+    setAuthMode,
+    setOcrDraft,
+    showChartTooltip,
+    showView,
+    signup,
+    startRecordDraft,
+    syncFormToRecord,
+    toDateKey,
+    toast,
+    updatePassword,
+    upsertRate,
+  };
+  bindAuthEvents(shared);
+  bindCalendarEvents(shared);
+  bindRecordEvents(shared);
+  bindStatsEvents(shared);
+  bindAdminEvents(shared);
+  bindSettingsEvents(shared);
+  bindOcrEvents(shared);
 }
 
 async function init() {
