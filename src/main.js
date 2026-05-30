@@ -145,7 +145,11 @@ import {
   formatCompactWonWithUnit,
   formatKoreanWon,
 } from "./lib/format.js";
-import { toNum } from "./lib/revenue.js";
+import {
+  calcRecordDetails as calcRecordDetailsImpl,
+  recordRouteAggregates as recordRouteAggregatesImpl,
+  toNum,
+} from "./lib/revenue.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
 const LEGACY_USER_NAMES = new Map([["kim-gwanhyun", "김관현"]]);
@@ -583,30 +587,15 @@ function effectiveUnit(row) {
   }
   return 0;
 }
+// Thin wrappers: normalize the record and inject state-coupled helpers into the
+// pure revenue math in lib/revenue.js.
 function calcRecordDetails(record) {
-  const rec = normalizeRecordShape(record);
-  if (rec.off) return { count: 0, routeRevenue: 0, freshCount: 0, freshUnit: toNum(defaultFreshUnit(rec.freshUnit)), freshRevenue: 0, backupUnit: toNum(defaultBackupUnit(rec.backupUnit)), backupRevenue: 0, revenue: 0 };
-  const routeTotal = rec.rows.reduce((sum, row) => {
-    const count = toNum(row.count);
-    return { count: sum.count + count, revenue: sum.revenue + count * effectiveUnit(row) };
-  }, { count: 0, revenue: 0 });
-  const isDual = freshbagMode() === "dual";
-  const freshCount = isDual ? toNum(rec.freshSoloCount) + toNum(rec.freshLinkedCount) : toNum(rec.freshCount);
-  const freshUnit = isDual ? 0 : toNum(defaultFreshUnit(rec.freshUnit));
-  const freshRevenue = isDual ? toNum(rec.freshSoloCount) * 200 + toNum(rec.freshLinkedCount) * 100 : freshCount * freshUnit;
-  const backupApplies = rec.driverType === "backup";
-  const backupUnit = backupApplies ? toNum(defaultBackupUnit(rec.backupUnit)) : 0;
-  const backupRevenue = backupApplies ? routeTotal.count * backupUnit : 0;
-  return {
-    count: routeTotal.count,
-    routeRevenue: routeTotal.revenue,
-    freshCount,
-    freshUnit,
-    freshRevenue,
-    backupUnit,
-    backupRevenue,
-    revenue: routeTotal.revenue + freshRevenue + backupRevenue,
-  };
+  return calcRecordDetailsImpl(normalizeRecordShape(record), {
+    effectiveUnit,
+    freshbagMode: freshbagMode(),
+    defaultFreshUnit,
+    defaultBackupUnit,
+  });
 }
 function calcRecord(record) {
   const details = calcRecordDetails(record);
@@ -615,21 +604,7 @@ function calcRecord(record) {
 function routeRevenueKey(route) { return `route:${route || "?"}`; }
 function isVisibleKey(key) { return state.revenueVisibility[key] !== false; }
 function recordRouteAggregates(record) {
-  const rec = normalizeRecordShape(record);
-  const out = new Map();
-  if (rec.off) return out;
-  rec.rows.forEach((row) => {
-    splitStoredRoutes(row.route).forEach((r) => {
-      const count = toNum(row.count);
-      const unit = effectiveUnit(row);
-      const share = splitStoredRoutes(row.route).length || 1;
-      const entry = out.get(r) || { count: 0, revenue: 0 };
-      entry.count += count / share;
-      entry.revenue += (count * unit) / share;
-      out.set(r, entry);
-    });
-  });
-  return out;
+  return recordRouteAggregatesImpl(normalizeRecordShape(record), effectiveUnit);
 }
 function recordVisibleRevenue(record) {
   const details = calcRecordDetails(record);
