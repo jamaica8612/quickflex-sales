@@ -1,6 +1,30 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-30 (number polish and light button cleanup)
+Last updated: 2026-05-30 (XSS escaping pass, release v1.0.3)
+
+## 2026-05-30 XSS Escaping Pass (Claude)
+
+### User Request
+
+우선순위 높은 보안 항목(innerHTML XSS)부터 수정.
+
+### Changed Files
+
+- `src/main.js`
+  - 이미 있던 `escapeAttr()`를, 사용자/외부 입력이 이스케이프 없이 `innerHTML`에 들어가던 7곳에 일관 적용.
+    - 업로드 파일명·alt 텍스트 (`previewImageFile`).
+    - 캘린더 셀 라우트 텍스트 (`day-routes`).
+    - 일별 통계 상세 행의 라우트 라벨과 라우트 프리뷰.
+    - 관리자 매출/번들 에러 메시지 2곳, 관리자 프로필 로드 에러 메시지 1곳.
+- `sw.js`
+  - 셸 캐시를 `quickflex-shell-v1.0.3` 으로 올려 배포 클라이언트가 패치된 모듈을 받도록 함.
+- `index.html`
+  - `styles.css` / `src/main.js` 에셋 쿼리를 `v=1.0.3` 으로, 화면 버전 표기를 `v1.0.3` 으로 갱신.
+
+### Checks
+
+- `node --check src/main.js`, `node --check sw.js` 통과.
+- 정적 서버 + Playwright(Chromium) 헤드리스로 앱 셸 정상 렌더 확인(회귀 없음).
 
 ## 2026-04-30 Number Polish And Light Button Cleanup (Codex)
 
