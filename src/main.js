@@ -18,6 +18,10 @@ import {
   formatRecordTitleDate,
   formatShort,
   parseDateKey,
+  periodBounds as periodBoundsImpl,
+  periodForDate,
+  periodKeysFor,
+  prevPeriod as prevPeriodImpl,
   todayKey,
   toDateKey,
 } from "./lib/date.js";
@@ -133,7 +137,14 @@ function shouldShowCalendarRoutes() {
   const saved = getCalendarRoutesPreference();
   return saved === null ? isBackupDriver() : saved;
 }
-import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
+import {
+  fmtCount,
+  fmtNum,
+  fmtWon,
+  formatCalendarWon,
+  formatCompactWonWithUnit,
+  formatKoreanWon,
+} from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
@@ -340,28 +351,12 @@ function toast(message, type = "") {
   toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2800);
 }
 
-function periodBounds(year = state.year, month = state.month) {
-  return { start: new Date(year, month - 2, 26), end: new Date(year, month - 1, 25) };
-}
-function periodKeysFor(year, month) {
-  const { start, end } = periodBounds(year, month);
-  const keys = [];
-  const cursor = new Date(start);
-  while (cursor <= end) {
-    keys.push(toDateKey(cursor));
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return keys;
-}
+// Thin wrappers: apply current-state defaults to the pure period helpers in
+// lib/date.js. periodKeysFor / periodForDate are imported and used directly.
+function periodBounds(year = state.year, month = state.month) { return periodBoundsImpl(year, month); }
 function periodKeys() { return periodKeysFor(state.year, state.month); }
-function periodForDate(date = new Date()) {
-  const month = date.getDate() <= 25 ? date.getMonth() + 1 : date.getMonth() + 2;
-  const periodDate = new Date(date.getFullYear(), month - 1, 1);
-  return { year: periodDate.getFullYear(), month: periodDate.getMonth() + 1 };
-}
 function prevPeriod(year = state.year, month = state.month) {
-  const date = new Date(year, month - 2, 1);
-  return { year: date.getFullYear(), month: date.getMonth() + 1 };
+  return prevPeriodImpl(year, month);
 }
 function escapeAttr(value) {
   return String(value ?? "")
@@ -724,26 +719,6 @@ function formatPeriodRangeSimple(start, end) {
 function formatMonthDay(key) {
   const date = parseDateKey(key);
   return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
-}
-function formatCalendarWon(value) {
-  const n = Math.round(Number(value) || 0);
-  if (!n) return "";
-  if (Math.abs(n) >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, "")}만`;
-  return n.toLocaleString("ko-KR");
-}
-function formatKoreanWon(value) {
-  const n = Math.round(value);
-  if (n === 0) return "0";
-  const abs = Math.abs(n);
-  if (abs >= 100000000) return `${(n / 100000000).toFixed(abs >= 1000000000 ? 0 : 1).replace(/\.0$/, "")}억`;
-  if (abs >= 10000) return `${Math.round(n / 10000)}만`;
-  return n.toLocaleString("ko-KR");
-}
-function formatCompactWonWithUnit(value) {
-  const n = Math.round(Number(value) || 0);
-  if (!n) return "0원";
-  if (Math.abs(n) >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, "")}만원`;
-  return `${n.toLocaleString("ko-KR")}원`;
 }
 function aggregateRevenueByItem(keys) {
   const routes = new Map();
