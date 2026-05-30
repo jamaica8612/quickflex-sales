@@ -1,6 +1,34 @@
 # QuickFlex Worklog
 
-Last updated: 2026-05-30 (stats: period comparison + CSV export, v1.0.4)
+Last updated: 2026-05-30 (stats: chart avg line + weekday breakdown, v1.0.5)
+
+## 2026-05-30 Stats: Chart + Weekday Breakdown (Claude)
+
+### User Request
+
+차트 개선 + 요일별 매출.
+
+### Changed Files
+
+- `src/lib/stats.js`: `weekdayAverages(rows)` 추가(요일별 근무일 평균, 순수).
+- `src/main.js`:
+  - 차트: 근무일 평균 매출 점선 기준선 + "평균 ₩X" 라벨, 최고 매출일 막대 강조.
+  - `renderWeekdayStats(keys)` — 일~토 평균 매출을 가로 막대로(주말 금색).
+    `renderStats`에 연결, `weekdayStats` el ref.
+  - config import에 `WEEKDAYS` 추가(신규 코드가 사용 — 런타임 검증으로 누락 발견).
+- `index.html`: "요일별" 탭 + `#weekdayStats` 패널, 에셋/표기 v1.0.5.
+- `styles.css`: `.weekday-stats`/`.wd-row` 막대 스타일.
+- `sw.js`: 셸 캐시 v1.0.5.
+- `test/stats.test.js`: `weekdayAverages` 테스트 추가.
+
+### Checks
+
+- `npm run lint` 통과(31파일), `npm test` 36/36 통과.
+- Playwright: 요일별 패널 7행(일~토) 렌더 확인, pageerror 0. (실데이터 막대·차트
+  평균선 동작은 DB 필요 — 실행 가능 환경에서 추가 확인 권장.)
+- 런타임 검증에서 `WEEKDAYS is not defined` 누락 import를 잡아 수정.
+
+## 2026-05-30 Stats: Period Comparison + CSV Export (Claude)
 
 ## 2026-05-30 Stats: Period Comparison + CSV Export (Claude)
 

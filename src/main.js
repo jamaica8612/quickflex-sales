@@ -10,6 +10,7 @@ import {
   PUBLIC_SUPABASE_CONFIG,
   SAMPLE_SETTLEMENT,
   TABLES,
+  WEEKDAYS,
 } from "./config.js?v=2";
 import {
   addDays,
@@ -150,7 +151,7 @@ import {
   recordRouteAggregates as recordRouteAggregatesImpl,
   toNum,
 } from "./lib/revenue.js";
-import { buildCsv, formatDelta } from "./lib/stats.js";
+import { buildCsv, formatDelta, weekdayAverages } from "./lib/stats.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
 const LEGACY_USER_NAMES = new Map([["kim-gwanhyun", "김관현"]]);
@@ -284,6 +285,7 @@ const el = {
   statsAverage: $("statsAverage"),
   statsBestDay: $("statsBestDay"),
   statsWorstDay: $("statsWorstDay"),
+  weekdayStats: $("weekdayStats"),
   statsPrevMonth: $("statsPrevMonth"),
   statsNextMonth: $("statsNextMonth"),
   dailyList: $("dailyList"),
@@ -1724,6 +1726,7 @@ function renderStats() {
   syncStatsRangeButtons();
   renderRevenueList(keys);
   renderStatsChart(keys);
+  renderWeekdayStats(keys);
   renderDailyStatsFor(keys);
   renderYearlyStats();
   renderTotalStats();
@@ -1772,6 +1775,29 @@ function exportStatsCsv() {
   const filename = `quickflex_${start ? toDateKey(start) : "기록"}_${end ? toDateKey(end) : ""}.csv`;
   downloadTextFile(filename, buildCsv(header, rows));
   toast("CSV를 내보냈습니다.", "success");
+}
+function renderWeekdayStats(keys) {
+  if (!el.weekdayStats) return;
+  const rows = (keys || []).map((dateKey) => {
+    const record = getRecord(dateKey, false);
+    const details = calcRecordDetails(record);
+    return {
+      weekday: parseDateKey(dateKey).getDay(),
+      revenue: recordVisibleRevenue(record),
+      worked: !record.off && details.revenue > 0,
+    };
+  });
+  const stats = weekdayAverages(rows);
+  const maxAvg = Math.max(...stats.map((s) => s.average), 1);
+  el.weekdayStats.innerHTML = stats.map((s) => {
+    const pct = Math.round((s.average / maxAvg) * 100);
+    const isWeekend = s.weekday === 0 || s.weekday === 6;
+    return `<div class="wd-row${isWeekend ? " weekend" : ""}">
+      <span class="wd-name">${WEEKDAYS[s.weekday]}</span>
+      <span class="wd-bar"><span style="width:${s.days ? pct : 0}%"></span></span>
+      <span class="wd-val">${s.days ? `${formatCompactWonWithUnit(s.average)} · ${s.days}일` : "-"}</span>
+    </div>`;
+  }).join("");
 }
 function renderDailyStats() { renderDailyStatsFor(getStatsKeys()); }
 function renderDailyStatsFor(allKeys) {
@@ -1971,20 +1997,42 @@ function renderStatsChart(keys) {
   const barGap = Math.max(3, Math.min(8, w / Math.max(1, series.length) * .24));
   const barW = Math.max(3, Math.min(18, w / Math.max(1, series.length) - barGap));
   const zeroY = yFor(0);
+  const workedRevenues = series.filter((s) => s.revenue > 0).map((s) => s.revenue);
+  const peakRevenue = workedRevenues.length ? Math.max(...workedRevenues) : 0;
+  const avgRevenue = workedRevenues.length ? workedRevenues.reduce((a, b) => a + b, 0) / workedRevenues.length : 0;
   series.forEach((s, i) => {
     const x = xFor(i);
     const y = yFor(s.revenue);
     statsChartState.points.push({ x, y, ...s });
     const barH = Math.max(s.revenue > 0 ? 3 : 1, zeroY - y);
+    const isPeak = s.revenue > 0 && s.revenue === peakRevenue;
     ctx.fillStyle = s.revenue > 0 ? primaryColor : (cs.getPropertyValue("--soft").trim() || "#AEB0B6");
-    ctx.globalAlpha = s.revenue > 0 ? .9 : .35;
+    ctx.globalAlpha = s.revenue > 0 ? (isPeak ? 1 : .7) : .35;
     ctx.fillRect(x - barW / 2, zeroY - barH, barW, barH);
     ctx.globalAlpha = 1;
     ctx.beginPath();
     ctx.fillStyle = s.revenue > 0 ? "#fff" : (cs.getPropertyValue("--muted").trim() || "#70737C");
-    ctx.arc(x, y, s.revenue > 0 ? 2.2 : 1.8, 0, Math.PI * 2);
+    ctx.arc(x, y, isPeak ? 3 : (s.revenue > 0 ? 2.2 : 1.8), 0, Math.PI * 2);
     ctx.fill();
   });
+  // Dashed average-of-worked-days reference line for context.
+  if (avgRevenue > 0 && avgRevenue <= yMax) {
+    const y = yFor(avgRevenue);
+    ctx.save();
+    ctx.strokeStyle = primaryColor;
+    ctx.globalAlpha = .5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(margin.l, y);
+    ctx.lineTo(margin.l + w, y);
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = labelColor;
+    ctx.font = "9px 'Pretendard Variable', Pretendard, system-ui, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(`평균 ${formatKoreanWon(Math.round(avgRevenue))}`, margin.l + 3, y - 2);
+  }
 }
 function showChartTooltip(clientX) {
   const canvas = el.statsChart;

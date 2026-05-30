@@ -1312,6 +1312,36 @@ body:not([data-theme="dark"]) .mode-option input[type="radio"]:checked + span sm
   margin: 10px 0 2px;
 }
 .stats-actions > button { min-width: 132px; }
+.weekday-stats { display: grid; gap: 8px; }
+.wd-row {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+.wd-row .wd-name { font-size: 13px; font-weight: 700; color: var(--text); text-align: center; }
+.wd-row.weekend .wd-name { color: var(--gold); }
+.wd-row .wd-bar {
+  height: 10px;
+  border-radius: 6px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.wd-row .wd-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: var(--gold);
+  transition: width .25s ease;
+}
+.wd-row .wd-val {
+  font-family: var(--font-numeric, inherit);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
 .stats-summary-card .ssc-rows > div.ssc-main strong {
   font-size: 27px;
 }
