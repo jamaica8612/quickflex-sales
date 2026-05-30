@@ -1,6 +1,38 @@
 # QuickFlex Worklog
 
-Last updated: 2026-05-30 (refactor slice 3 — revenue calc to lib)
+Last updated: 2026-05-30 (stats: period comparison + CSV export, v1.0.4)
+
+## 2026-05-30 Stats: Period Comparison + CSV Export (Claude)
+
+### User Request
+
+통계 메뉴가 부실 → 기간 비교 + CSV 내보내기 추가.
+
+### Changed Files
+
+- `src/lib/stats.js` (신규): `percentDelta`, `formatDelta`, `csvEscape`, `buildCsv`
+  (UTF-8 BOM + CRLF, 엑셀 한글 호환). 순수 함수.
+- `src/main.js`:
+  - `getStatsCompareKeys()` — 선택 범위 바로 직전의 동일 길이 구간 키
+    (이번달/지난달/3·6·12개월/직접입력 각각 대응).
+  - `renderStatsSummaryRows`에 `compareTotal` 받아 총매출·일평균·건수에
+    "지난 기간 대비 ±%" 배지(`deltaBadge`).
+  - `exportStatsCsv()` + `downloadTextFile()` — 선택 범위 일자별
+    날짜/요일/근무/라우트/물량/프레시백/매출 CSV 다운로드.
+  - `exportStatsCsv`를 shared ctx에 추가.
+- `src/ui/stats.js`: `statsExportCsv` 버튼 클릭 바인딩.
+- `index.html`: stats에 "CSV 내보내기" 버튼, 에셋/표기 v1.0.4.
+- `styles.css`: `.ssc-delta`(up/down/flat 색), `.stats-actions`.
+- `sw.js`: 셸 캐시 v1.0.4, `src/lib/stats.js` 프리캐시 추가.
+- `test/stats.test.js`: delta/escape/CSV 4개 테스트.
+
+### Checks
+
+- `npm run lint` 통과(31파일), `npm test` 35/35 통과.
+- Playwright로 통계 뷰 렌더 확인: 요약 카드 + CSV 버튼 정상, pageerror 0.
+  (비교 배지·다운로드 실데이터 동작은 DB 필요 — 실행 가능 환경에서 추가 확인 권장.)
+
+## 2026-05-30 Refactor Slice 3: Revenue Calc (Claude)
 
 ## 2026-05-30 Refactor Slice 3: Revenue Calc (Claude)
 

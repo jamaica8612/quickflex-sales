@@ -150,6 +150,7 @@ import {
   recordRouteAggregates as recordRouteAggregatesImpl,
   toNum,
 } from "./lib/revenue.js";
+import { buildCsv, formatDelta } from "./lib/stats.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
 const LEGACY_USER_NAMES = new Map([["kim-gwanhyun", "김관현"]]);
@@ -271,6 +272,7 @@ const el = {
   statsRangeFrom: $("statsRangeFrom"),
   statsRangeTo: $("statsRangeTo"),
   statsRangeApply: $("statsRangeApply"),
+  statsExportCsv: $("statsExportCsv"),
   statsChart: $("statsChart"),
   statsChartTooltip: $("statsChartTooltip"),
   revenueList: $("revenueList"),
@@ -681,6 +683,50 @@ function getStatsBounds() {
   const keys = getStatsKeys();
   if (!keys.length) return { start: null, end: null };
   return { start: parseDateKey(keys[0]), end: parseDateKey(keys[keys.length - 1]) };
+}
+// The equivalent range immediately before the selected one, for period comparison.
+function getStatsCompareKeys() {
+  const mode = state.statsRangeMode || "thisMonth";
+  if (mode === "thisMonth") {
+    const p = prevPeriod(state.statsYear, state.statsMonth);
+    return periodKeysFor(p.year, p.month);
+  }
+  if (mode === "lastMonth") {
+    const p1 = prevPeriod(state.statsYear, state.statsMonth);
+    const p2 = prevPeriod(p1.year, p1.month);
+    return periodKeysFor(p2.year, p2.month);
+  }
+  if (mode === "last3" || mode === "last6" || mode === "last12") {
+    const n = mode === "last3" ? 3 : (mode === "last6" ? 6 : 12);
+    let cur = { year: state.statsYear, month: state.statsMonth };
+    for (let i = 0; i < n; i += 1) cur = prevPeriod(cur.year, cur.month); // skip past the current window
+    const keys = [];
+    for (let i = 0; i < n; i += 1) {
+      keys.unshift(...periodKeysFor(cur.year, cur.month));
+      cur = prevPeriod(cur.year, cur.month);
+    }
+    return keys;
+  }
+  if (mode === "custom") {
+    const { from, to } = state.statsRangeCustom || {};
+    if (!from || !to) return [];
+    const start = parseDateKey(from);
+    const end = parseDateKey(to);
+    if (!start || !end || start > end) return [];
+    const days = Math.round((end - start) / 86400000) + 1;
+    const prevEnd = new Date(start);
+    prevEnd.setDate(prevEnd.getDate() - 1);
+    const prevStart = new Date(prevEnd);
+    prevStart.setDate(prevStart.getDate() - (days - 1));
+    const keys = [];
+    const cur = new Date(prevStart);
+    while (cur <= prevEnd) {
+      keys.push(toDateKey(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return keys;
+  }
+  return []; // 'all' has no prior window
 }
 function formatRangeLabel(start, end) {
   if (!start || !end) return "-";
@@ -1665,7 +1711,8 @@ function renderStats() {
   el.statsMeterFill.style.width = `${statsPct}%`;
   el.statsMeterPct.textContent = `${Math.round(statsPct)}%`;
   el.statsMeterLabel.textContent = goal ? `목표 ${fmtWon(goal)} (설정됨)` : "목표 미설정";
-  renderStatsSummaryRows(total, statsPct);
+  const compareTotal = summarizeKeys(getStatsCompareKeys());
+  renderStatsSummaryRows(total, statsPct, compareTotal);
   el.statsWorkDays.textContent = `${total.workDays}일`;
   el.statsOffDays.textContent = `${total.offDays}일`;
   el.statsCount.textContent = fmtCount(total.count);
@@ -1681,16 +1728,50 @@ function renderStats() {
   renderYearlyStats();
   renderTotalStats();
 }
-function renderStatsSummaryRows(total, statsPct) {
+function deltaBadge(current, previous) {
+  const text = formatDelta(current, previous);
+  if (!text) return "";
+  const dir = text.startsWith("+") ? "up" : (text.startsWith("-") ? "down" : "flat");
+  return ` <em class="ssc-delta ${dir}">${text}</em>`;
+}
+function renderStatsSummaryRows(total, statsPct, compareTotal = null) {
   const rows = document.querySelector(".stats-summary-card .ssc-rows");
   if (!rows) return;
+  const prev = compareTotal || {};
   rows.innerHTML = `
-    <div class="ssc-main"><span>총매출</span><strong>${fmtWon(total.revenue)}</strong></div>
+    <div class="ssc-main"><span>총매출</span><strong>${fmtWon(total.revenue)}${deltaBadge(total.revenue, prev.revenue)}</strong></div>
     <div><span>목표 대비</span><strong>${Math.round(statsPct)}%</strong></div>
     <div><span>근무일</span><strong>${total.workDays}일</strong></div>
-    <div><span>일평균</span><strong>${formatCompactWonWithUnit(total.average)}</strong></div>
-    <div><span>총 배송건수</span><strong>${fmtCount(total.count)}</strong></div>
+    <div><span>일평균</span><strong>${formatCompactWonWithUnit(total.average)}${deltaBadge(total.average, prev.average)}</strong></div>
+    <div><span>총 배송건수</span><strong>${fmtCount(total.count)}${deltaBadge(total.count, prev.count)}</strong></div>
   `;
+}
+function downloadTextFile(filename, text, type = "text/csv;charset=utf-8;") {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+function exportStatsCsv() {
+  const keys = getStatsKeys().filter((dateKey) => hasMeaningfulRecord(getRecord(dateKey, false)));
+  if (!keys.length) { toast("내보낼 기록이 없습니다.", "error"); return; }
+  const header = ["날짜", "요일", "근무", "라우트", "물량", "프레시백", "매출"];
+  const rows = keys.map((dateKey) => {
+    const record = getRecord(dateKey, false);
+    const details = calcRecordDetails(record);
+    const weekday = WEEKDAYS[parseDateKey(dateKey).getDay()];
+    if (record.off) return [dateKey, weekday, "휴무", "", 0, 0, 0];
+    return [dateKey, weekday, "근무", formatRecordRoutes(record.rows), details.count, details.freshCount, Math.round(details.revenue)];
+  });
+  const { start, end } = getStatsBounds();
+  const filename = `quickflex_${start ? toDateKey(start) : "기록"}_${end ? toDateKey(end) : ""}.csv`;
+  downloadTextFile(filename, buildCsv(header, rows));
+  toast("CSV를 내보냈습니다.", "success");
 }
 function renderDailyStats() { renderDailyStatsFor(getStatsKeys()); }
 function renderDailyStatsFor(allKeys) {
@@ -2687,6 +2768,7 @@ function bindEvents() {
     loadFromDb,
     login,
     logout,
+    exportStatsCsv,
     moveAdminMonth,
     moveMonth,
     moveStatsMonth,
