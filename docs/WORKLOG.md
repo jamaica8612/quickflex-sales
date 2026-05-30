@@ -1,6 +1,25 @@
 # QuickFlex Worklog
 
-Last updated: 2026-05-30 (refactor slice 1 — route correction to lib)
+Last updated: 2026-05-30 (refactor slice 2 — period + won formatters to lib)
+
+## 2026-05-30 Refactor Slice 2: Period + Won Formatters (Claude)
+
+### Changed Files
+
+- `src/lib/date.js`: 정산 기간 헬퍼 추가 — `periodBounds`, `periodKeysFor`,
+  `periodForDate`, `prevPeriod` (명시적 year/month 인자, 순수).
+- `src/lib/format.js`: 원 단위 포매터 추가 — `formatCalendarWon`,
+  `formatKoreanWon`, `formatCompactWonWithUnit` (순수).
+- `src/main.js`: 위 정의 제거. `periodBounds`/`prevPeriod`는 상태 기본값 주입
+  얇은 래퍼만 유지, `periodKeysFor`/`periodForDate`/포매터는 직접 import. 2,818 → 2,793줄.
+- `test/period-format.test.js`: 기간 경계/연 롤오버/만·억 포매팅 7개 테스트.
+
+### Checks
+
+- `npm run lint` 통과(28파일), `npm test` 25/25 통과.
+- Playwright 셸 렌더 회귀 없음(정산기간 헤더·캘린더 정상).
+
+## 2026-05-30 Refactor Slice 1: Route Correction (Claude)
 
 ## 2026-05-30 Refactor Slice 1: Route Correction (Claude)
 
