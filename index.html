@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.4" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.5" />
   </head>
   <body>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -168,6 +168,7 @@
           <div class="stats-tabs">
             <button class="stats-tab active" data-tab="monthly">월간 통계</button>
             <button class="stats-tab" data-tab="revenue">매출</button>
+            <button class="stats-tab" data-tab="weekday">요일별</button>
             <button class="stats-tab" data-tab="daily">일간</button>
             <button class="stats-tab" data-tab="yearly" hidden>연간</button>
             <button class="stats-tab" data-tab="total" hidden>누적</button>
@@ -186,6 +187,9 @@
           </section>
           <section class="stats-panel" data-panel="revenue">
             <div id="revenueList" class="revenue-list"></div>
+          </section>
+          <section class="stats-panel" data-panel="weekday">
+            <div id="weekdayStats" class="weekday-stats"></div>
           </section>
           <section class="stats-panel" data-panel="daily">
             <div id="dailyList" class="daily-list"></div>
@@ -314,7 +318,7 @@
               <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
             </div>
           </section>
-          <p class="app-version">퀵플렉스 매출관리 v1.0.4</p>
+          <p class="app-version">퀵플렉스 매출관리 v1.0.5</p>
         </main>
       </section>
 
@@ -492,7 +496,7 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./src/main.js?v=1.0.4"></script>
+    <script type="module" src="./src/main.js?v=1.0.5"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});

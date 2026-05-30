@@ -26,3 +26,22 @@ export function buildCsv(header, rows) {
     .join("\r\n");
   return `﻿${body}`;
 }
+
+// rows: [{ weekday: 0..6 (0=Sun), revenue, worked }]. Returns 7 buckets indexed
+// by weekday with total/days/average over worked days only.
+export function weekdayAverages(rows) {
+  const buckets = Array.from({ length: 7 }, () => ({ total: 0, days: 0 }));
+  (rows || []).forEach(({ weekday, revenue, worked }) => {
+    if (!worked) return;
+    const bucket = buckets[weekday];
+    if (!bucket) return;
+    bucket.total += revenue || 0;
+    bucket.days += 1;
+  });
+  return buckets.map((bucket, weekday) => ({
+    weekday,
+    total: bucket.total,
+    days: bucket.days,
+    average: bucket.days ? bucket.total / bucket.days : 0,
+  }));
+}
