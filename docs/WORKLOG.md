@@ -1,6 +1,44 @@
 # QuickFlex Worklog
 
-Last updated: 2026-05-30 (tests + CI harness)
+Last updated: 2026-05-30 (RLS open_all removal — data exposure fix)
+
+## 2026-05-30 RLS open_all Removal (Claude)
+
+### User Request
+
+이 DB를 레시피 앱과 공유하는데, 레시피 앱 사용자가 QuickFlex 디비를 불러오는 것
+같다 — 점검 요청.
+
+### Findings
+
+- Supabase 프로젝트 `xrrdokcjhjqdfvwtbenl` 하나를 **세 앱이 공유**: QuickFlex(`quickflex_*`),
+  레시피 앱(`recipes`/`recipe_*`/`profiles` 등), `rn_*` 앱. 같은 Postgres DB + 같은 Auth
+  사용자 풀 + 같은 public anon 키.
+- QuickFlex 클라이언트 코드는 `quickflex_*` 5개 테이블만 `user_id` 필터로 조회 — 깨끗.
+- **실제 위험(운영 DB)**: `quickflex_route_rates`, `quickflex_day_records`,
+  `quickflex_day_route_items`, `quickflex_data` 4개 테이블에 `open_all`
+  (role `public`, `USING(true) WITH CHECK(true)`, ALL) 정책이 직접 추가돼 있었음.
+  permissive 정책은 OR로 합쳐지므로 본인/관리자 제약을 무력화 → anon 키만으로
+  전 기사 매출·요율·일별 데이터 읽기/쓰기/삭제 가능 상태였음. repo 스키마엔 없던
+  드리프트.
+- `quickflex_profiles`/`quickflex_route_bundles`는 `open_all` 없어 정상 보호됨.
+
+### Changed (live DB + repo)
+
+- 마이그레이션 `drop_quickflex_open_all_policies` 적용 — 4개 테이블의 `open_all` drop.
+  기존 own/admin 정책이 그대로 적용됨. `quickflex_data`는 전용 anon 본인-행 정책 유지.
+- `supabase/migrations/20260530000000_drop_quickflex_open_all_policies.sql` 추가(소스 기록).
+
+### Checks
+
+- `pg_policies` 재확인: 4개 테이블 `open_all` 0건, 본인/관리자 정책 유지.
+- 보안 advisor 재실행: quickflex 테이블의 `rls_policy_always_true` 경고 전부 해소
+  (잔여 always-true는 다른 앱 `rn_market_*`).
+
+### Follow-ups (잔여, QuickFlex 영향 낮음)
+
+- `quickflex_route_rate_history`: RLS on / 정책 0개 → 이력 기록 실패 가능. 정책 검토 필요.
+- Auth 유출 비밀번호 차단 비활성화(권장: 활성화).
 
 ## 2026-05-30 Tests And CI (Claude)
 
