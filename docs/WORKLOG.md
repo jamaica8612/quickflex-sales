@@ -1,6 +1,32 @@
 # QuickFlex Worklog
 
-Last updated: 2026-05-30 (auth-trigger leak fix — pending list cleanup)
+Last updated: 2026-05-30 (refactor slice 1 — route correction to lib)
+
+## 2026-05-30 Refactor Slice 1: Route Correction (Claude)
+
+### User Request
+
+main.js(2.9k줄) 구조 분리 — 점진적 추출 방식으로 진행.
+
+### Changed Files
+
+- `src/lib/route.js`
+  - main.js의 라우트 보정 클러스터를 순수 함수로 이전: `routeDistance`,
+    `buildRouteCandidates`, `correctRoute`, `activeRouteBundles`,
+    `completeRouteBundles`, `correctRouteList(routes, sources)`. 상태는 전역/DOM
+    대신 `sources` 인자로 주입.
+- `src/main.js`
+  - 6개 함수 정의(약 90줄)를 제거하고, 상태를 주입하는 얇은 `correctRouteList`
+    래퍼만 유지(호출부/ctx 시그니처 불변). 2,898 → 2,818줄.
+- `test/route-correction.test.js`
+  - 보정 동작 7개 테스트로 고정(혼동행렬 보정, 후보 게이팅, 묶음 완성 등).
+
+### Checks
+
+- `npm run lint` 통과(27파일), `npm test` 18/18 통과.
+- 정적 서버 + Playwright로 앱 셸 부팅·렌더 회귀 없음 확인.
+
+## 2026-05-30 Auth Trigger Leak Fix (Claude)
 
 ## 2026-05-30 Auth Trigger Leak Fix (Claude)
 
