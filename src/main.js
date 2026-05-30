@@ -1402,7 +1402,7 @@ function renderMonth() {
     const displayValue = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : formatCalendarWon(calc.revenue);
     const displayRouteOrHoliday = routeText || holidayName;
     if (holidayName) cell.title = holidayName;
-    cell.innerHTML = `<span class="day-number">${date.getDate()}</span><span class="day-value">${displayValue}</span><span class="day-routes">${displayRouteOrHoliday}</span>`;
+    cell.innerHTML = `<span class="day-number">${date.getDate()}</span><span class="day-value">${displayValue}</span><span class="day-routes">${escapeAttr(displayRouteOrHoliday)}</span>`;
     cell.addEventListener("click", () => selectDate(dateKey));
     el.monthCalendar.appendChild(cell);
   }
@@ -1831,7 +1831,7 @@ function renderDailyStatsFor(allKeys) {
     const open = state.statsDetailDate === dateKey;
     const routes = record.rows.map((row) => {
       const sub = toNum(row.count) * effectiveUnit(row);
-      return `<div class="dd-row"><span>${formatRouteLabel(row.route)} · ${fmtCount(row.count)} × ${fmtWon(effectiveUnit(row))}</span><strong>${fmtWon(sub)}</strong></div>`;
+      return `<div class="dd-row"><span>${escapeAttr(formatRouteLabel(row.route))} · ${fmtCount(row.count)} × ${fmtWon(effectiveUnit(row))}</span><strong>${fmtWon(sub)}</strong></div>`;
     }).join("");
     const routePreview = record.off ? "휴무" : (formatRecordRoutes(record.rows) || "라우트 없음");
     return `<div class="daily-card stat-day-card">
@@ -1839,7 +1839,7 @@ function renderDailyStatsFor(allKeys) {
         <div class="daily-top">
           <div>
             <strong>${formatLongShort(dateKey)}</strong>
-            <span>${routePreview}</span>
+            <span>${escapeAttr(routePreview)}</span>
           </div>
           <strong>${record.off ? "휴무" : fmtWon(details.revenue)}</strong>
         </div>
@@ -2103,7 +2103,7 @@ async function renderAdminDashboard() {
         : state.adminTab === "bundles"
           ? el.adminBundleList
           : el.adminRevenueList;
-    if (target) target.innerHTML = `<div class="daily-card"><span>${error.message}</span></div>`;
+    if (target) target.innerHTML = `<div class="daily-card"><span>${escapeAttr(error.message)}</span></div>`;
   }
 }
 async function renderAdminRevenueStats() {
@@ -2192,7 +2192,7 @@ async function renderAdminRevenueStats() {
     button.addEventListener("click", () => {
       state.adminStatsDetailUser = state.adminStatsDetailUser === button.dataset.adminUser ? "" : button.dataset.adminUser;
       renderAdminRevenueStats().catch((error) => {
-        el.adminRevenueList.innerHTML = `<div class="daily-card"><span>${error.message}</span></div>`;
+        el.adminRevenueList.innerHTML = `<div class="daily-card"><span>${escapeAttr(error.message)}</span></div>`;
       });
     });
   });
@@ -2583,7 +2583,7 @@ function previewImageFile(file, target, altText) {
   if (!file || !target) return;
   const reader = new FileReader();
   reader.onload = () => {
-    target.innerHTML = `<img src="${reader.result}" alt="${altText}" /> <span class="hint">${file.name}</span>`;
+    target.innerHTML = `<img src="${reader.result}" alt="${escapeAttr(altText)}" /> <span class="hint">${escapeAttr(file.name)}</span>`;
   };
   reader.readAsDataURL(file);
 }
@@ -2681,7 +2681,7 @@ async function renderAdminProfiles() {
   }
   const { data, error } = await state.db.from(TABLES.profiles).select("*").order("created_at", { ascending: false });
   if (error) {
-    el.adminProfiles.innerHTML = `<p class="error-text">${error.message}</p>`;
+    el.adminProfiles.innerHTML = `<p class="error-text">${escapeAttr(error.message)}</p>`;
     return;
   }
   const profiles = [...(data || [])].sort((a, b) => {
