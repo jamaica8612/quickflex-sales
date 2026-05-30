@@ -1,6 +1,23 @@
 # QuickFlex Worklog
 
-Last updated: 2026-05-30 (refactor slice 2 — period + won formatters to lib)
+Last updated: 2026-05-30 (refactor slice 3 — revenue calc to lib)
+
+## 2026-05-30 Refactor Slice 3: Revenue Calc (Claude)
+
+### Changed Files
+
+- `src/lib/revenue.js`: `calcRecordDetails(rec, deps)`, `recordRouteAggregates(rec, effectiveUnit)`
+  추가. 상태 의존부(effectiveUnit·freshbagMode·default 단가)는 인자로 주입,
+  순수 함수로 유지. 공유 라우트는 split 후 균등 배분.
+- `src/main.js`: 두 함수 본문 제거, 레코드 정규화 + 의존 주입 래퍼만 유지. 2,793 → 2,768줄.
+- `test/revenue-calc.test.js`: single/dual freshbag, 백업 보너스, 휴무, 라우트 균등배분 6개 테스트.
+
+### Checks
+
+- `npm run lint` 통과(29파일), `npm test` 31/31 통과.
+- Playwright 셸 렌더 회귀 없음.
+
+## 2026-05-30 Refactor Slice 2: Period + Won Formatters (Claude)
 
 ## 2026-05-30 Refactor Slice 2: Period + Won Formatters (Claude)
 
