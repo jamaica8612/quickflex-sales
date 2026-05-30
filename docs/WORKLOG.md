@@ -1,6 +1,28 @@
 # QuickFlex Worklog
 
-Last updated: 2026-05-30 (XSS escaping pass, release v1.0.3)
+Last updated: 2026-05-30 (tests + CI harness)
+
+## 2026-05-30 Tests And CI (Claude)
+
+### User Request
+
+XSS 패치에 이어 테스트/CI 도입.
+
+### Changed Files
+
+- `package.json`
+  - `type: module` + `lint`/`test` 스크립트 추가. 의존성 추가 없음(내장 `node --test` 사용).
+- `test/lib.test.js`
+  - 순수 라이브러리 함수 11개 테스트: `route.js`(정규화·분리·확장·압축·라벨), `date.js`(키 변환·일자 가감·라벨), `revenue.js`(`toNum`/`routeRevenue`), `format.js`(원/건/숫자 포매터).
+- `scripts/check-syntax.mjs`
+  - 의존성 없는 lint: 프로젝트 내 모든 `.js`/`.mjs`에 `node --check` 실행.
+- `.github/workflows/ci.yml`
+  - `push`(main) + 모든 `pull_request`에서 Node 22로 `npm run lint` → `npm test` 실행.
+
+### Checks
+
+- `npm run lint` 통과(26개 파일, 구문 오류 없음).
+- `npm test` 통과(11/11).
 
 ## 2026-05-30 XSS Escaping Pass (Claude)
 
