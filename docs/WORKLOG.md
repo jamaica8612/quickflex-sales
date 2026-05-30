@@ -1,6 +1,36 @@
 # QuickFlex Worklog
 
-Last updated: 2026-05-30 (RLS open_all removal — data exposure fix)
+Last updated: 2026-05-30 (auth-trigger leak fix — pending list cleanup)
+
+## 2026-05-30 Auth Trigger Leak Fix (Claude)
+
+### User Request
+
+레시피 앱 테스트 계정(`recipe-test+...@example.com`)이 QuickFlex 승인 대기
+멤버 목록에 자꾸 나타남.
+
+### Findings
+
+- 공유 `auth.users`에 앱별 INSERT 트리거 3개: `on_auth_user_created`(recipe),
+  `on_auth_user_created_rn`(rn), `quickflex_handle_new_auth_user_trigger`(quickflex).
+  → 어느 앱에서 가입하든 `quickflex_profiles` 행이 자동 생성돼 QuickFlex 대기
+  목록에 유입.
+- QuickFlex 앱은 로그인 시 `quickflex_ensure_profile` RPC로 프로필을 스스로
+  생성(`loadProfile`, src/main.js:1045) → 트리거 불필요·중복.
+- 오염 규모: 프로필 49개 중 미승인 24개가 전부 QuickFlex 활동 0 + 전원 레시피
+  앱(`public.profiles`) 계정(23개 `+별칭` 테스트 이메일, 2개 `recipe-test+`).
+
+### Changed (live DB + repo)
+
+- 마이그레이션 `drop_quickflex_auth_user_trigger`: QuickFlex 트리거+함수 제거
+  (recipe/rn 트리거는 유지). `supabase/migrations/20260530010000_*.sql` 기록.
+- 일회성 데이터 정리: 유입된 24개 프로필 삭제(미승인·비관리자·활동0 조건).
+  레시피 계정/auth 로그인엔 영향 없음. 환경 종속이라 마이그레이션으로 재생하지 않음.
+
+### Checks
+
+- 삭제 후 `quickflex_profiles`: 총 25, 승인 25, 대기 0, recipe-test 0.
+- 트리거 제거로 신규 유입 차단. 신규 QuickFlex 가입자는 앱이 프로필 자동 생성.
 
 ## 2026-05-30 RLS open_all Removal (Claude)
 
