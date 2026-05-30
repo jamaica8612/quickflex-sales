@@ -23,6 +23,7 @@ import {
 } from "./lib/date.js";
 import {
   compactRouteList,
+  correctRouteList as correctRouteListImpl,
   expandRouteText,
   formatRecordRoutes,
   formatRouteLabel,
@@ -369,97 +370,16 @@ function escapeAttr(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
 }
-function routeCandidateSet() {
-  const candidates = new Set(DEFAULT_ROUTE_MASTER.map(normalizeRoute));
-  DEFAULT_ROUTE_BUNDLES.flat().forEach((route) => {
-    const normalized = normalizeRoute(route);
-    if (/^\d{3}[A-Z]$/.test(normalized)) candidates.add(normalized);
-  });
-  (state.routeBundles || []).forEach((bundle) => {
-    routeListFromText(bundle.routes).forEach((route) => {
-      if (/^\d{3}[A-Z]$/.test(route)) candidates.add(route);
-    });
-  });
-  state.rates.forEach((rate) => {
-    const route = normalizeRoute(rate.route);
-    if (/^\d{3}[A-Z]$/.test(route)) candidates.add(route);
-  });
-  fixedRoutes().forEach((route) => {
-    if (/^\d{3}[A-Z]$/.test(route)) candidates.add(route);
-  });
-  return candidates;
-}
-function routeDistance(a, b) {
-  if (a.length !== b.length) return 99;
-  const confusion = { O: "0", 0: "O", I: "1", 1: "I", L: "1", S: "5", 5: "S", B: "8", 8: "B", Z: "2", 2: "Z" };
-  let score = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    if (a[i] === b[i]) continue;
-    if (confusion[a[i]] === b[i]) score += 0.35;
-    else score += 1;
-  }
-  return score;
-}
-function correctRoute(route, candidates = routeCandidateSet()) {
-  const raw = normalizeRoute(route).replace(/[^0-9A-Z]/g, "");
-  if (!raw) return "";
-  if (candidates.has(raw)) return raw;
-  const normalized = raw
-    .slice(0, 3).replace(/[OIL]/g, "0").replace(/S/g, "5").replace(/B/g, "8")
-    + raw.slice(3).replace(/0/g, "O").replace(/1/g, "I").replace(/5/g, "S").replace(/8/g, "B");
-  if (candidates.has(normalized)) return normalized;
-  let best = "";
-  let bestScore = 99;
-  for (const candidate of candidates) {
-    const score = routeDistance(raw, candidate);
-    if (score < bestScore) {
-      best = candidate;
-      bestScore = score;
-    } else if (score === bestScore) {
-      best = "";
-    }
-  }
-  if (bestScore <= 1) return best;
-  return /^\d{3}[A-Z]$/.test(raw) ? raw : "";
-}
+// Thin wrapper: injects current state/config into the pure correctRouteList in
+// lib/route.js. The candidate-building and bundle-completion logic now lives there.
 function correctRouteList(routes) {
-  const candidates = routeCandidateSet();
-  const seen = new Set();
-  const corrected = routeListFromText(routes)
-    .flatMap(expandRouteText)
-    .map((route) => correctRoute(route, candidates))
-    .filter((route) => route && !seen.has(route) && seen.add(route));
-  return completeRouteBundles(corrected);
-}
-function activeRouteBundles() {
-  const dbBundles = (state.routeBundles || [])
-    .filter((bundle) => bundle.active !== false && Array.isArray(bundle.routes) && bundle.routes.length >= 1)
-    .map((bundle) => ({ routes: routeListFromText(bundle.routes), trusted: true }));
-  const seen = new Set(dbBundles.map((bundle) => joinStoredRoutes(bundle.routes)));
-  const fallback = DEFAULT_ROUTE_BUNDLES
-    .filter((bundle) => !seen.has(joinStoredRoutes(bundle)))
-    .map((bundle) => ({ routes: bundle, trusted: false }));
-  return [...dbBundles, ...fallback];
-}
-function completeRouteBundles(routes) {
-  const result = [...routes];
-  const seen = new Set(result);
-  activeRouteBundles().forEach(({ routes: bundle, trusted }) => {
-    const observed = bundle.filter((route) => seen.has(route));
-    const missing = bundle.filter((route) => !seen.has(route));
-    const shouldComplete = trusted
-      ? observed.length >= 2 && missing.length >= 1
-      : observed.length >= 2 && missing.length === 1;
-    if (shouldComplete) {
-      bundle.forEach((route) => {
-        if (!seen.has(route)) {
-          seen.add(route);
-          result.push(route);
-        }
-      });
-    }
+  return correctRouteListImpl(routes, {
+    master: DEFAULT_ROUTE_MASTER,
+    defaultBundles: DEFAULT_ROUTE_BUNDLES,
+    stateBundles: state.routeBundles,
+    rates: state.rates,
+    fixedRoutes: fixedRoutes(),
   });
-  return result;
 }
 function currentUserId() { return state.session?.user?.id || ""; }
 function isBackupDriver() { return (state.profile?.driver_type || "backup") === "backup"; }
