@@ -1296,6 +1296,22 @@ body:not([data-theme="dark"]) .mode-option input[type="radio"]:checked + span sm
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.ssc-delta {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: -0.2px;
+}
+.ssc-delta.up { color: #34c759; }
+.ssc-delta.down { color: #ff5a5f; }
+.ssc-delta.flat { color: var(--muted); }
+.stats-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 10px 0 2px;
+}
+.stats-actions > button { min-width: 132px; }
 .stats-summary-card .ssc-rows > div.ssc-main strong {
   font-size: 27px;
 }
