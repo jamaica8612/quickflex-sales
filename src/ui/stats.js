@@ -2,11 +2,16 @@ export function bindStatsEvents(ctx) {
   const {
     el,
     state,
+    exportStatsCsv,
     moveStatsMonth,
     renderStats,
     showChartTooltip,
     toDateKey,
   } = ctx;
+
+  if (el.statsExportCsv) {
+    el.statsExportCsv.addEventListener("click", () => exportStatsCsv());
+  }
 
   el.statsTabs.forEach((tab) => tab.addEventListener("click", () => {
     if (tab.dataset.tab === "admin" && state.profile?.role !== "admin") return;

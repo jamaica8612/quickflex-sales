@@ -1,4 +1,11 @@
 {
+  "name": "quickflex-sales",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "node scripts/check-syntax.mjs",
+    "test": "node --test"
+  },
   "devDependencies": {
     "supabase": "^2.95.6"
   }

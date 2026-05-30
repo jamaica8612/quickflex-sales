@@ -1,6 +1,242 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-30 (number polish and light button cleanup)
+Last updated: 2026-05-30 (stats: chart avg line + weekday breakdown, v1.0.5)
+
+## 2026-05-30 Stats: Chart + Weekday Breakdown (Claude)
+
+### User Request
+
+차트 개선 + 요일별 매출.
+
+### Changed Files
+
+- `src/lib/stats.js`: `weekdayAverages(rows)` 추가(요일별 근무일 평균, 순수).
+- `src/main.js`:
+  - 차트: 근무일 평균 매출 점선 기준선 + "평균 ₩X" 라벨, 최고 매출일 막대 강조.
+  - `renderWeekdayStats(keys)` — 일~토 평균 매출을 가로 막대로(주말 금색).
+    `renderStats`에 연결, `weekdayStats` el ref.
+  - config import에 `WEEKDAYS` 추가(신규 코드가 사용 — 런타임 검증으로 누락 발견).
+- `index.html`: "요일별" 탭 + `#weekdayStats` 패널, 에셋/표기 v1.0.5.
+- `styles.css`: `.weekday-stats`/`.wd-row` 막대 스타일.
+- `sw.js`: 셸 캐시 v1.0.5.
+- `test/stats.test.js`: `weekdayAverages` 테스트 추가.
+
+### Checks
+
+- `npm run lint` 통과(31파일), `npm test` 36/36 통과.
+- Playwright: 요일별 패널 7행(일~토) 렌더 확인, pageerror 0. (실데이터 막대·차트
+  평균선 동작은 DB 필요 — 실행 가능 환경에서 추가 확인 권장.)
+- 런타임 검증에서 `WEEKDAYS is not defined` 누락 import를 잡아 수정.
+
+## 2026-05-30 Stats: Period Comparison + CSV Export (Claude)
+
+## 2026-05-30 Stats: Period Comparison + CSV Export (Claude)
+
+### User Request
+
+통계 메뉴가 부실 → 기간 비교 + CSV 내보내기 추가.
+
+### Changed Files
+
+- `src/lib/stats.js` (신규): `percentDelta`, `formatDelta`, `csvEscape`, `buildCsv`
+  (UTF-8 BOM + CRLF, 엑셀 한글 호환). 순수 함수.
+- `src/main.js`:
+  - `getStatsCompareKeys()` — 선택 범위 바로 직전의 동일 길이 구간 키
+    (이번달/지난달/3·6·12개월/직접입력 각각 대응).
+  - `renderStatsSummaryRows`에 `compareTotal` 받아 총매출·일평균·건수에
+    "지난 기간 대비 ±%" 배지(`deltaBadge`).
+  - `exportStatsCsv()` + `downloadTextFile()` — 선택 범위 일자별
+    날짜/요일/근무/라우트/물량/프레시백/매출 CSV 다운로드.
+  - `exportStatsCsv`를 shared ctx에 추가.
+- `src/ui/stats.js`: `statsExportCsv` 버튼 클릭 바인딩.
+- `index.html`: stats에 "CSV 내보내기" 버튼, 에셋/표기 v1.0.4.
+- `styles.css`: `.ssc-delta`(up/down/flat 색), `.stats-actions`.
+- `sw.js`: 셸 캐시 v1.0.4, `src/lib/stats.js` 프리캐시 추가.
+- `test/stats.test.js`: delta/escape/CSV 4개 테스트.
+
+### Checks
+
+- `npm run lint` 통과(31파일), `npm test` 35/35 통과.
+- Playwright로 통계 뷰 렌더 확인: 요약 카드 + CSV 버튼 정상, pageerror 0.
+  (비교 배지·다운로드 실데이터 동작은 DB 필요 — 실행 가능 환경에서 추가 확인 권장.)
+
+## 2026-05-30 Refactor Slice 3: Revenue Calc (Claude)
+
+## 2026-05-30 Refactor Slice 3: Revenue Calc (Claude)
+
+### Changed Files
+
+- `src/lib/revenue.js`: `calcRecordDetails(rec, deps)`, `recordRouteAggregates(rec, effectiveUnit)`
+  추가. 상태 의존부(effectiveUnit·freshbagMode·default 단가)는 인자로 주입,
+  순수 함수로 유지. 공유 라우트는 split 후 균등 배분.
+- `src/main.js`: 두 함수 본문 제거, 레코드 정규화 + 의존 주입 래퍼만 유지. 2,793 → 2,768줄.
+- `test/revenue-calc.test.js`: single/dual freshbag, 백업 보너스, 휴무, 라우트 균등배분 6개 테스트.
+
+### Checks
+
+- `npm run lint` 통과(29파일), `npm test` 31/31 통과.
+- Playwright 셸 렌더 회귀 없음.
+
+## 2026-05-30 Refactor Slice 2: Period + Won Formatters (Claude)
+
+## 2026-05-30 Refactor Slice 2: Period + Won Formatters (Claude)
+
+### Changed Files
+
+- `src/lib/date.js`: 정산 기간 헬퍼 추가 — `periodBounds`, `periodKeysFor`,
+  `periodForDate`, `prevPeriod` (명시적 year/month 인자, 순수).
+- `src/lib/format.js`: 원 단위 포매터 추가 — `formatCalendarWon`,
+  `formatKoreanWon`, `formatCompactWonWithUnit` (순수).
+- `src/main.js`: 위 정의 제거. `periodBounds`/`prevPeriod`는 상태 기본값 주입
+  얇은 래퍼만 유지, `periodKeysFor`/`periodForDate`/포매터는 직접 import. 2,818 → 2,793줄.
+- `test/period-format.test.js`: 기간 경계/연 롤오버/만·억 포매팅 7개 테스트.
+
+### Checks
+
+- `npm run lint` 통과(28파일), `npm test` 25/25 통과.
+- Playwright 셸 렌더 회귀 없음(정산기간 헤더·캘린더 정상).
+
+## 2026-05-30 Refactor Slice 1: Route Correction (Claude)
+
+## 2026-05-30 Refactor Slice 1: Route Correction (Claude)
+
+### User Request
+
+main.js(2.9k줄) 구조 분리 — 점진적 추출 방식으로 진행.
+
+### Changed Files
+
+- `src/lib/route.js`
+  - main.js의 라우트 보정 클러스터를 순수 함수로 이전: `routeDistance`,
+    `buildRouteCandidates`, `correctRoute`, `activeRouteBundles`,
+    `completeRouteBundles`, `correctRouteList(routes, sources)`. 상태는 전역/DOM
+    대신 `sources` 인자로 주입.
+- `src/main.js`
+  - 6개 함수 정의(약 90줄)를 제거하고, 상태를 주입하는 얇은 `correctRouteList`
+    래퍼만 유지(호출부/ctx 시그니처 불변). 2,898 → 2,818줄.
+- `test/route-correction.test.js`
+  - 보정 동작 7개 테스트로 고정(혼동행렬 보정, 후보 게이팅, 묶음 완성 등).
+
+### Checks
+
+- `npm run lint` 통과(27파일), `npm test` 18/18 통과.
+- 정적 서버 + Playwright로 앱 셸 부팅·렌더 회귀 없음 확인.
+
+## 2026-05-30 Auth Trigger Leak Fix (Claude)
+
+## 2026-05-30 Auth Trigger Leak Fix (Claude)
+
+### User Request
+
+레시피 앱 테스트 계정(`recipe-test+...@example.com`)이 QuickFlex 승인 대기
+멤버 목록에 자꾸 나타남.
+
+### Findings
+
+- 공유 `auth.users`에 앱별 INSERT 트리거 3개: `on_auth_user_created`(recipe),
+  `on_auth_user_created_rn`(rn), `quickflex_handle_new_auth_user_trigger`(quickflex).
+  → 어느 앱에서 가입하든 `quickflex_profiles` 행이 자동 생성돼 QuickFlex 대기
+  목록에 유입.
+- QuickFlex 앱은 로그인 시 `quickflex_ensure_profile` RPC로 프로필을 스스로
+  생성(`loadProfile`, src/main.js:1045) → 트리거 불필요·중복.
+- 오염 규모: 프로필 49개 중 미승인 24개가 전부 QuickFlex 활동 0 + 전원 레시피
+  앱(`public.profiles`) 계정(23개 `+별칭` 테스트 이메일, 2개 `recipe-test+`).
+
+### Changed (live DB + repo)
+
+- 마이그레이션 `drop_quickflex_auth_user_trigger`: QuickFlex 트리거+함수 제거
+  (recipe/rn 트리거는 유지). `supabase/migrations/20260530010000_*.sql` 기록.
+- 일회성 데이터 정리: 유입된 24개 프로필 삭제(미승인·비관리자·활동0 조건).
+  레시피 계정/auth 로그인엔 영향 없음. 환경 종속이라 마이그레이션으로 재생하지 않음.
+
+### Checks
+
+- 삭제 후 `quickflex_profiles`: 총 25, 승인 25, 대기 0, recipe-test 0.
+- 트리거 제거로 신규 유입 차단. 신규 QuickFlex 가입자는 앱이 프로필 자동 생성.
+
+## 2026-05-30 RLS open_all Removal (Claude)
+
+### User Request
+
+이 DB를 레시피 앱과 공유하는데, 레시피 앱 사용자가 QuickFlex 디비를 불러오는 것
+같다 — 점검 요청.
+
+### Findings
+
+- Supabase 프로젝트 `xrrdokcjhjqdfvwtbenl` 하나를 **세 앱이 공유**: QuickFlex(`quickflex_*`),
+  레시피 앱(`recipes`/`recipe_*`/`profiles` 등), `rn_*` 앱. 같은 Postgres DB + 같은 Auth
+  사용자 풀 + 같은 public anon 키.
+- QuickFlex 클라이언트 코드는 `quickflex_*` 5개 테이블만 `user_id` 필터로 조회 — 깨끗.
+- **실제 위험(운영 DB)**: `quickflex_route_rates`, `quickflex_day_records`,
+  `quickflex_day_route_items`, `quickflex_data` 4개 테이블에 `open_all`
+  (role `public`, `USING(true) WITH CHECK(true)`, ALL) 정책이 직접 추가돼 있었음.
+  permissive 정책은 OR로 합쳐지므로 본인/관리자 제약을 무력화 → anon 키만으로
+  전 기사 매출·요율·일별 데이터 읽기/쓰기/삭제 가능 상태였음. repo 스키마엔 없던
+  드리프트.
+- `quickflex_profiles`/`quickflex_route_bundles`는 `open_all` 없어 정상 보호됨.
+
+### Changed (live DB + repo)
+
+- 마이그레이션 `drop_quickflex_open_all_policies` 적용 — 4개 테이블의 `open_all` drop.
+  기존 own/admin 정책이 그대로 적용됨. `quickflex_data`는 전용 anon 본인-행 정책 유지.
+- `supabase/migrations/20260530000000_drop_quickflex_open_all_policies.sql` 추가(소스 기록).
+
+### Checks
+
+- `pg_policies` 재확인: 4개 테이블 `open_all` 0건, 본인/관리자 정책 유지.
+- 보안 advisor 재실행: quickflex 테이블의 `rls_policy_always_true` 경고 전부 해소
+  (잔여 always-true는 다른 앱 `rn_market_*`).
+
+### Follow-ups (잔여, QuickFlex 영향 낮음)
+
+- `quickflex_route_rate_history`: RLS on / 정책 0개 → 이력 기록 실패 가능. 정책 검토 필요.
+- Auth 유출 비밀번호 차단 비활성화(권장: 활성화).
+
+## 2026-05-30 Tests And CI (Claude)
+
+### User Request
+
+XSS 패치에 이어 테스트/CI 도입.
+
+### Changed Files
+
+- `package.json`
+  - `type: module` + `lint`/`test` 스크립트 추가. 의존성 추가 없음(내장 `node --test` 사용).
+- `test/lib.test.js`
+  - 순수 라이브러리 함수 11개 테스트: `route.js`(정규화·분리·확장·압축·라벨), `date.js`(키 변환·일자 가감·라벨), `revenue.js`(`toNum`/`routeRevenue`), `format.js`(원/건/숫자 포매터).
+- `scripts/check-syntax.mjs`
+  - 의존성 없는 lint: 프로젝트 내 모든 `.js`/`.mjs`에 `node --check` 실행.
+- `.github/workflows/ci.yml`
+  - `push`(main) + 모든 `pull_request`에서 Node 22로 `npm run lint` → `npm test` 실행.
+
+### Checks
+
+- `npm run lint` 통과(26개 파일, 구문 오류 없음).
+- `npm test` 통과(11/11).
+
+## 2026-05-30 XSS Escaping Pass (Claude)
+
+### User Request
+
+우선순위 높은 보안 항목(innerHTML XSS)부터 수정.
+
+### Changed Files
+
+- `src/main.js`
+  - 이미 있던 `escapeAttr()`를, 사용자/외부 입력이 이스케이프 없이 `innerHTML`에 들어가던 7곳에 일관 적용.
+    - 업로드 파일명·alt 텍스트 (`previewImageFile`).
+    - 캘린더 셀 라우트 텍스트 (`day-routes`).
+    - 일별 통계 상세 행의 라우트 라벨과 라우트 프리뷰.
+    - 관리자 매출/번들 에러 메시지 2곳, 관리자 프로필 로드 에러 메시지 1곳.
+- `sw.js`
+  - 셸 캐시를 `quickflex-shell-v1.0.3` 으로 올려 배포 클라이언트가 패치된 모듈을 받도록 함.
+- `index.html`
+  - `styles.css` / `src/main.js` 에셋 쿼리를 `v=1.0.3` 으로, 화면 버전 표기를 `v1.0.3` 으로 갱신.
+
+### Checks
+
+- `node --check src/main.js`, `node --check sw.js` 통과.
+- 정적 서버 + Playwright(Chromium) 헤드리스로 앱 셸 정상 렌더 확인(회귀 없음).
 
 ## 2026-04-30 Number Polish And Light Button Cleanup (Codex)
 

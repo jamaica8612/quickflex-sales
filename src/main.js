@@ -10,6 +10,7 @@ import {
   PUBLIC_SUPABASE_CONFIG,
   SAMPLE_SETTLEMENT,
   TABLES,
+  WEEKDAYS,
 } from "./config.js?v=2";
 import {
   addDays,
@@ -18,11 +19,16 @@ import {
   formatRecordTitleDate,
   formatShort,
   parseDateKey,
+  periodBounds as periodBoundsImpl,
+  periodForDate,
+  periodKeysFor,
+  prevPeriod as prevPeriodImpl,
   todayKey,
   toDateKey,
 } from "./lib/date.js";
 import {
   compactRouteList,
+  correctRouteList as correctRouteListImpl,
   expandRouteText,
   formatRecordRoutes,
   formatRouteLabel,
@@ -132,8 +138,20 @@ function shouldShowCalendarRoutes() {
   const saved = getCalendarRoutesPreference();
   return saved === null ? isBackupDriver() : saved;
 }
-import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
-import { toNum } from "./lib/revenue.js";
+import {
+  fmtCount,
+  fmtNum,
+  fmtWon,
+  formatCalendarWon,
+  formatCompactWonWithUnit,
+  formatKoreanWon,
+} from "./lib/format.js";
+import {
+  calcRecordDetails as calcRecordDetailsImpl,
+  recordRouteAggregates as recordRouteAggregatesImpl,
+  toNum,
+} from "./lib/revenue.js";
+import { buildCsv, formatDelta, weekdayAverages } from "./lib/stats.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
 const LEGACY_USER_NAMES = new Map([["kim-gwanhyun", "김관현"]]);
@@ -255,6 +273,7 @@ const el = {
   statsRangeFrom: $("statsRangeFrom"),
   statsRangeTo: $("statsRangeTo"),
   statsRangeApply: $("statsRangeApply"),
+  statsExportCsv: $("statsExportCsv"),
   statsChart: $("statsChart"),
   statsChartTooltip: $("statsChartTooltip"),
   revenueList: $("revenueList"),
@@ -266,6 +285,7 @@ const el = {
   statsAverage: $("statsAverage"),
   statsBestDay: $("statsBestDay"),
   statsWorstDay: $("statsWorstDay"),
+  weekdayStats: $("weekdayStats"),
   statsPrevMonth: $("statsPrevMonth"),
   statsNextMonth: $("statsNextMonth"),
   dailyList: $("dailyList"),
@@ -339,28 +359,12 @@ function toast(message, type = "") {
   toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2800);
 }
 
-function periodBounds(year = state.year, month = state.month) {
-  return { start: new Date(year, month - 2, 26), end: new Date(year, month - 1, 25) };
-}
-function periodKeysFor(year, month) {
-  const { start, end } = periodBounds(year, month);
-  const keys = [];
-  const cursor = new Date(start);
-  while (cursor <= end) {
-    keys.push(toDateKey(cursor));
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return keys;
-}
+// Thin wrappers: apply current-state defaults to the pure period helpers in
+// lib/date.js. periodKeysFor / periodForDate are imported and used directly.
+function periodBounds(year = state.year, month = state.month) { return periodBoundsImpl(year, month); }
 function periodKeys() { return periodKeysFor(state.year, state.month); }
-function periodForDate(date = new Date()) {
-  const month = date.getDate() <= 25 ? date.getMonth() + 1 : date.getMonth() + 2;
-  const periodDate = new Date(date.getFullYear(), month - 1, 1);
-  return { year: periodDate.getFullYear(), month: periodDate.getMonth() + 1 };
-}
 function prevPeriod(year = state.year, month = state.month) {
-  const date = new Date(year, month - 2, 1);
-  return { year: date.getFullYear(), month: date.getMonth() + 1 };
+  return prevPeriodImpl(year, month);
 }
 function escapeAttr(value) {
   return String(value ?? "")
@@ -369,97 +373,16 @@ function escapeAttr(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
 }
-function routeCandidateSet() {
-  const candidates = new Set(DEFAULT_ROUTE_MASTER.map(normalizeRoute));
-  DEFAULT_ROUTE_BUNDLES.flat().forEach((route) => {
-    const normalized = normalizeRoute(route);
-    if (/^\d{3}[A-Z]$/.test(normalized)) candidates.add(normalized);
-  });
-  (state.routeBundles || []).forEach((bundle) => {
-    routeListFromText(bundle.routes).forEach((route) => {
-      if (/^\d{3}[A-Z]$/.test(route)) candidates.add(route);
-    });
-  });
-  state.rates.forEach((rate) => {
-    const route = normalizeRoute(rate.route);
-    if (/^\d{3}[A-Z]$/.test(route)) candidates.add(route);
-  });
-  fixedRoutes().forEach((route) => {
-    if (/^\d{3}[A-Z]$/.test(route)) candidates.add(route);
-  });
-  return candidates;
-}
-function routeDistance(a, b) {
-  if (a.length !== b.length) return 99;
-  const confusion = { O: "0", 0: "O", I: "1", 1: "I", L: "1", S: "5", 5: "S", B: "8", 8: "B", Z: "2", 2: "Z" };
-  let score = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    if (a[i] === b[i]) continue;
-    if (confusion[a[i]] === b[i]) score += 0.35;
-    else score += 1;
-  }
-  return score;
-}
-function correctRoute(route, candidates = routeCandidateSet()) {
-  const raw = normalizeRoute(route).replace(/[^0-9A-Z]/g, "");
-  if (!raw) return "";
-  if (candidates.has(raw)) return raw;
-  const normalized = raw
-    .slice(0, 3).replace(/[OIL]/g, "0").replace(/S/g, "5").replace(/B/g, "8")
-    + raw.slice(3).replace(/0/g, "O").replace(/1/g, "I").replace(/5/g, "S").replace(/8/g, "B");
-  if (candidates.has(normalized)) return normalized;
-  let best = "";
-  let bestScore = 99;
-  for (const candidate of candidates) {
-    const score = routeDistance(raw, candidate);
-    if (score < bestScore) {
-      best = candidate;
-      bestScore = score;
-    } else if (score === bestScore) {
-      best = "";
-    }
-  }
-  if (bestScore <= 1) return best;
-  return /^\d{3}[A-Z]$/.test(raw) ? raw : "";
-}
+// Thin wrapper: injects current state/config into the pure correctRouteList in
+// lib/route.js. The candidate-building and bundle-completion logic now lives there.
 function correctRouteList(routes) {
-  const candidates = routeCandidateSet();
-  const seen = new Set();
-  const corrected = routeListFromText(routes)
-    .flatMap(expandRouteText)
-    .map((route) => correctRoute(route, candidates))
-    .filter((route) => route && !seen.has(route) && seen.add(route));
-  return completeRouteBundles(corrected);
-}
-function activeRouteBundles() {
-  const dbBundles = (state.routeBundles || [])
-    .filter((bundle) => bundle.active !== false && Array.isArray(bundle.routes) && bundle.routes.length >= 1)
-    .map((bundle) => ({ routes: routeListFromText(bundle.routes), trusted: true }));
-  const seen = new Set(dbBundles.map((bundle) => joinStoredRoutes(bundle.routes)));
-  const fallback = DEFAULT_ROUTE_BUNDLES
-    .filter((bundle) => !seen.has(joinStoredRoutes(bundle)))
-    .map((bundle) => ({ routes: bundle, trusted: false }));
-  return [...dbBundles, ...fallback];
-}
-function completeRouteBundles(routes) {
-  const result = [...routes];
-  const seen = new Set(result);
-  activeRouteBundles().forEach(({ routes: bundle, trusted }) => {
-    const observed = bundle.filter((route) => seen.has(route));
-    const missing = bundle.filter((route) => !seen.has(route));
-    const shouldComplete = trusted
-      ? observed.length >= 2 && missing.length >= 1
-      : observed.length >= 2 && missing.length === 1;
-    if (shouldComplete) {
-      bundle.forEach((route) => {
-        if (!seen.has(route)) {
-          seen.add(route);
-          result.push(route);
-        }
-      });
-    }
+  return correctRouteListImpl(routes, {
+    master: DEFAULT_ROUTE_MASTER,
+    defaultBundles: DEFAULT_ROUTE_BUNDLES,
+    stateBundles: state.routeBundles,
+    rates: state.rates,
+    fixedRoutes: fixedRoutes(),
   });
-  return result;
 }
 function currentUserId() { return state.session?.user?.id || ""; }
 function isBackupDriver() { return (state.profile?.driver_type || "backup") === "backup"; }
@@ -668,30 +591,15 @@ function effectiveUnit(row) {
   }
   return 0;
 }
+// Thin wrappers: normalize the record and inject state-coupled helpers into the
+// pure revenue math in lib/revenue.js.
 function calcRecordDetails(record) {
-  const rec = normalizeRecordShape(record);
-  if (rec.off) return { count: 0, routeRevenue: 0, freshCount: 0, freshUnit: toNum(defaultFreshUnit(rec.freshUnit)), freshRevenue: 0, backupUnit: toNum(defaultBackupUnit(rec.backupUnit)), backupRevenue: 0, revenue: 0 };
-  const routeTotal = rec.rows.reduce((sum, row) => {
-    const count = toNum(row.count);
-    return { count: sum.count + count, revenue: sum.revenue + count * effectiveUnit(row) };
-  }, { count: 0, revenue: 0 });
-  const isDual = freshbagMode() === "dual";
-  const freshCount = isDual ? toNum(rec.freshSoloCount) + toNum(rec.freshLinkedCount) : toNum(rec.freshCount);
-  const freshUnit = isDual ? 0 : toNum(defaultFreshUnit(rec.freshUnit));
-  const freshRevenue = isDual ? toNum(rec.freshSoloCount) * 200 + toNum(rec.freshLinkedCount) * 100 : freshCount * freshUnit;
-  const backupApplies = rec.driverType === "backup";
-  const backupUnit = backupApplies ? toNum(defaultBackupUnit(rec.backupUnit)) : 0;
-  const backupRevenue = backupApplies ? routeTotal.count * backupUnit : 0;
-  return {
-    count: routeTotal.count,
-    routeRevenue: routeTotal.revenue,
-    freshCount,
-    freshUnit,
-    freshRevenue,
-    backupUnit,
-    backupRevenue,
-    revenue: routeTotal.revenue + freshRevenue + backupRevenue,
-  };
+  return calcRecordDetailsImpl(normalizeRecordShape(record), {
+    effectiveUnit,
+    freshbagMode: freshbagMode(),
+    defaultFreshUnit,
+    defaultBackupUnit,
+  });
 }
 function calcRecord(record) {
   const details = calcRecordDetails(record);
@@ -700,21 +608,7 @@ function calcRecord(record) {
 function routeRevenueKey(route) { return `route:${route || "?"}`; }
 function isVisibleKey(key) { return state.revenueVisibility[key] !== false; }
 function recordRouteAggregates(record) {
-  const rec = normalizeRecordShape(record);
-  const out = new Map();
-  if (rec.off) return out;
-  rec.rows.forEach((row) => {
-    splitStoredRoutes(row.route).forEach((r) => {
-      const count = toNum(row.count);
-      const unit = effectiveUnit(row);
-      const share = splitStoredRoutes(row.route).length || 1;
-      const entry = out.get(r) || { count: 0, revenue: 0 };
-      entry.count += count / share;
-      entry.revenue += (count * unit) / share;
-      out.set(r, entry);
-    });
-  });
-  return out;
+  return recordRouteAggregatesImpl(normalizeRecordShape(record), effectiveUnit);
 }
 function recordVisibleRevenue(record) {
   const details = calcRecordDetails(record);
@@ -792,6 +686,50 @@ function getStatsBounds() {
   if (!keys.length) return { start: null, end: null };
   return { start: parseDateKey(keys[0]), end: parseDateKey(keys[keys.length - 1]) };
 }
+// The equivalent range immediately before the selected one, for period comparison.
+function getStatsCompareKeys() {
+  const mode = state.statsRangeMode || "thisMonth";
+  if (mode === "thisMonth") {
+    const p = prevPeriod(state.statsYear, state.statsMonth);
+    return periodKeysFor(p.year, p.month);
+  }
+  if (mode === "lastMonth") {
+    const p1 = prevPeriod(state.statsYear, state.statsMonth);
+    const p2 = prevPeriod(p1.year, p1.month);
+    return periodKeysFor(p2.year, p2.month);
+  }
+  if (mode === "last3" || mode === "last6" || mode === "last12") {
+    const n = mode === "last3" ? 3 : (mode === "last6" ? 6 : 12);
+    let cur = { year: state.statsYear, month: state.statsMonth };
+    for (let i = 0; i < n; i += 1) cur = prevPeriod(cur.year, cur.month); // skip past the current window
+    const keys = [];
+    for (let i = 0; i < n; i += 1) {
+      keys.unshift(...periodKeysFor(cur.year, cur.month));
+      cur = prevPeriod(cur.year, cur.month);
+    }
+    return keys;
+  }
+  if (mode === "custom") {
+    const { from, to } = state.statsRangeCustom || {};
+    if (!from || !to) return [];
+    const start = parseDateKey(from);
+    const end = parseDateKey(to);
+    if (!start || !end || start > end) return [];
+    const days = Math.round((end - start) / 86400000) + 1;
+    const prevEnd = new Date(start);
+    prevEnd.setDate(prevEnd.getDate() - 1);
+    const prevStart = new Date(prevEnd);
+    prevStart.setDate(prevStart.getDate() - (days - 1));
+    const keys = [];
+    const cur = new Date(prevStart);
+    while (cur <= prevEnd) {
+      keys.push(toDateKey(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return keys;
+  }
+  return []; // 'all' has no prior window
+}
 function formatRangeLabel(start, end) {
   if (!start || !end) return "-";
   const fmt = (d) => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
@@ -804,26 +742,6 @@ function formatPeriodRangeSimple(start, end) {
 function formatMonthDay(key) {
   const date = parseDateKey(key);
   return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
-}
-function formatCalendarWon(value) {
-  const n = Math.round(Number(value) || 0);
-  if (!n) return "";
-  if (Math.abs(n) >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, "")}만`;
-  return n.toLocaleString("ko-KR");
-}
-function formatKoreanWon(value) {
-  const n = Math.round(value);
-  if (n === 0) return "0";
-  const abs = Math.abs(n);
-  if (abs >= 100000000) return `${(n / 100000000).toFixed(abs >= 1000000000 ? 0 : 1).replace(/\.0$/, "")}억`;
-  if (abs >= 10000) return `${Math.round(n / 10000)}만`;
-  return n.toLocaleString("ko-KR");
-}
-function formatCompactWonWithUnit(value) {
-  const n = Math.round(Number(value) || 0);
-  if (!n) return "0원";
-  if (Math.abs(n) >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, "")}만원`;
-  return `${n.toLocaleString("ko-KR")}원`;
 }
 function aggregateRevenueByItem(keys) {
   const routes = new Map();
@@ -1402,7 +1320,7 @@ function renderMonth() {
     const displayValue = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : formatCalendarWon(calc.revenue);
     const displayRouteOrHoliday = routeText || holidayName;
     if (holidayName) cell.title = holidayName;
-    cell.innerHTML = `<span class="day-number">${date.getDate()}</span><span class="day-value">${displayValue}</span><span class="day-routes">${displayRouteOrHoliday}</span>`;
+    cell.innerHTML = `<span class="day-number">${date.getDate()}</span><span class="day-value">${displayValue}</span><span class="day-routes">${escapeAttr(displayRouteOrHoliday)}</span>`;
     cell.addEventListener("click", () => selectDate(dateKey));
     el.monthCalendar.appendChild(cell);
   }
@@ -1795,7 +1713,8 @@ function renderStats() {
   el.statsMeterFill.style.width = `${statsPct}%`;
   el.statsMeterPct.textContent = `${Math.round(statsPct)}%`;
   el.statsMeterLabel.textContent = goal ? `목표 ${fmtWon(goal)} (설정됨)` : "목표 미설정";
-  renderStatsSummaryRows(total, statsPct);
+  const compareTotal = summarizeKeys(getStatsCompareKeys());
+  renderStatsSummaryRows(total, statsPct, compareTotal);
   el.statsWorkDays.textContent = `${total.workDays}일`;
   el.statsOffDays.textContent = `${total.offDays}일`;
   el.statsCount.textContent = fmtCount(total.count);
@@ -1807,20 +1726,78 @@ function renderStats() {
   syncStatsRangeButtons();
   renderRevenueList(keys);
   renderStatsChart(keys);
+  renderWeekdayStats(keys);
   renderDailyStatsFor(keys);
   renderYearlyStats();
   renderTotalStats();
 }
-function renderStatsSummaryRows(total, statsPct) {
+function deltaBadge(current, previous) {
+  const text = formatDelta(current, previous);
+  if (!text) return "";
+  const dir = text.startsWith("+") ? "up" : (text.startsWith("-") ? "down" : "flat");
+  return ` <em class="ssc-delta ${dir}">${text}</em>`;
+}
+function renderStatsSummaryRows(total, statsPct, compareTotal = null) {
   const rows = document.querySelector(".stats-summary-card .ssc-rows");
   if (!rows) return;
+  const prev = compareTotal || {};
   rows.innerHTML = `
-    <div class="ssc-main"><span>총매출</span><strong>${fmtWon(total.revenue)}</strong></div>
+    <div class="ssc-main"><span>총매출</span><strong>${fmtWon(total.revenue)}${deltaBadge(total.revenue, prev.revenue)}</strong></div>
     <div><span>목표 대비</span><strong>${Math.round(statsPct)}%</strong></div>
     <div><span>근무일</span><strong>${total.workDays}일</strong></div>
-    <div><span>일평균</span><strong>${formatCompactWonWithUnit(total.average)}</strong></div>
-    <div><span>총 배송건수</span><strong>${fmtCount(total.count)}</strong></div>
+    <div><span>일평균</span><strong>${formatCompactWonWithUnit(total.average)}${deltaBadge(total.average, prev.average)}</strong></div>
+    <div><span>총 배송건수</span><strong>${fmtCount(total.count)}${deltaBadge(total.count, prev.count)}</strong></div>
   `;
+}
+function downloadTextFile(filename, text, type = "text/csv;charset=utf-8;") {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+function exportStatsCsv() {
+  const keys = getStatsKeys().filter((dateKey) => hasMeaningfulRecord(getRecord(dateKey, false)));
+  if (!keys.length) { toast("내보낼 기록이 없습니다.", "error"); return; }
+  const header = ["날짜", "요일", "근무", "라우트", "물량", "프레시백", "매출"];
+  const rows = keys.map((dateKey) => {
+    const record = getRecord(dateKey, false);
+    const details = calcRecordDetails(record);
+    const weekday = WEEKDAYS[parseDateKey(dateKey).getDay()];
+    if (record.off) return [dateKey, weekday, "휴무", "", 0, 0, 0];
+    return [dateKey, weekday, "근무", formatRecordRoutes(record.rows), details.count, details.freshCount, Math.round(details.revenue)];
+  });
+  const { start, end } = getStatsBounds();
+  const filename = `quickflex_${start ? toDateKey(start) : "기록"}_${end ? toDateKey(end) : ""}.csv`;
+  downloadTextFile(filename, buildCsv(header, rows));
+  toast("CSV를 내보냈습니다.", "success");
+}
+function renderWeekdayStats(keys) {
+  if (!el.weekdayStats) return;
+  const rows = (keys || []).map((dateKey) => {
+    const record = getRecord(dateKey, false);
+    const details = calcRecordDetails(record);
+    return {
+      weekday: parseDateKey(dateKey).getDay(),
+      revenue: recordVisibleRevenue(record),
+      worked: !record.off && details.revenue > 0,
+    };
+  });
+  const stats = weekdayAverages(rows);
+  const maxAvg = Math.max(...stats.map((s) => s.average), 1);
+  el.weekdayStats.innerHTML = stats.map((s) => {
+    const pct = Math.round((s.average / maxAvg) * 100);
+    const isWeekend = s.weekday === 0 || s.weekday === 6;
+    return `<div class="wd-row${isWeekend ? " weekend" : ""}">
+      <span class="wd-name">${WEEKDAYS[s.weekday]}</span>
+      <span class="wd-bar"><span style="width:${s.days ? pct : 0}%"></span></span>
+      <span class="wd-val">${s.days ? `${formatCompactWonWithUnit(s.average)} · ${s.days}일` : "-"}</span>
+    </div>`;
+  }).join("");
 }
 function renderDailyStats() { renderDailyStatsFor(getStatsKeys()); }
 function renderDailyStatsFor(allKeys) {
@@ -1831,7 +1808,7 @@ function renderDailyStatsFor(allKeys) {
     const open = state.statsDetailDate === dateKey;
     const routes = record.rows.map((row) => {
       const sub = toNum(row.count) * effectiveUnit(row);
-      return `<div class="dd-row"><span>${formatRouteLabel(row.route)} · ${fmtCount(row.count)} × ${fmtWon(effectiveUnit(row))}</span><strong>${fmtWon(sub)}</strong></div>`;
+      return `<div class="dd-row"><span>${escapeAttr(formatRouteLabel(row.route))} · ${fmtCount(row.count)} × ${fmtWon(effectiveUnit(row))}</span><strong>${fmtWon(sub)}</strong></div>`;
     }).join("");
     const routePreview = record.off ? "휴무" : (formatRecordRoutes(record.rows) || "라우트 없음");
     return `<div class="daily-card stat-day-card">
@@ -1839,7 +1816,7 @@ function renderDailyStatsFor(allKeys) {
         <div class="daily-top">
           <div>
             <strong>${formatLongShort(dateKey)}</strong>
-            <span>${routePreview}</span>
+            <span>${escapeAttr(routePreview)}</span>
           </div>
           <strong>${record.off ? "휴무" : fmtWon(details.revenue)}</strong>
         </div>
@@ -2020,20 +1997,42 @@ function renderStatsChart(keys) {
   const barGap = Math.max(3, Math.min(8, w / Math.max(1, series.length) * .24));
   const barW = Math.max(3, Math.min(18, w / Math.max(1, series.length) - barGap));
   const zeroY = yFor(0);
+  const workedRevenues = series.filter((s) => s.revenue > 0).map((s) => s.revenue);
+  const peakRevenue = workedRevenues.length ? Math.max(...workedRevenues) : 0;
+  const avgRevenue = workedRevenues.length ? workedRevenues.reduce((a, b) => a + b, 0) / workedRevenues.length : 0;
   series.forEach((s, i) => {
     const x = xFor(i);
     const y = yFor(s.revenue);
     statsChartState.points.push({ x, y, ...s });
     const barH = Math.max(s.revenue > 0 ? 3 : 1, zeroY - y);
+    const isPeak = s.revenue > 0 && s.revenue === peakRevenue;
     ctx.fillStyle = s.revenue > 0 ? primaryColor : (cs.getPropertyValue("--soft").trim() || "#AEB0B6");
-    ctx.globalAlpha = s.revenue > 0 ? .9 : .35;
+    ctx.globalAlpha = s.revenue > 0 ? (isPeak ? 1 : .7) : .35;
     ctx.fillRect(x - barW / 2, zeroY - barH, barW, barH);
     ctx.globalAlpha = 1;
     ctx.beginPath();
     ctx.fillStyle = s.revenue > 0 ? "#fff" : (cs.getPropertyValue("--muted").trim() || "#70737C");
-    ctx.arc(x, y, s.revenue > 0 ? 2.2 : 1.8, 0, Math.PI * 2);
+    ctx.arc(x, y, isPeak ? 3 : (s.revenue > 0 ? 2.2 : 1.8), 0, Math.PI * 2);
     ctx.fill();
   });
+  // Dashed average-of-worked-days reference line for context.
+  if (avgRevenue > 0 && avgRevenue <= yMax) {
+    const y = yFor(avgRevenue);
+    ctx.save();
+    ctx.strokeStyle = primaryColor;
+    ctx.globalAlpha = .5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(margin.l, y);
+    ctx.lineTo(margin.l + w, y);
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = labelColor;
+    ctx.font = "9px 'Pretendard Variable', Pretendard, system-ui, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(`평균 ${formatKoreanWon(Math.round(avgRevenue))}`, margin.l + 3, y - 2);
+  }
 }
 function showChartTooltip(clientX) {
   const canvas = el.statsChart;
@@ -2103,7 +2102,7 @@ async function renderAdminDashboard() {
         : state.adminTab === "bundles"
           ? el.adminBundleList
           : el.adminRevenueList;
-    if (target) target.innerHTML = `<div class="daily-card"><span>${error.message}</span></div>`;
+    if (target) target.innerHTML = `<div class="daily-card"><span>${escapeAttr(error.message)}</span></div>`;
   }
 }
 async function renderAdminRevenueStats() {
@@ -2192,7 +2191,7 @@ async function renderAdminRevenueStats() {
     button.addEventListener("click", () => {
       state.adminStatsDetailUser = state.adminStatsDetailUser === button.dataset.adminUser ? "" : button.dataset.adminUser;
       renderAdminRevenueStats().catch((error) => {
-        el.adminRevenueList.innerHTML = `<div class="daily-card"><span>${error.message}</span></div>`;
+        el.adminRevenueList.innerHTML = `<div class="daily-card"><span>${escapeAttr(error.message)}</span></div>`;
       });
     });
   });
@@ -2583,7 +2582,7 @@ function previewImageFile(file, target, altText) {
   if (!file || !target) return;
   const reader = new FileReader();
   reader.onload = () => {
-    target.innerHTML = `<img src="${reader.result}" alt="${altText}" /> <span class="hint">${file.name}</span>`;
+    target.innerHTML = `<img src="${reader.result}" alt="${escapeAttr(altText)}" /> <span class="hint">${escapeAttr(file.name)}</span>`;
   };
   reader.readAsDataURL(file);
 }
@@ -2681,7 +2680,7 @@ async function renderAdminProfiles() {
   }
   const { data, error } = await state.db.from(TABLES.profiles).select("*").order("created_at", { ascending: false });
   if (error) {
-    el.adminProfiles.innerHTML = `<p class="error-text">${error.message}</p>`;
+    el.adminProfiles.innerHTML = `<p class="error-text">${escapeAttr(error.message)}</p>`;
     return;
   }
   const profiles = [...(data || [])].sort((a, b) => {
@@ -2817,6 +2816,7 @@ function bindEvents() {
     loadFromDb,
     login,
     logout,
+    exportStatsCsv,
     moveAdminMonth,
     moveMonth,
     moveStatsMonth,
