@@ -49,6 +49,16 @@ export function bindStatsEvents(ctx) {
       renderStats();
     });
   }
+  if (el.statsChartToggle) {
+    el.statsChartToggle.querySelectorAll("button[data-metric]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const next = btn.dataset.metric === "count" ? "count" : "revenue";
+        if (state.statsChartMetric === next) return;
+        state.statsChartMetric = next;
+        renderStats();
+      });
+    });
+  }
   if (el.statsChart) {
     const handler = (e) => {
       const ev = e.touches ? e.touches[0] : e;

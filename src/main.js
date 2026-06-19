@@ -168,6 +168,7 @@ const state = {
   recordDraftDate: "",
   recordDraft: null,
   statsRangeMode: "thisMonth",
+  statsChartMetric: "revenue",
   statsRangeCustom: { from: "", to: "" },
   revenueVisibility: (() => {
     try { return JSON.parse(localStorage.getItem("quickflex-revenue-vis") || "{}") || {}; }
@@ -257,6 +258,8 @@ const el = {
   statsRangeApply: $("statsRangeApply"),
   statsChart: $("statsChart"),
   statsChartTooltip: $("statsChartTooltip"),
+  statsChartToggle: $("statsChartToggle"),
+  routeStats: $("routeStats"),
   revenueList: $("revenueList"),
   statsAvgCount: $("statsAvgCount"),
   statsWorkDays: $("statsWorkDays"),
@@ -1805,11 +1808,60 @@ function renderStats() {
   el.statsBestDay.textContent = total.best.dateKey ? `${formatLongShort(total.best.dateKey)} ${fmtWon(total.best.revenue)}` : "-";
   el.statsWorstDay.textContent = total.worst.dateKey ? `${formatLongShort(total.worst.dateKey)} ${fmtWon(total.worst.revenue)}` : "-";
   syncStatsRangeButtons();
+  syncStatsChartToggle();
   renderRevenueList(keys);
+  renderRouteStats(keys);
   renderStatsChart(keys);
   renderDailyStatsFor(keys);
   renderYearlyStats();
   renderTotalStats();
+}
+function syncStatsChartToggle() {
+  if (!el.statsChartToggle) return;
+  el.statsChartToggle.querySelectorAll("button[data-metric]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.metric === (state.statsChartMetric || "revenue"));
+  });
+}
+function renderRouteStats(keys) {
+  if (!el.routeStats) return;
+  const routes = new Map();
+  let workDays = 0;
+  (keys || []).forEach((dateKey) => {
+    const record = getRecord(dateKey, false);
+    const aggregates = recordRouteAggregates(record);
+    if (aggregates.size) workDays += 1;
+    aggregates.forEach((agg, route) => {
+      const entry = routes.get(route) || { count: 0, revenue: 0, days: 0 };
+      entry.count += agg.count;
+      entry.revenue += agg.revenue;
+      entry.days += 1;
+      routes.set(route, entry);
+    });
+  });
+  const rows = Array.from(routes.entries())
+    .map(([route, agg]) => ({ route, count: Math.round(agg.count), revenue: Math.round(agg.revenue), days: agg.days }))
+    .sort((a, b) => b.revenue - a.revenue);
+  if (!rows.length) {
+    el.routeStats.innerHTML = `<div class="rs-empty">기록된 구역이 없습니다.</div>`;
+    return;
+  }
+  const maxRevenue = Math.max(...rows.map((row) => row.revenue), 1);
+  el.routeStats.innerHTML = rows.map((row) => {
+    const pct = Math.max(2, Math.round((row.revenue / maxRevenue) * 100));
+    const unit = row.count ? Math.round(row.revenue / row.count) : 0;
+    return `<div class="route-stat-card">
+      <div class="rs-top">
+        <span class="rs-name">${escapeAttr(formatRouteLabel(row.route))}</span>
+        <strong class="rs-amount">${fmtWon(row.revenue)}</strong>
+      </div>
+      <div class="rs-meta">
+        <span>${fmtCount(row.count)}</span>
+        <span>단가 ${fmtWon(unit)}</span>
+        <span>${row.days}일</span>
+      </div>
+      <div class="rs-bar"><span style="width:${pct}%"></span></div>
+    </div>`;
+  }).join("");
 }
 function renderStatsSummaryRows(total, statsPct) {
   const rows = document.querySelector(".stats-summary-card .ssc-rows");
@@ -1985,11 +2037,15 @@ function renderStatsChart(keys) {
   const margin = { l: 42, r: 10, t: 12, b: 26 };
   const w = cssW - margin.l - margin.r;
   const h = cssH - margin.t - margin.b;
-  const maxVal = Math.max(...series.map((s) => s.revenue), 100000);
+  const metric = state.statsChartMetric === "count" ? "count" : "revenue";
+  const valOf = (s) => (metric === "count" ? s.count : s.revenue);
+  const fmtAxis = (v) => (metric === "count" ? String(Math.round(v)) : formatKoreanWon(v));
+  const maxVal = Math.max(...series.map(valOf), metric === "count" ? 50 : 100000);
   const step = niceStep(maxVal / 5);
   const yMax = Math.ceil(maxVal / step) * step;
   const cs = getComputedStyle(document.documentElement);
   const primaryColor = (cs.getPropertyValue("--gold") || "#0066FF").trim() || "#0066FF";
+  const accentColor = (cs.getPropertyValue("--gold2") || primaryColor).trim() || primaryColor;
   const gridColor = (cs.getPropertyValue("--line") || "rgba(112,115,124,.18)").trim() || "rgba(112,115,124,.18)";
   const labelColor = (cs.getPropertyValue("--muted") || "#70737C").trim() || "#70737C";
   ctx.strokeStyle = gridColor;
@@ -2004,7 +2060,7 @@ function renderStatsChart(keys) {
     ctx.moveTo(margin.l, y);
     ctx.lineTo(margin.l + w, y);
     ctx.stroke();
-    ctx.fillText(formatKoreanWon(v), margin.l - 6, y);
+    ctx.fillText(fmtAxis(v), margin.l - 6, y);
   }
   const xFor = (i) => series.length === 1 ? margin.l + w / 2 : margin.l + (i / (series.length - 1)) * w;
   const yFor = (v) => margin.t + h - (v / yMax) * h;
@@ -2020,20 +2076,44 @@ function renderStatsChart(keys) {
   const barGap = Math.max(3, Math.min(8, w / Math.max(1, series.length) * .24));
   const barW = Math.max(3, Math.min(18, w / Math.max(1, series.length) - barGap));
   const zeroY = yFor(0);
+  let maxIdx = -1;
+  series.forEach((s, i) => { if (valOf(s) > (maxIdx < 0 ? 0 : valOf(series[maxIdx]))) maxIdx = i; });
   series.forEach((s, i) => {
+    const value = valOf(s);
+    const active = s.revenue > 0;
     const x = xFor(i);
-    const y = yFor(s.revenue);
+    const y = yFor(value);
     statsChartState.points.push({ x, y, ...s });
-    const barH = Math.max(s.revenue > 0 ? 3 : 1, zeroY - y);
-    ctx.fillStyle = s.revenue > 0 ? primaryColor : (cs.getPropertyValue("--soft").trim() || "#AEB0B6");
-    ctx.globalAlpha = s.revenue > 0 ? .9 : .35;
+    const barH = Math.max(active ? 3 : 1, zeroY - y);
+    ctx.fillStyle = !active ? (cs.getPropertyValue("--soft").trim() || "#AEB0B6") : (i === maxIdx ? accentColor : primaryColor);
+    ctx.globalAlpha = active ? (i === maxIdx ? 1 : .9) : .35;
     ctx.fillRect(x - barW / 2, zeroY - barH, barW, barH);
     ctx.globalAlpha = 1;
     ctx.beginPath();
-    ctx.fillStyle = s.revenue > 0 ? "#fff" : (cs.getPropertyValue("--muted").trim() || "#70737C");
-    ctx.arc(x, y, s.revenue > 0 ? 2.2 : 1.8, 0, Math.PI * 2);
+    ctx.fillStyle = active ? "#fff" : (cs.getPropertyValue("--muted").trim() || "#70737C");
+    ctx.arc(x, y, active ? 2.2 : 1.8, 0, Math.PI * 2);
     ctx.fill();
   });
+  const workValues = series.filter((s) => s.revenue > 0).map(valOf);
+  if (workValues.length) {
+    const avg = workValues.reduce((sum, v) => sum + v, 0) / workValues.length;
+    const avgY = yFor(Math.min(avg, yMax));
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = accentColor;
+    ctx.globalAlpha = .8;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(margin.l, avgY);
+    ctx.lineTo(margin.l + w, avgY);
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = accentColor;
+    ctx.font = "9px 'Pretendard Variable', Pretendard, system-ui, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(`평균 ${fmtAxis(avg)}`, margin.l + 2, Math.max(margin.t + 8, avgY - 2));
+  }
 }
 function showChartTooltip(clientX) {
   const canvas = el.statsChart;

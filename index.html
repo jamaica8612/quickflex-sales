@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.2" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.3" />
   </head>
   <body>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -158,31 +158,39 @@
             <button id="statsRangeApply">적용</button>
           </div>
           <div class="stats-chart-card">
+            <div class="stats-chart-toggle" id="statsChartToggle">
+              <button type="button" data-metric="revenue" class="active">매출</button>
+              <button type="button" data-metric="count">물량</button>
+            </div>
             <canvas id="statsChart" height="200"></canvas>
-            <p class="stats-chart-hint">그래프를 터치하여 상세 데이터를 확인하세요</p>
+            <p class="stats-chart-hint">그래프를 터치하여 상세 데이터를 확인하세요 · 점선은 평균</p>
             <div class="stats-chart-tooltip" id="statsChartTooltip" hidden></div>
           </div>
           <div class="stats-tabs">
-            <button class="stats-tab active" data-tab="monthly">월간 통계</button>
+            <button class="stats-tab active" data-tab="monthly">월간</button>
             <button class="stats-tab" data-tab="revenue">매출</button>
+            <button class="stats-tab" data-tab="routes">구역별</button>
             <button class="stats-tab" data-tab="daily">일간</button>
             <button class="stats-tab" data-tab="yearly" hidden>연간</button>
             <button class="stats-tab" data-tab="total" hidden>누적</button>
           </div>
           <section class="stats-panel active" data-panel="monthly">
-            <div class="stats-list">
-              <div><span>총 근무일</span><strong id="statsWorkDays">0일</strong></div>
-              <div><span>휴무일</span><strong id="statsOffDays">0일</strong></div>
-              <div><span>총 물량</span><strong id="statsCount">0건</strong></div>
-              <div><span>프레시백</span><strong id="statsFresh">0건</strong></div>
-              <div><span>일평균 물량</span><strong id="statsAvgCount">0건</strong></div>
-              <div><span>일평균 매출</span><strong id="statsAverage">0원</strong></div>
-              <div><span>최고 매출일</span><strong id="statsBestDay">-</strong></div>
-              <div><span>최저 매출일</span><strong id="statsWorstDay">-</strong></div>
+            <div class="stat-cards">
+              <div class="stat-card"><span>총 근무일</span><strong id="statsWorkDays">0일</strong></div>
+              <div class="stat-card"><span>휴무일</span><strong id="statsOffDays">0일</strong></div>
+              <div class="stat-card"><span>총 물량</span><strong id="statsCount">0건</strong></div>
+              <div class="stat-card"><span>일평균 물량</span><strong id="statsAvgCount">0건</strong></div>
+              <div class="stat-card"><span>프레시백</span><strong id="statsFresh">0건</strong></div>
+              <div class="stat-card"><span>일평균 매출</span><strong id="statsAverage">0원</strong></div>
+              <div class="stat-card wide"><span>최고 매출일</span><strong id="statsBestDay">-</strong></div>
+              <div class="stat-card wide"><span>최저 매출일</span><strong id="statsWorstDay">-</strong></div>
             </div>
           </section>
           <section class="stats-panel" data-panel="revenue">
             <div id="revenueList" class="revenue-list"></div>
+          </section>
+          <section class="stats-panel" data-panel="routes">
+            <div id="routeStats" class="route-stats"></div>
           </section>
           <section class="stats-panel" data-panel="daily">
             <div id="dailyList" class="daily-list"></div>
@@ -311,7 +319,7 @@
               <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
             </div>
           </section>
-          <p class="app-version">퀵플렉스 매출관리 v1.0.2</p>
+          <p class="app-version">퀵플렉스 매출관리 v1.0.3</p>
         </main>
       </section>
 
@@ -489,7 +497,7 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./src/main.js?v=1.0.2"></script>
+    <script type="module" src="./src/main.js?v=1.0.3"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
