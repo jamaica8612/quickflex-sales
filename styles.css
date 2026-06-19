@@ -1446,6 +1446,74 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
   box-shadow: var(--shadow-card);
 }
 .stats-chart-card canvas { display: block; width: 100%; }
+.stats-chart-toggle {
+  display: inline-flex;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 3px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.stats-chart-toggle button {
+  padding: 5px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.stats-chart-toggle button.active { background: var(--gold); color: #fff; }
+/* === stat cards (월간 통계 그리드) === */
+.stat-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.stat-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 13px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.stat-card span { color: var(--muted); font-size: 12px; font-weight: 650; white-space: nowrap; }
+.stat-card strong {
+  font-family: var(--font-numeric);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stat-card.wide { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.stat-card.wide strong { font-size: 14px; }
+/* === route stats (구역별 통계) === */
+.route-stats { display: grid; gap: 8px; }
+.route-stat-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 11px 13px;
+  display: grid;
+  gap: 8px;
+}
+.route-stat-card .rs-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.route-stat-card .rs-name { font-size: 14px; font-weight: 850; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.route-stat-card .rs-amount { font-family: var(--font-amount); font-size: 15px; font-weight: 800; color: var(--gold); white-space: nowrap; }
+.route-stat-card .rs-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.route-stat-card .rs-bar { height: 6px; border-radius: 999px; background: var(--panel3); overflow: hidden; }
+.route-stat-card .rs-bar > span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--gold), var(--gold2)); }
+.route-stats .rs-empty {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
 .stats-chart-hint {
   margin: 6px 0 0;
   text-align: center;
