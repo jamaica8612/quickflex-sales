@@ -21,7 +21,7 @@
 
 - At the 430px viewport the document client width and scroll width are both 430px; horizontal overflow is 0px.
 - The mobile inspection screen renders 3 groups and exactly 11 checklist rows.
-- The 2026-08-08 migrated record displays `기존 종이기록 이관`, all normal selections, and disabled editing controls.
+- The 2026-08-08 completed record displays `점검 완료`, all normal selections, and disabled editing controls.
 - The 2026-08-09 screen remains editable for the signed-in user and includes `전체 양호`, confirmation, save, and `오늘 미운행으로 기록`.
 - Desktop home and inspection views were captured and inspected for spacing, borders, typography, radii, and control alignment.
 - Live browser console errors: 0.
