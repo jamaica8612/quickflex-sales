@@ -8,9 +8,10 @@ import {
   GOAL,
   PUBLIC_SITE_URL,
   PUBLIC_SUPABASE_CONFIG,
+  RATE_UPDATE_OFFER,
   SAMPLE_SETTLEMENT,
   TABLES,
-} from "./config.js?v=2";
+} from "./config.js?v=3";
 import {
   addDays,
   formatLong,
@@ -165,6 +166,7 @@ const state = {
   saveTimer: null,
   flushing: false,
   flushAgain: false,
+  rateOfferPrompted: false,
   recordDraftDate: "",
   recordDraft: null,
   statsRangeMode: "thisMonth",
@@ -297,6 +299,9 @@ const el = {
   rateUnit: $("rateUnit"),
   saveRate: $("saveRate"),
   rateList: $("rateList"),
+  rateUpdateOffer: $("rateUpdateOffer"),
+  rateUpdateHint: $("rateUpdateHint"),
+  applyRateUpdate: $("applyRateUpdate"),
   scheduleImage: $("scheduleImage"),
   runScheduleOcr: $("runScheduleOcr"),
   ocrStatus: $("ocrStatus"),
@@ -1043,6 +1048,7 @@ async function bootSignedInUser() {
   await loadFromDb();
   renderAll();
   showAuth(false);
+  await maybeOfferRateUpdate();
   if (state.profile?.role === "admin" && el.app.dataset.view === "admin") await renderAdminDashboard();
 }
 async function loadProfile() {
@@ -1177,6 +1183,7 @@ async function logout() {
   state.defaultRates = [];
   state.routeBundles = [];
   state.entries = {};
+  state.rateOfferPrompted = false;
   renderAll();
   showPending(false);
   showAuth(true);
@@ -1222,9 +1229,7 @@ async function migrateLegacyGoalAmount(legacyGoal) {
 async function loadFromDb() {
   if (!state.db || !currentUserId()) return;
   const userId = currentUserId();
-  const defaultRatesQuery = state.profile?.role === "admin"
-    ? Promise.resolve({ data: [], error: null })
-    : state.db.from(TABLES.rates).select("*").neq("user_id", userId).order("route");
+  const defaultRatesQuery = Promise.resolve({ data: [], error: null });
   const [ratesResult, defaultRatesResult, daysResult, itemsResult, bundlesResult] = await Promise.all([
     state.db.from(TABLES.rates).select("*").eq("user_id", userId).order("route"),
     defaultRatesQuery,
@@ -1244,10 +1249,10 @@ async function loadFromDb() {
   state.routeBundles = bundlesResult.data || [];
   state.entries = entriesFromDb(daysResult.data, itemsResult.data);
   const hadRates = state.rates.length > 0;
-  if (!state.rates.length && !state.defaultRates.length) {
+  if (state.profile?.role === "admin" && !state.rates.length) {
     state.rates = avgRates(SAMPLE_SETTLEMENT);
   }
-  if (!state.defaultRates.length && !hadRates && (state.rates.length || !state.defaultRates.length)) {
+  if (state.profile?.role === "admin" && !hadRates && state.rates.length) {
     const merged = mergeDefaultRouteMaster(state.rates);
     state.rates = merged.rates;
     if (!hadRates || merged.changed) await persistRates();
@@ -1264,6 +1269,51 @@ async function persistRates() {
     updated_at: new Date().toISOString(),
   })), { onConflict: "user_id,route" });
   if (upsertError) throw upsertError;
+}
+function pendingRateOfferChanges() {
+  if (!state.profile || state.profile.role === "admin") return [];
+  const currentByRoute = new Map(state.rates.map((rate) => [normalizeRoute(rate.route), toNum(rate.unit)]));
+  return RATE_UPDATE_OFFER.rates.filter((rate) => currentByRoute.get(rate.route) !== rate.unit);
+}
+function renderRateUpdateOffer() {
+  if (!el.rateUpdateOffer) return;
+  const changes = pendingRateOfferChanges();
+  el.rateUpdateOffer.classList.toggle("hidden", !changes.length);
+  if (el.rateUpdateHint) {
+    el.rateUpdateHint.textContent = changes.length
+      ? `새 단가 ${changes.length}개가 대기 중입니다. 적용한 날짜 이후 새 기록부터 사용됩니다.`
+      : "새 단가가 적용되어 있습니다.";
+  }
+}
+async function applyRateUpdateOffer({ ask = true } = {}) {
+  const changes = pendingRateOfferChanges();
+  if (!changes.length) {
+    renderRateUpdateOffer();
+    return toast("이미 새 단가가 적용되어 있습니다.", "success");
+  }
+  if (ask && !window.confirm(`구역 일부 단가가 업데이트되었습니다.\n\n새 단가 ${changes.length}개를 오늘부터 적용할까요?\n기존 기록의 단가는 유지됩니다.`)) return;
+  const byRoute = new Map(state.rates.map((rate) => [normalizeRoute(rate.route), rate]));
+  RATE_UPDATE_OFFER.rates.forEach((rate) => {
+    const existing = byRoute.get(rate.route);
+    if (existing) existing.unit = rate.unit;
+    else state.rates.push({ ...rate, count: 0, amount: 0 });
+  });
+  state.rates.sort((a, b) => a.route.localeCompare(b.route));
+  await persistRates();
+  renderRates();
+  renderAll();
+  toast("새 단가를 오늘부터 적용했습니다.", "success");
+}
+async function maybeOfferRateUpdate() {
+  const changes = pendingRateOfferChanges();
+  if (!changes.length || state.rateOfferPrompted) return;
+  state.rateOfferPrompted = true;
+  const accepted = window.confirm(`구역 일부 단가가 업데이트되었습니다.\n\n새 단가 ${changes.length}개를 오늘부터 적용할까요?\n\n확인: 오늘부터 새 단가 적용\n취소: 지금은 유지하고 설정에서 나중에 변경`);
+  if (!accepted) {
+    renderRateUpdateOffer();
+    return;
+  }
+  await applyRateUpdateOffer({ ask: false });
 }
 async function persistDay(dateKey) {
   const userId = currentUserId();
@@ -1603,6 +1653,7 @@ function renderRates() {
       deleteRate(button.dataset.route).catch((error) => toast(`구역 삭제 실패: ${error.message}`, "error"));
     });
   });
+  renderRateUpdateOffer();
 }
 function mergeDefaultRatesForDisplay() {
   const byRoute = new Map();
@@ -1686,31 +1737,6 @@ function askChangedRatePolicy(changedRates) {
   const suffix = changedRates.length > 12 ? `\n외 ${changedRates.length - 12}개` : "";
   return window.confirm(`기존 단가와 다른 구역이 있습니다.\n\n${preview}${suffix}\n\n정산표 기준 새 단가로 바꿀까요?\n확인: 새 단가로 변경\n취소: 기존 단가 유지`);
 }
-async function approvedRateTargetUserIds() {
-  if (state.profile?.role !== "admin" || !state.db) return [currentUserId()];
-  const { data, error } = await state.db
-    .from(TABLES.profiles)
-    .select("id,driver_type,status")
-    .eq("status", "approved");
-  if (error) throw error;
-  const ids = (data || []).map((profile) => profile.id).filter(Boolean);
-  return ids.length ? ids : [currentUserId()];
-}
-async function persistRatesForUsers(rates, userIds) {
-  const payload = [];
-  const updatedAt = new Date().toISOString();
-  (userIds || []).forEach((userId) => {
-    rates.forEach((rate) => {
-      const route = normalizeRoute(rate.route);
-      const unit = toNum(rate.unit);
-      if (!userId || !route || unit < 0) return;
-      payload.push({ user_id: userId, route, current_unit: unit, updated_at: updatedAt });
-    });
-  });
-  if (!payload.length) return;
-  const { error } = await state.db.from(TABLES.rates).upsert(payload, { onConflict: "user_id,route" });
-  if (error) throw error;
-}
 function splitLine(line) {
   const cells = [];
   let current = "";
@@ -1766,7 +1792,7 @@ async function applySettlementRows(rows) {
   ];
   const createdPreview = created.length ? `새 구역 ${created.map((rate) => rate.route).join(", ")}은 기본 단가로 추가합니다.` : "새 구역은 없습니다.";
   const changedPreview = changed.length ? `단가가 다른 구역 ${changed.length}개는 ${shouldUpdateChanged ? "정산표 단가로 변경" : "기존 단가 유지"}합니다.` : "단가가 다른 구역은 없습니다.";
-  if (!window.confirm(`${createdPreview}\n${changedPreview}\n\n승인된 사용자들의 DB 기본 단가에 반영할까요?`)) {
+  if (!window.confirm(`${createdPreview}\n${changedPreview}\n\n내 DB 기본 단가에 반영할까요?`)) {
     toast("단가 반영을 취소했습니다.", "error");
     return false;
   }
@@ -1776,11 +1802,10 @@ async function applySettlementRows(rows) {
     else state.rates.push(rate);
   });
   state.rates = mergeDefaultRouteMaster(state.rates).rates;
-  const targetUserIds = await approvedRateTargetUserIds();
-  await persistRatesForUsers(state.rates, targetUserIds);
+  await persistRates();
   renderRates();
   renderAll();
-  toast(`정산표 단가와 기본 구역 ${state.rates.length}개를 승인 사용자 ${targetUserIds.length}명 기준으로 반영했습니다.`, "success");
+  toast(`정산표 단가와 기본 구역 ${state.rates.length}개를 내 계정에 반영했습니다.`, "success");
   return true;
 }
 
@@ -2831,9 +2856,6 @@ async function saveAdminProfile(card) {
     updated_at: new Date().toISOString(),
   }).eq("id", id);
   if (error) throw error;
-  if (status === "approved" && state.rates.length) {
-    await persistRatesForUsers(state.rates, [id]);
-  }
   toast("사용자 정보를 저장했습니다.", "success");
   renderAdminDashboard();
 }
@@ -2875,7 +2897,7 @@ function bindEvents() {
     applySchedule,
     applySettlementRows,
     applyTheme,
-    approvedRateTargetUserIds,
+    applyRateUpdateOffer,
     closeSheet,
     confirmOffWithExistingCounts,
     connectDb,
@@ -2905,7 +2927,6 @@ function bindEvents() {
     openSheet,
     parseScheduleCsv,
     parseSettlementCsv,
-    persistRatesForUsers,
     previewImageFile,
     refreshTotals,
     renderAdminDashboard,

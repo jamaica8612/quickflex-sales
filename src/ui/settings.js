@@ -2,6 +2,7 @@ export function bindSettingsEvents(ctx) {
   const {
     el,
     state,
+    applyRateUpdateOffer,
     applyTheme,
     closeSheet,
     connectDb,
@@ -29,6 +30,7 @@ export function bindSettingsEvents(ctx) {
     });
   });
   el.saveProfile.addEventListener("click", () => saveProfile().catch((error) => toast(`프로필 저장 실패: ${error.message}`, "error")));
+  el.applyRateUpdate?.addEventListener("click", () => applyRateUpdateOffer().catch((error) => toast(`단가 업데이트 실패: ${error.message}`, "error")));
   el.goalAmountInput.addEventListener("input", () => {
     const pos = el.goalAmountInput.selectionStart;
     const prevLen = el.goalAmountInput.value.length;
