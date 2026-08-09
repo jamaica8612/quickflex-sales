@@ -106,7 +106,11 @@ body[data-theme="dark"] .total-card {
 }
 
 * { box-sizing: border-box; }
-html { background: var(--shell-bg); }
+html {
+  background: var(--shell-bg);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 body {
   margin: 0;
   background: var(--shell-bg);
@@ -268,7 +272,7 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
   background: var(--panel);
   box-shadow: var(--shadow-card);
 }
-.inspection-entry-copy { min-width: 0; }
+.inspection-entry-copy { min-width: 0; overflow: hidden; }
 .inspection-entry-copy span,
 .inspection-entry-copy strong,
 .inspection-entry-copy small { display: block; }
@@ -276,6 +280,8 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
 .inspection-entry-copy strong { margin-top: 3px; color: var(--text); font-size: 14px; line-height: 1.35; }
 .inspection-entry-copy small { margin-top: 3px; color: var(--muted); font-size: 10px; }
 .inspection-entry-button {
+  position: relative;
+  z-index: 1;
   min-width: 78px;
   min-height: 42px;
   padding: 0 14px;

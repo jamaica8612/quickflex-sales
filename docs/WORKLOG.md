@@ -1043,6 +1043,6 @@ Browser checks:
 - Added profile fields for business name and vehicle number used by the printed form.
 - Added `quickflex_daily_inspections` with QuickFlex-prefixed naming, strict JSON result validation, RLS, and least-privilege grants.
 - Anonymous access is revoked. Approved drivers can read/write only their own records; approved admins can read all records but cannot write another user's records.
-- Migrated the admin account's existing paper records from 2026-06-30 through 2026-08-08 as 40 locked `legacy_paper` all-normal records. 2026-08-09 onward remains user-entered.
+- Migrated existing paper records for all 36 approved QuickFlex users from 2026-06-30 through 2026-08-08 as 1,440 locked `legacy_paper` all-normal records. Pending and blocked profiles were excluded; 2026-08-09 onward remains user-entered per account.
 - Tightened QuickFlex helper-function execution so anonymous users cannot call QuickFlex security-definer helpers.
-- Bumped the shell and visible app version to v1.0.7.
+- Bumped the shell and visible app version to v1.0.8 after mobile text-scaling hardening.
