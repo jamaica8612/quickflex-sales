@@ -1334,13 +1334,30 @@ function renderRateUpdateOffer() {
       : "새 단가가 적용되어 있습니다.";
   }
 }
+async function refreshFutureZeroCountUnits(fromDate = todayKey()) {
+  const changedDates = [];
+  Object.entries(state.entries).forEach(([dateKey, record]) => {
+    if (dateKey < fromDate || record.off) return;
+    let changed = false;
+    record.rows.forEach((row) => {
+      if (!row.route || toNum(row.count) > 0) return;
+      const nextUnit = sharedRateForRoutes(row.route);
+      if (!nextUnit || toNum(row.unit) === nextUnit) return;
+      row.unit = nextUnit;
+      changed = true;
+    });
+    if (changed) changedDates.push(dateKey);
+  });
+  for (const dateKey of changedDates) await persistDay(dateKey);
+  return changedDates;
+}
 async function applyRateUpdateOffer({ ask = true } = {}) {
   const changes = pendingRateOfferChanges();
   if (!changes.length) {
     renderRateUpdateOffer();
     return toast("이미 새 단가가 적용되어 있습니다.", "success");
   }
-  if (ask && !window.confirm(`구역 일부 단가가 업데이트되었습니다.\n\n새 단가 ${changes.length}개를 오늘부터 적용할까요?\n기존 기록의 단가는 유지됩니다.`)) return;
+  if (ask && !window.confirm(`구역 일부 단가가 업데이트되었습니다.\n\n새 단가 ${changes.length}개를 오늘부터 적용할까요?\n완료했거나 건수를 입력한 기존 기록의 단가는 유지됩니다.`)) return;
   const byRoute = new Map(state.rates.map((rate) => [normalizeRoute(rate.route), rate]));
   RATE_UPDATE_OFFER.rates.forEach((rate) => {
     const existing = byRoute.get(rate.route);
@@ -1349,9 +1366,12 @@ async function applyRateUpdateOffer({ ask = true } = {}) {
   });
   state.rates.sort((a, b) => a.route.localeCompare(b.route));
   await persistRates();
+  const refreshedDates = await refreshFutureZeroCountUnits(todayKey());
   renderRates();
   renderAll();
-  toast("새 단가를 오늘부터 적용했습니다.", "success");
+  toast(refreshedDates.length
+    ? `새 단가와 미입력 예정 기록 ${refreshedDates.length}일을 함께 반영했습니다.`
+    : "새 단가를 오늘부터 적용했습니다.", "success");
 }
 async function maybeOfferRateUpdate() {
   const changes = pendingRateOfferChanges();
@@ -1363,7 +1383,7 @@ async function maybeOfferRateUpdate() {
   const intro = `구역 일부 단가가 업데이트되었습니다.\n\n[이번 업데이트 내역]\n${updateItems}`;
   let accepted = false;
   if (changes.length) {
-    accepted = window.confirm(`${intro}\n\n새 단가 ${changes.length}개를 오늘부터 적용할까요?\n기존 기록의 단가는 유지됩니다.\n\n확인: 오늘부터 새 단가 적용\n취소: 지금은 유지하고 설정에서 나중에 변경`);
+    accepted = window.confirm(`${intro}\n\n새 단가 ${changes.length}개를 오늘부터 적용할까요?\n완료했거나 건수를 입력한 기존 기록의 단가는 유지됩니다.\n\n확인: 오늘부터 새 단가 적용\n취소: 지금은 유지하고 설정에서 나중에 변경`);
   } else {
     window.alert(`${intro}\n\n내 단가는 이미 최신 상태입니다.`);
   }
