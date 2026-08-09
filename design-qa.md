@@ -1,53 +1,37 @@
-# QuickFlex responsive design QA
+# QuickFlex daily-inspection design QA
 
-- Source visual truth: `C:\Users\jamai\.codex\generated_images\019fe440-b38e-7b82-86ef-bf05154ad14b\exec-0c7e3e64-75fa-4d79-bc99-45aeb28c3015.png`
-- Source pixels: 1536 x 1089
-- Live implementation: `https://jamaica8612.github.io/quickflex-sales/?deploy=693f1f9`
-- Implementation screenshots:
-  - `C:\Users\jamai\AppData\Local\Temp\quickflex-design-qa\qa-mobile-390-final.png`
-  - `C:\Users\jamai\AppData\Local\Temp\quickflex-design-qa\qa-tablet-834-final.png`
-  - `C:\Users\jamai\AppData\Local\Temp\quickflex-design-qa\qa-desktop-1440-final.png`
-- Combined comparison input: `C:\Users\jamai\AppData\Local\Temp\quickflex-design-qa\comparison-final.png`
-- CSS viewports: 390 x 844, 834 x 1194, 1440 x 1024
-- Density normalization: browser device pixel ratio 1; captures were taken at the stated CSS viewport sizes
-- State: authenticated home screen, dark theme, populated production sales calendar
+- Source visual truth: `C:\Users\jamai\.codex\generated_images\019fe440-b38e-7b82-86ef-bf05154ad14b\exec-9ed49111-9d29-415b-90ce-743eeb06e097.png`
+- Live implementation: `https://jamaica8612.github.io/quickflex-sales/?deploy=3458c89`
+- Implementation captures:
+  - `C:\Users\jamai\AppData\Local\Temp\quickflex-design-qa\inspection-entry-desktop-v108.jpg`
+  - `C:\Users\jamai\AppData\Local\Temp\quickflex-design-qa\inspection-entry-430-v108.jpg`
+  - `C:\Users\jamai\AppData\Local\Temp\quickflex-design-qa\inspection-form-desktop.jpg`
+  - `C:\Users\jamai\AppData\Local\Temp\quickflex-design-qa\inspection-form-430-full.jpg`
+- Combined comparison input: `C:\Users\jamai\AppData\Local\Temp\quickflex-design-qa\inspection-comparison-final.jpg`
+- States: authenticated home entry card, current-day manual checklist, and locked migrated paper record.
 
 ## Findings
 
-- No P0, P1, or P2 fidelity issues remain.
-- The live values and dates intentionally differ from the concept image because the deployed app renders the signed-in user's current production data.
-- The implementation preserves the existing QuickFlex typography, color tokens, controls, callbacks, and data bindings while adopting the selected responsive composition.
+- No P0, P1, or P2 implementation issues remain.
+- The selected `오늘 일상점검` direction is preserved above the calendar with the existing navy/gold product language and a prominent yellow CTA.
+- The responsive workspace intentionally moves the entry card into the calendar workspace on tablet/desktop while keeping the mobile single-column order.
+- The dedicated inspection screen follows the provided official-form reference: date, 11 items in three groups, normal/defect controls, confirmation, save, and no-operation handling.
 
-## Required fidelity surfaces
+## Responsive and interaction evidence
 
-- Fonts and typography: passed; existing product font stack and weight hierarchy remain consistent across breakpoints.
-- Spacing and layout rhythm: passed; summary/calendar split, attached day dock, and desktop navigation rail match the selected direction.
-- Colors and visual tokens: passed; dark navy surfaces, yellow emphasis, muted labels, lines, and radii use the repository tokens.
-- Image quality and asset fidelity: passed; no new raster UI assets were introduced and existing SVG icons remain sharp.
-- Copy and content: passed; existing Korean labels and live Supabase-backed values are preserved.
-
-## Full-view comparison evidence
-
-- The source and all three live captures were placed in `comparison-final.png` and inspected together.
-- Mobile remains a single-column flow with bottom navigation.
-- Tablet uses a summary column plus calendar workspace with the day dock directly attached below the calendar.
-- Desktop uses an 88px navigation rail, fixed summary column, and expanded calendar workspace.
-- Measured horizontal overflow: 0px at tablet and desktop; mobile document width is within the viewport.
-- Measured calendar-to-dock gap: 0px at tablet and desktop.
-
-## Focused interaction evidence
-
-- Settings navigation opened the settings view and the calendar navigation returned to home.
-- Amount/count mode toggles changed state and returned to amount mode.
-- Selecting a populated calendar day updated the selected date to `08/08`.
+- At the 430px viewport the document client width and scroll width are both 430px; horizontal overflow is 0px.
+- The mobile inspection screen renders 3 groups and exactly 11 checklist rows.
+- The 2026-08-08 migrated record displays `기존 종이기록 이관`, all normal selections, and disabled editing controls.
+- The 2026-08-09 screen remains editable for the signed-in user and includes `전체 양호`, confirmation, save, and `오늘 미운행으로 기록`.
+- Desktop home and inspection views were captured and inspected for spacing, borders, typography, radii, and control alignment.
 - Live browser console errors: 0.
 
-## Comparison history
+## Data and access evidence
 
-1. Added the selected responsive workspace while keeping the original mobile surface and production behavior.
-2. Deployed v1.0.4 and captured the authenticated live app.
-3. Found excessive space between the tablet calendar and day dock caused by a flexible grid row.
-4. Replaced the flexible rows with `auto auto`, added start alignment, bumped the shell cache to v1.0.5, and redeployed.
-5. Re-captured all target viewports and confirmed the calendar-to-dock gap is 0px with no blocking fidelity issues.
+- The home card loads from the signed-in user's Supabase-backed inspection records.
+- `quickflex_daily_inspections` has RLS enabled and exposes no anonymous table privileges.
+- Authenticated table privileges are limited to SELECT, INSERT, UPDATE, and DELETE; TRUNCATE, TRIGGER, and REFERENCES are revoked.
+- RLS allows approved users to write only rows where `user_id = auth.uid()`; admins receive cross-account read access only.
+- All 36 approved users have 40 locked `legacy_paper` rows each for 2026-06-30 through 2026-08-08, totaling 1,440 records.
 
 final result: passed
