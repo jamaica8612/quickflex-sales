@@ -279,6 +279,7 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
 .inspection-entry-copy span { color: var(--gold); font-size: 12px; font-weight: 850; }
 .inspection-entry-copy strong { margin-top: 3px; color: var(--text); font-size: 14px; line-height: 1.35; }
 .inspection-entry-copy small { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.inspection-entry-copy .inspection-duty-label { margin-top: 6px; color: var(--gold); font-weight: 850; }
 .inspection-entry-button {
   position: relative;
   z-index: 1;
@@ -315,6 +316,22 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
 }
 .inspection-date-field span { color: var(--muted); font-size: 12px; font-weight: 800; }
 .inspection-date-field input { min-height: 38px; padding: 0 10px; }
+.inspection-legal-notice {
+  margin-top: 10px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--primary-border);
+  border-radius: 12px;
+  background: var(--primary-bg);
+  color: var(--text);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.inspection-legal-notice strong { flex: 0 0 auto; color: var(--gold); font-size: 11px; }
+.inspection-legal-notice span { text-align: right; }
 .inspection-sign-info { display: flex; justify-content: space-between; gap: 12px; margin: 10px 2px 16px; color: var(--muted); font-size: 11px; }
 .inspection-legacy-badge { margin: -4px 0 14px; padding: 8px 12px; border-radius: 10px; color: var(--gold); background: var(--primary-bg); border: 1px solid var(--primary-border); font-size: 11px; font-weight: 800; text-align: center; }
 .inspection-group { margin-top: 14px; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
