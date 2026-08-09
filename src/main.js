@@ -1,6 +1,7 @@
 ﻿"use strict";
 
 import {
+  APP_UPDATE_NOTICE,
   DB_KEY,
   DEFAULT_BACKUP_UNIT,
   DEFAULT_ROUTE_BUNDLES,
@@ -11,7 +12,7 @@ import {
   RATE_UPDATE_OFFER,
   SAMPLE_SETTLEMENT,
   TABLES,
-} from "./config.js?v=3";
+} from "./config.js?v=4";
 import {
   addDays,
   formatLong,
@@ -1353,10 +1354,27 @@ async function applyRateUpdateOffer({ ask = true } = {}) {
 }
 async function maybeOfferRateUpdate() {
   const changes = pendingRateOfferChanges();
-  if (!changes.length || state.rateOfferPrompted) return;
+  const noticeVersion = `${APP_UPDATE_NOTICE.id}:${RATE_UPDATE_OFFER.id}`;
+  const noticePending = state.profile?.app_notice_version !== noticeVersion;
+  if (!noticePending || state.rateOfferPrompted) return;
   state.rateOfferPrompted = true;
-  const accepted = window.confirm(`구역 일부 단가가 업데이트되었습니다.\n\n새 단가 ${changes.length}개를 오늘부터 적용할까요?\n\n확인: 오늘부터 새 단가 적용\n취소: 지금은 유지하고 설정에서 나중에 변경`);
-  if (!accepted) {
+  const updateItems = APP_UPDATE_NOTICE.items.map((item) => `• ${item}`).join("\n");
+  const intro = `구역 일부 단가가 업데이트되었습니다.\n\n[이번 업데이트 내역]\n${updateItems}`;
+  let accepted = false;
+  if (changes.length) {
+    accepted = window.confirm(`${intro}\n\n새 단가 ${changes.length}개를 오늘부터 적용할까요?\n기존 기록의 단가는 유지됩니다.\n\n확인: 오늘부터 새 단가 적용\n취소: 지금은 유지하고 설정에서 나중에 변경`);
+  } else {
+    window.alert(`${intro}\n\n내 단가는 이미 최신 상태입니다.`);
+  }
+  const { data, error } = await state.db
+    .from(TABLES.profiles)
+    .update({ app_notice_version: noticeVersion, updated_at: new Date().toISOString() })
+    .eq("id", currentUserId())
+    .select("*")
+    .single();
+  if (error) throw error;
+  state.profile = data;
+  if (!changes.length || !accepted) {
     renderRateUpdateOffer();
     return;
   }

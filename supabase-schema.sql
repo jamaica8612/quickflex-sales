@@ -90,7 +90,8 @@ alter table public.quickflex_profiles
   add column if not exists updated_at timestamptz not null default now(),
   add column if not exists freshbag_mode text not null default 'single',
   add column if not exists business_name text not null default '',
-  add column if not exists vehicle_number text not null default '';
+  add column if not exists vehicle_number text not null default '',
+  add column if not exists app_notice_version text not null default '';
 
 alter table public.quickflex_day_records
   add column if not exists backup_unit integer not null default 30,

@@ -1046,3 +1046,4 @@ Browser checks:
 - Migrated existing paper records for all 36 approved QuickFlex users from 2026-06-30 through 2026-08-08 as 1,440 locked `legacy_paper` all-normal records. Pending and blocked profiles were excluded; 2026-08-09 onward remains user-entered per account.
 - Tightened QuickFlex helper-function execution so anonymous users cannot call QuickFlex security-definer helpers.
 - Bumped the shell and visible app version to v1.0.8 after mobile text-scaling hardening.
+- Added a database-backed one-time v1.0.9 update notice. It starts with the route-rate update message, lists the daily-inspection release details, and keeps rate acceptance separate so declined users can still apply rates later from Settings.
