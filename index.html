@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.6" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.7" />
   </head>
   <body>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -43,6 +43,15 @@
           </div>
         </header>
 
+        <section class="inspection-entry-card" id="inspectionEntryCard">
+          <div class="inspection-entry-copy">
+            <span id="inspectionEntryEyebrow">오늘 일상점검</span>
+            <strong id="inspectionEntryTitle">운행 전 차량 상태를 확인해주세요</strong>
+            <small id="inspectionEntryStatus">아직 점검하지 않았습니다</small>
+          </div>
+          <button id="openInspection" class="inspection-entry-button" type="button">점검하기</button>
+        </section>
+
         <main class="calendar-panel">
           <div class="calendar-toolbar">
             <button class="round-btn" id="prevMonth" aria-label="이전 달"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
@@ -68,6 +77,37 @@
           <button class="ghost-pill" id="homeOffToggle">휴무</button>
           <button class="primary-pill" id="openRecord">기록하기</button>
         </footer>
+      </section>
+
+      <section class="view view-inspection">
+        <header class="sub-header inspection-header">
+          <button class="round-btn" id="backFromInspection" aria-label="달력으로"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <div class="sub-title"><strong>일상점검</strong><span>운행 전 차량 상태 확인</span></div>
+          <button class="secondary-btn inspection-history-button" id="printInspectionMonth" type="button">월간 출력</button>
+        </header>
+        <main class="inspection-body">
+          <label class="inspection-date-field">
+            <span>점검일</span>
+            <input id="inspectionDate" type="date" />
+          </label>
+          <div class="inspection-sign-info">
+            <span id="inspectionDriverName">-</span>
+            <span id="inspectionVehicleNumber">차량번호 미설정</span>
+          </div>
+          <div id="inspectionLegacyBadge" class="inspection-legacy-badge hidden">기존 종이기록 이관</div>
+          <div id="inspectionChecklist" class="inspection-checklist"></div>
+          <section id="inspectionDefectFields" class="inspection-defect-fields hidden">
+            <label>이상 내용<textarea id="inspectionDefectNotes" placeholder="이상 상태를 적어주세요"></textarea></label>
+            <label>조치 내용<textarea id="inspectionActionNotes" placeholder="정비·조치 내용을 적어주세요"></textarea></label>
+          </section>
+          <div class="inspection-quick-actions">
+            <button id="inspectionAllGood" class="inspection-good-button" type="button">전체 양호</button>
+            <button id="inspectionReset" class="secondary-btn" type="button">전체 초기화</button>
+          </div>
+          <label class="inspection-confirm-row"><input id="inspectionConfirmed" type="checkbox" /><span>본인이 직접 점검했으며 위 내용이 맞습니다.</span></label>
+          <button id="saveInspection" class="full-btn inspection-save-button" type="button">일상점검 저장</button>
+          <button id="markNoOperation" class="inspection-no-operation" type="button">오늘 미운행으로 기록</button>
+        </main>
       </section>
 
       <section class="view view-record">
@@ -213,6 +253,14 @@
               <label>이름</label>
               <input id="profileDisplayName" type="text" placeholder="이름" />
             </div>
+            <div class="settings-field">
+              <label>상호</label>
+              <input id="profileBusinessName" type="text" placeholder="일상점검표에 표시할 상호" />
+            </div>
+            <div class="settings-field">
+              <label>차량번호</label>
+              <input id="profileVehicleNumber" type="text" placeholder="예: 부산80바1234" />
+            </div>
             <div class="settings-field fixed-only">
               <label>고정 라우트</label>
               <div id="fixedRoutesText" class="readonly-value">-</div>
@@ -326,7 +374,7 @@
               <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
             </div>
           </section>
-          <p class="app-version">퀵플렉스 매출관리 v1.0.6</p>
+          <p class="app-version">퀵플렉스 매출관리 v1.0.7</p>
         </main>
       </section>
 
@@ -504,7 +552,7 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./src/main.js?v=1.0.6"></script>
+    <script type="module" src="./src/main.js?v=1.0.7"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
