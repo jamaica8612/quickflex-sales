@@ -545,28 +545,28 @@ on public.quickflex_daily_inspections
 for select
 to authenticated
 using (
-  public.quickflex_is_admin()
-  or (user_id = auth.uid() and public.quickflex_is_approved())
+  (select public.quickflex_is_admin())
+  or (user_id = (select auth.uid()) and (select public.quickflex_is_approved()))
 );
 
 create policy "quickflex inspections insert own"
 on public.quickflex_daily_inspections
 for insert
 to authenticated
-with check (user_id = auth.uid() and public.quickflex_is_approved());
+with check (user_id = (select auth.uid()) and (select public.quickflex_is_approved()));
 
 create policy "quickflex inspections update own"
 on public.quickflex_daily_inspections
 for update
 to authenticated
-using (user_id = auth.uid() and public.quickflex_is_approved())
-with check (user_id = auth.uid() and public.quickflex_is_approved());
+using (user_id = (select auth.uid()) and (select public.quickflex_is_approved()))
+with check (user_id = (select auth.uid()) and (select public.quickflex_is_approved()));
 
 create policy "quickflex inspections delete own"
 on public.quickflex_daily_inspections
 for delete
 to authenticated
-using (user_id = auth.uid() and public.quickflex_is_approved());
+using (user_id = (select auth.uid()) and (select public.quickflex_is_approved()));
 
 comment on table public.quickflex_profiles is 'QuickFlex users and driver type settings';
 comment on table public.quickflex_route_rates is 'Current route unit master data per user';
