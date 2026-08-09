@@ -1048,3 +1048,4 @@ Browser checks:
 - Bumped the shell and visible app version to v1.0.8 after mobile text-scaling hardening.
 - Added a database-backed one-time v1.0.9 update notice. It starts with the route-rate update message, lists the daily-inspection release details, and keeps rate acceptance separate so declined users can still apply rates later from Settings.
 - Updated v1.0.10 user-facing copy so historical inspection records appear only as `점검 완료`; paper-migration provenance remains internal and is not shown in the popup, checklist, or printed form.
+- Split the monthly inspection action into `월간 출력` and `PDF 저장`. Printing keeps the browser print flow, while PDF saving downloads a landscape A4 file named for the selected month.

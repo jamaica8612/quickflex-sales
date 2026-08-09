@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.10" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.11" />
   </head>
   <body>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -83,7 +83,10 @@
         <header class="sub-header inspection-header">
           <button class="round-btn" id="backFromInspection" aria-label="달력으로"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
           <div class="sub-title"><strong>일상점검</strong><span>운행 전 차량 상태 확인</span></div>
-          <button class="secondary-btn inspection-history-button" id="printInspectionMonth" type="button">월간 출력</button>
+          <div class="inspection-header-actions">
+            <button class="secondary-btn inspection-history-button" id="printInspectionMonth" type="button">월간 출력</button>
+            <button class="secondary-btn inspection-history-button inspection-save-pdf-button" id="saveInspectionMonthPdf" type="button">PDF 저장</button>
+          </div>
         </header>
         <main class="inspection-body">
           <label class="inspection-date-field">
@@ -374,7 +377,7 @@
               <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
             </div>
           </section>
-          <p class="app-version">퀵플렉스 매출관리 v1.0.10</p>
+          <p class="app-version">퀵플렉스 매출관리 v1.0.11</p>
         </main>
       </section>
 
@@ -552,7 +555,9 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./src/main.js?v=1.0.10"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+    <script type="module" src="./src/main.js?v=1.0.11"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
