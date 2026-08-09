@@ -1,4 +1,4 @@
-const CACHE_NAME = "quickflex-shell-v1.0.6";
+const CACHE_NAME = "quickflex-shell-v1.0.7";
 const SHELL_FILES = [
   "./",
   "./index.html",
@@ -13,6 +13,7 @@ const SHELL_FILES = [
   "./src/services/auth.js",
   "./src/services/db.js",
   "./src/ui/calendar.js",
+  "./src/ui/inspection.js",
   "./src/ui/record.js",
   "./src/ui/stats.js",
   "./src/ui/settings.js",

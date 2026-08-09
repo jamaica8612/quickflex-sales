@@ -11,6 +11,7 @@ export const TABLES = {
   days: "quickflex_day_records",
   items: "quickflex_day_route_items",
   bundles: "quickflex_route_bundles",
+  inspections: "quickflex_daily_inspections",
 };
 
 export const DB_KEY = "quickflex-supabase-config";

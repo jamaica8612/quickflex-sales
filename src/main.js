@@ -36,6 +36,7 @@ import { bindAdminEvents } from "./ui/admin.js";
 import { bindAuthEvents } from "./services/auth.js";
 import { mergeDefaultRouteMaster, ratesFromDb } from "./services/db.js";
 import { bindCalendarEvents } from "./ui/calendar.js";
+import { bindInspectionEvents } from "./ui/inspection.js";
 import { bindOcrEvents } from "./ui/ocr.js";
 import { bindRecordEvents } from "./ui/record.js";
 import { bindSettingsEvents } from "./ui/settings.js";
@@ -138,6 +139,19 @@ import { toNum } from "./lib/revenue.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
 const LEGACY_USER_NAMES = new Map([["kim-gwanhyun", "김관현"]]);
+const INSPECTION_ITEMS = [
+  ["외관점검", "번호판, 전면유리, 후사경 등의 청결상태"],
+  ["외관점검", "후미등, 차폭등 등 등화장치 작동상태"],
+  ["외관점검", "창닦이기(와이퍼) 작동상태"],
+  ["외관점검", "적재함(보조지지대 포함), 측면 보호대, 후부반사판, 트레일러 연결장치의 부착 상태 및 훼손 여부"],
+  ["상태점검", "타이어 손상 및 마모(1.6mm 이상) 여부"],
+  ["상태점검", "화물, 적재함 지지대(판스프링) 등의 고정상태"],
+  ["상태점검", "바퀴 너트 등 균열 여부"],
+  ["기타", "냉각수, 공기압, 엔진오일 등 차량 이상 여부(계기판 확인)"],
+  ["기타", "좌석안전띠 상태"],
+  ["기타", "소화기 비치 여부"],
+  ["기타", "안전삼각대 등 비치 여부"],
+];
 
 const today = new Date();
 const initialPeriodMonth = today.getDate() <= 25 ? today.getMonth() + 1 : today.getMonth() + 2;
@@ -157,6 +171,9 @@ const state = {
   defaultRates: [],
   routeBundles: [],
   entries: {},
+  inspections: {},
+  inspectionDate: todayKey(),
+  inspectionDraft: { results: {}, defectNotes: "", actionNotes: "" },
   db: null,
   session: null,
   profile: null,
@@ -224,6 +241,26 @@ const el = {
   homeOffToggle: $("homeOffToggle"),
   openRecord: $("openRecord"),
   openSettings: $("openSettings"),
+  inspectionEntryCard: $("inspectionEntryCard"),
+  inspectionEntryEyebrow: $("inspectionEntryEyebrow"),
+  inspectionEntryTitle: $("inspectionEntryTitle"),
+  inspectionEntryStatus: $("inspectionEntryStatus"),
+  openInspection: $("openInspection"),
+  backFromInspection: $("backFromInspection"),
+  printInspectionMonth: $("printInspectionMonth"),
+  inspectionDate: $("inspectionDate"),
+  inspectionDriverName: $("inspectionDriverName"),
+  inspectionVehicleNumber: $("inspectionVehicleNumber"),
+  inspectionLegacyBadge: $("inspectionLegacyBadge"),
+  inspectionChecklist: $("inspectionChecklist"),
+  inspectionDefectFields: $("inspectionDefectFields"),
+  inspectionDefectNotes: $("inspectionDefectNotes"),
+  inspectionActionNotes: $("inspectionActionNotes"),
+  inspectionAllGood: $("inspectionAllGood"),
+  inspectionReset: $("inspectionReset"),
+  inspectionConfirmed: $("inspectionConfirmed"),
+  saveInspection: $("saveInspection"),
+  markNoOperation: $("markNoOperation"),
   backToCalendar: $("backToCalendar"),
   prevDay: $("prevDay"),
   nextDay: $("nextDay"),
@@ -292,6 +329,8 @@ const el = {
   logoutBtn: $("logoutBtn"),
   syncStatus: $("syncStatus"),
   profileDisplayName: $("profileDisplayName"),
+  profileBusinessName: $("profileBusinessName"),
+  profileVehicleNumber: $("profileVehicleNumber"),
   fixedRoutesText: $("fixedRoutesText"),
   fixedRoutesInput: $("fixedRoutesInput"),
   saveProfile: $("saveProfile"),
@@ -998,6 +1037,8 @@ function applyProfileUi() {
   el.app.dataset.role = isAdmin ? "admin" : "driver";
   el.profileName.textContent = profile.display_name || "매출관리";
   el.profileDisplayName.value = profile.display_name || "";
+  el.profileBusinessName.value = profile.business_name || "";
+  el.profileVehicleNumber.value = profile.vehicle_number || "";
   const fixedRouteText = (profile.fixed_routes || []).join(", ");
   el.fixedRoutesInput.value = fixedRouteText;
   if (el.fixedRoutesText) el.fixedRoutesText.textContent = fixedRouteText || "관리자가 지정한 라우트가 없습니다.";
@@ -1089,6 +1130,8 @@ async function saveProfile() {
   const selectedMode = document.querySelector('input[name="freshbagMode"]:checked')?.value || "single";
   const payload = {
     display_name: el.profileDisplayName.value.trim() || driverName(),
+    business_name: el.profileBusinessName.value.trim(),
+    vehicle_number: el.profileVehicleNumber.value.trim(),
     freshbag_mode: selectedMode,
     updated_at: new Date().toISOString(),
   };
@@ -1183,6 +1226,7 @@ async function logout() {
   state.defaultRates = [];
   state.routeBundles = [];
   state.entries = {};
+  state.inspections = {};
   state.rateOfferPrompted = false;
   renderAll();
   showPending(false);
@@ -1230,24 +1274,27 @@ async function loadFromDb() {
   if (!state.db || !currentUserId()) return;
   const userId = currentUserId();
   const defaultRatesQuery = Promise.resolve({ data: [], error: null });
-  const [ratesResult, defaultRatesResult, daysResult, itemsResult, bundlesResult] = await Promise.all([
+  const [ratesResult, defaultRatesResult, daysResult, itemsResult, bundlesResult, inspectionsResult] = await Promise.all([
     state.db.from(TABLES.rates).select("*").eq("user_id", userId).order("route"),
     defaultRatesQuery,
     state.db.from(TABLES.days).select("*").eq("user_id", userId),
     state.db.from(TABLES.items).select("*").eq("user_id", userId).order("sort_order"),
     state.db.from(TABLES.bundles).select("*").eq("active", true).order("sort_order").order("label"),
+    state.db.from(TABLES.inspections).select("*").eq("user_id", userId).order("inspection_date"),
   ]);
   if (ratesResult.error) throw ratesResult.error;
   if (defaultRatesResult.error) throw defaultRatesResult.error;
   if (daysResult.error) throw daysResult.error;
   if (itemsResult.error) throw itemsResult.error;
   if (bundlesResult.error) throw bundlesResult.error;
+  if (inspectionsResult.error) throw inspectionsResult.error;
   const goalRate = (ratesResult.data || []).find((row) => normalizeRoute(row.route) === GOAL_SETTING_ROUTE);
   await migrateLegacyGoalAmount(toNum(goalRate?.current_unit));
   state.rates = ratesFromDb(ratesResult.data);
   state.defaultRates = ratesFromDb(defaultRatesResult.data);
   state.routeBundles = bundlesResult.data || [];
   state.entries = entriesFromDb(daysResult.data, itemsResult.data);
+  state.inspections = Object.fromEntries((inspectionsResult.data || []).map((row) => [row.inspection_date, row]));
   const hadRates = state.rates.length > 0;
   if (state.profile?.role === "admin" && !state.rates.length) {
     state.rates = avgRates(SAMPLE_SETTLEMENT);
@@ -1395,11 +1442,179 @@ async function ensurePendingSavesFlushed() {
   await flushSaves();
 }
 
+function inspectionResultsFromRecord(record) {
+  const results = record?.results && typeof record.results === "object" ? record.results : {};
+  return Object.fromEntries(INSPECTION_ITEMS.map((_, index) => [`item_${index + 1}`, results[`item_${index + 1}`] || ""]));
+}
+function inspectionDraftFromRecord(record) {
+  return {
+    results: inspectionResultsFromRecord(record),
+    defectNotes: record?.defect_notes || "",
+    actionNotes: record?.action_notes || "",
+  };
+}
+function renderInspectionEntry() {
+  const record = state.inspections[todayKey()];
+  const complete = Boolean(record);
+  el.inspectionEntryCard.classList.toggle("complete", complete);
+  el.inspectionEntryEyebrow.textContent = complete ? "오늘 점검 완료" : "오늘 일상점검";
+  el.inspectionEntryTitle.textContent = complete
+    ? (record.status === "no_operation" ? "오늘은 미운행으로 기록했습니다" : "운행 전 차량 점검을 완료했습니다")
+    : "운행 전 차량 상태를 확인해주세요";
+  el.inspectionEntryStatus.textContent = complete
+    ? `${record.signed_name || driverName()} · ${new Date(record.signed_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}`
+    : "아직 점검하지 않았습니다";
+  el.openInspection.textContent = complete ? "기록 보기" : "점검하기";
+}
+function renderInspection(dateKey = todayKey(), options = {}) {
+  const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? dateKey : todayKey();
+  const record = state.inspections[safeDate] || null;
+  state.inspectionDate = safeDate;
+  if (!options.preserveDraft) state.inspectionDraft = inspectionDraftFromRecord(record);
+  el.inspectionDate.min = "2026-06-30";
+  el.inspectionDate.max = todayKey();
+  el.inspectionDate.value = safeDate;
+  el.inspectionDriverName.textContent = state.profile?.business_name
+    ? `${state.profile.business_name} · ${driverName()}`
+    : driverName();
+  el.inspectionVehicleNumber.textContent = state.profile?.vehicle_number || "차량번호 미설정";
+  const legacy = record?.source === "legacy_paper";
+  el.inspectionLegacyBadge.classList.toggle("hidden", !legacy);
+  const grouped = new Map();
+  INSPECTION_ITEMS.forEach(([group, label], index) => {
+    if (!grouped.has(group)) grouped.set(group, []);
+    grouped.get(group).push({ key: `item_${index + 1}`, number: index + 1, label });
+  });
+  el.inspectionChecklist.innerHTML = [...grouped.entries()].map(([group, items]) => `
+    <section class="inspection-group">
+      <h2 class="inspection-group-title">${group}</h2>
+      ${items.map((item) => {
+        const value = state.inspectionDraft.results[item.key] || "";
+        return `<div class="inspection-row"><p>${item.number}. ${escapeAttr(item.label)}</p>
+          <button type="button" class="inspection-choice${value === "good" ? " active" : ""}" data-inspection-item="${item.key}" data-result="good" aria-label="${item.number}번 양호">○</button>
+          <button type="button" class="inspection-choice${value === "bad" ? " active" : ""}" data-inspection-item="${item.key}" data-result="bad" aria-label="${item.number}번 이상">×</button>
+        </div>`;
+      }).join("")}
+    </section>`).join("");
+  const hasBad = Object.values(state.inspectionDraft.results).includes("bad");
+  el.inspectionDefectFields.classList.toggle("hidden", !hasBad);
+  el.inspectionDefectNotes.value = state.inspectionDraft.defectNotes;
+  el.inspectionActionNotes.value = state.inspectionDraft.actionNotes;
+  el.inspectionConfirmed.checked = Boolean(record);
+  const locked = legacy;
+  el.inspectionChecklist.querySelectorAll("button").forEach((button) => { button.disabled = locked; });
+  [el.inspectionAllGood, el.inspectionReset, el.inspectionConfirmed, el.saveInspection, el.markNoOperation].forEach((node) => { node.disabled = locked; });
+  el.inspectionDefectNotes.disabled = locked;
+  el.inspectionActionNotes.disabled = locked;
+  el.saveInspection.textContent = record ? (locked ? "종이기록 이관 완료" : "일상점검 수정 저장") : "일상점검 저장";
+}
+function openInspection() {
+  renderInspection(todayKey());
+  showView("inspection");
+}
+function setAllInspectionResults(result) {
+  state.inspectionDraft.results = Object.fromEntries(INSPECTION_ITEMS.map((_, index) => [`item_${index + 1}`, result]));
+  state.inspectionDraft.defectNotes = el.inspectionDefectNotes.value;
+  state.inspectionDraft.actionNotes = el.inspectionActionNotes.value;
+  renderInspection(state.inspectionDate, { preserveDraft: true });
+}
+function resetInspectionDraft() {
+  state.inspectionDraft = inspectionDraftFromRecord(null);
+  renderInspection(state.inspectionDate, { preserveDraft: true });
+}
+async function saveInspection() {
+  const dateKey = state.inspectionDate;
+  if (dateKey < "2026-06-30" || dateKey > todayKey()) throw new Error("점검일을 확인해 주세요.");
+  const results = state.inspectionDraft.results;
+  if (INSPECTION_ITEMS.some((_, index) => !["good", "bad"].includes(results[`item_${index + 1}`]))) {
+    throw new Error("11개 항목을 모두 점검해 주세요.");
+  }
+  if (!el.inspectionConfirmed.checked) throw new Error("본인 점검 확인에 체크해 주세요.");
+  const hasBad = Object.values(results).includes("bad");
+  const defectNotes = el.inspectionDefectNotes.value.trim();
+  const actionNotes = el.inspectionActionNotes.value.trim();
+  if (hasBad && (!defectNotes || !actionNotes)) throw new Error("이상 내용과 조치 내용을 모두 적어 주세요.");
+  const payload = {
+    user_id: currentUserId(),
+    inspection_date: dateKey,
+    status: "completed",
+    results,
+    defect_notes: defectNotes,
+    action_notes: actionNotes,
+    signed_name: driverName(),
+    signed_at: new Date().toISOString(),
+    source: "app",
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await state.db.from(TABLES.inspections).upsert(payload, { onConflict: "user_id,inspection_date" }).select("*").single();
+  if (error) throw error;
+  state.inspections[dateKey] = data;
+  renderInspection(dateKey);
+  renderInspectionEntry();
+  toast("일상점검을 저장했습니다.", "success");
+}
+async function setInspectionNoOperation() {
+  if (!window.confirm(`${formatLong(state.inspectionDate)}을 미운행으로 기록할까요?`)) return;
+  const payload = {
+    user_id: currentUserId(),
+    inspection_date: state.inspectionDate,
+    status: "no_operation",
+    results: Object.fromEntries(INSPECTION_ITEMS.map((_, index) => [`item_${index + 1}`, "no_operation"])),
+    defect_notes: "",
+    action_notes: "",
+    signed_name: driverName(),
+    signed_at: new Date().toISOString(),
+    source: "app",
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await state.db.from(TABLES.inspections).upsert(payload, { onConflict: "user_id,inspection_date" }).select("*").single();
+  if (error) throw error;
+  state.inspections[state.inspectionDate] = data;
+  renderInspection(state.inspectionDate);
+  renderInspectionEntry();
+  toast("미운행으로 저장했습니다.", "success");
+}
+function printInspectionMonth() {
+  const [year, month] = state.inspectionDate.split("-").map(Number);
+  const lastDay = new Date(year, month, 0).getDate();
+  const days = Array.from({ length: lastDay }, (_, index) => index + 1);
+  document.querySelector(".inspection-print-sheet")?.remove();
+  const sheet = document.createElement("section");
+  sheet.className = "inspection-print-sheet";
+  const statusMark = (day, itemKey) => {
+    const row = state.inspections[`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`];
+    const value = row?.results?.[itemKey];
+    return value === "good" ? "○" : value === "bad" ? "×" : value === "no_operation" ? "미" : "";
+  };
+  sheet.innerHTML = `<h1>운수종사자 일상점검표</h1>
+    <div class="inspection-print-meta">
+      <span>점검월: ${year}년 ${month}월</span>
+      <span>상호: ${escapeAttr(state.profile?.business_name || "")}</span>
+      <span>차량번호: ${escapeAttr(state.profile?.vehicle_number || "")}</span>
+      <span>운수종사자: ${escapeAttr(driverName())}</span>
+    </div>
+    <table class="inspection-print-table"><thead><tr><th>구분</th><th>점검항목</th>${days.map((day) => `<th>${day}</th>`).join("")}</tr></thead><tbody>
+      ${INSPECTION_ITEMS.map(([group, label], index) => `<tr><td>${escapeAttr(group)}</td><td>${index + 1}. ${escapeAttr(label)}</td>${days.map((day) => `<td>${statusMark(day, `item_${index + 1}`)}</td>`).join("")}</tr>`).join("")}
+      <tr><td colspan="2">운수종사자 확인</td>${days.map((day) => {
+        const row = state.inspections[`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`];
+        return `<td>${row ? escapeAttr(row.signed_name || driverName()).slice(0, 3) : ""}</td>`;
+      }).join("")}</tr>
+      <tr><td colspan="2">결함 및 조치사항</td><td colspan="${lastDay}">${days.map((day) => {
+        const row = state.inspections[`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`];
+        return row?.defect_notes ? `${day}일 ${escapeAttr(row.defect_notes)} / ${escapeAttr(row.action_notes)}` : "";
+      }).filter(Boolean).join(" · ")}</td></tr>
+    </tbody></table><p class="inspection-print-legend">표시: 양호 ○ · 불량 × · 미운행 미 / 앱 기록과 기존 종이기록 이관분을 함께 출력함</p>`;
+  document.body.appendChild(sheet);
+  window.print();
+  setTimeout(() => sheet.remove(), 1000);
+}
+
 function showView(view) {
   if (view === "admin" && state.profile?.role !== "admin") view = "home";
   el.app.dataset.view = view;
   el.navTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === view));
   if (view === "record") renderEntryForm();
+  if (view === "inspection") renderInspection(state.inspectionDate);
   if (view === "stats") renderStats();
   if (view === "admin") renderAdminDashboard();
   if (view === "settings") {
@@ -1411,6 +1626,7 @@ function renderAll() {
   renderSummary();
   renderMonth();
   renderHomeSelection();
+  renderInspectionEntry();
   renderRates();
   renderStats();
   if (el.app.dataset.view === "admin") renderAdminDashboard();
@@ -2925,6 +3141,7 @@ function bindEvents() {
     normalizeRoute,
     ocrDraftState: { get: () => ocrDraftMap },
     openSheet,
+    openInspection,
     parseScheduleCsv,
     parseSettlementCsv,
     previewImageFile,
@@ -2933,6 +3150,7 @@ function bindEvents() {
     renderAll,
     renderDraftCards,
     renderEntryForm,
+    renderInspection,
     renderMonth,
     renderRates,
     renderStats,
@@ -2943,10 +3161,13 @@ function bindEvents() {
     saveAdminProfile,
     saveCurrentRecordAndGoHome,
     saveGoalAmount,
+    saveInspection,
     saveProfile,
     scheduleSave,
     selectDate,
     selectToday,
+    setAllInspectionResults,
+    setInspectionNoOperation,
     sendPasswordReset,
     setAuthMode,
     setOcrDraft,
@@ -2959,11 +3180,14 @@ function bindEvents() {
     syncFormToRecord,
     toDateKey,
     toast,
+    printInspectionMonth,
+    resetInspectionDraft,
     updatePassword,
     upsertRate,
   };
   bindAuthEvents(shared);
   bindCalendarEvents(shared);
+  bindInspectionEvents(shared);
   bindRecordEvents(shared);
   bindStatsEvents(shared);
   bindAdminEvents(shared);

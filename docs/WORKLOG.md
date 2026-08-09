@@ -1035,3 +1035,14 @@ Browser checks:
 - Always bump `sw.js` `CACHE_NAME` when cached files change.
 - Keep `verify_jwt = true` for OCR unless there is a documented temporary exception.
 - Member safety comes from Supabase Auth + RLS; frontend approval screens are UX, not the only security layer.
+
+## 2026-08-09 Daily Inspection
+
+- Added an `오늘 일상점검` entry card above the home calendar and a dedicated 11-item inspection screen.
+- Added app-backed normal/defect/no-operation records, defect/action notes, signer metadata, and monthly print/PDF output.
+- Added profile fields for business name and vehicle number used by the printed form.
+- Added `quickflex_daily_inspections` with QuickFlex-prefixed naming, strict JSON result validation, RLS, and least-privilege grants.
+- Anonymous access is revoked. Approved drivers can read/write only their own records; approved admins can read all records but cannot write another user's records.
+- Migrated the admin account's existing paper records from 2026-06-30 through 2026-08-08 as 40 locked `legacy_paper` all-normal records. 2026-08-09 onward remains user-entered.
+- Tightened QuickFlex helper-function execution so anonymous users cannot call QuickFlex security-definer helpers.
+- Bumped the shell and visible app version to v1.0.7.

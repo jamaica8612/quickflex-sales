@@ -50,8 +50,10 @@ export function bindSettingsEvents(ctx) {
       await state.db.from(TABLES.items).delete().eq("user_id", userId);
       await state.db.from(TABLES.days).delete().eq("user_id", userId);
       await state.db.from(TABLES.rates).delete().eq("user_id", userId);
+      await state.db.from(TABLES.inspections).delete().eq("user_id", userId);
       state.rates = [];
       state.entries = {};
+      state.inspections = {};
       renderAll();
       toast("내 데이터를 초기화했습니다.", "success");
     } catch (error) {
@@ -65,6 +67,7 @@ export function bindSettingsEvents(ctx) {
       await state.db.from(TABLES.items).delete().eq("user_id", userId);
       await state.db.from(TABLES.days).delete().eq("user_id", userId);
       await state.db.from(TABLES.rates).delete().eq("user_id", userId);
+      await state.db.from(TABLES.inspections).delete().eq("user_id", userId);
       await state.db.from(TABLES.profiles).update({
         display_name: `[탈퇴요청] ${driverName()}`,
         updated_at: new Date().toISOString(),
