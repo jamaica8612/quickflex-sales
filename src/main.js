@@ -1661,7 +1661,7 @@ async function saveInspectionMonthPdf() {
     const imageWidth = canvas.width * ratio;
     const imageHeight = canvas.height * ratio;
     const imageX = (pageWidth - imageWidth) / 2;
-    const imageY = (pageHeight - imageHeight) / 2;
+    const imageY = margin;
     pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", imageX, imageY, imageWidth, imageHeight, undefined, "FAST");
     pdf.save(`일상점검표_${year}-${String(month).padStart(2, "0")}.pdf`);
     toast("월간 일상점검표 PDF를 저장했습니다.", "success");
