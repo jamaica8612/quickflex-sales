@@ -1050,3 +1050,4 @@ Browser checks:
 - Updated v1.0.10 user-facing copy so historical inspection records appear only as `점검 완료`; paper-migration provenance remains internal and is not shown in the popup, checklist, or printed form.
 - Split the monthly inspection action into `월간 출력` and `PDF 저장`. Printing keeps the browser print flow, while PDF saving downloads a landscape A4 file named for the selected month.
 - Added a concise `운행 전 작성 의무` label on the home inspection card and an in-screen notice that non-compliance may result in a 500,000 won administrative fine.
+- Compressed the home inspection entry to a single-line 50px-class bar so it no longer pushes the calendar down; descriptive and timestamp text remain in state but are hidden on the home card.
