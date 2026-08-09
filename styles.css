@@ -1845,11 +1845,12 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
   .app[data-view="home"] .view-home {
     display: grid;
     grid-template-columns: minmax(280px, 38%) minmax(0, 62%);
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
     grid-template-areas:
       "summary calendar"
       "summary dock";
     min-height: 100dvh;
+    align-content: start;
     padding-bottom: calc(var(--nav-h) + var(--safe-b));
     background: var(--bg);
   }
@@ -1977,7 +1978,7 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
 
   .app[data-view="home"] .view-home {
     grid-template-columns: 330px minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
     padding-left: 88px;
     padding-bottom: 0;
   }
