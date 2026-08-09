@@ -249,6 +249,7 @@ const el = {
   openInspection: $("openInspection"),
   backFromInspection: $("backFromInspection"),
   printInspectionMonth: $("printInspectionMonth"),
+  saveInspectionMonthPdf: $("saveInspectionMonthPdf"),
   inspectionDate: $("inspectionDate"),
   inspectionDriverName: $("inspectionDriverName"),
   inspectionVehicleNumber: $("inspectionVehicleNumber"),
@@ -1592,7 +1593,7 @@ async function setInspectionNoOperation() {
   renderInspectionEntry();
   toast("미운행으로 저장했습니다.", "success");
 }
-function printInspectionMonth() {
+function buildInspectionMonthSheet() {
   const [year, month] = state.inspectionDate.split("-").map(Number);
   const lastDay = new Date(year, month, 0).getDate();
   const days = Array.from({ length: lastDay }, (_, index) => index + 1);
@@ -1622,9 +1623,53 @@ function printInspectionMonth() {
         return row?.defect_notes ? `${day}일 ${escapeAttr(row.defect_notes)} / ${escapeAttr(row.action_notes)}` : "";
       }).filter(Boolean).join(" · ")}</td></tr>
     </tbody></table><p class="inspection-print-legend">표시: 양호 ○ · 불량 × · 미운행 미</p>`;
+  return { sheet, year, month };
+}
+function printInspectionMonth() {
+  const { sheet } = buildInspectionMonthSheet();
   document.body.appendChild(sheet);
   window.print();
   setTimeout(() => sheet.remove(), 1000);
+}
+async function saveInspectionMonthPdf() {
+  if (typeof window.html2canvas !== "function" || !window.jspdf?.jsPDF) {
+    throw new Error("PDF 기능을 불러오지 못했습니다. 인터넷 연결 후 다시 시도해 주세요.");
+  }
+  const { sheet, year, month } = buildInspectionMonthSheet();
+  const button = el.saveInspectionMonthPdf;
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "저장 중";
+  sheet.classList.add("pdf-capture");
+  document.body.appendChild(sheet);
+  try {
+    if (document.fonts?.ready) await document.fonts.ready;
+    const canvas = await window.html2canvas(sheet, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      logging: false,
+      useCORS: true,
+    });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4", compress: true });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 6;
+    const availableWidth = pageWidth - margin * 2;
+    const availableHeight = pageHeight - margin * 2;
+    const ratio = Math.min(availableWidth / canvas.width, availableHeight / canvas.height);
+    const imageWidth = canvas.width * ratio;
+    const imageHeight = canvas.height * ratio;
+    const imageX = (pageWidth - imageWidth) / 2;
+    const imageY = (pageHeight - imageHeight) / 2;
+    pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", imageX, imageY, imageWidth, imageHeight, undefined, "FAST");
+    pdf.save(`일상점검표_${year}-${String(month).padStart(2, "0")}.pdf`);
+    toast("월간 일상점검표 PDF를 저장했습니다.", "success");
+  } finally {
+    sheet.remove();
+    button.disabled = false;
+    button.textContent = originalText;
+  }
 }
 
 function showView(view) {
@@ -3199,6 +3244,7 @@ function bindEvents() {
     toDateKey,
     toast,
     printInspectionMonth,
+    saveInspectionMonthPdf,
     resetInspectionDraft,
     updatePassword,
     upsertRate,

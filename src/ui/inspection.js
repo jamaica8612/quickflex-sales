@@ -3,6 +3,7 @@ export function bindInspectionEvents(ctx) {
     el,
     openInspection,
     printInspectionMonth,
+    saveInspectionMonthPdf,
     renderInspection,
     resetInspectionDraft,
     saveInspection,
@@ -29,4 +30,5 @@ export function bindInspectionEvents(ctx) {
   el.saveInspection.addEventListener("click", () => saveInspection().catch((error) => toast(`점검 저장 실패: ${error.message}`, "error")));
   el.markNoOperation.addEventListener("click", () => setInspectionNoOperation().catch((error) => toast(`미운행 저장 실패: ${error.message}`, "error")));
   el.printInspectionMonth.addEventListener("click", printInspectionMonth);
+  el.saveInspectionMonthPdf.addEventListener("click", () => saveInspectionMonthPdf().catch((error) => toast(`PDF 저장 실패: ${error.message}`, "error")));
 }
