@@ -12,7 +12,7 @@ import {
   RATE_UPDATE_OFFER,
   SAMPLE_SETTLEMENT,
   TABLES,
-} from "./config.js?v=4";
+} from "./config.js?v=5";
 import {
   addDays,
   formatLong,
@@ -1524,7 +1524,7 @@ function renderInspection(dateKey = todayKey(), options = {}) {
   [el.inspectionAllGood, el.inspectionReset, el.inspectionConfirmed, el.saveInspection, el.markNoOperation].forEach((node) => { node.disabled = locked; });
   el.inspectionDefectNotes.disabled = locked;
   el.inspectionActionNotes.disabled = locked;
-  el.saveInspection.textContent = record ? (locked ? "종이기록 이관 완료" : "일상점검 수정 저장") : "일상점검 저장";
+  el.saveInspection.textContent = record ? (locked ? "점검 완료" : "일상점검 수정 저장") : "일상점검 저장";
 }
 function openInspection() {
   renderInspection(todayKey());
@@ -1621,7 +1621,7 @@ function printInspectionMonth() {
         const row = state.inspections[`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`];
         return row?.defect_notes ? `${day}일 ${escapeAttr(row.defect_notes)} / ${escapeAttr(row.action_notes)}` : "";
       }).filter(Boolean).join(" · ")}</td></tr>
-    </tbody></table><p class="inspection-print-legend">표시: 양호 ○ · 불량 × · 미운행 미 / 앱 기록과 기존 종이기록 이관분을 함께 출력함</p>`;
+    </tbody></table><p class="inspection-print-legend">표시: 양호 ○ · 불량 × · 미운행 미</p>`;
   document.body.appendChild(sheet);
   window.print();
   setTimeout(() => sheet.remove(), 1000);

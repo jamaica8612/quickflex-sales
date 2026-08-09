@@ -59,10 +59,10 @@ export const RATE_UPDATE_OFFER = {
 };
 
 export const APP_UPDATE_NOTICE = {
-  id: "2026-08-09-daily-inspection-v1",
+  id: "2026-08-09-daily-inspection-v2",
   items: [
     "일상점검 기능이 추가되었습니다.",
-    "6월 30일~8월 8일 종이 점검기록을 이관했습니다.",
+    "6월 30일~8월 8일 점검은 완료 처리되었습니다.",
     "오늘부터 운행 전 점검을 앱에서 직접 기록할 수 있습니다.",
     "월간 점검표를 출력하거나 PDF로 저장할 수 있습니다.",
   ],
