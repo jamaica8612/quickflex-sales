@@ -2,47 +2,52 @@
 
 - Source visual truth: `C:\Users\jamai\.codex\generated_images\019fe440-b38e-7b82-86ef-bf05154ad14b\exec-0c7e3e64-75fa-4d79-bc99-45aeb28c3015.png`
 - Source pixels: 1536 x 1089
-- Implementation screenshot: unavailable
-- Intended CSS viewports: 390 x 844, 834 x 1194, 1440 x 1024
-- Density normalization: not run because the implementation could not be captured
-- State: authenticated home screen, dark theme, populated sales calendar
+- Live implementation: `https://jamaica8612.github.io/quickflex-sales/?deploy=693f1f9`
+- Implementation screenshots:
+  - `C:\Users\jamai\AppData\Local\Temp\quickflex-design-qa\qa-mobile-390-final.png`
+  - `C:\Users\jamai\AppData\Local\Temp\quickflex-design-qa\qa-tablet-834-final.png`
+  - `C:\Users\jamai\AppData\Local\Temp\quickflex-design-qa\qa-desktop-1440-final.png`
+- Combined comparison input: `C:\Users\jamai\AppData\Local\Temp\quickflex-design-qa\comparison-final.png`
+- CSS viewports: 390 x 844, 834 x 1194, 1440 x 1024
+- Density normalization: browser device pixel ratio 1; captures were taken at the stated CSS viewport sizes
+- State: authenticated home screen, dark theme, populated production sales calendar
 
-**Findings**
+## Findings
 
-- [P1] Browser-rendered comparison is unavailable
-  - Location: responsive home screen at the three target breakpoints.
-  - Evidence: the selected source visual is available, but both available browser surfaces blocked or timed out while opening the local preview.
-  - Impact: typography, spacing, clipping, overflow, sticky actions, and navigation placement cannot be accepted from code inspection alone.
-  - Fix: expose the local static preview through a browser-accessible preview URL, capture all three target viewports, and compare them with the source visual in one comparison input.
+- No P0, P1, or P2 fidelity issues remain.
+- The live values and dates intentionally differ from the concept image because the deployed app renders the signed-in user's current production data.
+- The implementation preserves the existing QuickFlex typography, color tokens, controls, callbacks, and data bindings while adopting the selected responsive composition.
 
-**Required fidelity surfaces**
+## Required fidelity surfaces
 
-- Fonts and typography: blocked pending browser capture.
-- Spacing and layout rhythm: blocked pending browser capture.
-- Colors and visual tokens: existing repository tokens were preserved; visual confirmation is blocked.
-- Image quality and asset fidelity: no new raster assets were introduced; visual confirmation is blocked.
-- Copy and content: existing home-screen labels and data bindings were preserved; visual confirmation is blocked.
+- Fonts and typography: passed; existing product font stack and weight hierarchy remain consistent across breakpoints.
+- Spacing and layout rhythm: passed; summary/calendar split, attached day dock, and desktop navigation rail match the selected direction.
+- Colors and visual tokens: passed; dark navy surfaces, yellow emphasis, muted labels, lines, and radii use the repository tokens.
+- Image quality and asset fidelity: passed; no new raster UI assets were introduced and existing SVG icons remain sharp.
+- Copy and content: passed; existing Korean labels and live Supabase-backed values are preserved.
 
-**Full-view comparison evidence**
+## Full-view comparison evidence
 
-- Source visual opened successfully.
-- No valid implementation screenshot was available, so no visual comparison was performed.
+- The source and all three live captures were placed in `comparison-final.png` and inspected together.
+- Mobile remains a single-column flow with bottom navigation.
+- Tablet uses a summary column plus calendar workspace with the day dock directly attached below the calendar.
+- Desktop uses an 88px navigation rail, fixed summary column, and expanded calendar workspace.
+- Measured horizontal overflow: 0px at tablet and desktop; mobile document width is within the viewport.
+- Measured calendar-to-dock gap: 0px at tablet and desktop.
 
-**Focused region comparison evidence**
+## Focused interaction evidence
 
-- Not performed because the full-view implementation capture is unavailable.
+- Settings navigation opened the settings view and the calendar navigation returned to home.
+- Amount/count mode toggles changed state and returned to amount mode.
+- Selecting a populated calendar day updated the selected date to `08/08`.
+- Live browser console errors: 0.
 
-**Comparison history**
+## Comparison history
 
-1. Added responsive CSS grids for tablet and desktop while preserving the mobile layout and existing controls.
-2. Attempted the local preview in the in-app browser and Chrome at the required responsive sizes.
-3. Local preview navigation remained unavailable, so no visual fixes were made from unsupported evidence.
+1. Added the selected responsive workspace while keeping the original mobile surface and production behavior.
+2. Deployed v1.0.4 and captured the authenticated live app.
+3. Found excessive space between the tablet calendar and day dock caused by a flexible grid row.
+4. Replaced the flexible rows with `auto auto`, added start alignment, bumped the shell cache to v1.0.5, and redeployed.
+5. Re-captured all target viewports and confirmed the calendar-to-dock gap is 0px with no blocking fidelity issues.
 
-**Implementation checklist**
-
-1. Open a browser-accessible preview of the current working tree.
-2. Capture 390 x 844, 834 x 1194, and 1440 x 1024.
-3. Verify month navigation, mode toggle, date selection, record action, and navigation at each breakpoint.
-4. Compare source and implementation together and resolve all P0/P1/P2 differences.
-
-final result: blocked
+final result: passed
