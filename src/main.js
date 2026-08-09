@@ -1476,7 +1476,7 @@ function renderInspectionEntry() {
   const record = state.inspections[todayKey()];
   const complete = Boolean(record);
   el.inspectionEntryCard.classList.toggle("complete", complete);
-  el.inspectionEntryEyebrow.textContent = complete ? "오늘 점검 완료" : "오늘 일상점검";
+  el.inspectionEntryEyebrow.textContent = complete ? "점검 완료" : "일상점검";
   el.inspectionEntryTitle.textContent = complete
     ? (record.status === "no_operation" ? "오늘은 미운행으로 기록했습니다" : "운행 전 차량 점검을 완료했습니다")
     : "운행 전 차량 상태를 확인해주세요";

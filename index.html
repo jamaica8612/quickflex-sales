@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.12" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.13" />
   </head>
   <body>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -45,7 +45,7 @@
 
         <section class="inspection-entry-card" id="inspectionEntryCard">
           <div class="inspection-entry-copy">
-            <span id="inspectionEntryEyebrow">오늘 일상점검</span>
+            <span id="inspectionEntryEyebrow">일상점검</span>
             <strong id="inspectionEntryTitle">운행 전 차량 상태를 확인해주세요</strong>
             <small id="inspectionEntryStatus">아직 점검하지 않았습니다</small>
             <small class="inspection-duty-label">운행 전 작성 의무</small>
@@ -382,7 +382,7 @@
               <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
             </div>
           </section>
-          <p class="app-version">퀵플렉스 매출관리 v1.0.12</p>
+          <p class="app-version">퀵플렉스 매출관리 v1.0.13</p>
         </main>
       </section>
 
@@ -562,7 +562,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.12"></script>
+    <script type="module" src="./src/main.js?v=1.0.13"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
