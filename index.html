@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.5" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.6" />
   </head>
   <body>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -308,6 +308,13 @@
               <input id="rateUnit" type="number" min="0" inputmode="numeric" placeholder="단가" />
               <button id="saveRate">저장</button>
             </div>
+            <div id="rateUpdateOffer" class="rate-update-offer hidden">
+              <div>
+                <strong>새 단가 업데이트</strong>
+                <p id="rateUpdateHint" class="hint"></p>
+              </div>
+              <button id="applyRateUpdate" class="secondary-btn" type="button">업데이트</button>
+            </div>
             <div id="rateList" class="rate-list"></div>
           </section>
 
@@ -319,7 +326,7 @@
               <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
             </div>
           </section>
-          <p class="app-version">퀵플렉스 매출관리 v1.0.5</p>
+          <p class="app-version">퀵플렉스 매출관리 v1.0.6</p>
         </main>
       </section>
 
@@ -497,7 +504,7 @@
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script type="module" src="./src/main.js?v=1.0.5"></script>
+    <script type="module" src="./src/main.js?v=1.0.6"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});

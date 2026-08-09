@@ -321,10 +321,7 @@ using (
   public.quickflex_is_admin()
   or (
     public.quickflex_is_approved()
-    and (
-      user_id = auth.uid()::text
-      or public.quickflex_is_admin_rate_owner(user_id)
-    )
+    and user_id = auth.uid()::text
   )
 );
 
