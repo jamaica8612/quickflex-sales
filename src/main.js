@@ -1493,17 +1493,20 @@ function inspectionDraftFromRecord(record) {
   };
 }
 function renderInspectionEntry() {
-  const record = state.inspections[todayKey()];
+  const dateKey = state.selectedDate;
+  const available = dateKey >= "2026-06-30" && dateKey <= todayKey();
+  const record = available ? state.inspections[dateKey] : null;
   const complete = Boolean(record);
   el.inspectionEntryCard.classList.toggle("complete", complete);
   el.inspectionEntryEyebrow.textContent = complete ? "점검 완료" : "일상점검";
   el.inspectionEntryTitle.textContent = complete
-    ? (record.status === "no_operation" ? "오늘은 미운행으로 기록했습니다" : "운행 전 차량 점검을 완료했습니다")
-    : "운행 전 차량 상태를 확인해주세요";
+    ? (record.status === "no_operation" ? "선택한 날짜는 미운행으로 기록했습니다" : "선택한 날짜의 차량 점검을 완료했습니다")
+    : available ? "선택한 날짜의 차량 상태를 확인해주세요" : "오늘 이전 날짜만 점검할 수 있습니다";
   el.inspectionEntryStatus.textContent = complete
     ? `${record.signed_name || driverName()} · ${new Date(record.signed_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}`
-    : "아직 점검하지 않았습니다";
-  el.openInspection.textContent = complete ? "기록 보기" : "점검하기";
+    : available ? "아직 점검하지 않았습니다" : "작성할 수 없는 날짜입니다";
+  el.openInspection.disabled = !available;
+  el.openInspection.textContent = !available ? "작성 불가" : complete ? "기록 보기" : "점검하기";
 }
 function renderInspection(dateKey = todayKey(), options = {}) {
   const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? dateKey : todayKey();
@@ -1548,7 +1551,12 @@ function renderInspection(dateKey = todayKey(), options = {}) {
   el.saveInspection.textContent = record ? (locked ? "점검 완료" : "일상점검 수정 저장") : "일상점검 저장";
 }
 function openInspection() {
-  renderInspection(todayKey());
+  const dateKey = state.selectedDate;
+  if (dateKey < "2026-06-30" || dateKey > todayKey()) {
+    toast("오늘 이전의 점검 대상 날짜를 선택해 주세요.", "error");
+    return;
+  }
+  renderInspection(dateKey);
   showView("inspection");
 }
 function setAllInspectionResults(result) {
@@ -1588,9 +1596,11 @@ async function saveInspection() {
   const { data, error } = await state.db.from(TABLES.inspections).upsert(payload, { onConflict: "user_id,inspection_date" }).select("*").single();
   if (error) throw error;
   state.inspections[dateKey] = data;
-  renderInspection(dateKey);
+  state.selectedDate = dateKey;
   renderInspectionEntry();
   renderMonth();
+  renderHomeSelection();
+  showView("home");
   toast("일상점검을 저장했습니다.", "success");
 }
 async function setInspectionNoOperation() {
@@ -1610,9 +1620,11 @@ async function setInspectionNoOperation() {
   const { data, error } = await state.db.from(TABLES.inspections).upsert(payload, { onConflict: "user_id,inspection_date" }).select("*").single();
   if (error) throw error;
   state.inspections[state.inspectionDate] = data;
-  renderInspection(state.inspectionDate);
+  state.selectedDate = state.inspectionDate;
   renderInspectionEntry();
   renderMonth();
+  renderHomeSelection();
+  showView("home");
   toast("미운행으로 저장했습니다.", "success");
 }
 function buildInspectionMonthSheet() {
@@ -1780,6 +1792,7 @@ function selectDate(dateKey) {
   state.selectedDate = dateKey;
   renderMonth();
   renderHomeSelection();
+  renderInspectionEntry();
 }
 function selectToday() {
   const todayDate = new Date();
@@ -1797,6 +1810,7 @@ function moveMonth(amount) {
   renderSummary();
   renderMonth();
   renderHomeSelection();
+  renderInspectionEntry();
 }
 
 function routeOptions(selected) {
