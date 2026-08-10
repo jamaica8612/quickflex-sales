@@ -557,6 +557,19 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
   font-weight: 700;
   color: var(--muted);
 }
+.inspection-day-dot {
+  position: absolute;
+  top: 7px;
+  left: calc(50% + 8px);
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #45BE6C;
+  box-shadow: 0 0 0 2px var(--panel);
+  pointer-events: none;
+}
+.inspection-day-dot.no-operation { background: var(--muted); }
+.day-cell.off .inspection-day-dot { box-shadow: 0 0 0 2px var(--panel2); }
 .calendar-grid .day-cell:nth-child(7n + 1) .day-number { color: var(--red); }
 .calendar-grid .day-cell:nth-child(7n) .day-number { color: var(--gold2); }
 .today-cell .day-number { background: var(--gold); color: #fff; }
@@ -2107,6 +2120,11 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
     width: 28px;
     height: 28px;
     font-size: 13px;
+  }
+
+  .inspection-day-dot {
+    top: 11px;
+    left: calc(50% + 10px);
   }
 
   .day-value {
