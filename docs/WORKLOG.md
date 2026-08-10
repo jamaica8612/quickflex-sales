@@ -1053,3 +1053,4 @@ Browser checks:
 - Compressed the home inspection entry to a single-line 50px-class bar so it no longer pushes the calendar down; descriptive and timestamp text remain in state but are hidden on the home card.
 - Fixed accepted rate updates so zero-count schedule records on the acceptance date and later also receive the new unit price, while completed or count-entered records keep their saved snapshot.
 - Added subtle calendar inspection markers: green for a completed inspection and gray for a no-operation record, with an accessible date-cell label and immediate refresh after saving.
+- Linked the inspection entry to the calendar-selected date, returned to that date on the calendar after save/no-operation completion, disabled future-date entry, and reduced inspection dots from 6px to 4px.

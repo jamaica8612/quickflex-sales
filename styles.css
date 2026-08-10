@@ -293,6 +293,7 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
   font-size: 10px;
   font-weight: 900;
 }
+.inspection-entry-button:disabled { opacity: .45; cursor: not-allowed; }
 .inspection-entry-card.complete { border-color: rgba(69, 190, 108, .36); }
 .inspection-entry-card.complete .inspection-entry-copy span { color: #58D184; }
 .inspection-entry-card.complete .inspection-entry-button { background: rgba(69, 190, 108, .14); color: #58D184; border: 1px solid rgba(69, 190, 108, .34); }
@@ -561,8 +562,8 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
   position: absolute;
   top: 7px;
   left: calc(50% + 8px);
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
   border-radius: 999px;
   background: #45BE6C;
   box-shadow: 0 0 0 2px var(--panel);
