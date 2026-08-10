@@ -1543,12 +1543,11 @@ function renderInspection(dateKey = todayKey(), options = {}) {
   el.inspectionDefectNotes.value = state.inspectionDraft.defectNotes;
   el.inspectionActionNotes.value = state.inspectionDraft.actionNotes;
   el.inspectionConfirmed.checked = Boolean(record);
-  const locked = legacy;
-  el.inspectionChecklist.querySelectorAll("button").forEach((button) => { button.disabled = locked; });
-  [el.inspectionAllGood, el.inspectionReset, el.inspectionConfirmed, el.saveInspection, el.markNoOperation].forEach((node) => { node.disabled = locked; });
-  el.inspectionDefectNotes.disabled = locked;
-  el.inspectionActionNotes.disabled = locked;
-  el.saveInspection.textContent = record ? (locked ? "점검 완료" : "일상점검 수정 저장") : "일상점검 저장";
+  el.inspectionChecklist.querySelectorAll("button").forEach((button) => { button.disabled = false; });
+  [el.inspectionAllGood, el.inspectionReset, el.inspectionConfirmed, el.saveInspection, el.markNoOperation].forEach((node) => { node.disabled = false; });
+  el.inspectionDefectNotes.disabled = false;
+  el.inspectionActionNotes.disabled = false;
+  el.saveInspection.textContent = record ? "일상점검 수정 저장" : "일상점검 저장";
 }
 function openInspection() {
   const dateKey = state.selectedDate;
