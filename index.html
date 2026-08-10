@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.16" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.17" />
   </head>
   <body>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -102,7 +102,7 @@
             <span id="inspectionDriverName">-</span>
             <span id="inspectionVehicleNumber">차량번호 미설정</span>
           </div>
-          <div id="inspectionLegacyBadge" class="inspection-legacy-badge hidden">점검 완료</div>
+          <div id="inspectionLegacyBadge" class="inspection-legacy-badge hidden">점검 완료 · 수정 가능</div>
           <div id="inspectionChecklist" class="inspection-checklist"></div>
           <section id="inspectionDefectFields" class="inspection-defect-fields hidden">
             <label>이상 내용<textarea id="inspectionDefectNotes" placeholder="이상 상태를 적어주세요"></textarea></label>
@@ -382,7 +382,7 @@
               <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
             </div>
           </section>
-          <p class="app-version">퀵플렉스 매출관리 v1.0.16</p>
+          <p class="app-version">퀵플렉스 매출관리 v1.0.17</p>
         </main>
       </section>
 
@@ -562,7 +562,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.16"></script>
+    <script type="module" src="./src/main.js?v=1.0.17"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
