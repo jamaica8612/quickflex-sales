@@ -1770,8 +1770,8 @@ function renderMonth() {
     const inspectionLabel = inspection?.status === "no_operation" ? "일상점검 미운행 기록" : inspection ? "일상점검 완료" : "";
     cell.setAttribute("aria-label", `${formatLong(dateKey)}${inspectionLabel ? ` · ${inspectionLabel}` : ""}`);
     if (holidayName) cell.title = holidayName;
-    const inspectionDot = inspection
-      ? `<span class="inspection-day-dot${inspection.status === "no_operation" ? " no-operation" : ""}" aria-hidden="true"></span>`
+    const inspectionDot = inspection && inspection.status !== "no_operation"
+      ? `<span class="inspection-day-dot" aria-hidden="true"></span>`
       : "";
     cell.innerHTML = `<span class="day-number">${date.getDate()}</span>${inspectionDot}<span class="day-value">${displayValue}</span><span class="day-routes">${displayRouteOrHoliday}</span>`;
     cell.addEventListener("click", () => selectDate(dateKey));

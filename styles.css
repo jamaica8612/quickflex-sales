@@ -569,7 +569,6 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
   box-shadow: 0 0 0 2px var(--panel);
   pointer-events: none;
 }
-.inspection-day-dot.no-operation { background: var(--muted); }
 .day-cell.off .inspection-day-dot { box-shadow: 0 0 0 2px var(--panel2); }
 .calendar-grid .day-cell:nth-child(7n + 1) .day-number { color: var(--red); }
 .calendar-grid .day-cell:nth-child(7n) .day-number { color: var(--gold2); }

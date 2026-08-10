@@ -1055,3 +1055,4 @@ Browser checks:
 - Added subtle calendar inspection markers: green for a completed inspection and gray for a no-operation record, with an accessible date-cell label and immediate refresh after saving.
 - Linked the inspection entry to the calendar-selected date, returned to that date on the calendar after save/no-operation completion, disabled future-date entry, and reduced inspection dots from 6px to 4px.
 - Unlocked the pre-completed inspection records so users can correct checklist results, notes, or no-operation status. Saving a correction converts that date to a normal app-authored record that remains editable.
+- Hid the calendar inspection dot for no-operation records; only completed vehicle inspections now receive the green marker.
