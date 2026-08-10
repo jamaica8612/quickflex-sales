@@ -1590,6 +1590,7 @@ async function saveInspection() {
   state.inspections[dateKey] = data;
   renderInspection(dateKey);
   renderInspectionEntry();
+  renderMonth();
   toast("일상점검을 저장했습니다.", "success");
 }
 async function setInspectionNoOperation() {
@@ -1611,6 +1612,7 @@ async function setInspectionNoOperation() {
   state.inspections[state.inspectionDate] = data;
   renderInspection(state.inspectionDate);
   renderInspectionEntry();
+  renderMonth();
   toast("미운행으로 저장했습니다.", "success");
 }
 function buildInspectionMonthSheet() {
@@ -1744,6 +1746,7 @@ function renderMonth() {
     date.setDate(first.getDate() + i);
     const dateKey = toDateKey(date);
     const record = getRecord(dateKey, false);
+    const inspection = state.inspections[dateKey] || null;
     const calc = calcRecord(record);
     const inPeriod = periodKeys().includes(dateKey);
     const holidayName = koreanHoliday(dateKey);
@@ -1753,8 +1756,13 @@ function renderMonth() {
     const routeText = record.off || !shouldShowCalendarRoutes() ? "" : formatRecordRoutes(record.rows);
     const displayValue = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : formatCalendarWon(calc.revenue);
     const displayRouteOrHoliday = routeText || holidayName;
+    const inspectionLabel = inspection?.status === "no_operation" ? "일상점검 미운행 기록" : inspection ? "일상점검 완료" : "";
+    cell.setAttribute("aria-label", `${formatLong(dateKey)}${inspectionLabel ? ` · ${inspectionLabel}` : ""}`);
     if (holidayName) cell.title = holidayName;
-    cell.innerHTML = `<span class="day-number">${date.getDate()}</span><span class="day-value">${displayValue}</span><span class="day-routes">${displayRouteOrHoliday}</span>`;
+    const inspectionDot = inspection
+      ? `<span class="inspection-day-dot${inspection.status === "no_operation" ? " no-operation" : ""}" aria-hidden="true"></span>`
+      : "";
+    cell.innerHTML = `<span class="day-number">${date.getDate()}</span>${inspectionDot}<span class="day-value">${displayValue}</span><span class="day-routes">${displayRouteOrHoliday}</span>`;
     cell.addEventListener("click", () => selectDate(dateKey));
     el.monthCalendar.appendChild(cell);
   }
