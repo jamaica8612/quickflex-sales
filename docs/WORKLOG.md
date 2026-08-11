@@ -1056,3 +1056,4 @@ Browser checks:
 - Linked the inspection entry to the calendar-selected date, returned to that date on the calendar after save/no-operation completion, disabled future-date entry, and reduced inspection dots from 6px to 4px.
 - Unlocked the pre-completed inspection records so users can correct checklist results, notes, or no-operation status. Saving a correction converts that date to a normal app-authored record that remains editable.
 - Hid the calendar inspection dot for no-operation records; only completed vehicle inspections now receive the green marker.
+- Added an owner-only reusable inspection signature, stored separately under strict RLS. New completed/no-operation records snapshot that signature, and monthly print/PDF output renders a real signature image in each recorded date column (with the registered signature as the fallback for earlier completed records).

@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.18" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.19" />
   </head>
   <body>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -112,6 +112,14 @@
             <button id="inspectionAllGood" class="inspection-good-button" type="button">전체 양호</button>
             <button id="inspectionReset" class="secondary-btn" type="button">전체 초기화</button>
           </div>
+          <section class="inspection-signature-confirm">
+            <div>
+              <strong>점검자 서명</strong>
+              <span id="inspectionSignatureStatus">설정에서 서명을 등록해 주세요.</span>
+            </div>
+            <img id="inspectionSignaturePreview" class="hidden" alt="등록된 점검자 서명" />
+            <button id="openSignatureSettings" class="secondary-btn" type="button">서명 등록</button>
+          </section>
           <label class="inspection-confirm-row"><input id="inspectionConfirmed" type="checkbox" /><span>본인이 직접 점검했으며 위 내용이 맞습니다.</span></label>
           <button id="saveInspection" class="full-btn inspection-save-button" type="button">일상점검 저장</button>
           <button id="markNoOperation" class="inspection-no-operation" type="button">오늘 미운행으로 기록</button>
@@ -277,6 +285,16 @@
             <button id="saveProfile" class="full-btn">내 정보 저장</button>
           </section>
 
+          <section class="settings-section signature-settings-section" id="signatureSettingsSection">
+            <h2>일상점검 서명</h2>
+            <p class="hint">손가락으로 서명하면 매일 점검 기록과 월간 출력물에 날짜별로 표시됩니다.</p>
+            <canvas id="profileSignatureCanvas" width="600" height="180" aria-label="일상점검 서명 입력란"></canvas>
+            <div class="signature-actions">
+              <button id="clearProfileSignature" class="secondary-btn" type="button">다시 쓰기</button>
+              <button id="saveProfileSignature" class="full-btn" type="button">서명 저장</button>
+            </div>
+          </section>
+
           <section class="settings-section">
             <h2>스케줄 가져오기</h2>
             <div class="upload-row">
@@ -382,7 +400,7 @@
               <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
             </div>
           </section>
-          <p class="app-version">퀵플렉스 매출관리 v1.0.18</p>
+          <p class="app-version">퀵플렉스 매출관리 v1.0.19</p>
         </main>
       </section>
 
@@ -562,7 +580,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.18"></script>
+    <script type="module" src="./src/main.js?v=1.0.19"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});

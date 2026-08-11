@@ -350,6 +350,22 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
 .inspection-defect-fields textarea { margin-top: 5px; min-height: 72px; }
 .inspection-quick-actions { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .inspection-good-button { min-height: 44px; border: 0; border-radius: 999px; background: #45B95E; color: #fff; font-weight: 850; }
+.inspection-signature-confirm {
+  margin-top: 14px;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+.inspection-signature-confirm > div { display: grid; gap: 3px; }
+.inspection-signature-confirm strong { font-size: 12px; color: var(--text); }
+.inspection-signature-confirm span { font-size: 10px; color: var(--muted); }
+.inspection-signature-confirm img { width: 96px; height: 36px; object-fit: contain; background: #fff; border-radius: 8px; }
+.inspection-signature-confirm button { grid-column: 1 / -1; min-height: 38px; }
 .inspection-confirm-row { margin: 14px 2px 0; display: flex; align-items: flex-start; gap: 9px; color: var(--muted); font-size: 11px; line-height: 1.45; }
 .inspection-confirm-row input { width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--gold); }
 .inspection-save-button { margin-top: 14px; background: var(--gold); color: #17140A; }
@@ -370,6 +386,8 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
 .inspection-print-table th:first-child { width: 22px; }
 .inspection-print-table th:nth-child(2) { width: 260px; text-align: left; }
 .inspection-print-table td:nth-child(2) { text-align: left; }
+.inspection-print-signature { padding: 1px !important; }
+.inspection-print-signature img { display: block; width: 100%; height: 15px; object-fit: contain; }
 .inspection-print-legend { margin: 5px 0 0; font-size: 8px; }
 .inspection-print-sheet.pdf-capture {
   display: block;
@@ -826,6 +844,18 @@ body:not([data-theme="dark"]) .rate-editor button {
 }
 
 .settings-section { padding: 16px; display: grid; gap: 12px; }
+.signature-settings-section canvas {
+  width: 100%;
+  height: 108px;
+  display: block;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  background: #fff;
+  touch-action: none;
+  cursor: crosshair;
+}
+.signature-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; }
+.signature-actions .full-btn { min-height: 42px; }
 .settings-section--slim { padding: 10px 16px; }
 .settings-section--slim .settings-field label { font-size: 14px; font-weight: 700; color: var(--muted); }
 .settings-section h2 { margin: 0; font-size: 14px; color: var(--muted); font-weight: 700; letter-spacing: 0; }

@@ -12,6 +12,7 @@ export const TABLES = {
   items: "quickflex_day_route_items",
   bundles: "quickflex_route_bundles",
   inspections: "quickflex_daily_inspections",
+  inspectionSignatures: "quickflex_inspection_signatures",
 };
 
 export const DB_KEY = "quickflex-supabase-config";
@@ -59,12 +60,10 @@ export const RATE_UPDATE_OFFER = {
 };
 
 export const APP_UPDATE_NOTICE = {
-  id: "2026-08-09-daily-inspection-v2",
+  id: "2026-08-12-inspection-signature-v1",
   items: [
-    "일상점검 기능이 추가되었습니다.",
-    "6월 30일~8월 8일 점검은 완료 처리되었습니다.",
-    "오늘부터 운행 전 점검을 앱에서 직접 기록할 수 있습니다.",
-    "월간 점검표를 출력하거나 PDF로 저장할 수 있습니다.",
+    "일상점검표에 점검자 손서명 기능이 추가되었습니다.",
+    "설정에서 서명을 한 번 등록하면 매일 기록과 월간 출력물에 날짜별로 표시됩니다.",
   ],
 };
 
