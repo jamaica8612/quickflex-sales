@@ -72,10 +72,20 @@ create table if not exists public.quickflex_daily_inspections (
   action_notes text not null default '',
   signed_name text not null,
   signed_at timestamptz not null default now(),
+  signature_data text not null default '',
   source text not null default 'app' check (source in ('app', 'legacy_paper')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, inspection_date)
+);
+
+create table if not exists public.quickflex_inspection_signatures (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  signature_data text not null check (
+    char_length(signature_data) between 1 and 100000
+    and signature_data ~ '^data:image/(png|webp);base64,'
+  ),
+  updated_at timestamptz not null default now()
 );
 
 alter table public.quickflex_profiles
@@ -92,6 +102,9 @@ alter table public.quickflex_profiles
   add column if not exists business_name text not null default '',
   add column if not exists vehicle_number text not null default '',
   add column if not exists app_notice_version text not null default '';
+
+alter table public.quickflex_daily_inspections
+  add column if not exists signature_data text not null default '';
 
 alter table public.quickflex_day_records
   add column if not exists backup_unit integer not null default 30,
@@ -118,6 +131,7 @@ alter table public.quickflex_day_records enable row level security;
 alter table public.quickflex_day_route_items enable row level security;
 alter table public.quickflex_route_bundles enable row level security;
 alter table public.quickflex_daily_inspections enable row level security;
+alter table public.quickflex_inspection_signatures enable row level security;
 
 revoke all on table public.quickflex_daily_inspections from anon;
 revoke all on table public.quickflex_daily_inspections from authenticated;
@@ -125,6 +139,10 @@ grant select, insert, update, delete on table public.quickflex_daily_inspections
 revoke all on sequence public.quickflex_daily_inspections_id_seq from anon;
 revoke all on sequence public.quickflex_daily_inspections_id_seq from authenticated;
 grant usage, select on sequence public.quickflex_daily_inspections_id_seq to authenticated;
+
+revoke all on table public.quickflex_inspection_signatures from anon;
+revoke all on table public.quickflex_inspection_signatures from authenticated;
+grant select, insert, update, delete on table public.quickflex_inspection_signatures to authenticated;
 
 create or replace function public.quickflex_is_admin()
 returns boolean
@@ -569,9 +587,43 @@ for delete
 to authenticated
 using (user_id = (select auth.uid()) and (select public.quickflex_is_approved()));
 
+drop policy if exists "quickflex inspection signatures select own" on public.quickflex_inspection_signatures;
+drop policy if exists "quickflex inspection signatures insert own" on public.quickflex_inspection_signatures;
+drop policy if exists "quickflex inspection signatures update own" on public.quickflex_inspection_signatures;
+drop policy if exists "quickflex inspection signatures delete own" on public.quickflex_inspection_signatures;
+
+create policy "quickflex inspection signatures select own"
+on public.quickflex_inspection_signatures
+for select
+to authenticated
+using (user_id = (select auth.uid()) and (select public.quickflex_is_approved()));
+
+create policy "quickflex inspection signatures insert own"
+on public.quickflex_inspection_signatures
+for insert
+to authenticated
+with check (user_id = (select auth.uid()) and (select public.quickflex_is_approved()));
+
+create policy "quickflex inspection signatures update own"
+on public.quickflex_inspection_signatures
+for update
+to authenticated
+using (user_id = (select auth.uid()) and (select public.quickflex_is_approved()))
+with check (user_id = (select auth.uid()) and (select public.quickflex_is_approved()));
+
+create policy "quickflex inspection signatures delete own"
+on public.quickflex_inspection_signatures
+for delete
+to authenticated
+using (
+  (user_id = (select auth.uid()) and (select public.quickflex_is_approved()))
+  or (select public.quickflex_is_admin())
+);
+
 comment on table public.quickflex_profiles is 'QuickFlex users and driver type settings';
 comment on table public.quickflex_route_rates is 'Current route unit master data per user';
 comment on table public.quickflex_day_records is 'Per-day header record values with driver type snapshot';
 comment on table public.quickflex_day_route_items is 'Per-day route entries with unit snapshots';
 comment on table public.quickflex_route_bundles is 'Admin-managed OCR route bundle correction patterns';
 comment on table public.quickflex_daily_inspections is 'QuickFlex account-scoped statutory daily vehicle inspection records';
+comment on table public.quickflex_inspection_signatures is 'Reusable inspection signature visible only to its QuickFlex owner';

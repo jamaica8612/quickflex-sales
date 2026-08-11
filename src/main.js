@@ -12,7 +12,7 @@ import {
   RATE_UPDATE_OFFER,
   SAMPLE_SETTLEMENT,
   TABLES,
-} from "./config.js?v=5";
+} from "./config.js?v=6";
 import {
   addDays,
   formatLong,
@@ -173,6 +173,7 @@ const state = {
   routeBundles: [],
   entries: {},
   inspections: {},
+  inspectionSignature: "",
   inspectionDate: todayKey(),
   inspectionDraft: { results: {}, defectNotes: "", actionNotes: "" },
   db: null,
@@ -198,6 +199,76 @@ const state = {
 
 let ocrDraftMap = null;
 let toastTimer = null;
+let profileSignaturePad = null;
+
+function isValidSignatureData(value) {
+  return typeof value === "string"
+    && value.length <= 100000
+    && /^data:image\/(?:png|webp);base64,[A-Za-z0-9+/=]+$/.test(value);
+}
+
+function createSignaturePad(canvas) {
+  if (!canvas) return null;
+  const context = canvas.getContext("2d");
+  let drawing = false;
+  let hasInk = false;
+  const point = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (event.clientX - rect.left) * (canvas.width / rect.width),
+      y: (event.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  };
+  const clear = () => {
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    hasInk = false;
+  };
+  const load = (value) => {
+    clear();
+    if (!isValidSignatureData(value)) return;
+    const image = new Image();
+    image.onload = () => {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      hasInk = true;
+    };
+    image.src = value;
+  };
+  const begin = (event) => {
+    event.preventDefault();
+    drawing = true;
+    hasInk = true;
+    canvas.setPointerCapture?.(event.pointerId);
+    const p = point(event);
+    context.beginPath();
+    context.moveTo(p.x, p.y);
+  };
+  const move = (event) => {
+    if (!drawing) return;
+    event.preventDefault();
+    const p = point(event);
+    context.lineWidth = 7;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.strokeStyle = "#111827";
+    context.lineTo(p.x, p.y);
+    context.stroke();
+  };
+  const end = (event) => {
+    if (!drawing) return;
+    drawing = false;
+    canvas.releasePointerCapture?.(event.pointerId);
+  };
+  canvas.addEventListener("pointerdown", begin);
+  canvas.addEventListener("pointermove", move);
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointercancel", end);
+  return {
+    clear,
+    load,
+    value: () => hasInk ? canvas.toDataURL("image/webp", 0.78) : "",
+  };
+}
 const $ = (id) => document.getElementById(id);
 const el = {
   app: $("app"),
@@ -260,6 +331,9 @@ const el = {
   inspectionActionNotes: $("inspectionActionNotes"),
   inspectionAllGood: $("inspectionAllGood"),
   inspectionReset: $("inspectionReset"),
+  inspectionSignatureStatus: $("inspectionSignatureStatus"),
+  inspectionSignaturePreview: $("inspectionSignaturePreview"),
+  openSignatureSettings: $("openSignatureSettings"),
   inspectionConfirmed: $("inspectionConfirmed"),
   saveInspection: $("saveInspection"),
   markNoOperation: $("markNoOperation"),
@@ -333,6 +407,10 @@ const el = {
   profileDisplayName: $("profileDisplayName"),
   profileBusinessName: $("profileBusinessName"),
   profileVehicleNumber: $("profileVehicleNumber"),
+  signatureSettingsSection: $("signatureSettingsSection"),
+  profileSignatureCanvas: $("profileSignatureCanvas"),
+  clearProfileSignature: $("clearProfileSignature"),
+  saveProfileSignature: $("saveProfileSignature"),
   fixedRoutesText: $("fixedRoutesText"),
   fixedRoutesInput: $("fixedRoutesInput"),
   saveProfile: $("saveProfile"),
@@ -1145,6 +1223,25 @@ async function saveProfile() {
   if (el.app.dataset.view === "record") renderEntryForm();
   toast("내 정보를 저장했습니다.", "success");
 }
+async function saveInspectionSignature() {
+  const signatureData = profileSignaturePad?.value() || "";
+  if (!isValidSignatureData(signatureData)) throw new Error("서명란에 먼저 서명해 주세요.");
+  const payload = {
+    user_id: currentUserId(),
+    signature_data: signatureData,
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await state.db
+    .from(TABLES.inspectionSignatures)
+    .upsert(payload, { onConflict: "user_id" })
+    .select("signature_data")
+    .single();
+  if (error) throw error;
+  state.inspectionSignature = data.signature_data;
+  profileSignaturePad?.load(state.inspectionSignature);
+  if (el.app.dataset.view === "inspection") renderInspection(state.inspectionDate);
+  toast("일상점검 서명을 저장했습니다.", "success");
+}
 async function saveGoalAmount() {
   const goal = goalRawValue();
   if (!goal || goal <= 0) return toast("올바른 목표 금액을 입력해 주세요.", "error");
@@ -1229,6 +1326,8 @@ async function logout() {
   state.routeBundles = [];
   state.entries = {};
   state.inspections = {};
+  state.inspectionSignature = "";
+  profileSignaturePad?.clear();
   state.rateOfferPrompted = false;
   renderAll();
   showPending(false);
@@ -1276,13 +1375,14 @@ async function loadFromDb() {
   if (!state.db || !currentUserId()) return;
   const userId = currentUserId();
   const defaultRatesQuery = Promise.resolve({ data: [], error: null });
-  const [ratesResult, defaultRatesResult, daysResult, itemsResult, bundlesResult, inspectionsResult] = await Promise.all([
+  const [ratesResult, defaultRatesResult, daysResult, itemsResult, bundlesResult, inspectionsResult, signatureResult] = await Promise.all([
     state.db.from(TABLES.rates).select("*").eq("user_id", userId).order("route"),
     defaultRatesQuery,
     state.db.from(TABLES.days).select("*").eq("user_id", userId),
     state.db.from(TABLES.items).select("*").eq("user_id", userId).order("sort_order"),
     state.db.from(TABLES.bundles).select("*").eq("active", true).order("sort_order").order("label"),
     state.db.from(TABLES.inspections).select("*").eq("user_id", userId).order("inspection_date"),
+    state.db.from(TABLES.inspectionSignatures).select("signature_data").eq("user_id", userId).maybeSingle(),
   ]);
   if (ratesResult.error) throw ratesResult.error;
   if (defaultRatesResult.error) throw defaultRatesResult.error;
@@ -1290,6 +1390,7 @@ async function loadFromDb() {
   if (itemsResult.error) throw itemsResult.error;
   if (bundlesResult.error) throw bundlesResult.error;
   if (inspectionsResult.error) throw inspectionsResult.error;
+  if (signatureResult.error) throw signatureResult.error;
   const goalRate = (ratesResult.data || []).find((row) => normalizeRoute(row.route) === GOAL_SETTING_ROUTE);
   await migrateLegacyGoalAmount(toNum(goalRate?.current_unit));
   state.rates = ratesFromDb(ratesResult.data);
@@ -1297,6 +1398,8 @@ async function loadFromDb() {
   state.routeBundles = bundlesResult.data || [];
   state.entries = entriesFromDb(daysResult.data, itemsResult.data);
   state.inspections = Object.fromEntries((inspectionsResult.data || []).map((row) => [row.inspection_date, row]));
+  state.inspectionSignature = isValidSignatureData(signatureResult.data?.signature_data) ? signatureResult.data.signature_data : "";
+  profileSignaturePad?.load(state.inspectionSignature);
   const hadRates = state.rates.length > 0;
   if (state.profile?.role === "admin" && !state.rates.length) {
     state.rates = avgRates(SAMPLE_SETTLEMENT);
@@ -1492,6 +1595,10 @@ function inspectionDraftFromRecord(record) {
     actionNotes: record?.action_notes || "",
   };
 }
+function inspectionSignatureForRecord(record) {
+  if (isValidSignatureData(record?.signature_data)) return record.signature_data;
+  return isValidSignatureData(state.inspectionSignature) ? state.inspectionSignature : "";
+}
 function renderInspectionEntry() {
   const dateKey = state.selectedDate;
   const available = dateKey >= "2026-06-30" && dateKey <= todayKey();
@@ -1542,6 +1649,14 @@ function renderInspection(dateKey = todayKey(), options = {}) {
   el.inspectionDefectFields.classList.toggle("hidden", !hasBad);
   el.inspectionDefectNotes.value = state.inspectionDraft.defectNotes;
   el.inspectionActionNotes.value = state.inspectionDraft.actionNotes;
+  const signatureData = inspectionSignatureForRecord(record);
+  el.inspectionSignaturePreview.classList.toggle("hidden", !signatureData);
+  if (signatureData) el.inspectionSignaturePreview.src = signatureData;
+  else el.inspectionSignaturePreview.removeAttribute("src");
+  el.inspectionSignatureStatus.textContent = signatureData
+    ? (record?.signature_data ? "이 기록에 저장된 서명입니다." : "등록된 서명이 저장 시 함께 들어갑니다.")
+    : "설정에서 서명을 등록해 주세요.";
+  el.openSignatureSettings.textContent = signatureData ? "서명 변경" : "서명 등록";
   el.inspectionConfirmed.checked = Boolean(record);
   el.inspectionChecklist.querySelectorAll("button").forEach((button) => { button.disabled = false; });
   [el.inspectionAllGood, el.inspectionReset, el.inspectionConfirmed, el.saveInspection, el.markNoOperation].forEach((node) => { node.disabled = false; });
@@ -1580,6 +1695,8 @@ async function saveInspection() {
   const defectNotes = el.inspectionDefectNotes.value.trim();
   const actionNotes = el.inspectionActionNotes.value.trim();
   if (hasBad && (!defectNotes || !actionNotes)) throw new Error("이상 내용과 조치 내용을 모두 적어 주세요.");
+  const signatureData = inspectionSignatureForRecord(state.inspections[dateKey]);
+  if (!signatureData) throw new Error("설정에서 점검자 서명을 먼저 등록해 주세요.");
   const payload = {
     user_id: currentUserId(),
     inspection_date: dateKey,
@@ -1589,6 +1706,7 @@ async function saveInspection() {
     action_notes: actionNotes,
     signed_name: driverName(),
     signed_at: new Date().toISOString(),
+    signature_data: signatureData,
     source: "app",
     updated_at: new Date().toISOString(),
   };
@@ -1603,6 +1721,8 @@ async function saveInspection() {
   toast("일상점검을 저장했습니다.", "success");
 }
 async function setInspectionNoOperation() {
+  const signatureData = inspectionSignatureForRecord(state.inspections[state.inspectionDate]);
+  if (!signatureData) throw new Error("설정에서 점검자 서명을 먼저 등록해 주세요.");
   if (!window.confirm(`${formatLong(state.inspectionDate)}을 미운행으로 기록할까요?`)) return;
   const payload = {
     user_id: currentUserId(),
@@ -1613,6 +1733,7 @@ async function setInspectionNoOperation() {
     action_notes: "",
     signed_name: driverName(),
     signed_at: new Date().toISOString(),
+    signature_data: signatureData,
     source: "app",
     updated_at: new Date().toISOString(),
   };
@@ -1647,9 +1768,10 @@ function buildInspectionMonthSheet() {
     </div>
     <table class="inspection-print-table"><thead><tr><th>구분</th><th>점검항목</th>${days.map((day) => `<th>${day}</th>`).join("")}</tr></thead><tbody>
       ${INSPECTION_ITEMS.map(([group, label], index) => `<tr><td>${escapeAttr(group)}</td><td>${index + 1}. ${escapeAttr(label)}</td>${days.map((day) => `<td>${statusMark(day, `item_${index + 1}`)}</td>`).join("")}</tr>`).join("")}
-      <tr><td colspan="2">운수종사자 확인</td>${days.map((day) => {
+      <tr><td colspan="2">점검자 확인(서명)</td>${days.map((day) => {
         const row = state.inspections[`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`];
-        return `<td>${row ? escapeAttr(row.signed_name || driverName()).slice(0, 3) : ""}</td>`;
+        const signatureData = inspectionSignatureForRecord(row);
+        return `<td class="inspection-print-signature">${row && signatureData ? `<img src="${signatureData}" alt="" />` : ""}</td>`;
       }).join("")}</tr>
       <tr><td colspan="2">결함 및 조치사항</td><td colspan="${lastDay}">${days.map((day) => {
         const row = state.inspections[`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`];
@@ -1658,9 +1780,19 @@ function buildInspectionMonthSheet() {
     </tbody></table><p class="inspection-print-legend">표시: 양호 ○ · 불량 × · 미운행 미</p>`;
   return { sheet, year, month };
 }
-function printInspectionMonth() {
+function waitForInspectionSheetImages(sheet) {
+  return Promise.all([...sheet.querySelectorAll("img")].map((image) => {
+    if (image.complete) return Promise.resolve();
+    return new Promise((resolve) => {
+      image.addEventListener("load", resolve, { once: true });
+      image.addEventListener("error", resolve, { once: true });
+    });
+  }));
+}
+async function printInspectionMonth() {
   const { sheet } = buildInspectionMonthSheet();
   document.body.appendChild(sheet);
+  await waitForInspectionSheetImages(sheet);
   window.print();
   setTimeout(() => sheet.remove(), 1000);
 }
@@ -1676,6 +1808,7 @@ async function saveInspectionMonthPdf() {
   sheet.classList.add("pdf-capture");
   document.body.appendChild(sheet);
   try {
+    await waitForInspectionSheetImages(sheet);
     if (document.fonts?.ready) await document.fonts.ready;
     const canvas = await window.html2canvas(sheet, {
       scale: 2,
@@ -3192,6 +3325,8 @@ async function deleteAdminProfile(card) {
   if (dayError) throw dayError;
   const { error: rateError } = await state.db.from(TABLES.rates).delete().eq("user_id", id);
   if (rateError) throw rateError;
+  const { error: signatureError } = await state.db.from(TABLES.inspectionSignatures).delete().eq("user_id", id);
+  if (signatureError) throw signatureError;
   const { error: profileError } = await state.db.from(TABLES.profiles).delete().eq("id", id);
   if (profileError) throw profileError;
   toast("사용자를 삭제했습니다.", "success");
@@ -3218,6 +3353,7 @@ function bindEvents() {
     applySettlementRows,
     applyTheme,
     applyRateUpdateOffer,
+    clearProfileSignature: () => profileSignaturePad?.clear(),
     closeSheet,
     confirmOffWithExistingCounts,
     connectDb,
@@ -3266,6 +3402,7 @@ function bindEvents() {
     saveCurrentRecordAndGoHome,
     saveGoalAmount,
     saveInspection,
+    saveInspectionSignature,
     saveProfile,
     scheduleSave,
     selectDate,
@@ -3301,6 +3438,7 @@ function bindEvents() {
 }
 
 async function init() {
+  profileSignaturePad = createSignaturePad(el.profileSignatureCanvas);
   bindEvents();
   renderAll();
   const cfg = getDbConfig();

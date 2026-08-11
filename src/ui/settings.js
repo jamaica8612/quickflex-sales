@@ -15,6 +15,7 @@ export function bindSettingsEvents(ctx) {
     renderAll,
     renderMonth,
     saveGoalAmount,
+    saveInspectionSignature,
     saveProfile,
     setCalendarRoutesPreference,
     shouldShowCalendarRoutes,
@@ -30,6 +31,8 @@ export function bindSettingsEvents(ctx) {
     });
   });
   el.saveProfile.addEventListener("click", () => saveProfile().catch((error) => toast(`프로필 저장 실패: ${error.message}`, "error")));
+  el.clearProfileSignature.addEventListener("click", () => ctx.clearProfileSignature());
+  el.saveProfileSignature.addEventListener("click", () => saveInspectionSignature().catch((error) => toast(`서명 저장 실패: ${error.message}`, "error")));
   el.applyRateUpdate?.addEventListener("click", () => applyRateUpdateOffer().catch((error) => toast(`단가 업데이트 실패: ${error.message}`, "error")));
   el.goalAmountInput.addEventListener("input", () => {
     const pos = el.goalAmountInput.selectionStart;
@@ -51,9 +54,12 @@ export function bindSettingsEvents(ctx) {
       await state.db.from(TABLES.days).delete().eq("user_id", userId);
       await state.db.from(TABLES.rates).delete().eq("user_id", userId);
       await state.db.from(TABLES.inspections).delete().eq("user_id", userId);
+      await state.db.from(TABLES.inspectionSignatures).delete().eq("user_id", userId);
       state.rates = [];
       state.entries = {};
       state.inspections = {};
+      state.inspectionSignature = "";
+      ctx.clearProfileSignature();
       renderAll();
       toast("내 데이터를 초기화했습니다.", "success");
     } catch (error) {
@@ -68,6 +74,7 @@ export function bindSettingsEvents(ctx) {
       await state.db.from(TABLES.days).delete().eq("user_id", userId);
       await state.db.from(TABLES.rates).delete().eq("user_id", userId);
       await state.db.from(TABLES.inspections).delete().eq("user_id", userId);
+      await state.db.from(TABLES.inspectionSignatures).delete().eq("user_id", userId);
       await state.db.from(TABLES.profiles).update({
         display_name: `[탈퇴요청] ${driverName()}`,
         updated_at: new Date().toISOString(),
