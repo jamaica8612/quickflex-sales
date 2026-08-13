@@ -1354,6 +1354,9 @@ async function updatePassword() {
   await logout();
 }
 async function logout() {
+  try {
+    window.QuickFlexNative?.postMessage(JSON.stringify({ type: "sign_out" }));
+  } catch (_) {}
   if (state.db) await state.db.auth.signOut();
   state.session = null;
   state.profile = null;
@@ -1923,11 +1926,32 @@ function renderMeasurementBridge() {
       : "주간 측정은 선택한 날짜의 근무표에 저장됩니다.";
   el.openPaceApp.disabled = record.off;
 }
-function openPaceMeasurementApp() {
+async function openPaceMeasurementApp() {
   const workDate = state.measurementDate || defaultMeasurementWorkDate();
   if (getRecord(workDate, false).off) return toast("휴무일은 측정을 시작할 수 없습니다.", "error");
   const shift = isNightShift() ? "night" : "day";
+  if (window.QuickFlexNative?.postMessage && state.db) {
+    const { data, error } = await state.db.auth.getSession();
+    if (error || !data?.session?.access_token || !data.session.refresh_token) {
+      return toast("로그인 상태를 확인한 뒤 다시 시도해 주세요.", "error");
+    }
+    window.QuickFlexNative.postMessage(JSON.stringify({
+      type: "open_measurement",
+      workDate,
+      workShift: shift,
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+      expiresAt: data.session.expires_at || 0,
+    }));
+    return;
+  }
   window.location.href = `quickflexpace://measure?date=${encodeURIComponent(workDate)}&shift=${shift}`;
+}
+async function refreshAfterNativeMeasurement() {
+  if (!currentUserId()) return;
+  await loadFromDb().catch(() => {});
+  renderAll();
+  if (el.app.dataset.view === "measurement") renderMeasurementBridge();
 }
 function renderAll() {
   applyProfileUi();
@@ -3522,9 +3546,10 @@ function bindEvents() {
   el.openPaceApp?.addEventListener("click", openPaceMeasurementApp);
   document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState !== "visible" || el.app.dataset.view !== "measurement" || !currentUserId()) return;
-    await loadFromDb().catch(() => {});
-    renderMeasurementBridge();
+    await refreshAfterNativeMeasurement();
   });
+  window.addEventListener("quickflex-native-resume", refreshAfterNativeMeasurement);
+  window.addEventListener("quickflex-native-synced", refreshAfterNativeMeasurement);
 }
 
 async function init() {
