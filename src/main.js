@@ -1069,10 +1069,29 @@ function getEdgeFunctionUrl(name) {
   const base = normalizeUrl(cfg.url || "");
   return base ? `${base}/functions/v1/${name}` : "";
 }
-async function authHeaders() {
+async function authHeaders(forceRefresh = false) {
   const cfg = getDbConfig();
-  const token = state.session?.access_token || cfg.anonKey;
-  return { "Content-Type": "application/json", apikey: cfg.anonKey, Authorization: `Bearer ${token}` };
+  if (!state.db) throw new Error("로그인이 필요합니다. 다시 로그인해 주세요.");
+  const { data, error } = forceRefresh
+    ? await state.db.auth.refreshSession()
+    : await state.db.auth.getSession();
+  if (error) throw new Error("로그인 상태를 확인하지 못했습니다. 다시 로그인해 주세요.");
+  const session = data?.session;
+  if (!session?.access_token) throw new Error("로그인이 만료되었습니다. 다시 로그인해 주세요.");
+  state.session = session;
+  return { "Content-Type": "application/json", apikey: cfg.anonKey, Authorization: `Bearer ${session.access_token}` };
+}
+async function fetchWithFreshAuth(url, body) {
+  const send = async (forceRefresh = false) => fetch(url, {
+    method: "POST",
+    headers: await authHeaders(forceRefresh),
+    body: JSON.stringify(body),
+  });
+  const response = await send();
+  if (response.status !== 401) return response;
+  const errorText = await response.clone().text();
+  if (!/Invalid JWT|UNAUTHORIZED_/i.test(errorText)) return response;
+  return send(true);
 }
 function showSetup(show) { el.setupOverlay.classList.toggle("visible", show && canUseManualDbConfig()); }
 function showAuth(show) {
@@ -3161,17 +3180,13 @@ async function runOcr() {
   try {
     const image = await fileToBase64(file);
     el.ocrStatus.textContent = "Cloud Vision으로 스케줄 분석 중...";
-    const response = await fetch(baseUrl, {
-      method: "POST",
-      headers: await authHeaders(),
-      body: JSON.stringify({
-        mode: "vision-schedule",
-        imageBase64: image.base64,
-        mimeType: image.mimeType,
-        ownerName: owner,
-        year: state.year,
-        month: state.month,
-      }),
+    const response = await fetchWithFreshAuth(baseUrl, {
+      mode: "vision-schedule",
+      imageBase64: image.base64,
+      mimeType: image.mimeType,
+      ownerName: owner,
+      year: state.year,
+      month: state.month,
     });
     const result = await readOcrResponse(response);
     const { schedule } = result;
@@ -3204,17 +3219,13 @@ async function runSettlementOcr() {
   el.settlementStatus.textContent = "정산표 OCR 분석 중...";
   try {
     const image = await fileToBase64(file);
-    const response = await fetch(url, {
-      method: "POST",
-      headers: await authHeaders(),
-      body: JSON.stringify({
-        kind: "settlement",
-        imageBase64: image.base64,
-        mimeType: image.mimeType,
-        ownerName: driverName(),
-        year: state.year,
-        month: state.month,
-      }),
+    const response = await fetchWithFreshAuth(url, {
+      kind: "settlement",
+      imageBase64: image.base64,
+      mimeType: image.mimeType,
+      ownerName: driverName(),
+      year: state.year,
+      month: state.month,
     });
     const result = await readOcrResponse(response);
     const rows = result?.settlement?.rows || [];
