@@ -188,6 +188,8 @@ const state = {
   rateOfferPrompted: false,
   recordDraftDate: "",
   recordDraft: null,
+  measurementDate: "",
+  measurementDateAuto: false,
   statsRangeMode: "thisMonth",
   statsChartMetric: "revenue",
   statsRangeCustom: { from: "", to: "" },
@@ -359,6 +361,7 @@ const el = {
   selectedDayTotal: $("selectedDayTotal"),
   saveRecord: $("saveRecord"),
   measurementWorkDate: $("measurementWorkDate"),
+  measurementScheduleMeta: $("measurementScheduleMeta"),
   measurementRouteText: $("measurementRouteText"),
   measurementRouteHint: $("measurementRouteHint"),
   openPaceApp: $("openPaceApp"),
@@ -594,6 +597,7 @@ function completeRouteBundles(routes) {
 }
 function currentUserId() { return state.session?.user?.id || ""; }
 function isBackupDriver() { return (state.profile?.driver_type || "backup") === "backup"; }
+function isNightShift() { return state.profile?.work_shift === "night"; }
 function fixedRoutes() { return Array.isArray(state.profile?.fixed_routes) ? expandRouteText(state.profile.fixed_routes.join(",")) : []; }
 function driverName() { return state.profile?.display_name || state.session?.user?.email || "매출관리"; }
 function statusLabel(status) {
@@ -1155,6 +1159,10 @@ function applyProfileUi() {
   document.querySelectorAll('input[name="freshbagMode"]').forEach((radio) => {
     radio.checked = radio.value === mode;
   });
+  const workShift = profile.work_shift === "night" ? "night" : "day";
+  document.querySelectorAll('input[name="workShift"]').forEach((radio) => {
+    radio.checked = radio.value === workShift;
+  });
   const goal = getGoal();
   el.goalAmountInput.value = goal > 0 ? goal.toLocaleString("ko-KR") : "";
 }
@@ -1234,11 +1242,13 @@ async function loadProfile() {
 }
 async function saveProfile() {
   const selectedMode = document.querySelector('input[name="freshbagMode"]:checked')?.value || "single";
+  const selectedWorkShift = document.querySelector('input[name="workShift"]:checked')?.value === "night" ? "night" : "day";
   const payload = {
     display_name: el.profileDisplayName.value.trim() || driverName(),
     business_name: el.profileBusinessName.value.trim(),
     vehicle_number: el.profileVehicleNumber.value.trim(),
     freshbag_mode: selectedMode,
+    work_shift: selectedWorkShift,
     updated_at: new Date().toISOString(),
   };
   const { data, error } = await state.db.from(TABLES.profiles).update(payload).eq("id", currentUserId()).select("*").single();
@@ -1875,7 +1885,11 @@ function showView(view) {
   el.app.dataset.view = view;
   el.navTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === view));
   if (view === "record") renderEntryForm();
-  if (view === "measurement") renderMeasurementBridge();
+  if (view === "measurement") {
+    state.measurementDate = defaultMeasurementWorkDate();
+    state.measurementDateAuto = isNightShift() && state.selectedDate === todayKey();
+    renderMeasurementBridge();
+  }
   if (view === "inspection") renderInspection(state.inspectionDate);
   if (view === "stats") renderStats();
   if (view === "admin") renderAdminDashboard();
@@ -1883,21 +1897,37 @@ function showView(view) {
     renderRates();
   }
 }
+function defaultMeasurementWorkDate() {
+  if (!isNightShift() || state.selectedDate !== todayKey()) return state.selectedDate;
+  return addDays(state.selectedDate, 1);
+}
 function renderMeasurementBridge() {
   if (!el.measurementWorkDate) return;
-  el.measurementWorkDate.value = state.selectedDate;
-  const record = getRecord(state.selectedDate, false);
+  const workDate = state.measurementDate || defaultMeasurementWorkDate();
+  state.measurementDate = workDate;
+  el.measurementWorkDate.value = workDate;
+  const record = getRecord(workDate, false);
   const routes = record.off ? [] : record.rows.flatMap((row) => splitStoredRoutes(row.route));
   el.measurementRouteText.textContent = record.off ? "휴무" : routes.length ? routes.join(" · ") : "등록된 구역 없음";
   const households = record.rows.reduce((sum, row) => sum + toNum(row.households), 0);
+  const autoNightDate = state.measurementDateAuto;
+  if (el.measurementScheduleMeta) {
+    el.measurementScheduleMeta.textContent = autoNightDate
+      ? `${formatMonthDay(state.selectedDate)} 밤 → ${formatMonthDay(workDate)} 근무표`
+      : `${formatMonthDay(workDate)} 근무표 자동 입력`;
+  }
   el.measurementRouteHint.textContent = households > 0
     ? `저장된 가구수 ${households}가구 · 필요하면 기록 화면에서 수정할 수 있습니다.`
-    : "야간에는 날짜가 넘어가도 선택한 근무일로 저장됩니다.";
+    : isNightShift()
+      ? "야간 측정은 이 날짜의 구역과 가구수 기록으로 유지됩니다."
+      : "주간 측정은 선택한 날짜의 근무표에 저장됩니다.";
   el.openPaceApp.disabled = record.off;
 }
 function openPaceMeasurementApp() {
-  if (getRecord(state.selectedDate, false).off) return toast("휴무일은 측정을 시작할 수 없습니다.", "error");
-  window.location.href = `quickflexpace://measure?date=${encodeURIComponent(state.selectedDate)}`;
+  const workDate = state.measurementDate || defaultMeasurementWorkDate();
+  if (getRecord(workDate, false).off) return toast("휴무일은 측정을 시작할 수 없습니다.", "error");
+  const shift = isNightShift() ? "night" : "day";
+  window.location.href = `quickflexpace://measure?date=${encodeURIComponent(workDate)}&shift=${shift}`;
 }
 function renderAll() {
   applyProfileUi();
@@ -3485,7 +3515,8 @@ function bindEvents() {
   bindOcrEvents(shared);
   el.measurementWorkDate?.addEventListener("change", () => {
     if (!el.measurementWorkDate.value) return;
-    selectDate(el.measurementWorkDate.value);
+    state.measurementDate = el.measurementWorkDate.value;
+    state.measurementDateAuto = false;
     renderMeasurementBridge();
   });
   el.openPaceApp?.addEventListener("click", openPaceMeasurementApp);

@@ -6,6 +6,7 @@ create table if not exists public.quickflex_profiles (
   status text not null default 'pending' check (status in ('pending', 'approved', 'blocked')),
   role text not null default 'driver' check (role in ('driver', 'admin')),
   fixed_routes text[] not null default '{}',
+  work_shift text not null default 'day' check (work_shift in ('day', 'night')),
   goal_amount integer not null default 6000000,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -96,6 +97,7 @@ alter table public.quickflex_profiles
   add column if not exists status text not null default 'pending',
   add column if not exists role text not null default 'driver',
   add column if not exists fixed_routes text[] not null default '{}',
+  add column if not exists work_shift text not null default 'day',
   add column if not exists goal_amount integer not null default 6000000,
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now(),
@@ -103,6 +105,19 @@ alter table public.quickflex_profiles
   add column if not exists business_name text not null default '',
   add column if not exists vehicle_number text not null default '',
   add column if not exists app_notice_version text not null default '';
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'quickflex_profiles_work_shift_check'
+      and conrelid = 'public.quickflex_profiles'::regclass
+  ) then
+    alter table public.quickflex_profiles
+      add constraint quickflex_profiles_work_shift_check
+      check (work_shift in ('day', 'night'));
+  end if;
+end $$;
 
 alter table public.quickflex_daily_inspections
   add column if not exists signature_data text not null default '';
