@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.21" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.22" />
   </head>
   <body>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -185,13 +185,13 @@
         <main class="settings-body measurement-bridge-body">
           <section class="settings-section measurement-workday-card">
             <label class="settings-field">
-              <span>근무일</span>
+              <span>근무표 날짜</span>
               <input id="measurementWorkDate" type="date" />
             </label>
             <div class="measurement-route-summary">
-              <span>PWA 근무표 자동 입력</span>
+              <span id="measurementScheduleMeta">PWA 근무표 자동 입력</span>
               <strong id="measurementRouteText">구역 확인 중</strong>
-              <small id="measurementRouteHint">야간에는 날짜가 넘어가도 선택한 근무일로 저장됩니다.</small>
+              <small id="measurementRouteHint">야간은 다음 날 근무표를 기준으로 저장됩니다.</small>
             </div>
           </section>
           <section class="settings-section">
@@ -304,6 +304,19 @@
             <div class="settings-field">
               <label>차량번호</label>
               <input id="profileVehicleNumber" type="text" placeholder="예: 부산80바1234" />
+            </div>
+            <div class="settings-field">
+              <label>근무 시간대</label>
+              <div class="freshbag-toggle">
+                <label class="mode-option">
+                  <input type="radio" name="workShift" value="day" checked />
+                  <span>주간<small>당일 근무표</small></span>
+                </label>
+                <label class="mode-option">
+                  <input type="radio" name="workShift" value="night" />
+                  <span>야간<small>다음 날 근무표</small></span>
+                </label>
+              </div>
             </div>
             <div class="settings-field fixed-only">
               <label>고정 라우트</label>
@@ -428,7 +441,7 @@
               <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
             </div>
           </section>
-          <p class="app-version">퀵플렉스 매출관리 v1.0.19</p>
+          <p class="app-version">퀵플렉스 매출관리 v1.0.22</p>
         </main>
       </section>
 
@@ -613,7 +626,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.21"></script>
+    <script type="module" src="./src/main.js?v=1.0.22"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
