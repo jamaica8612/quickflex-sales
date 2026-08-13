@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.19" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.21" />
   </head>
   <body>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -172,6 +172,34 @@
 
           <div class="total-card"><span>합계</span><strong id="selectedDayTotal">0원</strong></div>
           <button class="full-btn" id="saveRecord">저장</button>
+        </main>
+      </section>
+
+      <section class="view view-measurement">
+        <header class="sub-header">
+          <div class="sub-title left">
+            <span>구역별 가구수</span>
+            <strong>배송 페이스 측정</strong>
+          </div>
+        </header>
+        <main class="settings-body measurement-bridge-body">
+          <section class="settings-section measurement-workday-card">
+            <label class="settings-field">
+              <span>근무일</span>
+              <input id="measurementWorkDate" type="date" />
+            </label>
+            <div class="measurement-route-summary">
+              <span>PWA 근무표 자동 입력</span>
+              <strong id="measurementRouteText">구역 확인 중</strong>
+              <small id="measurementRouteHint">야간에는 날짜가 넘어가도 선택한 근무일로 저장됩니다.</small>
+            </div>
+          </section>
+          <section class="settings-section">
+            <h2>측정 앱에서 진행</h2>
+            <p class="hint">쿠팡플렉스 화면의 가구 수를 읽으려면 설치된 측정 앱을 엽니다. 측정 종료 후 가구수가 이 날짜의 구역 기록에 자동 저장됩니다.</p>
+            <button id="openPaceApp" class="full-btn" type="button">측정 앱 열기</button>
+            <p class="hint">자동 저장된 가구수는 달력에서 날짜를 선택한 뒤 기록 화면에서 수정할 수 있습니다.</p>
+          </section>
         </main>
       </section>
 
@@ -485,6 +513,10 @@
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></svg>
           <span>달력</span>
         </button>
+        <button class="nav-tab" data-view="measurement">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V9"/><path d="M9 19V5"/><path d="M14 19v-7"/><path d="M19 19V3"/></svg>
+          <span>측정</span>
+        </button>
         <button class="nav-tab" data-view="stats">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           <span>통계</span>
@@ -574,13 +606,14 @@
         <input class="unit" type="number" min="0" inputmode="numeric" placeholder="0" aria-label="단가" />
         <output>0원</output>
         <button type="button" class="del-btn" aria-label="삭제">×</button>
+        <label class="household-field"><span>가구수</span><input class="households" type="number" min="0" inputmode="numeric" placeholder="자동 입력" aria-label="가구수" /></label>
       </div>
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.20"></script>
+    <script type="module" src="./src/main.js?v=1.0.21"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});

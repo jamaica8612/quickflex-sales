@@ -157,6 +157,7 @@ label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: 13px;
 .app[data-view="home"] .view-home,
 .app[data-view="record"] .view-record,
 .app[data-view="inspection"] .view-inspection,
+.app[data-view="measurement"] .view-measurement,
 .app[data-view="stats"] .view-stats,
 .app[data-view="settings"] .view-settings,
 .app[data-view="admin"] .view-admin { display: block; }
@@ -784,6 +785,17 @@ body:not([data-theme="dark"]) .day-dock .ghost-pill.active {
 }
 .entry-head { padding: 10px 12px; color: var(--muted); font-size: 11px; font-weight: 700; border-bottom: 1px solid var(--line); background: var(--panel2); }
 .entry-row { padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.household-field {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+.entry-row .household-field input { min-height: 38px; }
 .entry-row:last-child { border-bottom: 0; }
 .entry-row input, .entry-row select { min-height: 42px; padding: 8px 10px; border-radius: 10px; font-size: 13px; font-weight: 600; }
 .entry-row select:disabled { opacity: 1; }
@@ -1840,6 +1852,13 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
 }
 .nav-tab svg { width: 22px; height: 22px; display: block; }
 .nav-tab.active { color: var(--gold); font-weight: 700; }
+
+.measurement-bridge-body { max-width: 680px; margin-inline: auto; }
+.measurement-workday-card { gap: 16px; }
+.measurement-route-summary { display: grid; gap: 5px; }
+.measurement-route-summary > span,
+.measurement-route-summary > small { color: var(--muted); font-size: 12px; }
+.measurement-route-summary > strong { color: var(--gold); font-size: 24px; letter-spacing: -.3px; }
 
 /* === theme toggle === */
 .theme-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

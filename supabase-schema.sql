@@ -39,6 +39,7 @@ create table if not exists public.quickflex_day_route_items (
   work_date date not null,
   route text not null,
   delivery_count integer not null default 0,
+  household_count integer not null default 0 check (household_count >= 0),
   unit_snapshot integer not null default 0,
   sort_order integer not null default 0,
   updated_at timestamptz not null default now()
@@ -111,6 +112,22 @@ alter table public.quickflex_day_records
   add column if not exists driver_type text not null default 'backup',
   add column if not exists fresh_solo_count integer not null default 0,
   add column if not exists fresh_linked_count integer not null default 0;
+
+alter table public.quickflex_day_route_items
+  add column if not exists household_count integer not null default 0;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'quickflex_day_route_items_household_count_check'
+      and conrelid = 'public.quickflex_day_route_items'::regclass
+  ) then
+    alter table public.quickflex_day_route_items
+      add constraint quickflex_day_route_items_household_count_check
+      check (household_count >= 0);
+  end if;
+end $$;
 
 create index if not exists idx_quickflex_profiles_status
   on public.quickflex_profiles (status, role);

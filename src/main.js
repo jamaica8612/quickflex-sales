@@ -358,6 +358,10 @@ const el = {
   backupRevenue: $("backupRevenue"),
   selectedDayTotal: $("selectedDayTotal"),
   saveRecord: $("saveRecord"),
+  measurementWorkDate: $("measurementWorkDate"),
+  measurementRouteText: $("measurementRouteText"),
+  measurementRouteHint: $("measurementRouteHint"),
+  openPaceApp: $("openPaceApp"),
   statsMonthTitle: $("statsMonthTitle"),
   statsRange: $("statsRange"),
   statsSummaryRange: $("statsSummaryRange"),
@@ -659,6 +663,7 @@ function normalizeRecordShape(record) {
     .map((row) => ({
       route: joinStoredRoutes(expandRouteText(row.route)),
       count: row.count ?? "",
+      households: row.households ?? "",
       unit: row.unit ?? sharedRateForRoutes(row.route) ?? 0,
       draft: Boolean(row.draft),
     }))
@@ -725,7 +730,7 @@ function mergeGroupedRows(rows) {
   rows.forEach((row) => {
     const routes = splitStoredRoutes(row.route);
     if (!routes.length) {
-      if (row.draft) merged.push({ route: "", count: row.count ?? "", unit: row.unit ?? 0, draft: true });
+      if (row.draft) merged.push({ route: "", count: row.count ?? "", households: row.households ?? "", unit: row.unit ?? 0, draft: true });
       return;
     }
     const unit = toNum(row.unit) || sharedRateForRoutes(routes) || 0;
@@ -738,8 +743,10 @@ function mergeGroupedRows(rows) {
     if (existing) {
       existing.route = joinStoredRoutes([...splitStoredRoutes(existing.route), ...routes]);
       existing.count = toNum(existing.count) || toNum(row.count) ? String(toNum(existing.count) + toNum(row.count)) : "";
+      existing.households = toNum(existing.households) || toNum(row.households)
+        ? String(toNum(existing.households) + toNum(row.households)) : "";
     } else {
-      merged.push({ route: joinStoredRoutes(routes), count: row.count ?? "", unit });
+      merged.push({ route: joinStoredRoutes(routes), count: row.count ?? "", households: row.households ?? "", unit });
     }
   });
   return merged;
@@ -764,7 +771,7 @@ function mergeScheduleRowsWithExisting(existingRows, scheduleRoutes) {
   return buildGroupedRows(scheduleRoutes).map((row) => {
     const matched = splitStoredRoutes(row.route).map((route) => existingByRoute.get(route)).find(Boolean);
     return matched
-      ? { ...row, count: matched.count ?? "", unit: toNum(matched.unit) || row.unit || 0, draft: false }
+      ? { ...row, count: matched.count ?? "", households: matched.households ?? "", unit: toNum(matched.unit) || row.unit || 0, draft: false }
       : row;
   });
 }
@@ -1369,7 +1376,12 @@ function entriesFromDb(dayRows, itemRows) {
   });
   (itemRows || []).forEach((row) => {
     if (!entries[row.work_date]) entries[row.work_date] = emptyRecord();
-    entries[row.work_date].rows.push({ route: row.route, count: row.delivery_count ?? "", unit: row.unit_snapshot ?? 0 });
+    entries[row.work_date].rows.push({
+      route: row.route,
+      count: row.delivery_count ?? "",
+      households: row.household_count ?? "",
+      unit: row.unit_snapshot ?? 0,
+    });
   });
   Object.keys(entries).forEach((dateKey) => {
     entries[dateKey] = normalizeRecordShape(entries[dateKey]);
@@ -1555,6 +1567,7 @@ async function persistDay(dateKey) {
       work_date: dateKey,
       route: joinStoredRoutes(row.route),
       delivery_count: toNum(row.count),
+      household_count: toNum(row.households),
       unit_snapshot: effectiveUnit(row),
       sort_order: index,
       updated_at: new Date().toISOString(),
@@ -1862,6 +1875,7 @@ function showView(view) {
   el.app.dataset.view = view;
   el.navTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === view));
   if (view === "record") renderEntryForm();
+  if (view === "measurement") renderMeasurementBridge();
   if (view === "inspection") renderInspection(state.inspectionDate);
   if (view === "stats") renderStats();
   if (view === "admin") renderAdminDashboard();
@@ -1869,12 +1883,29 @@ function showView(view) {
     renderRates();
   }
 }
+function renderMeasurementBridge() {
+  if (!el.measurementWorkDate) return;
+  el.measurementWorkDate.value = state.selectedDate;
+  const record = getRecord(state.selectedDate, false);
+  const routes = record.off ? [] : record.rows.flatMap((row) => splitStoredRoutes(row.route));
+  el.measurementRouteText.textContent = record.off ? "휴무" : routes.length ? routes.join(" · ") : "등록된 구역 없음";
+  const households = record.rows.reduce((sum, row) => sum + toNum(row.households), 0);
+  el.measurementRouteHint.textContent = households > 0
+    ? `저장된 가구수 ${households}가구 · 필요하면 기록 화면에서 수정할 수 있습니다.`
+    : "야간에는 날짜가 넘어가도 선택한 근무일로 저장됩니다.";
+  el.openPaceApp.disabled = record.off;
+}
+function openPaceMeasurementApp() {
+  if (getRecord(state.selectedDate, false).off) return toast("휴무일은 측정을 시작할 수 없습니다.", "error");
+  window.location.href = `quickflexpace://measure?date=${encodeURIComponent(state.selectedDate)}`;
+}
 function renderAll() {
   applyProfileUi();
   renderSummary();
   renderMonth();
   renderHomeSelection();
   renderInspectionEntry();
+  renderMeasurementBridge();
   renderRates();
   renderStats();
   if (el.app.dataset.view === "admin") renderAdminDashboard();
@@ -1998,12 +2029,14 @@ function renderEntryRow(row, index) {
   const node = el.entryTemplate.content.firstElementChild.cloneNode(true);
   const routeInput = node.querySelector(".route");
   const count = node.querySelector(".count");
+  const households = node.querySelector(".households");
   const unit = node.querySelector(".unit");
   const output = node.querySelector("output");
   const del = node.querySelector(".del-btn");
   routeInput.value = formatRouteLabel(row.route);
   routeInput.readOnly = false;
   count.value = row.count || "";
+  households.value = row.households || "";
   unit.value = row.unit || sharedRateForRoutes(row.route) || "";
   unit.title = "이 날짜에만 적용되는 단가입니다. 기본 단가는 바뀌지 않습니다.";
   unit.setAttribute("aria-label", "이 날짜 단가");
@@ -2039,6 +2072,10 @@ function renderEntryRow(row, index) {
     const record = currentRecordDraft();
     record.rows[index].count = count.value;
     refreshTotals();
+  });
+  households.addEventListener("input", () => {
+    const record = currentRecordDraft();
+    record.rows[index].households = households.value;
   });
   unit.addEventListener("input", () => {
     const record = currentRecordDraft();
@@ -3446,6 +3483,17 @@ function bindEvents() {
   bindAdminEvents(shared);
   bindSettingsEvents(shared);
   bindOcrEvents(shared);
+  el.measurementWorkDate?.addEventListener("change", () => {
+    if (!el.measurementWorkDate.value) return;
+    selectDate(el.measurementWorkDate.value);
+    renderMeasurementBridge();
+  });
+  el.openPaceApp?.addEventListener("click", openPaceMeasurementApp);
+  document.addEventListener("visibilitychange", async () => {
+    if (document.visibilityState !== "visible" || el.app.dataset.view !== "measurement" || !currentUserId()) return;
+    await loadFromDb().catch(() => {});
+    renderMeasurementBridge();
+  });
 }
 
 async function init() {
