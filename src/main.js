@@ -447,6 +447,7 @@ const el = {
   adminProfiles: $("adminProfiles"),
   resetData: $("resetData"),
   requestAccountDelete: $("requestAccountDelete"),
+  refreshApp: $("refreshApp"),
   openDbSettings: $("openDbSettings"),
   dbStatusBadge: $("dbStatusBadge"),
   dbOverlay: $("dbOverlay"),
