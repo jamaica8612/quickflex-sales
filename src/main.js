@@ -202,6 +202,7 @@ const state = {
 let ocrDraftMap = null;
 let toastTimer = null;
 let profileSignaturePad = null;
+let nativeAuthSubscription = null;
 
 function isValidSignatureData(value) {
   return typeof value === "string"
@@ -1075,6 +1076,34 @@ function buildClient(url, anonKey) {
   if (!window.supabase || !url || !anonKey) return null;
   return window.supabase.createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true } });
 }
+function postNativeMessage(payload) {
+  try {
+    window.QuickFlexNative?.postMessage?.(JSON.stringify(payload));
+  } catch (_) {}
+}
+function syncNativeSession(session) {
+  if (!session?.access_token || !session?.refresh_token) return;
+  postNativeMessage({
+    type: "sync_session",
+    accessToken: session.access_token,
+    refreshToken: session.refresh_token,
+    expiresAt: session.expires_at || 0,
+  });
+}
+function bindNativeAuthSync(client) {
+  nativeAuthSubscription?.unsubscribe?.();
+  const { data } = client.auth.onAuthStateChange((event, session) => {
+    state.session = session || null;
+    if (session) syncNativeSession(session);
+    else if (event === "SIGNED_OUT") postNativeMessage({ type: "sign_out" });
+  });
+  nativeAuthSubscription = data?.subscription || null;
+}
+async function syncCurrentSessionToNative() {
+  if (!state.db || !window.QuickFlexNative?.postMessage) return;
+  const { data, error } = await state.db.auth.getSession();
+  if (!error && data?.session) syncNativeSession(data.session);
+}
 function getDbConfig() { return loadDbConfig(); }
 function getEdgeFunctionUrl(name) {
   const cfg = getDbConfig();
@@ -1091,6 +1120,7 @@ async function authHeaders(forceRefresh = false) {
   const session = data?.session;
   if (!session?.access_token) throw new Error("로그인이 만료되었습니다. 다시 로그인해 주세요.");
   state.session = session;
+  syncNativeSession(session);
   return { "Content-Type": "application/json", apikey: cfg.anonKey, Authorization: `Bearer ${session.access_token}` };
 }
 async function fetchWithFreshAuth(url, body) {
@@ -1171,6 +1201,7 @@ async function connectDb(url, key, persist = false) {
   const client = buildClient(url, key);
   if (!client) throw new Error("Supabase 라이브러리를 불러오지 못했습니다.");
   state.db = client;
+  bindNativeAuthSync(client);
   if (persist && !hasPublicDbConfig()) saveDbConfig(url, key);
   el.setupUrl.value = normalizeUrl(url);
   el.setupKey.value = key;
@@ -1181,6 +1212,7 @@ async function connectDb(url, key, persist = false) {
   const { data, error } = await client.auth.getSession();
   if (error) throw error;
   state.session = data.session;
+  syncNativeSession(state.session);
   if (state.session && isPasswordRecoveryUrl()) {
     showAuth(true);
     setAuthMode("reset");
@@ -1355,9 +1387,7 @@ async function updatePassword() {
   await logout();
 }
 async function logout() {
-  try {
-    window.QuickFlexNative?.postMessage(JSON.stringify({ type: "sign_out" }));
-  } catch (_) {}
+  postNativeMessage({ type: "sign_out" });
   if (state.db) await state.db.auth.signOut();
   state.session = null;
   state.profile = null;
@@ -1936,14 +1966,14 @@ async function openPaceMeasurementApp() {
     if (error || !data?.session?.access_token || !data.session.refresh_token) {
       return toast("로그인 상태를 확인한 뒤 다시 시도해 주세요.", "error");
     }
-    window.QuickFlexNative.postMessage(JSON.stringify({
+    postNativeMessage({
       type: "open_measurement",
       workDate,
       workShift: shift,
       accessToken: data.session.access_token,
       refreshToken: data.session.refresh_token,
       expiresAt: data.session.expires_at || 0,
-    }));
+    });
     return;
   }
   window.location.href = `quickflexpace://measure?date=${encodeURIComponent(workDate)}&shift=${shift}`;
@@ -3551,6 +3581,7 @@ function bindEvents() {
   });
   window.addEventListener("quickflex-native-resume", refreshAfterNativeMeasurement);
   window.addEventListener("quickflex-native-synced", refreshAfterNativeMeasurement);
+  window.addEventListener("quickflex-native-session-request", syncCurrentSessionToNative);
 }
 
 async function init() {
