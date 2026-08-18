@@ -46,6 +46,20 @@ export function bindSettingsEvents(ctx) {
   document.querySelectorAll("[data-theme-set]").forEach((btn) => {
     btn.addEventListener("click", () => applyTheme(btn.dataset.themeSet));
   });
+  el.refreshApp?.addEventListener("click", async () => {
+    if (el.refreshApp.disabled) return;
+    el.refreshApp.disabled = true;
+    try {
+      await ensurePendingSavesFlushed();
+      const registration = await navigator.serviceWorker?.getRegistration();
+      await registration?.update();
+      toast("최신 화면을 불러옵니다.", "success");
+      window.setTimeout(() => window.location.reload(), 150);
+    } catch (error) {
+      el.refreshApp.disabled = false;
+      toast(`새로고침 실패: ${error.message}`, "error");
+    }
+  });
   el.resetData.addEventListener("click", async () => {
     if (!window.confirm("내 단가와 기록을 모두 삭제할까요?")) return;
     const userId = currentUserId();
