@@ -2060,6 +2060,19 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
   .inspection-history-button { min-height: 36px; padding-inline: 9px; font-size: 10px; }
 }
 
+/* Fold portrait / compact tablet: keep the mobile flow, but use the full viewport. */
+@media (min-width: 481px) and (max-width: 767px) {
+  html,
+  body {
+    background: var(--bg);
+  }
+
+  .app,
+  .bottom-nav {
+    width: 100%;
+  }
+}
+
 /* === responsive workspace === */
 @media (min-width: 768px) {
   .app {
