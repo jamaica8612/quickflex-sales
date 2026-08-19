@@ -1194,6 +1194,10 @@ function applyProfileUi() {
   document.querySelectorAll('input[name="workShift"]').forEach((radio) => {
     radio.checked = radio.value === workShift;
   });
+  el.navTabs.forEach((tab) => {
+    if (tab.dataset.view === "measurement") tab.classList.toggle("hidden", workShift !== "night");
+  });
+  if (workShift !== "night" && el.app.dataset.view === "measurement") showView("home");
   const goal = getGoal();
   el.goalAmountInput.value = goal > 0 ? goal.toLocaleString("ko-KR") : "";
 }
@@ -1916,6 +1920,10 @@ async function saveInspectionMonthPdf() {
 
 function showView(view) {
   if (view === "admin" && state.profile?.role !== "admin") view = "home";
+  if (view === "measurement" && !isNightShift()) {
+    toast("배송 페이스 측정은 야간 근무에서만 사용합니다.", "info");
+    view = "home";
+  }
   el.app.dataset.view = view;
   el.navTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === view));
   if (view === "record") renderEntryForm();
@@ -1958,6 +1966,7 @@ function renderMeasurementBridge() {
   el.openPaceApp.disabled = record.off;
 }
 async function openPaceMeasurementApp() {
+  if (!isNightShift()) return toast("주간 알바 근무는 측정하지 않습니다.", "info");
   const signedInEmail = String(state.session?.user?.email || state.profile?.email || "").trim().toLowerCase();
   if (signedInEmail !== "jamaica8612@gmail.com") {
     return toast("개발 중입니다.", "info");
