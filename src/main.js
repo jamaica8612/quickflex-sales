@@ -1958,6 +1958,10 @@ function renderMeasurementBridge() {
   el.openPaceApp.disabled = record.off;
 }
 async function openPaceMeasurementApp() {
+  const signedInEmail = String(state.session?.user?.email || state.profile?.email || "").trim().toLowerCase();
+  if (signedInEmail !== "jamaica8612@gmail.com") {
+    return toast("개발 중입니다.", "info");
+  }
   const workDate = state.measurementDate || defaultMeasurementWorkDate();
   if (getRecord(workDate, false).off) return toast("휴무일은 측정을 시작할 수 없습니다.", "error");
   const shift = isNightShift() ? "night" : "day";
