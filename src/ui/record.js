@@ -57,7 +57,11 @@ export function bindRecordEvents(ctx) {
   el.saveRecord.addEventListener("click", saveCurrentRecordAndGoHome);
   el.modeBtns.forEach((button) => button.addEventListener("click", () => {
     state.mode = button.dataset.mode;
-    el.modeBtns.forEach((target) => target.classList.toggle("active", target === button));
+    el.modeBtns.forEach((target) => {
+      const selected = target === button;
+      target.classList.toggle("active", selected);
+      target.setAttribute("aria-pressed", String(selected));
+    });
     renderMonth();
   }));
   el.saveRate.addEventListener("click", async () => {
@@ -76,6 +80,7 @@ export function bindRecordEvents(ctx) {
       await ensurePendingSavesFlushed();
       toast("내 단가를 저장했습니다.", "success");
     } catch (error) {
+      if (error?.quickflexHandled) return;
       toast(`단가 저장 실패: ${error.message}`, "error");
     }
   });

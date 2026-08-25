@@ -10,6 +10,8 @@ export const TABLES = {
   rates: "quickflex_route_rates",
   days: "quickflex_day_records",
   items: "quickflex_day_route_items",
+  workResults: "quickflex_work_results",
+  workResultRoutes: "quickflex_work_result_routes",
   bundles: "quickflex_route_bundles",
   inspections: "quickflex_daily_inspections",
   inspectionSignatures: "quickflex_inspection_signatures",

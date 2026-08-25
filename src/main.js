@@ -12,7 +12,7 @@ import {
   RATE_UPDATE_OFFER,
   SAMPLE_SETTLEMENT,
   TABLES,
-} from "./config.js?v=6";
+} from "./config.js?v=7";
 import {
   addDays,
   formatLong,
@@ -40,19 +40,23 @@ import { bindCalendarEvents } from "./ui/calendar.js";
 import { bindInspectionEvents } from "./ui/inspection.js";
 import { bindOcrEvents } from "./ui/ocr.js";
 import { bindRecordEvents } from "./ui/record.js";
-import { bindSettingsEvents } from "./ui/settings.js";
+import { bindSettingsEvents } from "./ui/settings.js?v=2";
 import { bindStatsEvents } from "./ui/stats.js";
 
 const THEME_KEY = "quickflex-theme";
+const NATIVE_SESSION_REVISION_KEY = "quickflex-native-session-revision";
 const THEME_DEFAULT_MARK_KEY = "quickflex-theme-default-dark-gold-v1";
 const CALENDAR_ROUTES_KEY = "quickflex-calendar-routes-visible";
 function applyTheme(theme) {
   const t = theme === "dark" ? "dark" : "light";
   if (document.documentElement) document.documentElement.dataset.theme = t;
   if (document.body) document.body.dataset.theme = t;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#10141F" : "#F7F7F8");
   try { localStorage.setItem(THEME_KEY, t); } catch (_) {}
   document.querySelectorAll("[data-theme-set]").forEach((b) => {
-    b.classList.toggle("active", b.dataset.themeSet === t);
+    const selected = b.dataset.themeSet === t;
+    b.classList.toggle("active", selected);
+    b.setAttribute("aria-pressed", String(selected));
   });
   if (typeof renderStats === "function") {
     try { renderStats(); } catch (_) {}
@@ -183,8 +187,7 @@ const state = {
   pendingDates: new Set(),
   pendingRates: false,
   saveTimer: null,
-  flushing: false,
-  flushAgain: false,
+  flushPromise: null,
   rateOfferPrompted: false,
   recordDraftDate: "",
   recordDraft: null,
@@ -203,11 +206,70 @@ let ocrDraftMap = null;
 let toastTimer = null;
 let profileSignaturePad = null;
 let nativeAuthSubscription = null;
+let nativeLogoutInProgress = false;
+let nativeSessionSyncPromise = null;
+let nativeSessionSyncTail = Promise.resolve();
+let accountBootTask = null;
+let accountEpoch = 0;
+let authEventEpoch = 0;
+let activeAccountId = "";
+let nativeSessionRevision = 0;
+
+function sessionUserId(session) {
+  return String(session?.user?.id || "");
+}
+function isAuthOperationCurrent(capturedEpoch, currentEpoch, expectedUserId, session) {
+  return capturedEpoch === currentEpoch
+    && Boolean(expectedUserId)
+    && expectedUserId === sessionUserId(session);
+}
+function sessionCredentialsMatch(left, right) {
+  return sessionUserId(left) === sessionUserId(right)
+    && String(left?.access_token || "") === String(right?.access_token || "")
+    && String(left?.refresh_token || "") === String(right?.refresh_token || "");
+}
+function nextMonotonicRevision(currentRevision, storedRevision, nowMs) {
+  const current = Number.isSafeInteger(currentRevision) && currentRevision >= 0 ? currentRevision : 0;
+  const stored = Number.isSafeInteger(storedRevision) && storedRevision >= 0 ? storedRevision : 0;
+  const now = Number.isSafeInteger(nowMs) && nowMs >= 0 ? nowMs : 0;
+  return Math.max(current + 1, stored + 1, now);
+}
+function readStoredNativeSessionRevision() {
+  try {
+    const value = Number.parseInt(localStorage.getItem(NATIVE_SESSION_REVISION_KEY) || "0", 10);
+    return Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  } catch (_) {
+    return 0;
+  }
+}
+function allocateNativeSessionRevision() {
+  const stored = readStoredNativeSessionRevision();
+  nativeSessionRevision = nextMonotonicRevision(nativeSessionRevision, stored, Date.now());
+  try { localStorage.setItem(NATIVE_SESSION_REVISION_KEY, String(nativeSessionRevision)); } catch (_) {}
+  return nativeSessionRevision;
+}
 
 function isValidSignatureData(value) {
   return typeof value === "string"
     && value.length <= 100000
     && /^data:image\/(?:png|webp);base64,[A-Za-z0-9+/=]+$/.test(value);
+}
+
+function createAccessibleSignatureData(name) {
+  const signer = String(name || "").trim();
+  if (!signer) return "";
+  const canvas = document.createElement("canvas");
+  canvas.width = 600;
+  canvas.height = 180;
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#111827";
+  context.font = "600 42px sans-serif";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(`${signer} 전자서명`, canvas.width / 2, canvas.height / 2);
+  return canvas.toDataURL("image/webp", 0.78);
 }
 
 function createSignaturePad(canvas) {
@@ -346,6 +408,7 @@ const el = {
   selectedDateTitle: $("selectedDateTitle"),
   offToggle: $("offToggle"),
   addRoute: $("addRoute"),
+  automaticRecordNotice: $("automaticRecordNotice"),
   entryRows: $("entryRows"),
   freshCount: $("freshCount"),
   freshUnit: $("freshUnit"),
@@ -380,6 +443,7 @@ const el = {
   statsRangeTo: $("statsRangeTo"),
   statsRangeApply: $("statsRangeApply"),
   statsChart: $("statsChart"),
+  statsChartSummary: $("statsChartSummary"),
   statsChartTooltip: $("statsChartTooltip"),
   statsChartToggle: $("statsChartToggle"),
   routeStats: $("routeStats"),
@@ -417,6 +481,7 @@ const el = {
   profileVehicleNumber: $("profileVehicleNumber"),
   signatureSettingsSection: $("signatureSettingsSection"),
   profileSignatureCanvas: $("profileSignatureCanvas"),
+  profileSignatureAlternative: $("profileSignatureAlternative"),
   clearProfileSignature: $("clearProfileSignature"),
   saveProfileSignature: $("saveProfileSignature"),
   fixedRoutesText: $("fixedRoutesText"),
@@ -453,6 +518,7 @@ const el = {
   dbStatusBadge: $("dbStatusBadge"),
   dbOverlay: $("dbOverlay"),
   dbSheet: $("dbSheet"),
+  closeDbSheet: $("closeDbSheet"),
   supabaseUrl: $("supabaseUrl"),
   supabaseAnonKey: $("supabaseAnonKey"),
   saveDbConfig: $("saveDbConfig"),
@@ -468,11 +534,124 @@ const el = {
   adminPanels: document.querySelectorAll("[data-admin-panel]"),
 };
 
+const MODAL_FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+const modalReturnFocus = new WeakMap();
+
+function modalLayerIsOpen(layer) {
+  if (layer === el.dbSheet) return layer.classList.contains("open");
+  return layer?.classList.contains("visible");
+}
+
+function activeModalLayer() {
+  return [el.pendingOverlay, el.authOverlay, el.setupOverlay, el.dbSheet]
+    .find((layer) => layer && modalLayerIsOpen(layer)) || null;
+}
+
+function focusableIn(layer) {
+  return [...layer.querySelectorAll(MODAL_FOCUSABLE_SELECTOR)].filter((node) => (
+    !node.disabled
+    && !node.hidden
+    && !node.closest("[inert]")
+    && node.getAttribute("aria-hidden") !== "true"
+    && node.getClientRects().length > 0
+  ));
+}
+
+function syncModalBackground() {
+  const layers = [el.setupOverlay, el.authOverlay, el.pendingOverlay, el.dbSheet].filter(Boolean);
+  const active = activeModalLayer();
+  layers.forEach((layer) => {
+    const available = layer === active;
+    layer.setAttribute("aria-hidden", String(!available));
+    layer.toggleAttribute("inert", !available);
+  });
+  [...el.app.children].forEach((child) => {
+    if (layers.includes(child)) return;
+    if (child === el.dbOverlay) {
+      child.toggleAttribute("inert", active !== el.dbSheet);
+      return;
+    }
+    child.toggleAttribute("inert", Boolean(active));
+  });
+  el.openDbSettings?.setAttribute("aria-expanded", String(active === el.dbSheet));
+}
+
+function updateModalLayer(layer, open, initialFocus) {
+  if (!layer) return;
+  if (open) {
+    const current = document.activeElement;
+    if (current instanceof HTMLElement && current !== document.body && !layer.contains(current)) {
+      modalReturnFocus.set(layer, current);
+    }
+  }
+  const returnTarget = !open ? modalReturnFocus.get(layer) : null;
+  if (!open) modalReturnFocus.delete(layer);
+  syncModalBackground();
+  window.requestAnimationFrame(() => {
+    if (open && activeModalLayer() === layer) {
+      const preferred = typeof initialFocus === "string" ? layer.querySelector(initialFocus) : initialFocus;
+      const target = preferred && !preferred.disabled
+        ? preferred
+        : focusableIn(layer)[0] || layer.querySelector("[role='dialog']") || layer;
+      target?.focus?.();
+      return;
+    }
+    if (!open && !activeModalLayer()) {
+      const fallback = [...el.navTabs].find((tab) => tab.getAttribute("aria-current") === "page" && !tab.hidden && !tab.disabled);
+      const target = returnTarget?.isConnected && !returnTarget.closest("[inert]") ? returnTarget : fallback;
+      target?.focus?.();
+    }
+  });
+}
+
+function bindModalAccessibility() {
+  document.addEventListener("keydown", (event) => {
+    const layer = activeModalLayer();
+    if (!layer) return;
+    if (event.key === "Escape" && layer === el.dbSheet) {
+      event.preventDefault();
+      closeSheet();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = focusableIn(layer);
+    if (!focusable.length) {
+      event.preventDefault();
+      (layer.querySelector("[role='dialog']") || layer).focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!layer.contains(document.activeElement)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    } else if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+  syncModalBackground();
+}
+
 function toast(message, type = "") {
   clearTimeout(toastTimer);
+  const isError = type === "error";
+  el.toast.setAttribute("role", isError ? "alert" : "status");
+  el.toast.setAttribute("aria-live", isError ? "assertive" : "polite");
+  el.toast.setAttribute("aria-atomic", "true");
   el.toast.textContent = message;
   el.toast.className = `toast show${type ? ` ${type}` : ""}`;
-  toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2800);
+  toastTimer = setTimeout(() => el.toast.classList.remove("show"), isError ? 5500 : 3200);
 }
 
 function periodBounds(year = state.year, month = state.month) {
@@ -598,6 +777,87 @@ function completeRouteBundles(routes) {
   return result;
 }
 function currentUserId() { return state.session?.user?.id || ""; }
+function captureAccountContext() {
+  return { epoch: accountEpoch, userId: currentUserId() };
+}
+function isAccountContextCurrent(context) {
+  return Boolean(context?.userId)
+    && context.epoch === accountEpoch
+    && context.userId === currentUserId();
+}
+function clearUserScopedState() {
+  clearTimeout(state.saveTimer);
+  state.saveTimer = null;
+  state.flushPromise = null;
+  state.pendingDates.clear();
+  state.pendingRates = false;
+  state.profile = null;
+  state.rates = [];
+  state.defaultRates = [];
+  state.routeBundles = [];
+  state.entries = {};
+  state.inspections = {};
+  state.inspectionSignature = "";
+  state.inspectionDate = todayKey();
+  state.inspectionDraft = inspectionDraftFromRecord(null);
+  state.rateOfferPrompted = false;
+  state.statsDetailDate = "";
+  state.adminStatsDetailUser = "";
+  state.recordDraftDate = "";
+  state.recordDraft = null;
+  state.measurementDate = "";
+  state.measurementDateAuto = false;
+  ocrDraftMap = null;
+  accountBootTask = null;
+  profileSignaturePad?.clear();
+  if (el.scheduleDraftSection) el.scheduleDraftSection.classList.add("hidden");
+  if (el.scheduleDraftCards) el.scheduleDraftCards.innerHTML = "";
+  [el.adminRevenueList, el.adminRouteList, el.adminBundleList, el.adminProfiles]
+    .filter(Boolean)
+    .forEach((node) => { node.innerHTML = ""; });
+}
+function scheduleSignedInBoot(context) {
+  Promise.resolve().then(async () => {
+    if (!isAccountContextCurrent(context)) return;
+    try {
+      await bootSignedInUser(context);
+    } catch (error) {
+      if (!isAccountContextCurrent(context)) return;
+      showPending(false);
+      showAuth(true);
+      toast(`로그인 정보를 불러오지 못했습니다: ${error.message}`, "error");
+    }
+  });
+}
+function applyAuthSession(session, { event = "", scheduleBoot = true } = {}) {
+  const previousUserId = activeAccountId || currentUserId();
+  const nextSession = session || null;
+  const nextUserId = sessionUserId(nextSession);
+  const accountChanged = previousUserId !== nextUserId;
+  const signedOut = event === "SIGNED_OUT" || !nextUserId;
+  authEventEpoch += 1;
+  if (accountChanged || signedOut) {
+    accountEpoch += 1;
+    clearUserScopedState();
+  }
+  state.session = nextSession;
+  activeAccountId = nextUserId;
+  const context = captureAccountContext();
+  if (accountChanged || signedOut) {
+    showView("home");
+    renderAll();
+    showPending(false);
+    showAuth(true);
+  }
+  if (nextUserId
+    && accountChanged
+    && scheduleBoot
+    && event !== "PASSWORD_RECOVERY"
+    && !isPasswordRecoveryUrl()) {
+    scheduleSignedInBoot(context);
+  }
+  return { authEpoch: authEventEpoch, accountContext: context, accountChanged };
+}
 function isBackupDriver() { return (state.profile?.driver_type || "backup") === "backup"; }
 function isNightShift() { return state.profile?.work_shift === "night"; }
 function fixedRoutes() { return Array.isArray(state.profile?.fixed_routes) ? expandRouteText(state.profile.fixed_routes.join(",")) : []; }
@@ -653,11 +913,16 @@ function autoUnitForRoutes(routes) {
 function defaultFreshUnit(value) { return value == null || value === "" ? 100 : value; }
 function defaultBackupUnit(value) { return value == null || value === "" ? DEFAULT_BACKUP_UNIT : value; }
 function freshbagMode() { return state.profile?.freshbag_mode || "single"; }
-function emptyRecord() { return { off: false, rows: [], freshCount: "", freshUnit: 100, freshSoloCount: "", freshLinkedCount: "", backupUnit: DEFAULT_BACKUP_UNIT, driverType: isBackupDriver() ? "backup" : "fixed" }; }
+function emptyRecord() { return { off: false, rows: [], automaticWorks: [], freshCount: "", freshUnit: 100, freshSoloCount: "", freshLinkedCount: "", backupUnit: DEFAULT_BACKUP_UNIT, driverType: isBackupDriver() ? "backup" : "fixed" }; }
+function isAutomaticRow(row) { return row?.source === "automatic" || row?.readOnly === true; }
+function automaticRows(record) { return (record?.rows || []).filter(isAutomaticRow); }
+function manualRows(record) { return (record?.rows || []).filter((row) => !isAutomaticRow(row)); }
+function hasAutomaticEntries(record) { return automaticRows(record).length > 0 || (record?.automaticWorks || []).length > 0; }
 function normalizeRecordShape(record) {
   const next = {
     off: Boolean(record?.off),
     rows: Array.isArray(record?.rows) ? record.rows.map((row) => ({ ...row })) : [],
+    automaticWorks: Array.isArray(record?.automaticWorks) ? record.automaticWorks.map((work) => ({ ...work })) : [],
     freshCount: record?.freshCount ?? "",
     freshUnit: defaultFreshUnit(record?.freshUnit),
     freshSoloCount: record?.freshSoloCount ?? "",
@@ -666,18 +931,53 @@ function normalizeRecordShape(record) {
     driverType: record?.driverType || (isBackupDriver() ? "backup" : "fixed"),
   };
   next.rows = next.rows
-    .map((row) => ({
-      route: joinStoredRoutes(expandRouteText(row.route)),
-      count: row.count ?? "",
-      households: row.households ?? "",
-      unit: row.unit ?? sharedRateForRoutes(row.route) ?? 0,
-      draft: Boolean(row.draft),
-    }))
+    .map((row) => {
+      const automatic = isAutomaticRow(row);
+      const normalized = {
+        route: joinStoredRoutes(expandRouteText(row.route)),
+        count: row.count ?? "",
+        households: row.households ?? "",
+        unit: row.unit ?? sharedRateForRoutes(row.route) ?? 0,
+        draft: automatic ? false : Boolean(row.draft),
+      };
+      if (automatic) {
+        normalized.source = "automatic";
+        normalized.readOnly = true;
+        normalized.workId = String(row.workId || "");
+        normalized.workShift = row.workShift === "night" ? "night" : "day";
+        normalized.finalizedAt = row.finalizedAt || "";
+        normalized.sortOrder = toNum(row.sortOrder);
+      }
+      return normalized;
+    })
     .filter((row) => row.draft || row.route || toNum(row.count) > 0 || toNum(row.unit) > 0);
+  const automaticWorksById = new Map();
+  next.automaticWorks.forEach((work) => {
+    const workId = String(work?.workId || "");
+    if (!workId) return;
+    automaticWorksById.set(workId, {
+      workId,
+      workShift: work.workShift === "night" ? "night" : "day",
+      finalizedAt: work.finalizedAt || "",
+    });
+  });
+  next.rows.filter(isAutomaticRow).forEach((row) => {
+    if (!row.workId || automaticWorksById.has(row.workId)) return;
+    automaticWorksById.set(row.workId, {
+      workId: row.workId,
+      workShift: row.workShift,
+      finalizedAt: row.finalizedAt,
+    });
+  });
+  next.automaticWorks = [...automaticWorksById.values()];
   next.rows.forEach((row) => {
-    if (!toNum(row.unit) && row.route) row.unit = sharedRateForRoutes(row.route) || rateFor(row.route);
+    if (!isAutomaticRow(row) && !toNum(row.unit) && row.route) row.unit = sharedRateForRoutes(row.route) || rateFor(row.route);
   });
   next.rows = mergeGroupedRows(next.rows);
+  if (hasAutomaticEntries(next)) {
+    next.off = false;
+    next.rows = automaticRows(next);
+  }
   return next;
 }
 function getRecord(dateKey, create = false) {
@@ -715,18 +1015,29 @@ function commitRecordDraft() {
 }
 function hasMeaningfulRecord(record) {
   const rec = normalizeRecordShape(record);
-  return rec.off || rec.rows.length > 0 || toNum(rec.freshCount) > 0 || toNum(rec.freshUnit) !== 100 || (isBackupDriver() && toNum(rec.backupUnit) !== DEFAULT_BACKUP_UNIT);
+  return rec.off || hasAutomaticEntries(rec) || rec.rows.length > 0 || toNum(rec.freshCount) > 0 || toNum(rec.freshUnit) !== 100 || (isBackupDriver() && toNum(rec.backupUnit) !== DEFAULT_BACKUP_UNIT);
 }
 function hasEnteredCounts(record) {
   const rec = normalizeRecordShape(record);
-  return rec.rows.some((row) => toNum(row.count) > 0)
+  return hasAutomaticEntries(rec)
+    || rec.rows.some((row) => toNum(row.count) > 0)
     || toNum(rec.freshCount) > 0
     || toNum(rec.freshSoloCount) > 0
     || toNum(rec.freshLinkedCount) > 0;
 }
+function isWorkedRecord(record, details = calcRecordDetails(record)) {
+  return !record?.off && (details.revenue > 0 || hasAutomaticEntries(record));
+}
 function confirmOffWithExistingCounts(dateKeys) {
   const keys = (Array.isArray(dateKeys) ? dateKeys : [dateKeys]).filter(Boolean);
   if (!keys.length) return true;
+  const automaticKeys = keys.filter((dateKey) => hasAutomaticEntries(getRecord(dateKey, false)));
+  if (automaticKeys.length) {
+    const automaticLabel = automaticKeys.slice(0, 5).map(formatLongShort).join(", ");
+    const automaticSuffix = automaticKeys.length > 5 ? ` 외 ${automaticKeys.length - 5}일` : "";
+    toast(`${automaticLabel}${automaticSuffix}에는 앱 자동 기록이 있어 휴무로 바꾸거나 날짜 기록을 삭제할 수 없습니다.`, "error");
+    return false;
+  }
   const label = keys.slice(0, 5).map(formatLongShort).join(", ");
   const suffix = keys.length > 5 ? ` 외 ${keys.length - 5}일` : "";
   return window.confirm(`${label}${suffix}에 이미 입력한 배송건수가 있습니다.\n휴무로 바꾸면 해당 날짜의 저장된 건수와 매출이 삭제될 수 있습니다.\n그래도 휴무로 바꿀까요?`);
@@ -735,6 +1046,17 @@ function mergeGroupedRows(rows) {
   const merged = [];
   rows.forEach((row) => {
     const routes = splitStoredRoutes(row.route);
+    if (isAutomaticRow(row)) {
+      if (routes.length) {
+        merged.push({
+          ...row,
+          route: joinStoredRoutes(routes),
+          source: "automatic",
+          readOnly: true,
+        });
+      }
+      return;
+    }
     if (!routes.length) {
       if (row.draft) merged.push({ route: "", count: row.count ?? "", households: row.households ?? "", unit: row.unit ?? 0, draft: true });
       return;
@@ -743,6 +1065,7 @@ function mergeGroupedRows(rows) {
     const prefix = routes[0].slice(0, 3);
     const canGroup = unit > 0 && routes.every((route) => route.slice(0, 3) === prefix);
     const existing = canGroup ? merged.find((item) => {
+      if (isAutomaticRow(item)) return false;
       const itemRoutes = splitStoredRoutes(item.route);
       return itemRoutes.length && itemRoutes.every((route) => route.slice(0, 3) === prefix) && toNum(item.unit) === unit;
     }) : null;
@@ -770,20 +1093,22 @@ function defaultEntryRows() {
   return [{ route: firstRate.route, count: "", unit: firstRate.unit || 0, draft: false }];
 }
 function mergeScheduleRowsWithExisting(existingRows, scheduleRoutes) {
+  const automatic = (existingRows || []).filter(isAutomaticRow);
   const existingByRoute = new Map();
-  (existingRows || []).forEach((row) => {
+  (existingRows || []).filter((row) => !isAutomaticRow(row)).forEach((row) => {
     splitStoredRoutes(row.route).forEach((route) => existingByRoute.set(route, row));
   });
-  return buildGroupedRows(scheduleRoutes).map((row) => {
+  const scheduledManualRows = buildGroupedRows(scheduleRoutes).map((row) => {
     const matched = splitStoredRoutes(row.route).map((route) => existingByRoute.get(route)).find(Boolean);
     return matched
       ? { ...row, count: matched.count ?? "", households: matched.households ?? "", unit: toNum(matched.unit) || row.unit || 0, draft: false }
       : row;
   });
+  return [...automatic, ...scheduledManualRows];
 }
 function ensureFixedRecordRows(record) {
   if (isBackupDriver()) return record;
-  if (record.off) return record;
+  if (record.off || hasAutomaticEntries(record)) return record;
   const allowed = fixedRoutes();
   if (!allowed.length) return record;
   // 기존 행에 들어있는 모든 라우트 수집 (사용자가 추가한 커스텀 라우트 포함)
@@ -800,6 +1125,7 @@ function ensureFixedRecordRows(record) {
 }
 function effectiveUnit(row) {
   const explicit = toNum(row.unit);
+  if (isAutomaticRow(row)) return Math.max(0, explicit);
   if (explicit > 0) return explicit;
   const fallback = sharedRateForRoutes(row.route) || rateFor(row.route);
   if (fallback > 0) {
@@ -813,15 +1139,21 @@ function calcRecordDetails(record) {
   if (rec.off) return { count: 0, routeRevenue: 0, freshCount: 0, freshUnit: toNum(defaultFreshUnit(rec.freshUnit)), freshRevenue: 0, backupUnit: toNum(defaultBackupUnit(rec.backupUnit)), backupRevenue: 0, revenue: 0 };
   const routeTotal = rec.rows.reduce((sum, row) => {
     const count = toNum(row.count);
-    return { count: sum.count + count, revenue: sum.revenue + count * effectiveUnit(row) };
-  }, { count: 0, revenue: 0 });
+    return {
+      count: sum.count + count,
+      manualCount: sum.manualCount + (isAutomaticRow(row) ? 0 : count),
+      revenue: sum.revenue + count * effectiveUnit(row),
+    };
+  }, { count: 0, manualCount: 0, revenue: 0 });
   const isDual = freshbagMode() === "dual";
   const freshCount = isDual ? toNum(rec.freshSoloCount) + toNum(rec.freshLinkedCount) : toNum(rec.freshCount);
   const freshUnit = isDual ? 0 : toNum(defaultFreshUnit(rec.freshUnit));
   const freshRevenue = isDual ? toNum(rec.freshSoloCount) * 200 + toNum(rec.freshLinkedCount) * 100 : freshCount * freshUnit;
-  const backupApplies = rec.driverType === "backup";
+  // Android 자동 마감 원장은 route별 unit_snapshot만으로 매출을 확정한다.
+  // 현재 프로필의 기사 유형이나 백업 가산 단가를 과거 자동 기록에 적용하지 않는다.
+  const backupApplies = rec.driverType === "backup" && routeTotal.manualCount > 0;
   const backupUnit = backupApplies ? toNum(defaultBackupUnit(rec.backupUnit)) : 0;
-  const backupRevenue = backupApplies ? routeTotal.count * backupUnit : 0;
+  const backupRevenue = backupApplies ? routeTotal.manualCount * backupUnit : 0;
   return {
     count: routeTotal.count,
     routeRevenue: routeTotal.revenue,
@@ -880,7 +1212,7 @@ function summarizeKeys(keys, opts = {}) {
     return {
       count: sum.count + calc.count,
       revenue: sum.revenue + revenue,
-      workDays: sum.workDays + (calc.revenue > 0 ? 1 : 0),
+      workDays: sum.workDays + (isWorkedRecord(record, calc) ? 1 : 0),
       offDays: sum.offDays + (record.off ? 1 : 0),
       fresh: sum.fresh + calc.freshCount,
     };
@@ -1025,7 +1357,7 @@ function summarizePeriod(year = state.year, month = state.month) {
     return {
       count: sum.count + calc.count,
       revenue: sum.revenue + calc.revenue,
-      workDays: sum.workDays + (calc.revenue > 0 ? 1 : 0),
+      workDays: sum.workDays + (isWorkedRecord(record, calc) ? 1 : 0),
       offDays: sum.offDays + (record.off ? 1 : 0),
       fresh: sum.fresh + calc.freshCount,
     };
@@ -1071,6 +1403,7 @@ function showDeploymentConfigError() {
   el.setupUrl.closest(".setup-fields")?.classList.add("hidden");
   el.setupConnect.classList.add("hidden");
   el.setupError.textContent = "배포 설정 오류: 운영 주소에서는 Supabase 공개 설정이 필요합니다. src/config.js의 PUBLIC_SUPABASE_CONFIG에 Project URL과 anon public key를 넣어 배포하세요.";
+  updateModalLayer(el.setupOverlay, true, el.setupOverlay.querySelector("[role='dialog']"));
 }
 function buildClient(url, anonKey) {
   if (!window.supabase || !url || !anonKey) return null;
@@ -1081,28 +1414,95 @@ function postNativeMessage(payload) {
     window.QuickFlexNative?.postMessage?.(JSON.stringify(payload));
   } catch (_) {}
 }
-function syncNativeSession(session) {
-  if (!session?.access_token || !session?.refresh_token) return;
-  postNativeMessage({
-    type: "sync_session",
-    accessToken: session.access_token,
-    refreshToken: session.refresh_token,
-    expiresAt: session.expires_at || 0,
+function requestNativeMessage(payload, timeoutMs = 4000) {
+  const bridge = window.QuickFlexNative;
+  if (!bridge?.postMessage) return Promise.resolve({ ok: true, native: false });
+  const requestId = globalThis.crypto?.randomUUID?.()
+    || `native-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return new Promise((resolve) => {
+    const previousHandler = bridge.onmessage;
+    let settled = false;
+    let timer = null;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      bridge.onmessage = previousHandler;
+      resolve(result);
+    };
+    bridge.onmessage = (event) => {
+      let response = null;
+      try { response = JSON.parse(event?.data || "{}"); } catch (_) {}
+      if (response?.requestId === requestId) return finish(response);
+      if (typeof previousHandler === "function") previousHandler.call(bridge, event);
+    };
+    timer = setTimeout(() => finish({ ok: false, reason: "native_timeout" }), timeoutMs);
+    try {
+      bridge.postMessage(JSON.stringify({ ...payload, requestId }));
+    } catch (_) {
+      finish({ ok: false, reason: "native_error" });
+    }
   });
+}
+function syncNativeSession(session, expectedAuthEpoch = authEventEpoch) {
+  if (!session?.access_token || !session?.refresh_token) return Promise.resolve(false);
+  const queuedSync = nativeSessionSyncTail.then(() => {
+    if (!isAuthOperationCurrent(expectedAuthEpoch, authEventEpoch, sessionUserId(session), state.session)) return false;
+    if (!sessionCredentialsMatch(session, state.session)) return false;
+    postNativeMessage({
+      type: "sync_session",
+      accessToken: session.access_token,
+      refreshToken: session.refresh_token,
+      expiresAt: session.expires_at || 0,
+      sessionRevision: allocateNativeSessionRevision(),
+    });
+    return true;
+  });
+  nativeSessionSyncTail = queuedSync.catch(() => false);
+  return queuedSync;
 }
 function bindNativeAuthSync(client) {
   nativeAuthSubscription?.unsubscribe?.();
   const { data } = client.auth.onAuthStateChange((event, session) => {
-    state.session = session || null;
-    if (session) syncNativeSession(session);
-    else if (event === "SIGNED_OUT") postNativeMessage({ type: "sign_out" });
+    const transition = applyAuthSession(session, { event });
+    if (session && !nativeLogoutInProgress) void syncNativeSession(session, transition.authEpoch);
+    // 세션 만료나 외부 로그아웃은 진행 업무의 네이티브 세션을 지우지 않는다.
+    // 사용자가 누른 명시적 로그아웃은 logout()에서 네이티브 확인을 먼저 거친다.
   });
   nativeAuthSubscription = data?.subscription || null;
 }
 async function syncCurrentSessionToNative() {
   if (!state.db || !window.QuickFlexNative?.postMessage) return;
-  const { data, error } = await state.db.auth.getSession();
-  if (!error && data?.session) syncNativeSession(data.session);
+  if (nativeSessionSyncPromise) return nativeSessionSyncPromise;
+  const expectedAuthEpoch = authEventEpoch;
+  const expectedUserId = currentUserId();
+  nativeSessionSyncPromise = (async () => {
+    let { data, error } = await state.db.auth.getSession();
+    if (error) return;
+    let session = data?.session || null;
+    if (!isAuthOperationCurrent(expectedAuthEpoch, authEventEpoch, expectedUserId, state.session)) return false;
+    if (!session) {
+      applyAuthSession(null, { event: "SIGNED_OUT", scheduleBoot: false });
+      return false;
+    }
+    if (sessionUserId(session) !== expectedUserId) return false;
+    const expiresSoon = session?.expires_at
+      && session.expires_at <= Math.floor(Date.now() / 1000) + 120;
+    if (expiresSoon) {
+      ({ data, error } = await state.db.auth.refreshSession());
+      if (error) return;
+      session = data?.session || null;
+    }
+    if (!session || sessionUserId(session) !== expectedUserId) return false;
+    if (!isAuthOperationCurrent(expectedAuthEpoch, authEventEpoch, expectedUserId, state.session)) return false;
+    const transition = applyAuthSession(session, { event: "SESSION_OBSERVED", scheduleBoot: false });
+    return syncNativeSession(session, transition.authEpoch);
+  })();
+  try {
+    await nativeSessionSyncPromise;
+  } finally {
+    nativeSessionSyncPromise = null;
+  }
 }
 function getDbConfig() { return loadDbConfig(); }
 function getEdgeFunctionUrl(name) {
@@ -1113,14 +1513,22 @@ function getEdgeFunctionUrl(name) {
 async function authHeaders(forceRefresh = false) {
   const cfg = getDbConfig();
   if (!state.db) throw new Error("로그인이 필요합니다. 다시 로그인해 주세요.");
+  const expectedAuthEpoch = authEventEpoch;
+  const expectedUserId = currentUserId();
   const { data, error } = forceRefresh
     ? await state.db.auth.refreshSession()
     : await state.db.auth.getSession();
   if (error) throw new Error("로그인 상태를 확인하지 못했습니다. 다시 로그인해 주세요.");
-  const session = data?.session;
-  if (!session?.access_token) throw new Error("로그인이 만료되었습니다. 다시 로그인해 주세요.");
-  state.session = session;
-  syncNativeSession(session);
+  let session = data?.session || null;
+  if (expectedAuthEpoch !== authEventEpoch) session = state.session;
+  if (!session?.access_token || !expectedUserId || sessionUserId(session) !== expectedUserId) {
+    if (expectedAuthEpoch === authEventEpoch) applyAuthSession(null, { event: "SIGNED_OUT", scheduleBoot: false });
+    throw new Error("로그인이 만료되었습니다. 다시 로그인해 주세요.");
+  }
+  if (expectedAuthEpoch === authEventEpoch) {
+    const transition = applyAuthSession(session, { event: "SESSION_OBSERVED", scheduleBoot: false });
+    void syncNativeSession(session, transition.authEpoch);
+  }
   return { "Content-Type": "application/json", apikey: cfg.anonKey, Authorization: `Bearer ${session.access_token}` };
 }
 async function fetchWithFreshAuth(url, body) {
@@ -1135,12 +1543,20 @@ async function fetchWithFreshAuth(url, body) {
   if (!/Invalid JWT|UNAUTHORIZED_/i.test(errorText)) return response;
   return send(true);
 }
-function showSetup(show) { el.setupOverlay.classList.toggle("visible", show && canUseManualDbConfig()); }
+function showSetup(show) {
+  const open = Boolean(show && canUseManualDbConfig());
+  el.setupOverlay.classList.toggle("visible", open);
+  updateModalLayer(el.setupOverlay, open, el.setupUrl);
+}
 function showAuth(show) {
   if (show) setAuthMode("login");
   el.authOverlay.classList.toggle("visible", show);
+  updateModalLayer(el.authOverlay, Boolean(show), el.authEmail);
 }
-function showPending(show) { el.pendingOverlay.classList.toggle("visible", show); }
+function showPending(show) {
+  el.pendingOverlay.classList.toggle("visible", show);
+  updateModalLayer(el.pendingOverlay, Boolean(show), el.pendingLogout);
+}
 function isPasswordRecoveryUrl() {
   return /type=recovery/.test(`${location.hash}${location.search}`);
 }
@@ -1156,6 +1572,8 @@ function setAuthMode(mode) {
       : "";
   el.authHint.classList.toggle("hidden", !(signupMode || resetMode));
   el.authSignupFields.classList.toggle("hidden", !signupMode);
+  el.authSignupFields.setAttribute("aria-hidden", String(!signupMode));
+  el.authSignupFields.toggleAttribute("inert", !signupMode);
   el.authName.required = signupMode;
   el.authDriverType.disabled = !signupMode;
   el.authEmail.disabled = false;
@@ -1163,6 +1581,8 @@ function setAuthMode(mode) {
   el.loginBtn.textContent = signupMode || resetMode ? "로그인으로" : "로그인";
   el.signupBtn.textContent = signupMode ? "가입 요청 보내기" : resetMode ? "비밀번호 저장" : "가입 요청";
   el.forgotPasswordBtn.classList.toggle("hidden", signupMode || resetMode);
+  el.forgotPasswordBtn.setAttribute("aria-hidden", String(signupMode || resetMode));
+  el.forgotPasswordBtn.toggleAttribute("inert", signupMode || resetMode);
   el.authError.textContent = "";
 }
 function setDbBadge(connected, text = "") {
@@ -1194,10 +1614,6 @@ function applyProfileUi() {
   document.querySelectorAll('input[name="workShift"]').forEach((radio) => {
     radio.checked = radio.value === workShift;
   });
-  el.navTabs.forEach((tab) => {
-    if (tab.dataset.view === "measurement") tab.classList.toggle("hidden", workShift !== "night");
-  });
-  if (workShift !== "night" && el.app.dataset.view === "measurement") showView("home");
   const goal = getGoal();
   el.goalAmountInput.value = goal > 0 ? goal.toLocaleString("ko-KR") : "";
 }
@@ -1215,8 +1631,8 @@ async function connectDb(url, key, persist = false) {
   setDbBadge(true);
   const { data, error } = await client.auth.getSession();
   if (error) throw error;
-  state.session = data.session;
-  syncNativeSession(state.session);
+  applyAuthSession(data.session, { event: "SESSION_OBSERVED" });
+  await syncCurrentSessionToNative();
   if (state.session && isPasswordRecoveryUrl()) {
     showAuth(true);
     setAuthMode("reset");
@@ -1226,31 +1642,49 @@ async function connectDb(url, key, persist = false) {
     showAuth(true);
     return;
   }
-  await bootSignedInUser();
+  await bootSignedInUser(captureAccountContext());
 }
-async function bootSignedInUser() {
-  await loadProfile();
-  if (state.profile?.status !== "approved") {
-    showAuth(false);
-    showPending(true);
-    return;
+async function bootSignedInUser(context = captureAccountContext()) {
+  if (!isAccountContextCurrent(context)) return false;
+  if (accountBootTask?.epoch === context.epoch && accountBootTask?.userId === context.userId) {
+    return accountBootTask.promise;
   }
-  showPending(false);
-  applyProfileUi();
-  await loadFromDb();
-  renderAll();
-  showAuth(false);
-  await maybeOfferRateUpdate();
-  if (state.profile?.role === "admin" && el.app.dataset.view === "admin") await renderAdminDashboard();
+  const bootPromise = (async () => {
+    if (!await loadProfile(context) || !isAccountContextCurrent(context)) return false;
+    if (state.profile?.status !== "approved") {
+      if (!isAccountContextCurrent(context)) return false;
+      showAuth(false);
+      showPending(true);
+      return true;
+    }
+    showPending(false);
+    applyProfileUi();
+    if (!await loadFromDb(context) || !isAccountContextCurrent(context)) return false;
+    renderAll();
+    showAuth(false);
+    await maybeOfferRateUpdate(context);
+    if (!isAccountContextCurrent(context)) return false;
+    if (state.profile?.role === "admin" && el.app.dataset.view === "admin") await renderAdminDashboard();
+    return isAccountContextCurrent(context);
+  })();
+  const task = { epoch: context.epoch, userId: context.userId, promise: bootPromise };
+  accountBootTask = task;
+  try {
+    return await bootPromise;
+  } finally {
+    if (accountBootTask === task) accountBootTask = null;
+  }
 }
-async function loadProfile() {
+async function loadProfile(context = captureAccountContext()) {
+  if (!isAccountContextCurrent(context)) return false;
   const user = state.session?.user;
-  if (!user) return;
-  const { data, error } = await state.db.from(TABLES.profiles).select("*").eq("id", user.id).maybeSingle();
+  if (!user || user.id !== context.userId) return false;
+  const { data, error } = await state.db.from(TABLES.profiles).select("*").eq("id", context.userId).maybeSingle();
+  if (!isAccountContextCurrent(context)) return false;
   if (error) throw error;
   if (data) {
     state.profile = data;
-    return;
+    return true;
   }
   const displayName = user.user_metadata?.display_name || user.email?.split("@")[0] || "사용자";
   const driverType = user.user_metadata?.driver_type === "fixed" ? "fixed" : "backup";
@@ -1259,9 +1693,10 @@ async function loadProfile() {
     profile_display_name: displayName,
     profile_driver_type: driverType,
   });
+  if (!isAccountContextCurrent(context)) return false;
   if (!rpcError && ensured) {
     state.profile = Array.isArray(ensured) ? ensured[0] : ensured;
-    return;
+    return true;
   }
   if (rpcError && !/quickflex_ensure_profile|Could not find the function/i.test(rpcError.message || "")) throw rpcError;
   const profile = {
@@ -1274,10 +1709,14 @@ async function loadProfile() {
     fixed_routes: [],
   };
   const { data: inserted, error: insertError } = await state.db.from(TABLES.profiles).insert(profile).select("*").single();
+  if (!isAccountContextCurrent(context)) return false;
   if (insertError) throw insertError;
   state.profile = inserted;
+  return true;
 }
 async function saveProfile() {
+  const context = captureAccountContext();
+  if (!isAccountContextCurrent(context)) return false;
   const selectedMode = document.querySelector('input[name="freshbagMode"]:checked')?.value || "single";
   const selectedWorkShift = document.querySelector('input[name="workShift"]:checked')?.value === "night" ? "night" : "day";
   const payload = {
@@ -1288,19 +1727,31 @@ async function saveProfile() {
     work_shift: selectedWorkShift,
     updated_at: new Date().toISOString(),
   };
-  const { data, error } = await state.db.from(TABLES.profiles).update(payload).eq("id", currentUserId()).select("*").single();
+  const { data, error } = await state.db.from(TABLES.profiles).update(payload).eq("id", context.userId).select("*").single();
+  if (!isAccountContextCurrent(context)) return false;
   if (error) throw error;
   state.profile = data;
   applyProfileUi();
   renderAll();
   if (el.app.dataset.view === "record") renderEntryForm();
   toast("내 정보를 저장했습니다.", "success");
+  return true;
 }
 async function saveInspectionSignature() {
-  const signatureData = profileSignaturePad?.value() || "";
-  if (!isValidSignatureData(signatureData)) throw new Error("서명란에 먼저 서명해 주세요.");
+  const context = captureAccountContext();
+  if (!isAccountContextCurrent(context)) return false;
+  const handwrittenSignature = profileSignaturePad?.value() || "";
+  const useAccessibleAlternative = Boolean(el.profileSignatureAlternative?.checked);
+  const signatureData = useAccessibleAlternative
+    ? createAccessibleSignatureData(el.profileDisplayName.value.trim() || driverName())
+    : isValidSignatureData(handwrittenSignature)
+      ? handwrittenSignature
+      : "";
+  if (!isValidSignatureData(signatureData)) {
+    throw new Error("서명란에 서명하거나 이름 전자서명 확인에 체크해 주세요.");
+  }
   const payload = {
-    user_id: currentUserId(),
+    user_id: context.userId,
     signature_data: signatureData,
     updated_at: new Date().toISOString(),
   };
@@ -1309,36 +1760,45 @@ async function saveInspectionSignature() {
     .upsert(payload, { onConflict: "user_id" })
     .select("signature_data")
     .single();
+  if (!isAccountContextCurrent(context)) return false;
   if (error) throw error;
   state.inspectionSignature = data.signature_data;
   profileSignaturePad?.load(state.inspectionSignature);
+  if (el.profileSignatureAlternative) el.profileSignatureAlternative.checked = false;
   if (el.app.dataset.view === "inspection") renderInspection(state.inspectionDate);
-  toast("일상점검 서명을 저장했습니다.", "success");
+  toast(useAccessibleAlternative
+    ? "이름 전자서명을 저장했습니다."
+    : "일상점검 서명을 저장했습니다.", "success");
+  return true;
 }
 async function saveGoalAmount() {
+  const context = captureAccountContext();
+  if (!isAccountContextCurrent(context)) return false;
   const goal = goalRawValue();
   if (!goal || goal <= 0) return toast("올바른 목표 금액을 입력해 주세요.", "error");
-  if (!state.db || !currentUserId()) throw new Error("DB 연결이 필요합니다.");
+  if (!state.db) throw new Error("DB 연결이 필요합니다.");
   const updatedAt = new Date().toISOString();
   const { data, error } = await state.db
     .from(TABLES.profiles)
     .update({ goal_amount: goal, updated_at: updatedAt })
-    .eq("id", currentUserId())
+    .eq("id", context.userId)
     .select("*")
     .single();
+  if (!isAccountContextCurrent(context)) return false;
   if (error) throw error;
   state.profile = data || { ...(state.profile || {}), goal_amount: goal, updated_at: updatedAt };
   applyProfileUi();
   renderSummary();
   renderStats();
   toast("목표를 저장했습니다.", "success");
+  return true;
 }
 async function login() {
   el.authError.textContent = "";
   const { data, error } = await state.db.auth.signInWithPassword({ email: el.authEmail.value.trim(), password: el.authPassword.value });
   if (error) throw error;
-  state.session = data.session;
-  await bootSignedInUser();
+  const transition = applyAuthSession(data.session, { event: "SIGNED_IN" });
+  await bootSignedInUser(transition.accountContext);
 }
 async function signup() {
   el.authError.textContent = "";
@@ -1355,18 +1815,21 @@ async function signup() {
     },
   });
   if (error) throw error;
-  state.session = data.session;
-  if (state.session) {
+  const transition = data.session
+    ? applyAuthSession(data.session, { event: "SIGNED_IN" })
+    : null;
+  if (data.session && transition) {
     try {
       await state.db.rpc("quickflex_ensure_profile", {
         profile_email: el.authEmail.value.trim(),
         profile_display_name: el.authName.value.trim(),
         profile_driver_type: el.authDriverType.value === "fixed" ? "fixed" : "backup",
       });
+      if (!isAccountContextCurrent(transition.accountContext)) return;
     } catch (profileError) {
       throw new Error(`가입은 접수됐지만 프로필 생성 확인에 실패했습니다. 관리자에게 이메일을 알려 주세요. (${profileError.message})`);
     }
-    await bootSignedInUser();
+    await bootSignedInUser(transition.accountContext);
   } else {
     toast("가입 요청을 보냈습니다. 이메일 확인이 필요할 수 있습니다.", "success");
     el.authError.textContent = "가입 요청을 보냈습니다. 관리자 화면에 보이지 않으면 이메일 확인 후 다시 로그인해 주세요.";
@@ -1391,24 +1854,243 @@ async function updatePassword() {
   await logout();
 }
 async function logout() {
-  postNativeMessage({ type: "sign_out" });
-  if (state.db) await state.db.auth.signOut();
-  state.session = null;
-  state.profile = null;
-  state.rates = [];
-  state.defaultRates = [];
-  state.routeBundles = [];
-  state.entries = {};
-  state.inspections = {};
-  state.inspectionSignature = "";
-  profileSignaturePad?.clear();
-  state.rateOfferPrompted = false;
-  renderAll();
-  showPending(false);
-  showAuth(true);
+  nativeLogoutInProgress = true;
+  try {
+    if (window.QuickFlexNative?.postMessage) {
+      const nativeResult = await requestNativeMessage({ type: "sign_out" });
+      if (!nativeResult?.ok) {
+        const message = nativeResult?.reason === "active_work"
+          ? "진행 중인 업무를 먼저 종료해야 로그아웃할 수 있습니다."
+          : "앱의 업무 상태를 확인하지 못해 로그아웃하지 않았습니다. 잠시 후 다시 시도해 주세요.";
+        toast(message, "error");
+        return false;
+      }
+    }
+    if (state.db) {
+      const { error } = await state.db.auth.signOut({ scope: "local" });
+      if (error) throw error;
+    }
+    applyAuthSession(null, { event: "SIGNED_OUT", scheduleBoot: false });
+    return true;
+  } catch (error) {
+    if (state.session?.access_token && state.session?.refresh_token) {
+      const transition = applyAuthSession(state.session, { event: "SESSION_OBSERVED", scheduleBoot: false });
+      await syncNativeSession(state.session, transition.authEpoch);
+    }
+    throw error;
+  } finally {
+    nativeLogoutInProgress = false;
+  }
 }
 
-function entriesFromDb(dayRows, itemRows) {
+function workLedgerKey(userId, workId) {
+  return JSON.stringify([String(userId || ""), String(workId || "")]);
+}
+function userDateKey(userId, dateKey) {
+  return JSON.stringify([String(userId || ""), String(dateKey || "")]);
+}
+const LEDGER_PAGE_SIZE = 500;
+const LEDGER_WORK_ID_BATCH_SIZE = 40;
+const LEDGER_VERIFY_ATTEMPTS = 2;
+const WORK_RESULT_SELECT = "user_id,work_id,work_date,work_shift,total_households,total_items,canonical_payload,finalized_at";
+const WORK_RESULT_ROUTE_SELECT = "user_id,work_id,route,delivery_count,household_count,unit_snapshot,sort_order";
+
+async function fetchPagedRows(buildQuery) {
+  const rows = [];
+  let expectedCount = null;
+  let offset = 0;
+  for (let page = 0; page < 10000; page += 1) {
+    const { data, error, count } = await buildQuery(offset, offset + LEDGER_PAGE_SIZE - 1);
+    if (error) throw error;
+    const batch = data || [];
+    if (expectedCount === null && Number.isSafeInteger(count) && count >= 0) expectedCount = count;
+    rows.push(...batch);
+    if (!batch.length || (expectedCount !== null && rows.length >= expectedCount)) return rows;
+    offset += batch.length;
+  }
+  throw new Error("자동 원장 조회량이 안전 한도를 넘었습니다.");
+}
+
+async function fetchWorkResultHeaders({ userId = "", startKey = "", endKey = "" } = {}) {
+  return fetchPagedRows((from, to) => {
+    let query = state.db
+      .from(TABLES.workResults)
+      .select(WORK_RESULT_SELECT, { count: "exact" });
+    if (userId) query = query.eq("user_id", userId);
+    if (startKey) query = query.gte("work_date", startKey);
+    if (endKey) query = query.lte("work_date", endKey);
+    return query
+      .order("finalized_at")
+      .order("user_id")
+      .order("work_id")
+      .range(from, to);
+  });
+}
+
+async function fetchWorkResultRoutes(workResults) {
+  const workIdsByUser = new Map();
+  (workResults || []).forEach((work) => {
+    const userId = String(work.user_id || "");
+    const workId = String(work.work_id || "");
+    if (!userId || !workId) return;
+    if (!workIdsByUser.has(userId)) workIdsByUser.set(userId, new Set());
+    workIdsByUser.get(userId).add(workId);
+  });
+  const rows = [];
+  for (const [userId, workIdSet] of workIdsByUser) {
+    const workIds = [...workIdSet];
+    for (let offset = 0; offset < workIds.length; offset += LEDGER_WORK_ID_BATCH_SIZE) {
+      const batchIds = workIds.slice(offset, offset + LEDGER_WORK_ID_BATCH_SIZE);
+      const batchRows = await fetchPagedRows((from, to) => state.db
+        .from(TABLES.workResultRoutes)
+        .select(WORK_RESULT_ROUTE_SELECT, { count: "exact" })
+        .eq("user_id", userId)
+        .in("work_id", batchIds)
+        .order("work_id")
+        .order("sort_order")
+        .order("route")
+        .range(from, to));
+      rows.push(...batchRows);
+    }
+  }
+  return rows;
+}
+
+function parseCanonicalWorkPayload(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  if (typeof value !== "string") return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function exactLedgerInteger(value) {
+  const number = Number(value);
+  return Number.isSafeInteger(number) && number >= 0 ? number : null;
+}
+
+function validateWorkLedgerRows(workResults, workRoutes) {
+  const issues = [];
+  const headersByWork = new Map();
+  const routesByWork = new Map();
+  (workResults || []).forEach((work) => {
+    const key = workLedgerKey(work.user_id, work.work_id);
+    if (headersByWork.has(key)) issues.push(`${work.work_id}: 중복 원장 헤더`);
+    headersByWork.set(key, work);
+  });
+  (workRoutes || []).forEach((route) => {
+    const key = workLedgerKey(route.user_id, route.work_id);
+    if (!headersByWork.has(key)) {
+      issues.push(`${route.work_id}: 헤더 없는 구역 상세`);
+      return;
+    }
+    if (!routesByWork.has(key)) routesByWork.set(key, []);
+    routesByWork.get(key).push(route);
+  });
+
+  headersByWork.forEach((work, key) => {
+    const actualRoutes = routesByWork.get(key) || [];
+    const totalItems = exactLedgerInteger(work.total_items);
+    const totalHouseholds = exactLedgerInteger(work.total_households);
+    const payload = parseCanonicalWorkPayload(work.canonical_payload);
+    const expectedRoutes = Array.isArray(payload?.routes) ? payload.routes : null;
+    const actualByRoute = new Map();
+    let actualItems = 0;
+    let actualHouseholds = 0;
+
+    actualRoutes.forEach((route) => {
+      const routeName = String(route.route || "");
+      if (actualByRoute.has(routeName)) issues.push(`${work.work_id}: 중복 구역 ${routeName}`);
+      actualByRoute.set(routeName, route);
+      const deliveryCount = exactLedgerInteger(route.delivery_count);
+      const householdCount = exactLedgerInteger(route.household_count);
+      if (deliveryCount === null || householdCount === null) {
+        issues.push(`${work.work_id}: 잘못된 구역 합계`);
+        return;
+      }
+      actualItems += deliveryCount;
+      actualHouseholds += householdCount;
+    });
+
+    if (totalItems === null || totalHouseholds === null) issues.push(`${work.work_id}: 잘못된 헤더 합계`);
+    if (!actualRoutes.length) issues.push(`${work.work_id}: 구역 상세 없음`);
+    if (totalItems !== null && actualItems !== totalItems) issues.push(`${work.work_id}: 상품 합계 불일치`);
+    if (totalHouseholds !== null && actualHouseholds !== totalHouseholds) issues.push(`${work.work_id}: 가구 합계 불일치`);
+    if (!expectedRoutes) {
+      issues.push(`${work.work_id}: 원본 구역 목록 없음`);
+      return;
+    }
+    if (String(payload.work_date || "") !== String(work.work_date || "")
+      || String(payload.work_shift || "") !== String(work.work_shift || "")
+      || exactLedgerInteger(payload.total_items) !== totalItems
+      || exactLedgerInteger(payload.total_households) !== totalHouseholds) {
+      issues.push(`${work.work_id}: 헤더와 원본 불일치`);
+    }
+    if (expectedRoutes.length !== actualRoutes.length) issues.push(`${work.work_id}: 구역 행 수 불일치`);
+    const expectedNames = new Set();
+    expectedRoutes.forEach((expected) => {
+      const routeName = String(expected?.route || "");
+      if (!routeName || expectedNames.has(routeName)) {
+        issues.push(`${work.work_id}: 잘못된 원본 구역`);
+        return;
+      }
+      expectedNames.add(routeName);
+      const actual = actualByRoute.get(routeName);
+      if (!actual) {
+        issues.push(`${work.work_id}: 구역 ${routeName} 누락`);
+        return;
+      }
+      for (const field of ["delivery_count", "household_count", "unit_snapshot", "sort_order"]) {
+        if (exactLedgerInteger(expected[field]) !== exactLedgerInteger(actual[field])) {
+          issues.push(`${work.work_id}: 구역 ${routeName} ${field} 불일치`);
+        }
+      }
+    });
+  });
+  return [...new Set(issues)];
+}
+
+function workLedgerItems(workResults, workRoutes) {
+  const headerByWork = new Map((workResults || []).map((work) => [workLedgerKey(work.user_id, work.work_id), work]));
+  return (workRoutes || []).flatMap((route) => {
+    const work = headerByWork.get(workLedgerKey(route.user_id, route.work_id));
+    if (!work) return [];
+    return [{
+      ...route,
+      work_date: work.work_date,
+      work_shift: work.work_shift,
+      finalized_at: work.finalized_at,
+      source: "automatic",
+      readOnly: true,
+      workId: work.work_id,
+      workShift: work.work_shift,
+      finalizedAt: work.finalized_at,
+      sortOrder: route.sort_order ?? 0,
+    }];
+  });
+}
+
+async function loadVerifiedWorkLedger(filters = {}) {
+  let lastIssues = [];
+  for (let attempt = 0; attempt < LEDGER_VERIFY_ATTEMPTS; attempt += 1) {
+    const workResults = await fetchWorkResultHeaders(filters);
+    const workRoutes = await fetchWorkResultRoutes(workResults);
+    lastIssues = validateWorkLedgerRows(workResults, workRoutes);
+    if (!lastIssues.length) return { workResults, workRoutes, items: workLedgerItems(workResults, workRoutes) };
+    if (attempt + 1 < LEDGER_VERIFY_ATTEMPTS) {
+      await new Promise((resolve) => window.setTimeout(resolve, 180));
+    }
+  }
+  const error = new Error(`자동 마감 원장의 구역 상세가 완전하지 않습니다. 새로고침 후 다시 확인해 주세요. (${lastIssues.slice(0, 3).join(", ")})`);
+  error.code = "QUICKFLEX_LEDGER_INCOMPLETE";
+  error.ledgerIssues = lastIssues;
+  throw error;
+}
+
+function entriesFromDb(dayRows, itemRows, workResultRows = [], workRouteRows = []) {
   const entries = {};
   (dayRows || []).forEach((row) => {
     entries[row.work_date] = normalizeRecordShape({
@@ -1431,38 +2113,85 @@ function entriesFromDb(dayRows, itemRows) {
       unit: row.unit_snapshot ?? 0,
     });
   });
+  const routesByWork = new Map();
+  (workRouteRows || []).forEach((row) => {
+    const key = workLedgerKey(row.user_id, row.work_id);
+    if (!routesByWork.has(key)) routesByWork.set(key, []);
+    routesByWork.get(key).push(row);
+  });
+  (workResultRows || [])
+    .slice()
+    .sort((a, b) => String(a.finalized_at || "").localeCompare(String(b.finalized_at || "")) || String(a.work_id || "").localeCompare(String(b.work_id || "")))
+    .forEach((work) => {
+      if (!entries[work.work_date]) entries[work.work_date] = emptyRecord();
+      entries[work.work_date].automaticWorks ||= [];
+      entries[work.work_date].automaticWorks.push({
+        workId: work.work_id,
+        workShift: work.work_shift,
+        finalizedAt: work.finalized_at || "",
+      });
+      const workRoutes = (routesByWork.get(workLedgerKey(work.user_id, work.work_id)) || [])
+        .slice()
+        .sort((a, b) => toNum(a.sort_order) - toNum(b.sort_order) || String(a.route || "").localeCompare(String(b.route || "")));
+      workRoutes.forEach((row) => {
+        entries[work.work_date].rows.push({
+          route: row.route,
+          count: row.delivery_count ?? "",
+          households: row.household_count ?? "",
+          unit: row.unit_snapshot ?? 0,
+          source: "automatic",
+          readOnly: true,
+          workId: work.work_id,
+          workShift: work.work_shift,
+          finalizedAt: work.finalized_at || "",
+          sortOrder: row.sort_order ?? 0,
+        });
+      });
+    });
   Object.keys(entries).forEach((dateKey) => {
     entries[dateKey] = normalizeRecordShape(entries[dateKey]);
-    if (!isBackupDriver() && !entries[dateKey].rows.length) ensureFixedRecordRows(entries[dateKey]);
+    if (!isBackupDriver() && !hasAutomaticEntries(entries[dateKey]) && !entries[dateKey].rows.length) ensureFixedRecordRows(entries[dateKey]);
   });
   return entries;
 }
-async function migrateLegacyGoalAmount(legacyGoal) {
+async function migrateLegacyGoalAmount(legacyGoal, context = captureAccountContext()) {
+  if (!isAccountContextCurrent(context)) return false;
   const currentGoal = toNum(state.profile?.goal_amount);
-  if (!legacyGoal || legacyGoal <= 0 || (currentGoal && currentGoal !== GOAL)) return;
+  if (!legacyGoal || legacyGoal <= 0 || (currentGoal && currentGoal !== GOAL)) return true;
   state.profile = { ...(state.profile || {}), goal_amount: legacyGoal };
-  if (!state.db || !currentUserId()) return;
+  if (!state.db) return true;
   const { data, error } = await state.db
     .from(TABLES.profiles)
     .update({ goal_amount: legacyGoal, updated_at: new Date().toISOString() })
-    .eq("id", currentUserId())
+    .eq("id", context.userId)
     .select("*")
     .single();
+  if (!isAccountContextCurrent(context)) return false;
   if (!error && data) state.profile = data;
+  return true;
 }
-async function loadFromDb() {
-  if (!state.db || !currentUserId()) return;
-  const userId = currentUserId();
+async function loadFromDb(context = captureAccountContext()) {
+  if (!state.db || !isAccountContextCurrent(context)) return false;
+  const userId = context.userId;
   const defaultRatesQuery = Promise.resolve({ data: [], error: null });
-  const [ratesResult, defaultRatesResult, daysResult, itemsResult, bundlesResult, inspectionsResult, signatureResult] = await Promise.all([
-    state.db.from(TABLES.rates).select("*").eq("user_id", userId).order("route"),
-    defaultRatesQuery,
-    state.db.from(TABLES.days).select("*").eq("user_id", userId),
-    state.db.from(TABLES.items).select("*").eq("user_id", userId).order("sort_order"),
-    state.db.from(TABLES.bundles).select("*").eq("active", true).order("sort_order").order("label"),
-    state.db.from(TABLES.inspections).select("*").eq("user_id", userId).order("inspection_date"),
-    state.db.from(TABLES.inspectionSignatures).select("signature_data").eq("user_id", userId).maybeSingle(),
-  ]);
+  let loaded;
+  try {
+    loaded = await Promise.all([
+      state.db.from(TABLES.rates).select("*").eq("user_id", userId).order("route"),
+      defaultRatesQuery,
+      state.db.from(TABLES.days).select("*").eq("user_id", userId),
+      state.db.from(TABLES.items).select("*").eq("user_id", userId).order("sort_order"),
+      loadVerifiedWorkLedger({ userId }),
+      state.db.from(TABLES.bundles).select("*").eq("active", true).order("sort_order").order("label"),
+      state.db.from(TABLES.inspections).select("*").eq("user_id", userId).order("inspection_date"),
+      state.db.from(TABLES.inspectionSignatures).select("signature_data").eq("user_id", userId).maybeSingle(),
+    ]);
+  } catch (error) {
+    if (!isAccountContextCurrent(context)) return false;
+    throw error;
+  }
+  const [ratesResult, defaultRatesResult, daysResult, itemsResult, ledger, bundlesResult, inspectionsResult, signatureResult] = loaded;
+  if (!isAccountContextCurrent(context)) return false;
   if (ratesResult.error) throw ratesResult.error;
   if (defaultRatesResult.error) throw defaultRatesResult.error;
   if (daysResult.error) throw daysResult.error;
@@ -1471,11 +2200,12 @@ async function loadFromDb() {
   if (inspectionsResult.error) throw inspectionsResult.error;
   if (signatureResult.error) throw signatureResult.error;
   const goalRate = (ratesResult.data || []).find((row) => normalizeRoute(row.route) === GOAL_SETTING_ROUTE);
-  await migrateLegacyGoalAmount(toNum(goalRate?.current_unit));
+  if (!await migrateLegacyGoalAmount(toNum(goalRate?.current_unit), context)) return false;
+  if (!isAccountContextCurrent(context)) return false;
   state.rates = ratesFromDb(ratesResult.data);
   state.defaultRates = ratesFromDb(defaultRatesResult.data);
   state.routeBundles = bundlesResult.data || [];
-  state.entries = entriesFromDb(daysResult.data, itemsResult.data);
+  state.entries = entriesFromDb(daysResult.data, itemsResult.data, ledger.workResults, ledger.workRoutes);
   state.inspections = Object.fromEntries((inspectionsResult.data || []).map((row) => [row.inspection_date, row]));
   state.inspectionSignature = isValidSignatureData(signatureResult.data?.signature_data) ? signatureResult.data.signature_data : "";
   profileSignaturePad?.load(state.inspectionSignature);
@@ -1486,20 +2216,27 @@ async function loadFromDb() {
   if (state.profile?.role === "admin" && !hadRates && state.rates.length) {
     const merged = mergeDefaultRouteMaster(state.rates);
     state.rates = merged.rates;
-    if (!hadRates || merged.changed) await persistRates();
+    if ((!hadRates || merged.changed) && !await persistRates(context)) return false;
   }
+  if (!isAccountContextCurrent(context)) return false;
   setDbBadge(true, "동기화됨");
+  return true;
 }
-async function persistRates() {
-  const userId = currentUserId();
-  const cleanRates = state.rates.filter((rate) => normalizeRoute(rate.route) && normalizeRoute(rate.route) !== GOAL_SETTING_ROUTE && toNum(rate.unit) >= 0);
+async function persistRates(context = captureAccountContext()) {
+  if (!state.db || !isAccountContextCurrent(context)) return false;
+  const userId = context.userId;
+  const cleanRates = state.rates
+    .filter((rate) => normalizeRoute(rate.route) && normalizeRoute(rate.route) !== GOAL_SETTING_ROUTE && toNum(rate.unit) >= 0)
+    .map((rate) => ({ ...rate }));
   const { error: upsertError } = await state.db.from(TABLES.rates).upsert(cleanRates.map((rate) => ({
     user_id: userId,
     route: normalizeRoute(rate.route),
     current_unit: toNum(rate.unit),
     updated_at: new Date().toISOString(),
   })), { onConflict: "user_id,route" });
+  if (!isAccountContextCurrent(context)) return false;
   if (upsertError) throw upsertError;
+  return true;
 }
 function pendingRateOfferChanges() {
   if (!state.profile || state.profile.role === "admin") return [];
@@ -1516,13 +2253,14 @@ function renderRateUpdateOffer() {
       : "새 단가가 적용되어 있습니다.";
   }
 }
-async function refreshFutureZeroCountUnits(fromDate = todayKey()) {
+async function refreshFutureZeroCountUnits(fromDate = todayKey(), context = captureAccountContext()) {
+  if (!isAccountContextCurrent(context)) return false;
   const changedDates = [];
   Object.entries(state.entries).forEach(([dateKey, record]) => {
     if (dateKey < fromDate || record.off) return;
     let changed = false;
     record.rows.forEach((row) => {
-      if (!row.route || toNum(row.count) > 0) return;
+      if (isAutomaticRow(row) || !row.route || toNum(row.count) > 0) return;
       const nextUnit = sharedRateForRoutes(row.route);
       if (!nextUnit || toNum(row.unit) === nextUnit) return;
       row.unit = nextUnit;
@@ -1530,16 +2268,20 @@ async function refreshFutureZeroCountUnits(fromDate = todayKey()) {
     });
     if (changed) changedDates.push(dateKey);
   });
-  for (const dateKey of changedDates) await persistDay(dateKey);
+  for (const dateKey of changedDates) {
+    if (!await persistDay(dateKey, context)) return false;
+  }
   return changedDates;
 }
-async function applyRateUpdateOffer({ ask = true } = {}) {
+async function applyRateUpdateOffer({ ask = true, context = captureAccountContext() } = {}) {
+  if (!isAccountContextCurrent(context)) return false;
   const changes = pendingRateOfferChanges();
   if (!changes.length) {
     renderRateUpdateOffer();
     return toast("이미 새 단가가 적용되어 있습니다.", "success");
   }
   if (ask && !window.confirm(`구역 일부 단가가 업데이트되었습니다.\n\n새 단가 ${changes.length}개를 오늘부터 적용할까요?\n완료했거나 건수를 입력한 기존 기록의 단가는 유지됩니다.`)) return;
+  if (!isAccountContextCurrent(context)) return false;
   const byRoute = new Map(state.rates.map((rate) => [normalizeRoute(rate.route), rate]));
   RATE_UPDATE_OFFER.rates.forEach((rate) => {
     const existing = byRoute.get(rate.route);
@@ -1547,15 +2289,17 @@ async function applyRateUpdateOffer({ ask = true } = {}) {
     else state.rates.push({ ...rate, count: 0, amount: 0 });
   });
   state.rates.sort((a, b) => a.route.localeCompare(b.route));
-  await persistRates();
-  const refreshedDates = await refreshFutureZeroCountUnits(todayKey());
+  if (!await persistRates(context)) return false;
+  const refreshedDates = await refreshFutureZeroCountUnits(todayKey(), context);
+  if (refreshedDates === false || !isAccountContextCurrent(context)) return false;
   renderRates();
   renderAll();
   toast(refreshedDates.length
     ? `새 단가와 미입력 예정 기록 ${refreshedDates.length}일을 함께 반영했습니다.`
     : "새 단가를 오늘부터 적용했습니다.", "success");
 }
-async function maybeOfferRateUpdate() {
+async function maybeOfferRateUpdate(context = captureAccountContext()) {
+  if (!isAccountContextCurrent(context)) return false;
   const changes = pendingRateOfferChanges();
   const noticeVersion = `${APP_UPDATE_NOTICE.id}:${RATE_UPDATE_OFFER.id}`;
   const noticePending = state.profile?.app_notice_version !== noticeVersion;
@@ -1569,46 +2313,81 @@ async function maybeOfferRateUpdate() {
   } else {
     window.alert(`${intro}\n\n내 단가는 이미 최신 상태입니다.`);
   }
+  if (!isAccountContextCurrent(context)) return false;
   const { data, error } = await state.db
     .from(TABLES.profiles)
     .update({ app_notice_version: noticeVersion, updated_at: new Date().toISOString() })
-    .eq("id", currentUserId())
+    .eq("id", context.userId)
     .select("*")
     .single();
+  if (!isAccountContextCurrent(context)) return false;
   if (error) throw error;
   state.profile = data;
   if (!changes.length || !accepted) {
     renderRateUpdateOffer();
-    return;
+    return true;
   }
-  await applyRateUpdateOffer({ ask: false });
+  return applyRateUpdateOffer({ ask: false, context });
 }
-async function persistDay(dateKey) {
-  const userId = currentUserId();
+async function persistDay(dateKey, context = captureAccountContext()) {
+  if (!state.db || !isAccountContextCurrent(context)) return false;
+  const userId = context.userId;
   const rec = normalizeRecordShape(getRecord(dateKey, false));
+  const hasAutomatic = hasAutomaticEntries(rec);
+  const editableRec = normalizeRecordShape({
+    ...rec,
+    automaticWorks: [],
+    off: hasAutomatic ? false : rec.off,
+    rows: hasAutomatic ? [] : manualRows(rec),
+  });
+  const assertManualDateUnlocked = async () => {
+    if (!isAccountContextCurrent(context)) return false;
+    const { data: automaticHeaders, error: automaticHeaderError } = await state.db
+      .from(TABLES.workResults)
+      .select("work_id")
+      .eq("user_id", userId)
+      .eq("work_date", dateKey)
+      .limit(1);
+    if (!isAccountContextCurrent(context)) return false;
+    if (automaticHeaderError) throw automaticHeaderError;
+    if (automaticHeaders?.length) {
+      const lockError = new Error("앱 자동 마감 기록이 생성되어 수동 구역 저장이 잠겼습니다.");
+      lockError.code = "55000";
+      throw lockError;
+    }
+    return true;
+  };
+  if (!hasAutomatic) {
+    // 열린 PWA가 Android 마감보다 오래된 상태일 수 있다. 파괴적인 DELETE 전에
+    // 원장 헤더를 다시 확인하고, 그래도 경합하면 DB trigger(55000)가 마지막으로 막는다.
+    if (!await assertManualDateUnlocked()) return false;
+  }
   const { error: deleteItemsError } = await state.db.from(TABLES.items).delete().eq("user_id", userId).eq("work_date", dateKey);
+  if (!isAccountContextCurrent(context)) return false;
   if (deleteItemsError) throw deleteItemsError;
-  if (!hasMeaningfulRecord(rec)) {
+  if (!hasMeaningfulRecord(editableRec) && !hasAutomatic) {
     const { error: deleteDayError } = await state.db.from(TABLES.days).delete().eq("user_id", userId).eq("work_date", dateKey);
+    if (!isAccountContextCurrent(context)) return false;
     if (deleteDayError) throw deleteDayError;
     delete state.entries[dateKey];
-    return;
+    return true;
   }
   const dayPayload = {
     user_id: userId,
     work_date: dateKey,
-    is_off: rec.off,
-    fresh_count: rec.off ? 0 : toNum(rec.freshCount),
-    fresh_unit: toNum(defaultFreshUnit(rec.freshUnit)),
-    fresh_solo_count: rec.off ? 0 : toNum(rec.freshSoloCount),
-    fresh_linked_count: rec.off ? 0 : toNum(rec.freshLinkedCount),
-    backup_unit: isBackupDriver() ? toNum(defaultBackupUnit(rec.backupUnit)) : 0,
+    is_off: editableRec.off,
+    fresh_count: editableRec.off ? 0 : toNum(editableRec.freshCount),
+    fresh_unit: toNum(defaultFreshUnit(editableRec.freshUnit)),
+    fresh_solo_count: editableRec.off ? 0 : toNum(editableRec.freshSoloCount),
+    fresh_linked_count: editableRec.off ? 0 : toNum(editableRec.freshLinkedCount),
+    backup_unit: isBackupDriver() ? toNum(defaultBackupUnit(editableRec.backupUnit)) : 0,
     driver_type: isBackupDriver() ? "backup" : "fixed",
     updated_at: new Date().toISOString(),
   };
   const { error: dayError } = await state.db.from(TABLES.days).upsert(dayPayload, { onConflict: "user_id,work_date" });
+  if (!isAccountContextCurrent(context)) return false;
   if (dayError) throw dayError;
-  const itemPayload = rec.off ? [] : rec.rows
+  const itemPayload = editableRec.off ? [] : editableRec.rows
     .filter((row) => row.route)
     .map((row, index) => ({
       user_id: userId,
@@ -1622,45 +2401,131 @@ async function persistDay(dateKey) {
     }));
   if (itemPayload.length) {
     const { error: itemError } = await state.db.from(TABLES.items).insert(itemPayload);
+    if (!isAccountContextCurrent(context)) return false;
     if (itemError) throw itemError;
   }
+  // DELETE와 INSERT 사이에 Android 마감이 커밋된 경우도 성공으로 오인하지 않는다.
+  // 완전한 원자성은 후속 RPC 범위지만, 사전 확인 + DB trigger + 사후 확인으로
+  // 현재 다중 요청 흐름에서 관찰 가능한 경합은 즉시 원장 재조회 경로로 보낸다.
+  if (!hasAutomatic && !await assertManualDateUnlocked()) return false;
+  return isAccountContextCurrent(context);
 }
 function scheduleSave({ dateKeys = [], rates = false, immediate = false } = {}) {
   dateKeys.forEach((key) => state.pendingDates.add(key));
   if (rates) state.pendingRates = true;
   if (!state.db || !currentUserId()) return;
   clearTimeout(state.saveTimer);
-  state.saveTimer = setTimeout(flushSaves, immediate ? 0 : 450);
+  state.saveTimer = setTimeout(() => {
+    state.saveTimer = null;
+    flushSaves().catch((error) => {
+      if (error?.quickflexHandled || error?.quickflexReported) return;
+      error.quickflexReported = true;
+      toast(`DB 저장 실패: ${error.message}`, "error");
+    });
+  }, immediate ? 0 : 450);
+}
+function asSaveError(error, dateKey = "") {
+  const next = error instanceof Error ? error : new Error(String(error?.message || error || "저장 실패"));
+  if (error && typeof error === "object") {
+    for (const key of ["code", "details", "hint"]) {
+      if (error[key] != null && next[key] == null) next[key] = error[key];
+    }
+  }
+  if (dateKey) next.quickflexDateKey = dateKey;
+  return next;
+}
+function isAutomaticLedgerLockError(error) {
+  return String(error?.code || "") === "55000";
+}
+function staleAccountSaveError() {
+  const error = new Error("로그인 계정이 바뀌어 이전 계정의 저장을 중단했습니다.");
+  error.quickflexStaleAccount = true;
+  error.quickflexHandled = true;
+  return error;
+}
+async function recoverAutomaticLedgerLock(error) {
+  const dateKey = error?.quickflexDateKey || "";
+  const preservedDirtyRecords = new Map([...state.pendingDates]
+    .filter((dirtyDate) => dirtyDate && dirtyDate !== dateKey)
+    .map((dirtyDate) => [dirtyDate, cloneRecord(getRecord(dirtyDate, false))]));
+  try {
+    await loadFromDb();
+    if (dateKey) state.pendingDates.delete(dateKey);
+    preservedDirtyRecords.forEach((record, dirtyDate) => {
+      if (hasAutomaticEntries(getRecord(dirtyDate, false))) {
+        state.pendingDates.delete(dirtyDate);
+        return;
+      }
+      setRecord(dirtyDate, record);
+    });
+    discardRecordDraft();
+    renderAll();
+    error.quickflexHandled = true;
+    error.quickflexReported = true;
+    toast(`${dateKey ? `${formatLongShort(dateKey)} ` : ""}앱 자동 마감 기록이 확인되어 최신 원장으로 다시 불러왔습니다. 구역·건수·단가는 읽기 전용입니다.`, "error");
+  } catch (reloadError) {
+    error.quickflexHandled = true;
+    error.quickflexReported = true;
+    error.quickflexReloadError = reloadError;
+    toast(`앱 자동 마감 기록으로 수동 저장이 잠겼지만 최신 원장을 다시 불러오지 못했습니다: ${reloadError.message}`, "error");
+  }
 }
 async function flushSaves() {
   if (!state.db || !currentUserId()) return;
-  if (state.flushing) {
-    state.flushAgain = true;
+  if (state.flushPromise) {
+    await state.flushPromise;
+    if (state.pendingRates || state.pendingDates.size) return flushSaves();
     return;
   }
-  state.flushing = true;
+  if (!state.pendingRates && !state.pendingDates.size) return;
+  const flushContext = captureAccountContext();
+  const currentFlush = (async () => {
+    try {
+      while (state.pendingRates || state.pendingDates.size) {
+        if (!isAccountContextCurrent(flushContext)) throw staleAccountSaveError();
+        if (state.pendingRates) {
+          state.pendingRates = false;
+          try {
+            if (!await persistRates(flushContext)) throw staleAccountSaveError();
+          } catch (error) {
+            if (isAccountContextCurrent(flushContext)) state.pendingRates = true;
+            throw asSaveError(error);
+          }
+        }
+        const dates = [...state.pendingDates];
+        dates.forEach((dateKey) => state.pendingDates.delete(dateKey));
+        for (let index = 0; index < dates.length; index += 1) {
+          const dateKey = dates[index];
+          try {
+            if (!await persistDay(dateKey, flushContext)) throw staleAccountSaveError();
+          } catch (error) {
+            if (isAccountContextCurrent(flushContext)) {
+              dates.slice(index).forEach((dirtyDate) => state.pendingDates.add(dirtyDate));
+            }
+            throw asSaveError(error, dateKey);
+          }
+        }
+      }
+      if (!isAccountContextCurrent(flushContext)) throw staleAccountSaveError();
+      setDbBadge(true, `${new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 저장됨`);
+      return true;
+    } catch (error) {
+      if (error?.quickflexStaleAccount) return false;
+      console.error("[DB save]", error);
+      if (isAutomaticLedgerLockError(error)) await recoverAutomaticLedgerLock(error);
+      throw error;
+    }
+  })();
+  state.flushPromise = currentFlush;
   try {
-    if (state.pendingRates) {
-      state.pendingRates = false;
-      await persistRates();
-    }
-    const dates = [...state.pendingDates];
-    state.pendingDates.clear();
-    for (const dateKey of dates) await persistDay(dateKey);
-    setDbBadge(true, `${new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 저장됨`);
-  } catch (error) {
-    console.error("[DB save]", error);
-    toast(`DB 저장 실패: ${error.message}`, "error");
+    return await currentFlush;
   } finally {
-    state.flushing = false;
-    if (state.flushAgain) {
-      state.flushAgain = false;
-      flushSaves();
-    }
+    if (state.flushPromise === currentFlush) state.flushPromise = null;
   }
 }
 async function ensurePendingSavesFlushed() {
   clearTimeout(state.saveTimer);
+  state.saveTimer = null;
   await flushSaves();
 }
 
@@ -1714,24 +2579,28 @@ function renderInspection(dateKey = todayKey(), options = {}) {
     if (!grouped.has(group)) grouped.set(group, []);
     grouped.get(group).push({ key: `item_${index + 1}`, number: index + 1, label });
   });
-  el.inspectionChecklist.innerHTML = [...grouped.entries()].map(([group, items]) => `
+  el.inspectionChecklist.innerHTML = [...grouped.entries()].map(([group, items], groupIndex) => `
     <section class="inspection-group">
-      <h2 class="inspection-group-title">${group}</h2>
+      <h2 class="inspection-group-title" id="inspectionGroup${groupIndex + 1}">${group}</h2>
       ${items.map((item) => {
         const value = state.inspectionDraft.results[item.key] || "";
-        return `<div class="inspection-row"><p>${item.number}. ${escapeAttr(item.label)}</p>
-          <button type="button" class="inspection-choice${value === "good" ? " active" : ""}" data-inspection-item="${item.key}" data-result="good" aria-label="${item.number}번 양호">○</button>
-          <button type="button" class="inspection-choice${value === "bad" ? " active" : ""}" data-inspection-item="${item.key}" data-result="bad" aria-label="${item.number}번 이상">×</button>
+        return `<div class="inspection-row" role="group" aria-labelledby="inspectionItem${item.number}"><p id="inspectionItem${item.number}">${item.number}. ${escapeAttr(item.label)}</p>
+          <button type="button" class="inspection-choice${value === "good" ? " active" : ""}" data-inspection-item="${item.key}" data-result="good" aria-label="${item.number}번 양호" aria-pressed="${value === "good"}">○</button>
+          <button type="button" class="inspection-choice${value === "bad" ? " active" : ""}" data-inspection-item="${item.key}" data-result="bad" aria-label="${item.number}번 이상" aria-pressed="${value === "bad"}">×</button>
         </div>`;
       }).join("")}
     </section>`).join("");
   const hasBad = Object.values(state.inspectionDraft.results).includes("bad");
   el.inspectionDefectFields.classList.toggle("hidden", !hasBad);
+  el.inspectionDefectFields.hidden = !hasBad;
   el.inspectionDefectNotes.value = state.inspectionDraft.defectNotes;
   el.inspectionActionNotes.value = state.inspectionDraft.actionNotes;
   const signatureData = inspectionSignatureForRecord(record);
   el.inspectionSignaturePreview.classList.toggle("hidden", !signatureData);
-  if (signatureData) el.inspectionSignaturePreview.src = signatureData;
+  if (signatureData) {
+    el.inspectionSignaturePreview.src = signatureData;
+    el.inspectionSignaturePreview.alt = `${driverName()} 점검자 서명`;
+  }
   else el.inspectionSignaturePreview.removeAttribute("src");
   el.inspectionSignatureStatus.textContent = signatureData
     ? (record?.signature_data ? "이 기록에 저장된 서명입니다." : "등록된 서명이 저장 시 함께 들어갑니다.")
@@ -1764,6 +2633,8 @@ function resetInspectionDraft() {
   renderInspection(state.inspectionDate, { preserveDraft: true });
 }
 async function saveInspection() {
+  const context = captureAccountContext();
+  if (!isAccountContextCurrent(context)) return false;
   const dateKey = state.inspectionDate;
   if (dateKey < "2026-06-30" || dateKey > todayKey()) throw new Error("점검일을 확인해 주세요.");
   const results = state.inspectionDraft.results;
@@ -1778,7 +2649,7 @@ async function saveInspection() {
   const signatureData = inspectionSignatureForRecord(state.inspections[dateKey]);
   if (!signatureData) throw new Error("설정에서 점검자 서명을 먼저 등록해 주세요.");
   const payload = {
-    user_id: currentUserId(),
+    user_id: context.userId,
     inspection_date: dateKey,
     status: "completed",
     results,
@@ -1791,6 +2662,7 @@ async function saveInspection() {
     updated_at: new Date().toISOString(),
   };
   const { data, error } = await state.db.from(TABLES.inspections).upsert(payload, { onConflict: "user_id,inspection_date" }).select("*").single();
+  if (!isAccountContextCurrent(context)) return false;
   if (error) throw error;
   state.inspections[dateKey] = data;
   state.selectedDate = dateKey;
@@ -1799,13 +2671,16 @@ async function saveInspection() {
   renderHomeSelection();
   showView("home");
   toast("일상점검을 저장했습니다.", "success");
+  return true;
 }
 async function setInspectionNoOperation() {
+  const context = captureAccountContext();
+  if (!isAccountContextCurrent(context)) return false;
   const signatureData = inspectionSignatureForRecord(state.inspections[state.inspectionDate]);
   if (!signatureData) throw new Error("설정에서 점검자 서명을 먼저 등록해 주세요.");
   if (!window.confirm(`${formatLong(state.inspectionDate)}을 미운행으로 기록할까요?`)) return;
   const payload = {
-    user_id: currentUserId(),
+    user_id: context.userId,
     inspection_date: state.inspectionDate,
     status: "no_operation",
     results: Object.fromEntries(INSPECTION_ITEMS.map((_, index) => [`item_${index + 1}`, "no_operation"])),
@@ -1818,6 +2693,7 @@ async function setInspectionNoOperation() {
     updated_at: new Date().toISOString(),
   };
   const { data, error } = await state.db.from(TABLES.inspections).upsert(payload, { onConflict: "user_id,inspection_date" }).select("*").single();
+  if (!isAccountContextCurrent(context)) return false;
   if (error) throw error;
   state.inspections[state.inspectionDate] = data;
   state.selectedDate = state.inspectionDate;
@@ -1826,6 +2702,7 @@ async function setInspectionNoOperation() {
   renderHomeSelection();
   showView("home");
   toast("미운행으로 저장했습니다.", "success");
+  return true;
 }
 function buildInspectionMonthSheet() {
   const [year, month] = state.inspectionDate.split("-").map(Number);
@@ -1920,12 +2797,13 @@ async function saveInspectionMonthPdf() {
 
 function showView(view) {
   if (view === "admin" && state.profile?.role !== "admin") view = "home";
-  if (view === "measurement" && !isNightShift()) {
-    toast("배송 페이스 측정은 야간 근무에서만 사용합니다.", "info");
-    view = "home";
-  }
   el.app.dataset.view = view;
-  el.navTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === view));
+  el.navTabs.forEach((tab) => {
+    const selected = tab.dataset.view === view;
+    tab.classList.toggle("active", selected);
+    if (selected) tab.setAttribute("aria-current", "page");
+    else tab.removeAttribute("aria-current");
+  });
   if (view === "record") renderEntryForm();
   if (view === "measurement") {
     state.measurementDate = defaultMeasurementWorkDate();
@@ -1952,21 +2830,23 @@ function renderMeasurementBridge() {
   const routes = record.off ? [] : record.rows.flatMap((row) => splitStoredRoutes(row.route));
   el.measurementRouteText.textContent = record.off ? "휴무" : routes.length ? routes.join(" · ") : "등록된 구역 없음";
   const households = record.rows.reduce((sum, row) => sum + toNum(row.households), 0);
+  const automatic = hasAutomaticEntries(record);
   const autoNightDate = state.measurementDateAuto;
   if (el.measurementScheduleMeta) {
     el.measurementScheduleMeta.textContent = autoNightDate
       ? `${formatMonthDay(state.selectedDate)} 밤 → ${formatMonthDay(workDate)} 근무표`
       : `${formatMonthDay(workDate)} 근무표 자동 입력`;
   }
-  el.measurementRouteHint.textContent = households > 0
-    ? `저장된 가구수 ${households}가구 · 필요하면 기록 화면에서 수정할 수 있습니다.`
-    : isNightShift()
-      ? "야간 측정은 이 날짜의 구역과 가구수 기록으로 유지됩니다."
-      : "주간 측정은 선택한 날짜의 근무표에 저장됩니다.";
+  el.measurementRouteHint.textContent = automatic
+    ? `앱 자동 마감 · 완료 ${households}가구 · 구역·건수·단가는 읽기 전용입니다.`
+    : households > 0
+      ? `기존 수동 가구수 ${households}가구 · 측정 종료는 페이스 구간만 저장합니다.`
+      : isNightShift()
+        ? "야간은 이 날짜의 근무표를 사용하며, 매출은 업무 종료 때 반영합니다."
+        : "주간은 선택한 날짜의 근무표를 사용하며, 매출은 업무 종료 때 반영합니다.";
   el.openPaceApp.disabled = record.off;
 }
 async function openPaceMeasurementApp() {
-  if (!isNightShift()) return toast("주간 알바 근무는 측정하지 않습니다.", "info");
   const signedInEmail = String(state.session?.user?.email || state.profile?.email || "").trim().toLowerCase();
   if (signedInEmail !== "jamaica8612@gmail.com") {
     return toast("개발 중입니다.", "info");
@@ -1975,17 +2855,29 @@ async function openPaceMeasurementApp() {
   if (getRecord(workDate, false).off) return toast("휴무일은 측정을 시작할 수 없습니다.", "error");
   const shift = isNightShift() ? "night" : "day";
   if (window.QuickFlexNative?.postMessage && state.db) {
+    const expectedAuthEpoch = authEventEpoch;
+    const accountContext = captureAccountContext();
     const { data, error } = await state.db.auth.getSession();
-    if (error || !data?.session?.access_token || !data.session.refresh_token) {
+    let session = data?.session || null;
+    if (expectedAuthEpoch !== authEventEpoch) session = state.session;
+    if (error
+      || !isAccountContextCurrent(accountContext)
+      || sessionUserId(session) !== accountContext.userId
+      || !session?.access_token
+      || !session.refresh_token) {
       return toast("로그인 상태를 확인한 뒤 다시 시도해 주세요.", "error");
+    }
+    if (expectedAuthEpoch === authEventEpoch) {
+      applyAuthSession(session, { event: "SESSION_OBSERVED", scheduleBoot: false });
     }
     postNativeMessage({
       type: "open_measurement",
       workDate,
       workShift: shift,
-      accessToken: data.session.access_token,
-      refreshToken: data.session.refresh_token,
-      expiresAt: data.session.expires_at || 0,
+      accessToken: session.access_token,
+      refreshToken: session.refresh_token,
+      expiresAt: session.expires_at || 0,
+      sessionRevision: allocateNativeSessionRevision(),
     });
     return;
   }
@@ -2026,6 +2918,7 @@ function renderSummary() {
   el.meterLabel.textContent = `목표 ${fmtWon(goal)} 대비 진행률`;
 }
 function renderMonth() {
+  el.modeBtns.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.mode === state.mode)));
   const { start, end } = periodBounds();
   const first = new Date(start);
   first.setDate(first.getDate() - first.getDay());
@@ -2049,7 +2942,24 @@ function renderMonth() {
     const displayValue = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : formatCalendarWon(calc.revenue);
     const displayRouteOrHoliday = routeText || holidayName;
     const inspectionLabel = inspection?.status === "no_operation" ? "일상점검 미운행 기록" : inspection ? "일상점검 완료" : "";
-    cell.setAttribute("aria-label", `${formatLong(dateKey)}${inspectionLabel ? ` · ${inspectionLabel}` : ""}`);
+    const valueLabel = record.off
+      ? "휴무"
+      : state.mode === "count"
+        ? (calc.count ? `배송 ${fmtCount(calc.count)}` : "배송 기록 없음")
+        : (calc.revenue ? `매출 ${fmtWon(calc.revenue)}` : "매출 기록 없음");
+    const routeLabel = routeText ? `구역 ${routeText}` : "";
+    const labels = [
+      formatLong(dateKey),
+      dateKey === todayKey() ? "오늘" : "",
+      dateKey === state.selectedDate ? "선택됨" : "",
+      holidayName || "",
+      valueLabel,
+      routeLabel,
+      inspectionLabel,
+    ].filter(Boolean);
+    cell.setAttribute("aria-label", labels.join(" · "));
+    cell.setAttribute("aria-pressed", String(dateKey === state.selectedDate));
+    if (dateKey === todayKey()) cell.setAttribute("aria-current", "date");
     if (holidayName) cell.title = holidayName;
     const inspectionDot = inspection && inspection.status !== "no_operation"
       ? `<span class="inspection-day-dot" aria-hidden="true"></span>`
@@ -2062,11 +2972,15 @@ function renderMonth() {
 function renderHomeSelection() {
   const record = getRecord(state.selectedDate, false);
   const calc = calcRecord(record);
+  const automatic = hasAutomaticEntries(record);
   el.homeSelectedDate.textContent = formatLong(state.selectedDate);
   el.homeSelectedTotal.textContent = record.off ? "휴무" : fmtWon(calc.revenue);
   el.homeSelectedDate.textContent = formatMonthDay(state.selectedDate);
   el.homeSelectedTotal.textContent = record.off ? "휴무" : fmtWon(calc.revenue);
   el.homeOffToggle.classList.toggle("active", record.off);
+  el.homeOffToggle.setAttribute("aria-checked", String(record.off));
+  el.homeOffToggle.disabled = automatic;
+  el.homeOffToggle.title = automatic ? "앱 자동 기록이 있는 날짜는 휴무로 바꿀 수 없습니다." : "";
 }
 function selectDate(dateKey) {
   state.selectedDate = dateKey;
@@ -2100,12 +3014,29 @@ function routeOptions(selected) {
   if (!isBackupDriver()) fixedRoutes().forEach((route) => optionRoutes.add(route));
   return [...optionRoutes].sort().map((route) => `<option value="${route}"${selectedRoutes[0] === route ? " selected" : ""}>${route}</option>`).join("");
 }
+function automaticWorkLabel(row) {
+  const shift = row.workShift === "night" ? "야간" : "주간";
+  const workId = String(row.workId || "");
+  const shortWorkId = workId.length > 14 ? `${workId.slice(0, 8)}…${workId.slice(-4)}` : workId || "식별자 없음";
+  return `앱 자동 기록 · ${shift} · 업무 ${shortWorkId}`;
+}
 function renderEntryForm() {
   const existed = Boolean(state.entries[state.selectedDate]);
   let record = currentRecordDraft();
-  if (record.off) record.rows = [];
+  const automatic = hasAutomaticEntries(record);
+  if (automatic) {
+    record.off = false;
+    record.rows = automaticRows(record);
+  }
+  else if (record.off) record.rows = [];
   el.selectedDateTitle.textContent = formatRecordTitleDate(state.selectedDate);
   el.offToggle.checked = record.off;
+  el.offToggle.disabled = automatic;
+  el.offToggle.title = automatic ? "앱 자동 기록이 있는 날짜는 휴무로 바꿀 수 없습니다." : "";
+  el.offToggle.closest(".off-toggle")?.classList.toggle("is-locked", automatic);
+  el.addRoute.disabled = automatic;
+  el.addRoute.title = automatic ? "앱 자동 마감 기록이 있는 날짜에는 수동 구역을 추가할 수 없습니다." : "";
+  el.automaticRecordNotice?.classList.toggle("hidden", !automatic);
   el.entryRows.innerHTML = "";
   record.rows.forEach((row, index) => renderEntryRow(row, index));
   const defaultRows = defaultEntryRows();
@@ -2120,11 +3051,14 @@ function renderEntryForm() {
   el.freshUnit.value = defaultFreshUnit(record.freshUnit);
   el.freshSoloCount.value = record.freshSoloCount || "";
   el.freshLinkedCount.value = record.freshLinkedCount || "";
-  el.backupUnit.value = defaultBackupUnit(record.backupUnit);
+  el.backupUnit.value = automatic ? 0 : defaultBackupUnit(record.backupUnit);
+  el.backupUnit.disabled = automatic;
+  el.backupUnit.title = automatic ? "백업수당은 앱 자동 마감 단가에 이미 포함되어 별도로 더하지 않습니다." : "";
   refreshTotals();
 }
 function renderEntryRow(row, index) {
   const node = el.entryTemplate.content.firstElementChild.cloneNode(true);
+  const automatic = isAutomaticRow(row);
   const routeInput = node.querySelector(".route");
   const count = node.querySelector(".count");
   const households = node.querySelector(".households");
@@ -2132,14 +3066,34 @@ function renderEntryRow(row, index) {
   const output = node.querySelector("output");
   const del = node.querySelector(".del-btn");
   routeInput.value = formatRouteLabel(row.route);
-  routeInput.readOnly = false;
-  count.value = row.count || "";
-  households.value = row.households || "";
-  unit.value = row.unit || sharedRateForRoutes(row.route) || "";
+  routeInput.readOnly = automatic;
+  count.value = row.count ?? "";
+  households.value = row.households ?? "";
+  unit.value = automatic ? (row.unit ?? 0) : (row.unit || sharedRateForRoutes(row.route) || "");
   unit.title = "이 날짜에만 적용되는 단가입니다. 기본 단가는 바뀌지 않습니다.";
   unit.setAttribute("aria-label", "이 날짜 단가");
   output.textContent = fmtWon(toNum(count.value) * toNum(unit.value));
   del.style.visibility = "visible";
+  if (automatic) {
+    const badge = document.createElement("div");
+    badge.className = "automatic-record-badge";
+    badge.textContent = automaticWorkLabel(row);
+    badge.title = row.workId ? `읽기 전용 자동 기록 · ${row.workId}` : "읽기 전용 자동 기록";
+    node.classList.add("is-automatic");
+    node.dataset.workId = row.workId || "";
+    [routeInput, count, households, unit].forEach((input) => {
+      input.disabled = true;
+      input.setAttribute("aria-label", `${input.getAttribute("aria-label") || "기록"} · 앱 자동 기록 읽기 전용`);
+    });
+    unit.title = "앱이 마감한 단가 스냅샷이며 수정할 수 없습니다.";
+    del.disabled = true;
+    del.textContent = "🔒";
+    del.setAttribute("aria-label", "앱 자동 기록은 삭제할 수 없습니다");
+    del.title = "앱 자동 기록은 삭제할 수 없습니다.";
+    node.prepend(badge);
+    el.entryRows.appendChild(node);
+    return;
+  }
   routeInput.addEventListener("input", () => {
     routeInput.value = routeInput.value.toUpperCase();
     const expanded = expandRouteText(routeInput.value);
@@ -2219,10 +3173,19 @@ async function saveCurrentRecordAndGoHome() {
   syncFormToRecord();
   commitRecordDraft();
   scheduleSave({ dateKeys: [state.selectedDate], immediate: true });
-  await ensurePendingSavesFlushed();
+  try {
+    await ensurePendingSavesFlushed();
+  } catch (error) {
+    if (!error?.quickflexHandled && !error?.quickflexReported) {
+      error.quickflexReported = true;
+      toast(`기록 저장 실패: ${error.message}`, "error");
+    }
+    return false;
+  }
   renderAll();
   showView("home");
   toast("기록을 저장했습니다.", "success");
+  return true;
 }
 
 function renderRates() {
@@ -2234,25 +3197,18 @@ function renderRates() {
     ? visibleRates.map((rate) => {
       const route = escapeAttr(rate.route);
       const deleteButton = personalRoutes.has(rate.route) ? `<button class="rate-delete" data-route="${route}" type="button" aria-label="${route} 구역 삭제">×</button>` : "";
-      return `<div class="rate-chip" data-route="${route}" role="button" tabindex="0"><strong>${route}</strong><span>${fmtWon(rate.unit)}</span>${deleteButton}</div>`;
+      const editLabel = escapeAttr(`${rate.route} ${fmtWon(rate.unit)} 단가 편집`);
+      return `<div class="rate-chip" role="group" aria-label="${route} 단가"><button class="rate-chip-select" data-route="${route}" type="button" aria-label="${editLabel}"><strong>${route}</strong><span>${fmtWon(rate.unit)}</span></button>${deleteButton}</div>`;
     }).join("")
     : `<div class="daily-card"><span>${isBackupDriver() ? "등록된 단가가 없습니다." : "고정 라우트를 먼저 등록하면 해당 단가만 표시됩니다."}</span></div>`;
-  el.rateList.querySelectorAll(".rate-chip").forEach((button) => {
+  el.rateList.querySelectorAll(".rate-chip-select").forEach((button) => {
     const selectRate = () => {
       const rate = mergedRates.find((item) => item.route === button.dataset.route);
       if (!rate) return;
       el.rateRoute.value = rate.route;
       el.rateUnit.value = rate.unit;
     };
-    button.addEventListener("click", (event) => {
-      if (event.target.closest(".rate-delete")) return;
-      selectRate();
-    });
-    button.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      selectRate();
-    });
+    button.addEventListener("click", selectRate);
   });
   el.rateList.querySelectorAll(".rate-delete").forEach((button) => {
     button.addEventListener("click", (event) => {
@@ -2451,7 +3407,9 @@ function renderStats() {
 function syncStatsChartToggle() {
   if (!el.statsChartToggle) return;
   el.statsChartToggle.querySelectorAll("button[data-metric]").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.metric === (state.statsChartMetric || "revenue"));
+    const selected = btn.dataset.metric === (state.statsChartMetric || "revenue");
+    btn.classList.toggle("active", selected);
+    btn.setAttribute("aria-pressed", String(selected));
   });
 }
 function renderRouteStats(keys) {
@@ -2515,7 +3473,8 @@ function renderDailyStatsFor(allKeys) {
     const open = state.statsDetailDate === dateKey;
     const routes = record.rows.map((row) => {
       const sub = toNum(row.count) * effectiveUnit(row);
-      return `<div class="dd-row"><span>${formatRouteLabel(row.route)} · ${fmtCount(row.count)} × ${fmtWon(effectiveUnit(row))}</span><strong>${fmtWon(sub)}</strong></div>`;
+      const automaticLabel = isAutomaticRow(row) ? ` · ${escapeAttr(automaticWorkLabel(row))}` : "";
+      return `<div class="dd-row${isAutomaticRow(row) ? " is-automatic" : ""}"><span>${formatRouteLabel(row.route)} · ${fmtCount(row.count)} × ${fmtWon(effectiveUnit(row))}${automaticLabel}</span><strong>${fmtWon(sub)}</strong></div>`;
     }).join("");
     const routePreview = record.off ? "휴무" : (formatRecordRoutes(record.rows) || "라우트 없음");
     return `<div class="daily-card stat-day-card">
@@ -2565,7 +3524,7 @@ function renderTotalStats() {
       revenue: sum.revenue + details.revenue,
       count: sum.count + details.count,
       fresh: sum.fresh + details.freshCount,
-      workDays: sum.workDays + (details.revenue > 0 ? 1 : 0),
+      workDays: sum.workDays + (isWorkedRecord(record, details) ? 1 : 0),
       offDays: sum.offDays + (record.off ? 1 : 0),
     };
   }, { revenue: 0, count: 0, fresh: 0, workDays: 0, offDays: 0 });
@@ -2579,12 +3538,17 @@ function renderTotalStats() {
 function syncStatsRangeButtons() {
   if (!el.statsRangeTabs) return;
   el.statsRangeTabs.querySelectorAll("button[data-range]").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.range === state.statsRangeMode);
+    const selected = btn.dataset.range === state.statsRangeMode;
+    btn.classList.toggle("active", selected);
+    btn.setAttribute("aria-pressed", String(selected));
   });
   if (el.statsRangeCustom) el.statsRangeCustom.hidden = state.statsRangeMode !== "custom";
   const navDisabled = state.statsRangeMode !== "thisMonth";
-  if (el.statsPrevMonth) el.statsPrevMonth.classList.toggle("is-disabled", navDisabled);
-  if (el.statsNextMonth) el.statsNextMonth.classList.toggle("is-disabled", navDisabled);
+  [el.statsPrevMonth, el.statsNextMonth].filter(Boolean).forEach((button) => {
+    button.classList.toggle("is-disabled", navDisabled);
+    button.disabled = navDisabled;
+    button.setAttribute("aria-disabled", String(navDisabled));
+  });
 }
 function renderRevenueList(keys) {
   if (!el.revenueList) return;
@@ -2660,6 +3624,9 @@ function renderStatsChart(keys) {
   statsChartState.hoverIndex = -1;
   if (el.statsChartTooltip) el.statsChartTooltip.hidden = true;
   if (!series.length) {
+    const emptySummary = "선택한 기간에 표시할 통계 데이터가 없습니다.";
+    canvas.setAttribute("aria-label", emptySummary);
+    if (el.statsChartSummary) el.statsChartSummary.textContent = emptySummary;
     ctx.fillStyle = "#98a2b3";
     ctx.font = "12px system-ui, sans-serif";
     ctx.textAlign = "center";
@@ -2671,6 +3638,13 @@ function renderStatsChart(keys) {
   const h = cssH - margin.t - margin.b;
   const metric = state.statsChartMetric === "count" ? "count" : "revenue";
   const valOf = (s) => (metric === "count" ? s.count : s.revenue);
+  const metricLabel = metric === "count" ? "물량" : "매출";
+  const totalValue = series.reduce((sum, item) => sum + valOf(item), 0);
+  const peak = series.reduce((best, item) => valOf(item) > valOf(best) ? item : best, series[0]);
+  const formatMetricValue = (value) => metric === "count" ? fmtCount(value) : fmtWon(value);
+  const chartSummary = `${series.length}일 ${metricLabel} 그래프. 합계 ${formatMetricValue(totalValue)}. 최고 ${formatLongShort(peak.dateKey)} ${formatMetricValue(valOf(peak))}.`;
+  canvas.setAttribute("aria-label", chartSummary);
+  if (el.statsChartSummary) el.statsChartSummary.textContent = `${chartSummary} 그래프를 터치하면 날짜별 상세를 확인할 수 있으며 점선은 평균입니다.`;
   const fmtAxis = (v) => (metric === "count" ? String(Math.round(v)) : formatKoreanWon(v));
   const maxVal = Math.max(...series.map(valOf), metric === "count" ? 50 : 100000);
   const step = niceStep(maxVal / 5);
@@ -2774,15 +3748,23 @@ function showChartTooltip(clientX) {
   tooltip.style.left = `${left}px`;
   tooltip.style.top = `${Math.max(0, point.y - tooltip.offsetHeight - 10)}px`;
 }
+async function loadWorkLedgerForRange(startKey, endKey) {
+  return loadVerifiedWorkLedger({ startKey, endKey });
+}
+
 function adminRecordDetails(day, items) {
   if (day.is_off) return { revenue: 0, count: 0, freshCount: 0, backupRevenue: 0, routeRevenue: 0 };
   const routeTotal = (items || []).reduce((sum, item) => {
     const count = toNum(item.delivery_count);
-    return { count: sum.count + count, revenue: sum.revenue + count * toNum(item.unit_snapshot) };
-  }, { count: 0, revenue: 0 });
+    return {
+      count: sum.count + count,
+      manualCount: sum.manualCount + (isAutomaticRow(item) ? 0 : count),
+      revenue: sum.revenue + count * toNum(item.unit_snapshot),
+    };
+  }, { count: 0, manualCount: 0, revenue: 0 });
   const freshCount = toNum(day.fresh_count);
   const freshRevenue = freshCount * toNum(day.fresh_unit || 100);
-  const backupRevenue = day.driver_type === "backup" ? routeTotal.count * toNum(defaultBackupUnit(day.backup_unit)) : 0;
+  const backupRevenue = day.driver_type === "backup" ? routeTotal.manualCount * toNum(defaultBackupUnit(day.backup_unit)) : 0;
   return {
     revenue: routeTotal.revenue + freshRevenue + backupRevenue,
     count: routeTotal.count,
@@ -2800,8 +3782,17 @@ function renderAdminPeriodHeader() {
 async function renderAdminDashboard() {
   if (state.profile?.role !== "admin") return;
   renderAdminPeriodHeader();
-  el.adminTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.adminTab === state.adminTab));
-  el.adminPanels.forEach((panel) => panel.classList.toggle("active", panel.dataset.adminPanel === state.adminTab));
+  el.adminTabs.forEach((tab) => {
+    const selected = tab.dataset.adminTab === state.adminTab;
+    tab.classList.toggle("active", selected);
+    tab.setAttribute("aria-selected", String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+  });
+  el.adminPanels.forEach((panel) => {
+    const selected = panel.dataset.adminPanel === state.adminTab;
+    panel.classList.toggle("active", selected);
+    panel.hidden = !selected;
+  });
   try {
     if (state.adminTab === "summary") await renderAdminRevenueStats();
     if (state.adminTab === "routes") await renderAdminRouteStats();
@@ -2828,21 +3819,36 @@ async function renderAdminRevenueStats() {
   const { start, end } = periodBounds(state.statsYear, state.statsMonth);
   const startKey = toDateKey(start);
   const endKey = toDateKey(end);
-  const [profilesResult, daysResult, itemsResult] = await Promise.all([
+  const [profilesResult, daysResult, itemsResult, ledger] = await Promise.all([
     state.db.from(TABLES.profiles).select("id,email,display_name,driver_type,status").order("display_name"),
     state.db.from(TABLES.days).select("*").gte("work_date", startKey).lte("work_date", endKey),
     state.db.from(TABLES.items).select("*").gte("work_date", startKey).lte("work_date", endKey).order("work_date"),
+    loadWorkLedgerForRange(startKey, endKey),
   ]);
   if (profilesResult.error) throw profilesResult.error;
   if (daysResult.error) throw daysResult.error;
   if (itemsResult.error) throw itemsResult.error;
 
+  const automaticUserDateKeys = new Set(ledger.workResults.map((work) => userDateKey(work.user_id, work.work_date)));
+  const manualItems = (itemsResult.data || []).filter((item) => !automaticUserDateKeys.has(userDateKey(item.user_id, item.work_date)));
+  const combinedItems = [...manualItems, ...ledger.items];
   const itemsByUserDate = new Map();
-  (itemsResult.data || []).forEach((item) => {
-    const key = `${item.user_id}|${item.work_date}`;
+  combinedItems.forEach((item) => {
+    const key = userDateKey(item.user_id, item.work_date);
     if (!itemsByUserDate.has(key)) itemsByUserDate.set(key, []);
     itemsByUserDate.get(key).push(item);
   });
+  const daysByUserDate = new Map();
+  const userDateKeys = new Set();
+  (daysResult.data || []).forEach((day) => {
+    const key = userDateKey(day.user_id, day.work_date);
+    daysByUserDate.set(key, day);
+    userDateKeys.add(key);
+  });
+  combinedItems.forEach((item) => userDateKeys.add(userDateKey(item.user_id, item.work_date)));
+  ledger.workResults.forEach((work) => userDateKeys.add(userDateKey(work.user_id, work.work_date)));
+
+  const profilesById = new Map((profilesResult.data || []).map((profile) => [profile.id, profile]));
   const summaryByUser = new Map((profilesResult.data || []).map((profile) => [profile.id, {
     profile,
     revenue: 0,
@@ -2852,13 +3858,13 @@ async function renderAdminRevenueStats() {
     offDays: 0,
     days: [],
   }]));
-  (daysResult.data || []).forEach((day) => {
-    if (!summaryByUser.has(day.user_id)) {
-      summaryByUser.set(day.user_id, {
-        profile: {
-          id: day.user_id,
-          display_name: LEGACY_USER_NAMES.get(day.user_id) || "사용자",
-          driver_type: day.driver_type || "backup",
+  const ensureSummary = (userId, driverType = "backup") => {
+    if (!summaryByUser.has(userId)) {
+      summaryByUser.set(userId, {
+        profile: profilesById.get(userId) || {
+          id: userId,
+          display_name: LEGACY_USER_NAMES.get(userId) || "사용자",
+          driver_type: driverType || "backup",
           status: "approved",
         },
         revenue: 0,
@@ -2869,14 +3875,32 @@ async function renderAdminRevenueStats() {
         days: [],
       });
     }
-    const summary = summaryByUser.get(day.user_id);
-    const details = adminRecordDetails(day, itemsByUserDate.get(`${day.user_id}|${day.work_date}`) || []);
+    return summaryByUser.get(userId);
+  };
+  userDateKeys.forEach((key) => {
+    const [userId, dateKey] = JSON.parse(key);
+    const storedDay = daysByUserDate.get(key) || null;
+    const summary = ensureSummary(userId, storedDay?.driver_type);
+    const items = itemsByUserDate.get(key) || [];
+    const hasAutomatic = automaticUserDateKeys.has(key) || items.some(isAutomaticRow);
+    const day = storedDay
+      ? { ...storedDay, is_off: Boolean(storedDay.is_off) && !hasAutomatic }
+      : {
+          user_id: userId,
+          work_date: dateKey,
+          is_off: false,
+          fresh_count: 0,
+          fresh_unit: 100,
+          backup_unit: DEFAULT_BACKUP_UNIT,
+          driver_type: summary.profile.driver_type || "backup",
+        };
+    const details = adminRecordDetails(day, items);
     summary.revenue += details.revenue;
     summary.count += details.count;
     summary.fresh += details.freshCount;
-    summary.workDays += details.revenue > 0 ? 1 : 0;
+    summary.workDays += (!day.is_off && (details.revenue > 0 || hasAutomatic)) ? 1 : 0;
     summary.offDays += day.is_off ? 1 : 0;
-    summary.days.push({ dateKey: day.work_date, day, details });
+    summary.days.push({ dateKey, day, details, hasAutomatic });
   });
 
   const summaries = [...summaryByUser.values()].sort((a, b) => b.revenue - a.revenue || String(a.profile.display_name || "").localeCompare(String(b.profile.display_name || "")));
@@ -2887,7 +3911,7 @@ async function renderAdminRevenueStats() {
     const profileStatus = statusLabel(profile.status);
     const dayRows = summary.days
       .sort((a, b) => a.dateKey.localeCompare(b.dateKey))
-      .map((row) => `<div class="admin-day-row"><span>${formatLongShort(row.dateKey)}${row.day.is_off ? " 휴무" : ""}</span><strong>${fmtWon(row.details.revenue)} · ${fmtCount(row.details.count)}</strong></div>`)
+      .map((row) => `<div class="admin-day-row"><span>${formatLongShort(row.dateKey)}${row.day.is_off ? " 휴무" : ""}${row.hasAutomatic ? " · 앱 자동" : ""}</span><strong>${fmtWon(row.details.revenue)} · ${fmtCount(row.details.count)}</strong></div>`)
       .join("");
     return `<div class="admin-revenue-card">
       <button type="button" data-admin-user="${profile.id}">
@@ -2919,27 +3943,32 @@ async function renderAdminRouteStats() {
   const { start, end } = periodBounds(state.statsYear, state.statsMonth);
   const startKey = toDateKey(start);
   const endKey = toDateKey(end);
-  const [profilesResult, itemsResult] = await Promise.all([
+  const [profilesResult, itemsResult, ledger] = await Promise.all([
     state.db.from(TABLES.profiles).select("id,email,display_name,driver_type,status"),
     state.db.from(TABLES.items).select("user_id,work_date,route,delivery_count,unit_snapshot").gte("work_date", startKey).lte("work_date", endKey),
+    loadWorkLedgerForRange(startKey, endKey),
   ]);
   if (profilesResult.error) throw profilesResult.error;
   if (itemsResult.error) throw itemsResult.error;
 
   const profiles = new Map((profilesResult.data || []).map((profile) => [profile.id, profile]));
   const routeMap = new Map();
-  (itemsResult.data || []).forEach((item) => {
+  const automaticUserDateKeys = new Set(ledger.workResults.map((work) => userDateKey(work.user_id, work.work_date)));
+  const manualItems = (itemsResult.data || []).filter((item) => !automaticUserDateKeys.has(userDateKey(item.user_id, item.work_date)));
+  [...manualItems, ...ledger.items].forEach((item) => {
     const route = joinStoredRoutes(item.route);
     const count = toNum(item.delivery_count);
     const revenue = count * toNum(item.unit_snapshot);
     if (!route || count <= 0) return;
-    if (!routeMap.has(route)) routeMap.set(route, { route, count: 0, revenue: 0, users: new Map() });
+    if (!routeMap.has(route)) routeMap.set(route, { route, count: 0, revenue: 0, automaticCount: 0, users: new Map() });
     const row = routeMap.get(route);
     row.count += count;
     row.revenue += revenue;
-    const user = row.users.get(item.user_id) || { count: 0, revenue: 0 };
+    if (isAutomaticRow(item)) row.automaticCount += count;
+    const user = row.users.get(item.user_id) || { count: 0, revenue: 0, automaticCount: 0 };
     user.count += count;
     user.revenue += revenue;
+    if (isAutomaticRow(item)) user.automaticCount += count;
     row.users.set(item.user_id, user);
   });
 
@@ -2960,6 +3989,7 @@ async function renderAdminRouteStats() {
       <div class="admin-route-metrics">
         <span>배송 ${fmtCount(row.count)}</span>
         <span>평균 ${fmtWon(avgUnit)}</span>
+        ${row.automaticCount ? `<span>앱 자동 ${fmtCount(row.automaticCount)}</span>` : ""}
       </div>
       <div class="admin-route-users">${users || "<span>사용자 기록 없음</span>"}</div>
     </div>`;
@@ -3120,7 +4150,7 @@ function parseHeaderDate(value) {
   const year = month === 12 && state.month === 1 ? state.year - 1 : state.year;
   return toDateKey(new Date(year, month - 1, day));
 }
-function applySchedule(map) {
+async function applySchedule(map) {
   const changed = [];
   const offKeysWithCounts = Object.entries(map || {})
     .filter(([dateKey, routes]) => /^\d{4}-\d{2}-\d{2}$/.test(dateKey) && routes === null && hasEnteredCounts(getRecord(dateKey, false)))
@@ -3138,7 +4168,17 @@ function applySchedule(map) {
   scheduleSave({ dateKeys: changed, immediate: true });
   renderAll();
   if (el.app.dataset.view === "record") renderEntryForm();
+  try {
+    await ensurePendingSavesFlushed();
+  } catch (error) {
+    if (!error?.quickflexHandled && !error?.quickflexReported) {
+      error.quickflexReported = true;
+      toast(`스케줄 저장 실패: ${error.message}`, "error");
+    }
+    return false;
+  }
   toast(`스케줄 ${changed.length}일 반영 완료`, "success");
+  return true;
 }
 function extractScheduleJson(text) {
   const raw = String(text || "").trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
@@ -3155,7 +4195,7 @@ function extractScheduleJson(text) {
     return null;
   }
 }
-function parseScheduleCsv(text) {
+async function parseScheduleCsv(text) {
   const jsonMap = extractScheduleJson(text);
   if (jsonMap) return applySchedule(jsonMap);
   const rows = String(text || "").split(/\r?\n/).map(splitLine).filter((row) => row.some(Boolean));
@@ -3169,7 +4209,7 @@ function parseScheduleCsv(text) {
     const dateKey = parseHeaderDate(cell);
     if (dateKey) map[dateKey] = routesFromCell(target[index]);
   });
-  applySchedule(map);
+  return applySchedule(map);
 }
 function shiftDateMap(dateMap, days) {
   const shifted = {};
@@ -3200,9 +4240,14 @@ function renderDraftCards() {
   }
   el.scheduleDraftCards.innerHTML = Object.keys(ocrDraftMap).sort().map((dateKey) => {
     const routes = ocrDraftMap[dateKey];
-    const chips = (routes || []).map((route) => `<span class="draft-chip">${route}<button type="button" data-action="remove" data-date="${dateKey}" data-route="${route}">×</button></span>`).join("");
+    const readableDate = formatLongShort(dateKey);
+    const chips = (routes || []).map((route) => {
+      const safeRoute = escapeAttr(route);
+      return `<span class="draft-chip">${safeRoute}<button type="button" data-action="remove" data-date="${dateKey}" data-route="${safeRoute}" aria-label="${escapeAttr(`${readableDate} ${route} 구역 삭제`)}">×</button></span>`;
+    }).join("");
     const addControl = `<span class="draft-add-row"><input class="draft-add-input" data-date="${dateKey}" type="text" placeholder="구역" autocapitalize="characters" /><button class="draft-add-btn" type="button" data-action="add" data-date="${dateKey}">추가</button></span>`;
-    return `<div class="draft-card"><div class="draft-card-header"><strong>${formatLongShort(dateKey)}</strong><button class="draft-off-btn${routes === null ? " active" : ""}" type="button" data-action="off" data-date="${dateKey}">${routes === null ? "휴무" : "근무"}</button></div><div>${routes === null ? "휴무" : `${chips}${addControl}`}</div></div>`;
+    const off = routes === null;
+    return `<div class="draft-card"><div class="draft-card-header"><strong>${readableDate}</strong><button class="draft-off-btn${off ? " active" : ""}" type="button" data-action="off" data-date="${dateKey}" aria-pressed="${off}" aria-label="${readableDate} ${off ? "휴무" : "근무"}">${off ? "휴무" : "근무"}</button></div><div>${off ? "휴무" : `${chips}${addControl}`}</div></div>`;
   }).join("");
 }
 function draftWorkRoutes() {
@@ -3434,7 +4479,7 @@ async function renderAdminProfiles() {
       <span>고정기사 라우트</span>
       <input data-field="fixed_routes" type="text" placeholder="예: 322A, 322B" value="${escapeAttr(fixedRouteText)}" />
     </label>
-    ${canDelete ? `<button class="secondary-btn danger admin-delete-btn" data-action="delete-admin" type="button">사용자 삭제</button>` : `<p class="hint">현재 로그인한 관리자 계정은 여기서 삭제할 수 없습니다.</p>`}
+    ${canDelete ? `<button class="secondary-btn danger admin-delete-btn" data-action="delete-admin" type="button">프로필 삭제 · 자동 원장 보존</button>` : `<p class="hint">현재 로그인한 관리자 계정은 여기서 삭제할 수 없습니다.</p>`}
     <p class="hint">기사 유형을 고정으로 저장하면 해당 기사는 이 라우트만 기록 화면과 단가 관리에 표시됩니다.</p>
   </div>`;
   }).join("");
@@ -3463,8 +4508,8 @@ async function deleteAdminProfile(card) {
   if (!id) return;
   if (id === currentUserId()) return toast("현재 로그인한 관리자 계정은 삭제할 수 없습니다.", "error");
   const name = card.querySelector(".admin-profile-head strong")?.textContent || "사용자";
-  if (!window.confirm(`${name} 사용자를 앱에서 삭제할까요?\n\n이 작업은 해당 사용자의 앱 프로필, 기록, 단가 데이터를 삭제합니다. Supabase Auth 로그인 계정 자체는 삭제되지 않습니다.`)) return;
-  if (!window.confirm("정말 삭제할까요? 삭제된 앱 데이터는 되돌릴 수 없습니다.")) return;
+  if (!window.confirm(`${name} 프로필과 수동 매출·단가·저장 서명을 삭제할까요?\n\n앱 자동 마감 원장, 점검 기록, Supabase Auth 로그인 계정은 삭제하지 않고 보존합니다.`)) return;
+  if (!window.confirm("프로필과 수동 데이터(매출·단가·저장 서명)만 삭제합니다. 자동 마감 원장은 계속 통계에 표시됩니다. 진행할까요?")) return;
   const { error: itemError } = await state.db.from(TABLES.items).delete().eq("user_id", id);
   if (itemError) throw itemError;
   const { error: dayError } = await state.db.from(TABLES.days).delete().eq("user_id", id);
@@ -3475,17 +4520,19 @@ async function deleteAdminProfile(card) {
   if (signatureError) throw signatureError;
   const { error: profileError } = await state.db.from(TABLES.profiles).delete().eq("id", id);
   if (profileError) throw profileError;
-  toast("사용자를 삭제했습니다.", "success");
+  toast("프로필과 수동 데이터(매출·단가·저장 서명)를 삭제했습니다. 앱 자동 마감 원장은 보존됩니다.", "success");
   renderAdminDashboard();
 }
 
 function openSheet() {
   el.dbOverlay.classList.add("open");
   el.dbSheet.classList.add("open");
+  updateModalLayer(el.dbSheet, true, el.supabaseUrl);
 }
 function closeSheet() {
   el.dbOverlay.classList.remove("open");
   el.dbSheet.classList.remove("open");
+  updateModalLayer(el.dbSheet, false);
 }
 
 function bindEvents() {
@@ -3581,6 +4628,7 @@ function bindEvents() {
   bindAdminEvents(shared);
   bindSettingsEvents(shared);
   bindOcrEvents(shared);
+  bindModalAccessibility();
   el.measurementWorkDate?.addEventListener("change", () => {
     if (!el.measurementWorkDate.value) return;
     state.measurementDate = el.measurementWorkDate.value;

@@ -22,6 +22,12 @@ export function bindSettingsEvents(ctx) {
     TABLES,
     toast,
   } = ctx;
+  const deleteMutableUserData = async (userId) => {
+    for (const table of [TABLES.items, TABLES.days, TABLES.rates, TABLES.inspections, TABLES.inspectionSignatures]) {
+      const { error } = await state.db.from(table).delete().eq("user_id", userId);
+      if (error) throw error;
+    }
+  };
 
   document.querySelectorAll('input[name="calendarRoutes"]').forEach((radio) => {
     radio.checked = shouldShowCalendarRoutes() === (radio.value === "show");
@@ -57,38 +63,32 @@ export function bindSettingsEvents(ctx) {
       window.setTimeout(() => window.location.reload(), 150);
     } catch (error) {
       el.refreshApp.disabled = false;
+      if (error?.quickflexHandled) return;
       toast(`새로고침 실패: ${error.message}`, "error");
     }
   });
   el.resetData.addEventListener("click", async () => {
-    if (!window.confirm("내 단가와 기록을 모두 삭제할까요?")) return;
+    if (!window.confirm("내 수동 기록, 단가, 점검 기록을 삭제할까요?\n\n앱이 마감한 자동 기록은 삭제되지 않고 그대로 유지됩니다.")) return;
     const userId = currentUserId();
     try {
-      await state.db.from(TABLES.items).delete().eq("user_id", userId);
-      await state.db.from(TABLES.days).delete().eq("user_id", userId);
-      await state.db.from(TABLES.rates).delete().eq("user_id", userId);
-      await state.db.from(TABLES.inspections).delete().eq("user_id", userId);
-      await state.db.from(TABLES.inspectionSignatures).delete().eq("user_id", userId);
+      await deleteMutableUserData(userId);
       state.rates = [];
       state.entries = {};
       state.inspections = {};
       state.inspectionSignature = "";
       ctx.clearProfileSignature();
+      await loadFromDb();
       renderAll();
-      toast("내 데이터를 초기화했습니다.", "success");
+      toast("수동 입력 데이터를 초기화했습니다. 앱 자동 기록은 유지됩니다.", "success");
     } catch (error) {
       toast(`초기화 실패: ${error.message}`, "error");
     }
   });
   el.requestAccountDelete.addEventListener("click", async () => {
-    if (!window.confirm("탈퇴 요청을 남기고 내 기록과 단가 데이터를 삭제할까요?\n\n계정 완전 삭제는 관리자가 확인 후 처리합니다.")) return;
+    if (!window.confirm("탈퇴 요청을 남기고 내 수동 기록과 단가 데이터를 삭제할까요?\n\n앱 자동 마감 기록은 유지되며, 계정 처리는 관리자가 확인합니다.")) return;
     const userId = currentUserId();
     try {
-      await state.db.from(TABLES.items).delete().eq("user_id", userId);
-      await state.db.from(TABLES.days).delete().eq("user_id", userId);
-      await state.db.from(TABLES.rates).delete().eq("user_id", userId);
-      await state.db.from(TABLES.inspections).delete().eq("user_id", userId);
-      await state.db.from(TABLES.inspectionSignatures).delete().eq("user_id", userId);
+      await deleteMutableUserData(userId);
       await state.db.from(TABLES.profiles).update({
         display_name: `[탈퇴요청] ${driverName()}`,
         updated_at: new Date().toISOString(),
@@ -101,6 +101,7 @@ export function bindSettingsEvents(ctx) {
   });
   el.openDbSettings.addEventListener("click", openSheet);
   el.dbOverlay.addEventListener("click", closeSheet);
+  el.closeDbSheet?.addEventListener("click", closeSheet);
   el.saveDbConfig.addEventListener("click", async () => {
     try {
       await connectDb(el.supabaseUrl.value, el.supabaseAnonKey.value, true);
@@ -116,6 +117,7 @@ export function bindSettingsEvents(ctx) {
       renderAll();
       toast("동기화 완료", "success");
     } catch (error) {
+      if (error?.quickflexHandled) return;
       toast(`동기화 실패: ${error.message}`, "error");
     }
   });
