@@ -8,13 +8,39 @@ export function bindStatsEvents(ctx) {
     toDateKey,
   } = ctx;
 
-  el.statsTabs.forEach((tab) => tab.addEventListener("click", () => {
+  const activateStatsTab = (tab, { focus = false } = {}) => {
     if (tab.dataset.tab === "admin" && state.profile?.role !== "admin") return;
     state.statsDetailDate = "";
-    el.statsTabs.forEach((target) => target.classList.toggle("active", target === tab));
-    el.statsPanels.forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === tab.dataset.tab));
+    el.statsTabs.forEach((target) => {
+      const selected = target === tab;
+      target.classList.toggle("active", selected);
+      target.setAttribute("aria-selected", String(selected));
+      target.tabIndex = selected ? 0 : -1;
+    });
+    el.statsPanels.forEach((panel) => {
+      const selected = panel.dataset.panel === tab.dataset.tab;
+      panel.classList.toggle("active", selected);
+      panel.hidden = !selected;
+    });
     renderStats();
-  }));
+    if (focus) tab.focus();
+  };
+  el.statsTabs.forEach((tab) => {
+    tab.addEventListener("click", () => activateStatsTab(tab));
+    tab.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      const tabs = [...el.statsTabs].filter((target) => !target.hidden && target.getAttribute("aria-hidden") !== "true");
+      const currentIndex = tabs.indexOf(tab);
+      if (currentIndex < 0 || !tabs.length) return;
+      event.preventDefault();
+      const nextIndex = event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? tabs.length - 1
+          : (currentIndex + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+      activateStatsTab(tabs[nextIndex], { focus: true });
+    });
+  });
   el.statsPrevMonth.addEventListener("click", () => { if (state.statsRangeMode !== "thisMonth") return; moveStatsMonth(-1); });
   el.statsNextMonth.addEventListener("click", () => { if (state.statsRangeMode !== "thisMonth") return; moveStatsMonth(1); });
   if (el.statsRangeTabs) {

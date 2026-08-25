@@ -41,9 +41,10 @@ export function bindOcrEvents(ctx) {
     const ocrDraftMap = ocrDraftState.get();
     if (!button || !ocrDraftMap) return;
     const dateKey = button.dataset.date;
-    if (button.dataset.action === "off") ocrDraftMap[dateKey] = ocrDraftMap[dateKey] === null ? draftWorkRoutes() : null;
-    if (button.dataset.action === "remove") ocrDraftMap[dateKey] = (ocrDraftMap[dateKey] || []).filter((route) => route !== button.dataset.route);
-    if (button.dataset.action === "add") {
+    const action = button.dataset.action;
+    if (action === "off") ocrDraftMap[dateKey] = ocrDraftMap[dateKey] === null ? draftWorkRoutes() : null;
+    if (action === "remove") ocrDraftMap[dateKey] = (ocrDraftMap[dateKey] || []).filter((route) => route !== button.dataset.route);
+    if (action === "add") {
       const input = el.scheduleDraftCards.querySelector(`.draft-add-input[data-date="${dateKey}"]`);
       const route = input?.value || "";
       if (!route.trim()) {
@@ -57,12 +58,18 @@ export function bindOcrEvents(ctx) {
       }
     }
     renderDraftCards();
+    const sameDateNodes = [...el.scheduleDraftCards.querySelectorAll(`[data-date="${dateKey}"]`)];
+    const focusTarget = action === "add"
+      ? sameDateNodes.find((node) => node.classList.contains("draft-add-input"))
+      : sameDateNodes.find((node) => node.dataset.action === "off");
+    focusTarget?.focus();
   });
-  el.parseSchedule.addEventListener("click", () => {
+  el.parseSchedule.addEventListener("click", async () => {
     const ocrDraftMap = ocrDraftState.get();
     if (!ocrDraftMap) return toast("반영할 스케줄이 없습니다.", "error");
-    applySchedule(ocrDraftMap);
-    setOcrDraft(null);
+    if (await applySchedule(ocrDraftMap)) setOcrDraft(null);
   });
-  el.parseScheduleCsv.addEventListener("click", () => parseScheduleCsv(el.scheduleCsvInput.value));
+  el.parseScheduleCsv.addEventListener("click", () => {
+    parseScheduleCsv(el.scheduleCsvInput.value).catch((error) => toast(`스케줄 저장 실패: ${error.message}`, "error"));
+  });
 }

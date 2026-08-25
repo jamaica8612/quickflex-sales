@@ -13,11 +13,28 @@ export function bindAdminEvents(ctx) {
     toast,
   } = ctx;
 
-  el.adminTabs.forEach((tab) => tab.addEventListener("click", () => {
+  const activateAdminTab = (tab, { focus = false } = {}) => {
     if (state.profile?.role !== "admin") return;
     state.adminTab = tab.dataset.adminTab;
     renderAdminDashboard();
-  }));
+    if (focus) tab.focus();
+  };
+  el.adminTabs.forEach((tab) => {
+    tab.addEventListener("click", () => activateAdminTab(tab));
+    tab.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      const tabs = [...el.adminTabs].filter((target) => !target.hidden && target.getAttribute("aria-hidden") !== "true");
+      const currentIndex = tabs.indexOf(tab);
+      if (currentIndex < 0 || !tabs.length) return;
+      event.preventDefault();
+      const nextIndex = event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? tabs.length - 1
+          : (currentIndex + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+      activateAdminTab(tabs[nextIndex], { focus: true });
+    });
+  });
   el.adminPrevMonth.addEventListener("click", () => moveAdminMonth(-1));
   el.adminNextMonth.addEventListener("click", () => moveAdminMonth(1));
   el.saveAdminBundle.addEventListener("click", () => addAdminBundleFromInputs().catch((error) => toast(`묶음 저장 실패: ${error.message}`, "error")));

@@ -3,16 +3,42 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0d0f14" />
+    <meta name="theme-color" content="#10141F" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>퀵플렉스 매출관리</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon-192.png?v=2" type="image/png" />
     <link rel="apple-touch-icon" href="./icon-192.png?v=2" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.29" />
+    <script>
+      (() => {
+        const themeKey = "quickflex-theme";
+        const defaultMarkKey = "quickflex-theme-default-dark-gold-v1";
+        let theme = "dark";
+        try {
+          if (localStorage.getItem(defaultMarkKey) !== "1") {
+            localStorage.setItem(defaultMarkKey, "1");
+            localStorage.setItem(themeKey, "dark");
+          } else {
+            theme = localStorage.getItem(themeKey) || "dark";
+          }
+        } catch (_) {}
+        const appliedTheme = theme === "dark" ? "dark" : "light";
+        document.documentElement.dataset.theme = appliedTheme;
+        document.querySelector('meta[name="theme-color"]')?.setAttribute(
+          "content",
+          appliedTheme === "dark" ? "#10141F" : "#F7F7F8",
+        );
+      })();
+    </script>
+    <style id="initialThemeStyles">
+      html[data-theme="dark"], body[data-theme="dark"] { background: #0A0E17; color-scheme: dark; }
+      html[data-theme="light"], body[data-theme="light"] { background: #EAECEF; color-scheme: light; }
+    </style>
+    <link rel="stylesheet" href="./styles.css?v=1.0.33" />
   </head>
   <body>
+    <script>document.body.dataset.theme = document.documentElement.dataset.theme;</script>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
       <section class="view view-home">
         <header class="home-header">
@@ -56,13 +82,13 @@
         <main class="calendar-panel">
           <div class="calendar-toolbar">
             <button class="round-btn" id="prevMonth" aria-label="이전 달"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
-            <strong id="monthTitle">-</strong>
+            <strong id="monthTitle" aria-live="polite">-</strong>
             <button class="round-btn" id="nextMonth" aria-label="다음 달"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
             <button class="today-btn" id="todayButton">오늘</button>
           </div>
-          <div class="mode-toggle">
-            <button class="mode-btn active" data-mode="amount">매출</button>
-            <button class="mode-btn" data-mode="count">건수</button>
+          <div class="mode-toggle" role="group" aria-label="달력 표시 기준">
+            <button class="mode-btn active" data-mode="amount" type="button" aria-pressed="true">매출</button>
+            <button class="mode-btn" data-mode="count" type="button" aria-pressed="false">건수</button>
           </div>
           <div class="week-head">
             <span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span>
@@ -75,7 +101,7 @@
             <span id="homeSelectedDate">날짜를 선택하세요</span>
             <strong id="homeSelectedTotal">0원</strong>
           </div>
-          <button class="ghost-pill" id="homeOffToggle">휴무</button>
+          <button class="ghost-pill" id="homeOffToggle" type="button" role="checkbox" aria-checked="false">휴무</button>
           <button class="primary-pill" id="openRecord">기록하기</button>
         </footer>
       </section>
@@ -141,6 +167,7 @@
           <div class="entry-actions">
             <button id="addRoute" class="secondary-btn"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>구역 추가</span></button>
           </div>
+          <p id="automaticRecordNotice" class="automatic-record-notice hidden">앱 자동 마감 기록이 있어 이 날짜의 구역·건수·단가는 읽기 전용입니다. 백업수당은 자동 단가에 포함되어 별도로 더하지 않으며, 프레시백 등 날짜 항목은 계속 입력할 수 있습니다.</p>
 
           <div class="entry-card">
             <div class="entry-head"><span>구역</span><span>건수</span><span>단가</span><span>매출</span><span></span></div>
@@ -178,7 +205,7 @@
       <section class="view view-measurement">
         <header class="sub-header">
           <div class="sub-title left">
-            <span>구역별 가구수</span>
+            <span>완료 가구·상품수</span>
             <strong>배송 페이스 측정</strong>
           </div>
         </header>
@@ -196,9 +223,9 @@
           </section>
           <section class="settings-section">
             <h2>측정 앱에서 진행</h2>
-            <p class="hint">쿠팡플렉스 화면의 가구 수를 읽으려면 설치된 측정 앱을 엽니다. 측정 종료 후 가구수가 이 날짜의 구역 기록에 자동 저장됩니다.</p>
+            <p class="hint">쿠팡플렉스 화면의 완료 가구·상품수를 읽으려면 설치된 측정 앱을 엽니다. 측정 종료는 페이스 구간만 기기에 저장하며, 매출 기록은 업무 종료 화면에서 구역별 상품수를 확인·보정한 뒤 반영합니다.</p>
             <button id="openPaceApp" class="full-btn" type="button">측정 앱 열기</button>
-            <p class="hint">자동 저장된 가구수는 달력에서 날짜를 선택한 뒤 기록 화면에서 수정할 수 있습니다.</p>
+            <p class="hint">업무 종료로 반영한 자동 마감 구역·건수·단가는 기록 화면에서 수정할 수 없습니다. 오분류나 누락은 업무 종료 전에 완료 상품수와 합계를 맞춰 보정해 주세요.</p>
           </section>
         </main>
       </section>
@@ -210,8 +237,8 @@
             <strong id="statsMonthTitle">-</strong>
             <em id="statsRange">-</em>
           </div>
-          <button class="round-btn" id="statsPrevMonth"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
-          <button class="round-btn" id="statsNextMonth"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
+          <button class="round-btn" id="statsPrevMonth" type="button" aria-label="이전 정산월"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <button class="round-btn" id="statsNextMonth" type="button" aria-label="다음 정산월"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
         </header>
         <main class="settings-body">
           <div class="stats-summary-card">
@@ -228,12 +255,12 @@
               </div>
             </div>
           </div>
-          <div class="stats-range-tabs" id="statsRangeTabs">
-            <button data-range="thisMonth" class="active">이번달</button>
-            <button data-range="lastMonth">지난달</button>
-            <button data-range="last3">3개월</button>
-            <button data-range="last12">1년</button>
-            <button data-range="custom">직접입력</button>
+          <div class="stats-range-tabs" id="statsRangeTabs" role="group" aria-label="통계 조회 기간">
+            <button data-range="thisMonth" class="active" type="button" aria-pressed="true">이번달</button>
+            <button data-range="lastMonth" type="button" aria-pressed="false">지난달</button>
+            <button data-range="last3" type="button" aria-pressed="false">3개월</button>
+            <button data-range="last12" type="button" aria-pressed="false">1년</button>
+            <button data-range="custom" type="button" aria-pressed="false">직접입력</button>
           </div>
           <div class="stats-range-custom" id="statsRangeCustom" hidden>
             <input type="date" id="statsRangeFrom" />
@@ -242,23 +269,23 @@
             <button id="statsRangeApply">적용</button>
           </div>
           <div class="stats-chart-card">
-            <div class="stats-chart-toggle" id="statsChartToggle">
-              <button type="button" data-metric="revenue" class="active">매출</button>
-              <button type="button" data-metric="count">물량</button>
+            <div class="stats-chart-toggle" id="statsChartToggle" role="group" aria-label="그래프 지표">
+              <button type="button" data-metric="revenue" class="active" aria-pressed="true">매출</button>
+              <button type="button" data-metric="count" aria-pressed="false">물량</button>
             </div>
-            <canvas id="statsChart" height="200"></canvas>
-            <p class="stats-chart-hint">그래프를 터치하여 상세 데이터를 확인하세요 · 점선은 평균</p>
-            <div class="stats-chart-tooltip" id="statsChartTooltip" hidden></div>
+            <canvas id="statsChart" height="200" role="img" aria-describedby="statsChartSummary"></canvas>
+            <p class="stats-chart-hint" id="statsChartSummary">그래프를 터치하여 상세 데이터를 확인하세요 · 점선은 평균</p>
+            <div class="stats-chart-tooltip" id="statsChartTooltip" role="status" aria-live="polite" hidden></div>
           </div>
-          <div class="stats-tabs">
-            <button class="stats-tab active" data-tab="monthly">월간</button>
-            <button class="stats-tab" data-tab="revenue">매출</button>
-            <button class="stats-tab" data-tab="routes">구역별</button>
-            <button class="stats-tab" data-tab="daily">일간</button>
-            <button class="stats-tab" data-tab="yearly" hidden>연간</button>
-            <button class="stats-tab" data-tab="total" hidden>누적</button>
+          <div class="stats-tabs" role="tablist" aria-label="통계 상세">
+            <button class="stats-tab active" id="statsTabMonthly" data-tab="monthly" type="button" role="tab" aria-controls="statsPanelMonthly" aria-selected="true">월간</button>
+            <button class="stats-tab" id="statsTabRevenue" data-tab="revenue" type="button" role="tab" aria-controls="statsPanelRevenue" aria-selected="false">매출</button>
+            <button class="stats-tab" id="statsTabRoutes" data-tab="routes" type="button" role="tab" aria-controls="statsPanelRoutes" aria-selected="false">구역별</button>
+            <button class="stats-tab" id="statsTabDaily" data-tab="daily" type="button" role="tab" aria-controls="statsPanelDaily" aria-selected="false">일간</button>
+            <button class="stats-tab" id="statsTabYearly" data-tab="yearly" type="button" role="tab" aria-controls="statsPanelYearly" aria-selected="false" hidden>연간</button>
+            <button class="stats-tab" id="statsTabTotal" data-tab="total" type="button" role="tab" aria-controls="statsPanelTotal" aria-selected="false" hidden>누적</button>
           </div>
-          <section class="stats-panel active" data-panel="monthly">
+          <section class="stats-panel active" id="statsPanelMonthly" data-panel="monthly" role="tabpanel" aria-labelledby="statsTabMonthly">
             <div class="stat-cards">
               <div class="stat-card"><span>총 근무일</span><strong id="statsWorkDays">0일</strong></div>
               <div class="stat-card"><span>휴무일</span><strong id="statsOffDays">0일</strong></div>
@@ -270,23 +297,23 @@
               <div class="stat-card wide"><span>최저 매출일</span><strong id="statsWorstDay">-</strong></div>
             </div>
           </section>
-          <section class="stats-panel" data-panel="revenue">
+          <section class="stats-panel" id="statsPanelRevenue" data-panel="revenue" role="tabpanel" aria-labelledby="statsTabRevenue" hidden>
             <div id="revenueList" class="revenue-list"></div>
           </section>
-          <section class="stats-panel" data-panel="routes">
+          <section class="stats-panel" id="statsPanelRoutes" data-panel="routes" role="tabpanel" aria-labelledby="statsTabRoutes" hidden>
             <div id="routeStats" class="route-stats"></div>
           </section>
-          <section class="stats-panel" data-panel="daily">
+          <section class="stats-panel" id="statsPanelDaily" data-panel="daily" role="tabpanel" aria-labelledby="statsTabDaily" hidden>
             <div id="dailyList" class="daily-list"></div>
           </section>
-          <section class="stats-panel" data-panel="yearly" hidden><div id="yearlyStats" class="stats-list"></div></section>
-          <section class="stats-panel" data-panel="total" hidden><div id="totalStats" class="stats-list"></div></section>
+          <section class="stats-panel" id="statsPanelYearly" data-panel="yearly" role="tabpanel" aria-labelledby="statsTabYearly" hidden><div id="yearlyStats" class="stats-list"></div></section>
+          <section class="stats-panel" id="statsPanelTotal" data-panel="total" role="tabpanel" aria-labelledby="statsTabTotal" hidden><div id="totalStats" class="stats-list"></div></section>
         </main>
       </section>
 
       <section class="view view-settings">
         <header class="sub-header">
-          <button class="round-btn" id="backFromSettings"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <button class="round-btn" id="backFromSettings" type="button" aria-label="달력으로"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
           <div class="sub-title left"><strong>설정</strong><span id="syncStatus">미연결</span></div>
           <button class="secondary-btn" id="logoutBtn">로그아웃</button>
         </header>
@@ -327,9 +354,10 @@
           </section>
 
           <section class="settings-section signature-settings-section" id="signatureSettingsSection">
-            <h2>일상점검 서명</h2>
-            <p class="hint">손가락으로 서명하면 매일 점검 기록과 월간 출력물에 날짜별로 표시됩니다.</p>
-            <canvas id="profileSignatureCanvas" width="600" height="180" aria-label="일상점검 서명 입력란"></canvas>
+            <h2 id="profileSignatureTitle">일상점검 서명</h2>
+            <p class="hint" id="profileSignatureHelp">손가락으로 서명하면 매일 점검 기록과 월간 출력물에 날짜별로 표시됩니다. 손글씨 입력이 어려우면 아래 전자서명 확인을 사용할 수 있습니다.</p>
+            <canvas id="profileSignatureCanvas" width="600" height="180" role="img" aria-labelledby="profileSignatureTitle" aria-describedby="profileSignatureHelp"></canvas>
+            <label class="inspection-confirm-row"><input id="profileSignatureAlternative" name="profileSignatureAlternative" type="checkbox" /><span>키보드 또는 화면읽기 사용으로 손글씨 서명이 어렵습니다. 내 이름으로 전자서명하는 데 동의합니다.</span></label>
             <div class="signature-actions">
               <button id="clearProfileSignature" class="secondary-btn" type="button">다시 쓰기</button>
               <button id="saveProfileSignature" class="full-btn" type="button">서명 저장</button>
@@ -395,11 +423,11 @@
           <section class="settings-section">
             <h2>화면</h2>
             <div class="theme-toggle">
-              <button type="button" data-theme-set="light" class="active">
+              <button type="button" data-theme-set="light" class="active" aria-pressed="true">
                 <svg width="18" height="18" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>
                 <span>라이트</span>
               </button>
-              <button type="button" data-theme-set="dark">
+              <button type="button" data-theme-set="dark" aria-pressed="false">
                 <svg width="18" height="18" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
                 <span>다크</span>
               </button>
@@ -436,13 +464,13 @@
           <section class="settings-section">
             <h2>데이터</h2>
             <button class="settings-row" id="refreshApp" type="button"><span>앱 새로고침</span><em>최신 화면 불러오기</em></button>
-            <button class="settings-row" id="openDbSettings"><span>Supabase 연결</span><em id="dbStatusBadge">미연결</em></button>
+            <button class="settings-row" id="openDbSettings" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="dbSheet"><span>Supabase 연결</span><em id="dbStatusBadge">미연결</em></button>
             <div class="settings-row-pair">
               <button class="settings-row danger" id="resetData">내 데이터 초기화</button>
               <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
             </div>
           </section>
-          <p class="app-version">퀵플렉스 매출관리 v1.0.28</p>
+          <p class="app-version">퀵플렉스 매출관리 v1.0.33</p>
         </main>
       </section>
 
@@ -453,31 +481,31 @@
             <strong id="adminMonthTitle">-</strong>
             <em id="adminRange">-</em>
           </div>
-          <button class="round-btn" id="adminPrevMonth"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
-          <button class="round-btn" id="adminNextMonth"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
+          <button class="round-btn" id="adminPrevMonth" type="button" aria-label="이전 정산월"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <button class="round-btn" id="adminNextMonth" type="button" aria-label="다음 정산월"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
         </header>
         <main class="settings-body">
-          <div class="stats-tabs admin-tabs">
-            <button class="stats-tab active" data-admin-tab="summary">요약</button>
-            <button class="stats-tab" data-admin-tab="routes">라우트</button>
-            <button class="stats-tab" data-admin-tab="users">사용자</button>
-            <button class="stats-tab" data-admin-tab="settlement">정산표</button>
-            <button class="stats-tab" data-admin-tab="bundles">OCR보정</button>
+          <div class="stats-tabs admin-tabs" role="tablist" aria-label="관리 상세">
+            <button class="stats-tab active" id="adminTabSummary" data-admin-tab="summary" type="button" role="tab" aria-controls="adminPanelSummary" aria-selected="true">요약</button>
+            <button class="stats-tab" id="adminTabRoutes" data-admin-tab="routes" type="button" role="tab" aria-controls="adminPanelRoutes" aria-selected="false">라우트</button>
+            <button class="stats-tab" id="adminTabUsers" data-admin-tab="users" type="button" role="tab" aria-controls="adminPanelUsers" aria-selected="false">사용자</button>
+            <button class="stats-tab" id="adminTabSettlement" data-admin-tab="settlement" type="button" role="tab" aria-controls="adminPanelSettlement" aria-selected="false">정산표</button>
+            <button class="stats-tab" id="adminTabBundles" data-admin-tab="bundles" type="button" role="tab" aria-controls="adminPanelBundles" aria-selected="false">OCR보정</button>
           </div>
 
-          <section class="admin-panel active" data-admin-panel="summary">
+          <section class="admin-panel active" id="adminPanelSummary" data-admin-panel="summary" role="tabpanel" aria-labelledby="adminTabSummary">
             <div id="adminRevenueList" class="admin-revenue-list"></div>
           </section>
 
-          <section class="admin-panel" data-admin-panel="routes">
+          <section class="admin-panel" id="adminPanelRoutes" data-admin-panel="routes" role="tabpanel" aria-labelledby="adminTabRoutes" hidden>
             <div id="adminRouteList" class="admin-route-list"></div>
           </section>
 
-          <section class="admin-panel" data-admin-panel="users">
+          <section class="admin-panel" id="adminPanelUsers" data-admin-panel="users" role="tabpanel" aria-labelledby="adminTabUsers" hidden>
             <div id="adminProfiles" class="admin-list"></div>
           </section>
 
-          <section class="admin-panel" data-admin-panel="bundles">
+          <section class="admin-panel" id="adminPanelBundles" data-admin-panel="bundles" role="tabpanel" aria-labelledby="adminTabBundles" hidden>
             <section class="settings-section">
               <h2>OCR 보정 묶음</h2>
               <div class="settings-field">
@@ -498,7 +526,7 @@
             <div id="adminBundleList" class="admin-list"></div>
           </section>
 
-          <section class="admin-panel" data-admin-panel="settlement">
+          <section class="admin-panel" id="adminPanelSettlement" data-admin-panel="settlement" role="tabpanel" aria-labelledby="adminTabSettlement" hidden>
             <section class="settings-section">
               <h2>정산표 이미지 → 단가 계산</h2>
               <div class="upload-row">
@@ -522,56 +550,58 @@
         </main>
       </section>
 
-      <nav class="bottom-nav">
-        <button class="nav-tab active" data-view="home">
+      <nav class="bottom-nav" aria-label="주요 화면">
+        <button class="nav-tab active" data-view="home" type="button" aria-current="page">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></svg>
           <span>달력</span>
         </button>
-        <button class="nav-tab" data-view="measurement">
+        <button class="nav-tab" data-view="measurement" type="button">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V9"/><path d="M9 19V5"/><path d="M14 19v-7"/><path d="M19 19V3"/></svg>
           <span>측정</span>
         </button>
-        <button class="nav-tab" data-view="stats">
+        <button class="nav-tab" data-view="stats" type="button">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           <span>통계</span>
         </button>
-        <button class="nav-tab admin-only hidden" data-view="admin">
+        <button class="nav-tab admin-only hidden" data-view="admin" type="button">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg>
           <span>관리</span>
         </button>
-        <button class="nav-tab" data-view="settings">
+        <button class="nav-tab" data-view="settings" type="button">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
           <span>설정</span>
         </button>
       </nav>
 
-      <div class="overlay visible" id="setupOverlay">
-        <div class="modal-card setup-card">
-          <h2>Supabase 연결</h2>
+      <div class="overlay" id="setupOverlay" aria-hidden="true" inert>
+        <div class="modal-card setup-card" role="dialog" aria-modal="true" aria-labelledby="setupTitle" tabindex="-1">
+          <h2 id="setupTitle">Supabase 연결</h2>
           <p class="hint">앱을 사용하려면 먼저 Supabase 프로젝트 URL과 anon public key가 필요합니다.</p>
-          <label>Project URL</label>
-          <input id="setupUrl" type="url" placeholder="https://xxxx.supabase.co" />
-          <label>anon public key</label>
-          <input id="setupKey" type="password" placeholder="eyJhbGciOi..." />
-          <p id="setupError" class="error-text"></p>
-          <button id="setupConnect" class="full-btn">연결하기</button>
+          <div class="setup-fields">
+            <label for="setupUrl">Project URL</label>
+            <input id="setupUrl" name="supabaseUrl" type="url" autocomplete="url" placeholder="https://xxxx.supabase.co" aria-describedby="setupError" />
+            <label for="setupKey">anon public key</label>
+            <input id="setupKey" name="supabaseAnonKey" type="password" autocomplete="off" placeholder="eyJhbGciOi..." aria-describedby="setupError" />
+          </div>
+          <p id="setupError" class="error-text" role="alert" aria-live="assertive" aria-atomic="true"></p>
+          <button id="setupConnect" class="full-btn" type="button">연결하기</button>
         </div>
       </div>
 
-      <div class="overlay" id="authOverlay">
-        <div class="modal-card auth-card">
+      <div class="overlay" id="authOverlay" aria-hidden="true" inert>
+        <div class="modal-card auth-card" role="dialog" aria-modal="true" aria-labelledby="authTitle" tabindex="-1">
           <h2 id="authTitle">로그인</h2>
           <p id="authHint" class="hint hidden"></p>
           <div class="auth-fields">
-            <label>이메일</label>
-            <input id="authEmail" type="email" autocomplete="email" />
-            <label>비밀번호</label>
-            <input id="authPassword" type="password" autocomplete="current-password" />
-            <div id="authSignupFields" class="auth-signup-fields hidden">
-              <label>이름</label>
-              <input id="authName" type="text" placeholder="이름" autocomplete="name" />
-              <label>기사 유형</label>
-              <select id="authDriverType">
+            <label for="authEmail">이메일</label>
+            <input id="authEmail" name="email" type="email" autocomplete="email" inputmode="email" required aria-describedby="authError" />
+            <label for="authPassword">비밀번호</label>
+            <input id="authPassword" name="password" type="password" autocomplete="current-password" required aria-describedby="authError" />
+            <div id="authSignupFields" class="auth-signup-fields hidden" aria-hidden="true" inert>
+              <label for="authName">이름</label>
+              <input id="authName" name="displayName" type="text" placeholder="이름" autocomplete="name" />
+              <label for="authDriverType">기사 유형</label>
+              <select id="authDriverType" name="driverType">
                 <option value="backup">백업기사</option>
                 <option value="fixed">고정기사</option>
               </select>
@@ -583,31 +613,32 @@
           </div>
           <button id="forgotPasswordBtn" class="link-btn" type="button">비밀번호 찾기</button>
           <p class="auth-intro-link"><a href="./intro.html">처음이라면 기능 소개 보기</a></p>
-          <p id="authError" class="error-text"></p>
+          <p id="authError" class="error-text" role="alert" aria-live="assertive" aria-atomic="true"></p>
         </div>
       </div>
 
-      <div class="overlay" id="pendingOverlay">
-        <div class="modal-card pending-card">
-          <h2>승인 대기 중</h2>
+      <div class="overlay" id="pendingOverlay" aria-hidden="true" inert>
+        <div class="modal-card pending-card" role="dialog" aria-modal="true" aria-labelledby="pendingTitle" tabindex="-1">
+          <h2 id="pendingTitle">승인 대기 중</h2>
           <p class="hint">관리자가 계정을 승인하면 사용할 수 있습니다.</p>
           <button id="pendingLogout" class="secondary-btn wide">로그아웃</button>
         </div>
       </div>
 
-      <div class="sheet-overlay" id="dbOverlay"></div>
-      <div class="bottom-sheet" id="dbSheet">
-        <div class="sheet-handle"></div>
-        <h3>Supabase 연결</h3>
-        <label>Project URL</label>
-        <input id="supabaseUrl" type="url" placeholder="https://xxxx.supabase.co" />
-        <label>anon public key</label>
-        <input id="supabaseAnonKey" type="password" placeholder="eyJhbGciOi..." />
+      <div class="sheet-overlay" id="dbOverlay" aria-hidden="true"></div>
+      <div class="bottom-sheet" id="dbSheet" role="dialog" aria-modal="true" aria-labelledby="dbSheetTitle" aria-hidden="true" tabindex="-1" inert>
+        <div class="sheet-handle" aria-hidden="true"></div>
+        <h3 id="dbSheetTitle">Supabase 연결</h3>
+        <label for="supabaseUrl">Project URL</label>
+        <input id="supabaseUrl" name="dbProjectUrl" type="url" autocomplete="url" placeholder="https://xxxx.supabase.co" />
+        <label for="supabaseAnonKey">anon public key</label>
+        <input id="supabaseAnonKey" name="dbAnonKey" type="password" autocomplete="off" placeholder="eyJhbGciOi..." />
         <div class="two-buttons">
-          <button id="saveDbConfig" class="full-btn">저장</button>
-          <button id="syncNow" class="secondary-btn">동기화</button>
+          <button id="saveDbConfig" class="full-btn" type="button">저장</button>
+          <button id="syncNow" class="secondary-btn" type="button">동기화</button>
+          <button id="closeDbSheet" class="secondary-btn" type="button">닫기</button>
         </div>
-        <p id="dbStatus" class="hint center">미연결</p>
+        <p id="dbStatus" class="hint center" role="status" aria-live="polite">미연결</p>
       </div>
 
       <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -627,7 +658,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.29"></script>
+    <script type="module" src="./src/main.js?v=1.0.33"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
