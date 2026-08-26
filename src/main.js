@@ -10,9 +10,10 @@ import {
   PUBLIC_SITE_URL,
   PUBLIC_SUPABASE_CONFIG,
   RATE_UPDATE_OFFER,
+  RPC,
   SAMPLE_SETTLEMENT,
   TABLES,
-} from "./config.js?v=7";
+} from "./config.js?v=8";
 import {
   addDays,
   formatLong,
@@ -176,6 +177,12 @@ const state = {
   defaultRates: [],
   routeBundles: [],
   entries: {},
+  receiptEntries: {},
+  automaticSalesOverrides: {},
+  workRouteDetails: {},
+  salesOverrideContractAvailable: false,
+  workRouteDetailsContractAvailable: false,
+  salesOverrideDraft: null,
   inspections: {},
   inspectionSignature: "",
   inspectionDate: todayKey(),
@@ -356,6 +363,15 @@ const el = {
   authError: $("authError"),
   pendingOverlay: $("pendingOverlay"),
   pendingLogout: $("pendingLogout"),
+  salesOverrideOverlay: $("salesOverrideOverlay"),
+  salesOverrideDialog: $("salesOverrideDialog"),
+  salesOverrideTitle: $("salesOverrideTitle"),
+  salesOverrideRows: $("salesOverrideRows"),
+  salesOverrideAddRoute: $("salesOverrideAddRoute"),
+  salesOverrideReason: $("salesOverrideReason"),
+  salesOverrideStatus: $("salesOverrideStatus"),
+  salesOverrideSave: $("salesOverrideSave"),
+  salesOverrideClose: $("salesOverrideClose"),
   profileName: $("profileName"),
   periodRange: $("periodRange"),
   periodRevenue: $("periodRevenue"),
@@ -377,6 +393,11 @@ const el = {
   homeSelectedTotal: $("homeSelectedTotal"),
   homeOffToggle: $("homeOffToggle"),
   openRecord: $("openRecord"),
+  selectedDateBreakdown: $("selectedDateBreakdown"),
+  selectedDateBreakdownTitle: $("selectedDateBreakdownTitle"),
+  selectedDateBreakdownRows: $("selectedDateBreakdownRows"),
+  selectedDateBreakdownNote: $("selectedDateBreakdownNote"),
+  openSalesOverride: $("openSalesOverride"),
   openSettings: $("openSettings"),
   inspectionEntryCard: $("inspectionEntryCard"),
   inspectionEntryEyebrow: $("inspectionEntryEyebrow"),
@@ -409,6 +430,7 @@ const el = {
   offToggle: $("offToggle"),
   addRoute: $("addRoute"),
   automaticRecordNotice: $("automaticRecordNotice"),
+  openSalesOverrideFromRecord: $("openSalesOverrideFromRecord"),
   entryRows: $("entryRows"),
   freshCount: $("freshCount"),
   freshUnit: $("freshUnit"),
@@ -550,7 +572,7 @@ function modalLayerIsOpen(layer) {
 }
 
 function activeModalLayer() {
-  return [el.pendingOverlay, el.authOverlay, el.setupOverlay, el.dbSheet]
+  return [el.salesOverrideOverlay, el.pendingOverlay, el.authOverlay, el.setupOverlay, el.dbSheet]
     .find((layer) => layer && modalLayerIsOpen(layer)) || null;
 }
 
@@ -565,7 +587,7 @@ function focusableIn(layer) {
 }
 
 function syncModalBackground() {
-  const layers = [el.setupOverlay, el.authOverlay, el.pendingOverlay, el.dbSheet].filter(Boolean);
+  const layers = [el.setupOverlay, el.authOverlay, el.pendingOverlay, el.salesOverrideOverlay, el.dbSheet].filter(Boolean);
   const active = activeModalLayer();
   layers.forEach((layer) => {
     const available = layer === active;
@@ -581,6 +603,9 @@ function syncModalBackground() {
     child.toggleAttribute("inert", Boolean(active));
   });
   el.openDbSettings?.setAttribute("aria-expanded", String(active === el.dbSheet));
+  [el.openSalesOverride, el.openSalesOverrideFromRecord].filter(Boolean).forEach((button) => {
+    button.setAttribute("aria-expanded", String(active === el.salesOverrideOverlay));
+  });
 }
 
 function updateModalLayer(layer, open, initialFocus) {
@@ -618,6 +643,11 @@ function bindModalAccessibility() {
     if (event.key === "Escape" && layer === el.dbSheet) {
       event.preventDefault();
       closeSheet();
+      return;
+    }
+    if (event.key === "Escape" && layer === el.salesOverrideOverlay) {
+      event.preventDefault();
+      closeSalesOverride();
       return;
     }
     if (event.key !== "Tab") return;
@@ -787,6 +817,7 @@ function isAccountContextCurrent(context) {
 }
 function clearUserScopedState() {
   clearTimeout(state.saveTimer);
+  if (el.salesOverrideOverlay?.classList.contains("visible")) closeSalesOverride(true);
   state.saveTimer = null;
   state.flushPromise = null;
   state.pendingDates.clear();
@@ -796,6 +827,12 @@ function clearUserScopedState() {
   state.defaultRates = [];
   state.routeBundles = [];
   state.entries = {};
+  state.receiptEntries = {};
+  state.automaticSalesOverrides = {};
+  state.workRouteDetails = {};
+  state.salesOverrideContractAvailable = false;
+  state.workRouteDetailsContractAvailable = false;
+  state.salesOverrideDraft = null;
   state.inspections = {};
   state.inspectionSignature = "";
   state.inspectionDate = todayKey();
@@ -812,6 +849,9 @@ function clearUserScopedState() {
   profileSignaturePad?.clear();
   if (el.scheduleDraftSection) el.scheduleDraftSection.classList.add("hidden");
   if (el.scheduleDraftCards) el.scheduleDraftCards.innerHTML = "";
+  if (el.salesOverrideRows) el.salesOverrideRows.innerHTML = "";
+  if (el.salesOverrideReason) el.salesOverrideReason.value = "";
+  if (el.salesOverrideStatus) el.salesOverrideStatus.textContent = "";
   [el.adminRevenueList, el.adminRouteList, el.adminBundleList, el.adminProfiles]
     .filter(Boolean)
     .forEach((node) => { node.innerHTML = ""; });
@@ -914,10 +954,108 @@ function defaultFreshUnit(value) { return value == null || value === "" ? 100 : 
 function defaultBackupUnit(value) { return value == null || value === "" ? DEFAULT_BACKUP_UNIT : value; }
 function freshbagMode() { return state.profile?.freshbag_mode || "single"; }
 function emptyRecord() { return { off: false, rows: [], automaticWorks: [], freshCount: "", freshUnit: 100, freshSoloCount: "", freshLinkedCount: "", backupUnit: DEFAULT_BACKUP_UNIT, driverType: isBackupDriver() ? "backup" : "fixed" }; }
-function isAutomaticRow(row) { return row?.source === "automatic" || row?.readOnly === true; }
+function isAutomaticRow(row) { return row?.source === "automatic" || row?.source === "override" || row?.readOnly === true; }
 function automaticRows(record) { return (record?.rows || []).filter(isAutomaticRow); }
 function manualRows(record) { return (record?.rows || []).filter((row) => !isAutomaticRow(row)); }
 function hasAutomaticEntries(record) { return automaticRows(record).length > 0 || (record?.automaticWorks || []).length > 0; }
+function normalizeBaseSalesRoute(value) {
+  const route = normalizeRoute(value);
+  return /^\d{3}[A-Z]$/.test(route) ? route : "";
+}
+function jsonArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+function salesOverridePayload(rows) {
+  const issues = [];
+  const sourceRows = Array.isArray(rows) ? rows : [];
+  if (!sourceRows.length) issues.push("매출 수정은 A/B 구역을 1행 이상 남겨야 합니다.");
+  if (sourceRows.length > 100) issues.push("매출 수정은 최대 100행까지 저장할 수 있습니다.");
+  const seenRoutes = new Set();
+  const routes = sourceRows.map((row, index) => {
+    const route = normalizeBaseSalesRoute(row?.route);
+    const deliveryCount = exactLedgerInteger(row?.delivery_count ?? row?.count);
+    const unitSnapshot = exactLedgerInteger(row?.unit_snapshot ?? row?.unit);
+    if (!route) issues.push(`${index + 1}행 구역은 318A 같은 A/B 구역으로 입력해 주세요.`);
+    if (route && seenRoutes.has(route)) issues.push(`${route} 구역이 중복되었습니다. 한 행으로 합쳐 주세요.`);
+    if (route) seenRoutes.add(route);
+    if (deliveryCount === null) issues.push(`${index + 1}행 상품수는 0 이상의 정수여야 합니다.`);
+    if (unitSnapshot === null) issues.push(`${index + 1}행 단가는 0 이상의 정수여야 합니다.`);
+    return {
+      route,
+      delivery_count: deliveryCount,
+      unit_snapshot: unitSnapshot,
+      sort_order: index,
+    };
+  });
+  return { issues: [...new Set(issues)], routes };
+}
+function normalizeAutomaticSalesOverride(row) {
+  if (!row || typeof row !== "object") return null;
+  const workDate = String(row.work_date || "");
+  const revision = exactLedgerInteger(row.revision);
+  const parsed = salesOverridePayload(jsonArray(row.routes));
+  const totalItems = parsed.routes.reduce((sum, route) => sum + (route.delivery_count || 0), 0);
+  const storedTotal = exactLedgerInteger(row.total_items);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(workDate)
+    || revision === null
+    || parsed.issues.length
+    || storedTotal === null
+    || storedTotal !== totalItems) {
+    const error = new Error(`${workDate || "날짜 미상"} 매출 수정 스냅샷이 올바르지 않습니다.`);
+    error.code = "QUICKFLEX_OVERRIDE_INVALID";
+    throw error;
+  }
+  return {
+    user_id: String(row.user_id || ""),
+    work_date: workDate,
+    routes: parsed.routes,
+    total_items: totalItems,
+    revision,
+    reason: String(row.reason || ""),
+    request_id: String(row.request_id || ""),
+    updated_at: row.updated_at || "",
+  };
+}
+function automaticSalesOverridesByDate(rows) {
+  return Object.fromEntries((rows || []).map((row) => {
+    const snapshot = normalizeAutomaticSalesOverride(row);
+    return [snapshot.work_date, snapshot];
+  }));
+}
+function overrideRecordRows(snapshot) {
+  return (snapshot?.routes || []).map((route) => ({
+    route: route.route,
+    count: route.delivery_count,
+    households: "",
+    unit: route.unit_snapshot,
+    source: "override",
+    readOnly: true,
+    overrideDate: snapshot.work_date,
+    overrideRevision: snapshot.revision,
+    sortOrder: route.sort_order,
+  }));
+}
+function applyAutomaticSalesOverrideToRecord(record, snapshot) {
+  const next = normalizeRecordShape(record);
+  if (!snapshot || !hasAutomaticEntries(next)) return next;
+  next.off = false;
+  next.rows = overrideRecordRows(snapshot);
+  return normalizeRecordShape(next);
+}
+function applyAutomaticSalesOverrides(entries, overrides) {
+  const next = {};
+  Object.entries(entries || {}).forEach(([dateKey, record]) => {
+    next[dateKey] = applyAutomaticSalesOverrideToRecord(record, overrides?.[dateKey]);
+  });
+  return next;
+}
 function normalizeRecordShape(record) {
   const next = {
     off: Boolean(record?.off),
@@ -941,11 +1079,13 @@ function normalizeRecordShape(record) {
         draft: automatic ? false : Boolean(row.draft),
       };
       if (automatic) {
-        normalized.source = "automatic";
+        normalized.source = row.source === "override" ? "override" : "automatic";
         normalized.readOnly = true;
         normalized.workId = String(row.workId || "");
         normalized.workShift = row.workShift === "night" ? "night" : "day";
         normalized.finalizedAt = row.finalizedAt || "";
+        normalized.overrideDate = row.overrideDate || "";
+        normalized.overrideRevision = exactLedgerInteger(row.overrideRevision) ?? 0;
         normalized.sortOrder = toNum(row.sortOrder);
       }
       return normalized;
@@ -959,6 +1099,8 @@ function normalizeRecordShape(record) {
       workId,
       workShift: work.workShift === "night" ? "night" : "day",
       finalizedAt: work.finalizedAt || "",
+      totalHouseholds: exactLedgerInteger(work.totalHouseholds) ?? null,
+      totalItems: exactLedgerInteger(work.totalItems) ?? null,
     });
   });
   next.rows.filter(isAutomaticRow).forEach((row) => {
@@ -967,6 +1109,8 @@ function normalizeRecordShape(record) {
       workId: row.workId,
       workShift: row.workShift,
       finalizedAt: row.finalizedAt,
+      totalHouseholds: null,
+      totalItems: null,
     });
   });
   next.automaticWorks = [...automaticWorksById.values()];
@@ -1051,7 +1195,7 @@ function mergeGroupedRows(rows) {
         merged.push({
           ...row,
           route: joinStoredRoutes(routes),
-          source: "automatic",
+          source: row.source === "override" ? "override" : "automatic",
           readOnly: true,
         });
       }
@@ -1894,6 +2038,18 @@ const LEDGER_WORK_ID_BATCH_SIZE = 40;
 const LEDGER_VERIFY_ATTEMPTS = 2;
 const WORK_RESULT_SELECT = "user_id,work_id,work_date,work_shift,total_households,total_items,canonical_payload,finalized_at";
 const WORK_RESULT_ROUTE_SELECT = "user_id,work_id,route,delivery_count,household_count,unit_snapshot,sort_order";
+const WORK_RESULT_ROUTE_DETAIL_SELECT = "user_id,work_id,detail_route,base_route,delivery_count";
+const AUTOMATIC_SALES_OVERRIDE_SELECT = "user_id,work_date,routes,total_items,revision,reason,request_id,updated_at";
+
+function isOptionalSalesContractMissing(error) {
+  const code = String(error?.code || "").toUpperCase();
+  const message = String(error?.message || "").toLowerCase();
+  return code === "42P01"
+    || code === "PGRST202"
+    || code === "PGRST205"
+    || message.includes("quickflex_automatic_sales_overrides") && (message.includes("not find") || message.includes("does not exist") || message.includes("schema cache"))
+    || message.includes("quickflex_work_result_route_details") && (message.includes("not find") || message.includes("does not exist") || message.includes("schema cache"));
+}
 
 async function fetchPagedRows(buildQuery) {
   const rows = [];
@@ -1956,6 +2112,77 @@ async function fetchWorkResultRoutes(workResults) {
   return rows;
 }
 
+async function fetchWorkResultRouteDetails(workResults) {
+  const workIdsByUser = new Map();
+  (workResults || []).forEach((work) => {
+    const userId = String(work.user_id || "");
+    const workId = String(work.work_id || "");
+    if (!userId || !workId) return;
+    if (!workIdsByUser.has(userId)) workIdsByUser.set(userId, new Set());
+    workIdsByUser.get(userId).add(workId);
+  });
+  const rows = [];
+  try {
+    for (const [userId, workIdSet] of workIdsByUser) {
+      const workIds = [...workIdSet];
+      for (let offset = 0; offset < workIds.length; offset += LEDGER_WORK_ID_BATCH_SIZE) {
+        const batchIds = workIds.slice(offset, offset + LEDGER_WORK_ID_BATCH_SIZE);
+        const batchRows = await fetchPagedRows((from, to) => state.db
+          .from(TABLES.workResultRouteDetails)
+          .select(WORK_RESULT_ROUTE_DETAIL_SELECT, { count: "exact" })
+          .eq("user_id", userId)
+          .in("work_id", batchIds)
+          .order("work_id")
+          .order("detail_route")
+          .range(from, to));
+        rows.push(...batchRows);
+      }
+    }
+  } catch (error) {
+    if (!isOptionalSalesContractMissing(error)) console.warn("[work-route-details]", error);
+    return { rows: [], available: false };
+  }
+  return { rows, available: true };
+}
+
+async function fetchAutomaticSalesOverrides({ userId = "", startKey = "", endKey = "" } = {}) {
+  try {
+    const rows = await fetchPagedRows((from, to) => {
+      let query = state.db
+        .from(TABLES.automaticSalesOverrides)
+        .select(AUTOMATIC_SALES_OVERRIDE_SELECT, { count: "exact" });
+      if (userId) query = query.eq("user_id", userId);
+      if (startKey) query = query.gte("work_date", startKey);
+      if (endKey) query = query.lte("work_date", endKey);
+      return query.order("work_date").order("user_id").range(from, to);
+    });
+    rows.forEach(normalizeAutomaticSalesOverride);
+    return { rows, available: true };
+  } catch (error) {
+    if (isOptionalSalesContractMissing(error)) return { rows: [], available: false };
+    throw error;
+  }
+}
+
+function workRouteDetailsByDate(workResults, details) {
+  const headerByWork = new Map((workResults || []).map((work) => [workLedgerKey(work.user_id, work.work_id), work]));
+  const byDate = {};
+  (details || []).forEach((detail) => {
+    const work = headerByWork.get(workLedgerKey(detail.user_id, detail.work_id));
+    if (!work) return;
+    const dateKey = String(work.work_date || "");
+    if (!dateKey) return;
+    if (!byDate[dateKey]) byDate[dateKey] = [];
+    byDate[dateKey].push({
+      workId: String(detail.work_id || ""),
+      detailRoute: normalizeRoute(detail.detail_route),
+      baseRoute: normalizeBaseSalesRoute(detail.base_route),
+      deliveryCount: exactLedgerInteger(detail.delivery_count),
+    });
+  });
+  return byDate;
+}
+
 function parseCanonicalWorkPayload(value) {
   if (value && typeof value === "object" && !Array.isArray(value)) return value;
   if (typeof value !== "string") return null;
@@ -1994,39 +2221,33 @@ function validateWorkLedgerRows(workResults, workRoutes) {
   headersByWork.forEach((work, key) => {
     const actualRoutes = routesByWork.get(key) || [];
     const totalItems = exactLedgerInteger(work.total_items);
-    const totalHouseholds = exactLedgerInteger(work.total_households);
     const payload = parseCanonicalWorkPayload(work.canonical_payload);
     const expectedRoutes = Array.isArray(payload?.routes) ? payload.routes : null;
     const actualByRoute = new Map();
     let actualItems = 0;
-    let actualHouseholds = 0;
 
     actualRoutes.forEach((route) => {
       const routeName = String(route.route || "");
       if (actualByRoute.has(routeName)) issues.push(`${work.work_id}: 중복 구역 ${routeName}`);
       actualByRoute.set(routeName, route);
       const deliveryCount = exactLedgerInteger(route.delivery_count);
-      const householdCount = exactLedgerInteger(route.household_count);
-      if (deliveryCount === null || householdCount === null) {
+      if (deliveryCount === null) {
         issues.push(`${work.work_id}: 잘못된 구역 합계`);
         return;
       }
       actualItems += deliveryCount;
-      actualHouseholds += householdCount;
     });
 
-    if (totalItems === null || totalHouseholds === null) issues.push(`${work.work_id}: 잘못된 헤더 합계`);
+    if (totalItems === null) issues.push(`${work.work_id}: 잘못된 헤더 합계`);
     if (!actualRoutes.length) issues.push(`${work.work_id}: 구역 상세 없음`);
     if (totalItems !== null && actualItems !== totalItems) issues.push(`${work.work_id}: 상품 합계 불일치`);
-    if (totalHouseholds !== null && actualHouseholds !== totalHouseholds) issues.push(`${work.work_id}: 가구 합계 불일치`);
     if (!expectedRoutes) {
       issues.push(`${work.work_id}: 원본 구역 목록 없음`);
       return;
     }
     if (String(payload.work_date || "") !== String(work.work_date || "")
       || String(payload.work_shift || "") !== String(work.work_shift || "")
-      || exactLedgerInteger(payload.total_items) !== totalItems
-      || exactLedgerInteger(payload.total_households) !== totalHouseholds) {
+      || exactLedgerInteger(payload.total_items) !== totalItems) {
       issues.push(`${work.work_id}: 헤더와 원본 불일치`);
     }
     if (expectedRoutes.length !== actualRoutes.length) issues.push(`${work.work_id}: 구역 행 수 불일치`);
@@ -2043,7 +2264,7 @@ function validateWorkLedgerRows(workResults, workRoutes) {
         issues.push(`${work.work_id}: 구역 ${routeName} 누락`);
         return;
       }
-      for (const field of ["delivery_count", "household_count", "unit_snapshot", "sort_order"]) {
+      for (const field of ["delivery_count", "unit_snapshot", "sort_order"]) {
         if (exactLedgerInteger(expected[field]) !== exactLedgerInteger(actual[field])) {
           issues.push(`${work.work_id}: 구역 ${routeName} ${field} 불일치`);
         }
@@ -2079,7 +2300,16 @@ async function loadVerifiedWorkLedger(filters = {}) {
     const workResults = await fetchWorkResultHeaders(filters);
     const workRoutes = await fetchWorkResultRoutes(workResults);
     lastIssues = validateWorkLedgerRows(workResults, workRoutes);
-    if (!lastIssues.length) return { workResults, workRoutes, items: workLedgerItems(workResults, workRoutes) };
+    if (!lastIssues.length) {
+      const detailResult = await fetchWorkResultRouteDetails(workResults);
+      return {
+        workResults,
+        workRoutes,
+        items: workLedgerItems(workResults, workRoutes),
+        workRouteDetails: detailResult.rows,
+        workRouteDetailsAvailable: detailResult.available,
+      };
+    }
     if (attempt + 1 < LEDGER_VERIFY_ATTEMPTS) {
       await new Promise((resolve) => window.setTimeout(resolve, 180));
     }
@@ -2129,6 +2359,8 @@ function entriesFromDb(dayRows, itemRows, workResultRows = [], workRouteRows = [
         workId: work.work_id,
         workShift: work.work_shift,
         finalizedAt: work.finalized_at || "",
+        totalHouseholds: exactLedgerInteger(work.total_households),
+        totalItems: exactLedgerInteger(work.total_items),
       });
       const workRoutes = (routesByWork.get(workLedgerKey(work.user_id, work.work_id)) || [])
         .slice()
@@ -2182,6 +2414,7 @@ async function loadFromDb(context = captureAccountContext()) {
       state.db.from(TABLES.days).select("*").eq("user_id", userId),
       state.db.from(TABLES.items).select("*").eq("user_id", userId).order("sort_order"),
       loadVerifiedWorkLedger({ userId }),
+      fetchAutomaticSalesOverrides({ userId }),
       state.db.from(TABLES.bundles).select("*").eq("active", true).order("sort_order").order("label"),
       state.db.from(TABLES.inspections).select("*").eq("user_id", userId).order("inspection_date"),
       state.db.from(TABLES.inspectionSignatures).select("signature_data").eq("user_id", userId).maybeSingle(),
@@ -2190,7 +2423,7 @@ async function loadFromDb(context = captureAccountContext()) {
     if (!isAccountContextCurrent(context)) return false;
     throw error;
   }
-  const [ratesResult, defaultRatesResult, daysResult, itemsResult, ledger, bundlesResult, inspectionsResult, signatureResult] = loaded;
+  const [ratesResult, defaultRatesResult, daysResult, itemsResult, ledger, overridesResult, bundlesResult, inspectionsResult, signatureResult] = loaded;
   if (!isAccountContextCurrent(context)) return false;
   if (ratesResult.error) throw ratesResult.error;
   if (defaultRatesResult.error) throw defaultRatesResult.error;
@@ -2205,7 +2438,12 @@ async function loadFromDb(context = captureAccountContext()) {
   state.rates = ratesFromDb(ratesResult.data);
   state.defaultRates = ratesFromDb(defaultRatesResult.data);
   state.routeBundles = bundlesResult.data || [];
-  state.entries = entriesFromDb(daysResult.data, itemsResult.data, ledger.workResults, ledger.workRoutes);
+  state.automaticSalesOverrides = automaticSalesOverridesByDate(overridesResult.rows);
+  state.salesOverrideContractAvailable = overridesResult.available;
+  state.workRouteDetails = workRouteDetailsByDate(ledger.workResults, ledger.workRouteDetails);
+  state.workRouteDetailsContractAvailable = ledger.workRouteDetailsAvailable;
+  state.receiptEntries = entriesFromDb(daysResult.data, itemsResult.data, ledger.workResults, ledger.workRoutes);
+  state.entries = applyAutomaticSalesOverrides(state.receiptEntries, state.automaticSalesOverrides);
   state.inspections = Object.fromEntries((inspectionsResult.data || []).map((row) => [row.inspection_date, row]));
   state.inspectionSignature = isValidSignatureData(signatureResult.data?.signature_data) ? signatureResult.data.signature_data : "";
   profileSignaturePad?.load(state.inspectionSignature);
@@ -2969,6 +3207,101 @@ function renderMonth() {
     el.monthCalendar.appendChild(cell);
   }
 }
+function hasAutomaticSalesOverride(dateKey) {
+  return Object.prototype.hasOwnProperty.call(state.automaticSalesOverrides, dateKey);
+}
+function automaticBaseBreakdown(record) {
+  const byRoute = new Map();
+  automaticRows(record).forEach((row) => {
+    const routes = splitStoredRoutes(row.route);
+    const share = routes.length || 1;
+    routes.forEach((route) => {
+      const baseRoute = normalizeBaseSalesRoute(route);
+      if (!baseRoute) return;
+      const current = byRoute.get(baseRoute) || { route: baseRoute, count: 0, revenue: 0 };
+      current.count += toNum(row.count) / share;
+      current.revenue += (toNum(row.count) * effectiveUnit(row)) / share;
+      byRoute.set(baseRoute, current);
+    });
+  });
+  return byRoute;
+}
+function rawDetailBreakdown(details) {
+  const byBase = new Map();
+  let invalidCount = 0;
+  (details || []).forEach((detail) => {
+    const detailRoute = normalizeRoute(detail.detailRoute ?? detail.detail_route);
+    const baseRoute = normalizeBaseSalesRoute(detail.baseRoute ?? detail.base_route)
+      || normalizeBaseSalesRoute(detailRoute.slice(0, 4));
+    const count = exactLedgerInteger(detail.deliveryCount ?? detail.delivery_count);
+    if (!baseRoute || !/^\d{3}[A-Z]\d{2}$/.test(detailRoute) || count === null) {
+      invalidCount += 1;
+      return;
+    }
+    if (!byBase.has(baseRoute)) byBase.set(baseRoute, new Map());
+    const detailCounts = byBase.get(baseRoute);
+    detailCounts.set(detailRoute, (detailCounts.get(detailRoute) || 0) + count);
+  });
+  return { byBase, invalidCount };
+}
+function selectedDateSalesBreakdown(record, details) {
+  const effective = automaticBaseBreakdown(record);
+  const raw = rawDetailBreakdown(details);
+  const bases = [...new Set([...effective.keys(), ...raw.byBase.keys()])].sort();
+  return {
+    invalidDetailRows: raw.invalidCount,
+    rows: bases.map((baseRoute) => {
+      const sales = effective.get(baseRoute) || { route: baseRoute, count: 0, revenue: 0 };
+      const detailRows = [...(raw.byBase.get(baseRoute) || new Map()).entries()]
+        .map(([route, count]) => ({ route, count }))
+        .sort((a, b) => a.route.localeCompare(b.route));
+      const detailCount = detailRows.reduce((sum, row) => sum + row.count, 0);
+      return {
+        route: baseRoute,
+        count: Math.round(sales.count),
+        revenue: Math.round(sales.revenue),
+        detailRows,
+        detailCount,
+        difference: Math.round(sales.count) - detailCount,
+      };
+    }),
+  };
+}
+function renderSelectedDateBreakdown(record) {
+  if (!el.selectedDateBreakdown) return;
+  const automatic = hasAutomaticEntries(record);
+  el.selectedDateBreakdown.classList.toggle("hidden", !automatic);
+  if (!automatic) return;
+  const override = hasAutomaticSalesOverride(state.selectedDate) ? state.automaticSalesOverrides[state.selectedDate] : null;
+  const model = selectedDateSalesBreakdown(record, state.workRouteDetails[state.selectedDate]);
+  el.selectedDateBreakdownTitle.textContent = `${formatMonthDay(state.selectedDate)} 구역별 매출`;
+  el.selectedDateBreakdownRows.innerHTML = model.rows.length ? model.rows.map((row) => {
+    const details = row.detailRows.length
+      ? `<div class="selected-detail-routes">${row.detailRows.map((detail) => `<span>${escapeAttr(detail.route)} ${fmtCount(detail.count)}</span>`).join("")}</div>`
+      : `<div class="selected-detail-empty">세부구역 기록 없음 (이전 앱 기록 포함)</div>`;
+    const difference = state.workRouteDetailsContractAvailable && row.difference > 0
+      ? `<div class="selected-detail-warning">세부 미확인·미저장 +${fmtCount(row.difference)}</div>`
+      : state.workRouteDetailsContractAvailable && row.difference < 0
+        ? `<div class="selected-detail-warning">매출 수정과 ${fmtCount(Math.abs(row.difference))} 차이 · 감지값은 그대로 표시</div>`
+        : "";
+    return `<article class="selected-breakdown-row">
+      <div><strong>${escapeAttr(row.route)}</strong><span>${fmtCount(row.count)}</span></div>
+      <strong>${fmtWon(row.revenue)}</strong>
+      ${details}${difference}
+    </article>`;
+  }).join("") : `<div class="selected-detail-empty">매출 상품수가 0개로 보정되어 있습니다.</div>`;
+  const notes = [
+    override ? `매출 수정본 r${override.revision} 적용 중 · 자동기록 원본은 보존됩니다.` : "자동기록 원본 기준 매출입니다.",
+    "가구 관련 참고값은 앱 버전별 의미가 달라 매출 계산·검증에 쓰지 않으며, 상품수만 매출 기준입니다.",
+    "이전 앱에서 마감한 날짜는 A01/A02 세부구역 기록이 없을 수 있습니다.",
+  ];
+  if (!state.workRouteDetailsContractAvailable) notes.push("세부구역 조회 서버 업데이트가 아직 적용되지 않았습니다.");
+  if (model.invalidDetailRows) notes.push(`형식이 올바르지 않은 세부구역 ${model.invalidDetailRows}행은 표시하지 않았습니다.`);
+  el.selectedDateBreakdownNote.textContent = notes.join(" ");
+  el.openSalesOverride.title = state.salesOverrideContractAvailable
+    ? "이 날짜의 A/B 상품수와 단가를 수정합니다."
+    : "수정 화면은 열 수 있지만 저장하려면 서버 업데이트가 필요합니다.";
+}
 function renderHomeSelection() {
   const record = getRecord(state.selectedDate, false);
   const calc = calcRecord(record);
@@ -2981,6 +3314,7 @@ function renderHomeSelection() {
   el.homeOffToggle.setAttribute("aria-checked", String(record.off));
   el.homeOffToggle.disabled = automatic;
   el.homeOffToggle.title = automatic ? "앱 자동 기록이 있는 날짜는 휴무로 바꿀 수 없습니다." : "";
+  renderSelectedDateBreakdown(record);
 }
 function selectDate(dateKey) {
   state.selectedDate = dateKey;
@@ -3015,6 +3349,7 @@ function routeOptions(selected) {
   return [...optionRoutes].sort().map((route) => `<option value="${route}"${selectedRoutes[0] === route ? " selected" : ""}>${route}</option>`).join("");
 }
 function automaticWorkLabel(row) {
+  if (row.source === "override") return `매출 수정 · 수정본 r${row.overrideRevision || 0}`;
   const shift = row.workShift === "night" ? "야간" : "주간";
   const workId = String(row.workId || "");
   const shortWorkId = workId.length > 14 ? `${workId.slice(0, 8)}…${workId.slice(-4)}` : workId || "식별자 없음";
@@ -3037,6 +3372,11 @@ function renderEntryForm() {
   el.addRoute.disabled = automatic;
   el.addRoute.title = automatic ? "앱 자동 마감 기록이 있는 날짜에는 수동 구역을 추가할 수 없습니다." : "";
   el.automaticRecordNotice?.classList.toggle("hidden", !automatic);
+  if (el.openSalesOverrideFromRecord) {
+    el.openSalesOverrideFromRecord.title = state.salesOverrideContractAvailable
+      ? "자동기록 원본을 보존하고 이 날짜의 A/B 매출만 수정합니다."
+      : "수정 화면은 열 수 있지만 저장하려면 서버 업데이트가 필요합니다.";
+  }
   el.entryRows.innerHTML = "";
   record.rows.forEach((row, index) => renderEntryRow(row, index));
   const defaultRows = defaultEntryRows();
@@ -3062,6 +3402,7 @@ function renderEntryRow(row, index) {
   const routeInput = node.querySelector(".route");
   const count = node.querySelector(".count");
   const households = node.querySelector(".households");
+  const householdField = node.querySelector(".household-field");
   const unit = node.querySelector(".unit");
   const output = node.querySelector("output");
   const del = node.querySelector(".del-btn");
@@ -3075,21 +3416,27 @@ function renderEntryRow(row, index) {
   output.textContent = fmtWon(toNum(count.value) * toNum(unit.value));
   del.style.visibility = "visible";
   if (automatic) {
+    const override = row.source === "override";
     const badge = document.createElement("div");
     badge.className = "automatic-record-badge";
     badge.textContent = automaticWorkLabel(row);
-    badge.title = row.workId ? `읽기 전용 자동 기록 · ${row.workId}` : "읽기 전용 자동 기록";
+    badge.title = override
+      ? "적용 중인 날짜별 매출 수정본 · 이 화면에서는 읽기 전용"
+      : row.workId ? `읽기 전용 자동 기록 · ${row.workId}` : "읽기 전용 자동 기록";
     node.classList.add("is-automatic");
     node.dataset.workId = row.workId || "";
     [routeInput, count, households, unit].forEach((input) => {
       input.disabled = true;
       input.setAttribute("aria-label", `${input.getAttribute("aria-label") || "기록"} · 앱 자동 기록 읽기 전용`);
     });
-    unit.title = "앱이 마감한 단가 스냅샷이며 수정할 수 없습니다.";
+    householdField?.classList.add("hidden");
+    unit.title = override
+      ? "적용 중인 날짜별 매출 수정 단가입니다. 매출 수정 화면에서 바꿀 수 있습니다."
+      : "앱이 마감한 원본 단가이며 이 화면에서는 수정할 수 없습니다.";
     del.disabled = true;
     del.textContent = "🔒";
-    del.setAttribute("aria-label", "앱 자동 기록은 삭제할 수 없습니다");
-    del.title = "앱 자동 기록은 삭제할 수 없습니다.";
+    del.setAttribute("aria-label", "이 화면에서는 자동 매출행을 삭제할 수 없습니다");
+    del.title = "A/B 매출 수정 화면에서 행을 추가하거나 삭제할 수 있습니다.";
     node.prepend(badge);
     el.entryRows.appendChild(node);
     return;
@@ -3415,21 +3762,34 @@ function syncStatsChartToggle() {
 function renderRouteStats(keys) {
   if (!el.routeStats) return;
   const routes = new Map();
+  const rawDetails = rawDetailBreakdown((keys || []).flatMap((dateKey) => state.workRouteDetails[dateKey] || []));
   let workDays = 0;
   (keys || []).forEach((dateKey) => {
     const record = getRecord(dateKey, false);
     const aggregates = recordRouteAggregates(record);
     if (aggregates.size) workDays += 1;
     aggregates.forEach((agg, route) => {
-      const entry = routes.get(route) || { count: 0, revenue: 0, days: 0 };
+      const entry = routes.get(route) || { count: 0, revenue: 0, days: 0, automaticCount: 0 };
       entry.count += agg.count;
       entry.revenue += agg.revenue;
       entry.days += 1;
       routes.set(route, entry);
     });
+    automaticRows(record).forEach((row) => {
+      const rowRoutes = splitStoredRoutes(row.route);
+      const share = rowRoutes.length || 1;
+      rowRoutes.forEach((route) => {
+        const entry = routes.get(route) || { count: 0, revenue: 0, days: 0, automaticCount: 0 };
+        entry.automaticCount += toNum(row.count) / share;
+        routes.set(route, entry);
+      });
+    });
+  });
+  rawDetails.byBase.forEach((_, baseRoute) => {
+    if (!routes.has(baseRoute)) routes.set(baseRoute, { count: 0, revenue: 0, days: 0, automaticCount: 0 });
   });
   const rows = Array.from(routes.entries())
-    .map(([route, agg]) => ({ route, count: Math.round(agg.count), revenue: Math.round(agg.revenue), days: agg.days }))
+    .map(([route, agg]) => ({ route, count: Math.round(agg.count), revenue: Math.round(agg.revenue), days: agg.days, automaticCount: Math.round(agg.automaticCount) }))
     .sort((a, b) => b.revenue - a.revenue);
   if (!rows.length) {
     el.routeStats.innerHTML = `<div class="rs-empty">기록된 구역이 없습니다.</div>`;
@@ -3439,6 +3799,18 @@ function renderRouteStats(keys) {
   el.routeStats.innerHTML = rows.map((row) => {
     const pct = Math.max(2, Math.round((row.revenue / maxRevenue) * 100));
     const unit = row.count ? Math.round(row.revenue / row.count) : 0;
+    const detailRows = [...(rawDetails.byBase.get(normalizeBaseSalesRoute(row.route)) || new Map()).entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]));
+    const rawDetailCount = detailRows.reduce((sum, [, count]) => sum + count, 0);
+    const difference = row.automaticCount - rawDetailCount;
+    const detailMarkup = detailRows.length
+      ? `<div class="rs-detail-routes">${detailRows.map(([route, count]) => `<span>${escapeAttr(route)} ${fmtCount(count)}</span>`).join("")}</div>`
+      : "";
+    const differenceMarkup = state.workRouteDetailsContractAvailable && difference > 0
+      ? `<div class="rs-detail-warning">세부 미확인·미저장 +${fmtCount(difference)}</div>`
+      : state.workRouteDetailsContractAvailable && difference < 0
+        ? `<div class="rs-detail-warning">매출 수정과 ${fmtCount(Math.abs(difference))} 차이 · 감지값 원본</div>`
+        : "";
     return `<div class="route-stat-card">
       <div class="rs-top">
         <span class="rs-name">${escapeAttr(formatRouteLabel(row.route))}</span>
@@ -3449,6 +3821,7 @@ function renderRouteStats(keys) {
         <span>단가 ${fmtWon(unit)}</span>
         <span>${row.days}일</span>
       </div>
+      ${detailMarkup}${differenceMarkup}
       <div class="rs-bar"><span style="width:${pct}%"></span></div>
     </div>`;
   }).join("");
@@ -3752,6 +4125,30 @@ async function loadWorkLedgerForRange(startKey, endKey) {
   return loadVerifiedWorkLedger({ startKey, endKey });
 }
 
+function effectiveAutomaticLedgerItems(ledgerItems, overrideRows) {
+  const snapshots = new Map((overrideRows || []).map((row) => {
+    const snapshot = normalizeAutomaticSalesOverride(row);
+    return [userDateKey(snapshot.user_id, snapshot.work_date), snapshot];
+  }));
+  const effective = (ledgerItems || []).filter((item) => !snapshots.has(userDateKey(item.user_id, item.work_date)));
+  snapshots.forEach((snapshot) => {
+    snapshot.routes.forEach((route) => {
+      effective.push({
+        user_id: snapshot.user_id,
+        work_date: snapshot.work_date,
+        route: route.route,
+        delivery_count: route.delivery_count,
+        unit_snapshot: route.unit_snapshot,
+        sort_order: route.sort_order,
+        source: "override",
+        readOnly: true,
+        overrideRevision: snapshot.revision,
+      });
+    });
+  });
+  return effective;
+}
+
 function adminRecordDetails(day, items) {
   if (day.is_off) return { revenue: 0, count: 0, freshCount: 0, backupRevenue: 0, routeRevenue: 0 };
   const routeTotal = (items || []).reduce((sum, item) => {
@@ -3819,19 +4216,21 @@ async function renderAdminRevenueStats() {
   const { start, end } = periodBounds(state.statsYear, state.statsMonth);
   const startKey = toDateKey(start);
   const endKey = toDateKey(end);
-  const [profilesResult, daysResult, itemsResult, ledger] = await Promise.all([
+  const [profilesResult, daysResult, itemsResult, ledger, overridesResult] = await Promise.all([
     state.db.from(TABLES.profiles).select("id,email,display_name,driver_type,status").order("display_name"),
     state.db.from(TABLES.days).select("*").gte("work_date", startKey).lte("work_date", endKey),
     state.db.from(TABLES.items).select("*").gte("work_date", startKey).lte("work_date", endKey).order("work_date"),
     loadWorkLedgerForRange(startKey, endKey),
+    fetchAutomaticSalesOverrides({ startKey, endKey }),
   ]);
   if (profilesResult.error) throw profilesResult.error;
   if (daysResult.error) throw daysResult.error;
   if (itemsResult.error) throw itemsResult.error;
 
   const automaticUserDateKeys = new Set(ledger.workResults.map((work) => userDateKey(work.user_id, work.work_date)));
+  const overrideUserDateKeys = new Set(overridesResult.rows.map((row) => userDateKey(row.user_id, row.work_date)));
   const manualItems = (itemsResult.data || []).filter((item) => !automaticUserDateKeys.has(userDateKey(item.user_id, item.work_date)));
-  const combinedItems = [...manualItems, ...ledger.items];
+  const combinedItems = [...manualItems, ...effectiveAutomaticLedgerItems(ledger.items, overridesResult.rows)];
   const itemsByUserDate = new Map();
   combinedItems.forEach((item) => {
     const key = userDateKey(item.user_id, item.work_date);
@@ -3900,7 +4299,7 @@ async function renderAdminRevenueStats() {
     summary.fresh += details.freshCount;
     summary.workDays += (!day.is_off && (details.revenue > 0 || hasAutomatic)) ? 1 : 0;
     summary.offDays += day.is_off ? 1 : 0;
-    summary.days.push({ dateKey, day, details, hasAutomatic });
+    summary.days.push({ dateKey, day, details, hasAutomatic, hasOverride: overrideUserDateKeys.has(key) });
   });
 
   const summaries = [...summaryByUser.values()].sort((a, b) => b.revenue - a.revenue || String(a.profile.display_name || "").localeCompare(String(b.profile.display_name || "")));
@@ -3911,7 +4310,7 @@ async function renderAdminRevenueStats() {
     const profileStatus = statusLabel(profile.status);
     const dayRows = summary.days
       .sort((a, b) => a.dateKey.localeCompare(b.dateKey))
-      .map((row) => `<div class="admin-day-row"><span>${formatLongShort(row.dateKey)}${row.day.is_off ? " 휴무" : ""}${row.hasAutomatic ? " · 앱 자동" : ""}</span><strong>${fmtWon(row.details.revenue)} · ${fmtCount(row.details.count)}</strong></div>`)
+      .map((row) => `<div class="admin-day-row"><span>${formatLongShort(row.dateKey)}${row.day.is_off ? " 휴무" : ""}${row.hasAutomatic ? " · 앱 자동" : ""}${row.hasOverride ? " · 매출 수정" : ""}</span><strong>${fmtWon(row.details.revenue)} · ${fmtCount(row.details.count)}</strong></div>`)
       .join("");
     return `<div class="admin-revenue-card">
       <button type="button" data-admin-user="${profile.id}">
@@ -3943,10 +4342,11 @@ async function renderAdminRouteStats() {
   const { start, end } = periodBounds(state.statsYear, state.statsMonth);
   const startKey = toDateKey(start);
   const endKey = toDateKey(end);
-  const [profilesResult, itemsResult, ledger] = await Promise.all([
+  const [profilesResult, itemsResult, ledger, overridesResult] = await Promise.all([
     state.db.from(TABLES.profiles).select("id,email,display_name,driver_type,status"),
     state.db.from(TABLES.items).select("user_id,work_date,route,delivery_count,unit_snapshot").gte("work_date", startKey).lte("work_date", endKey),
     loadWorkLedgerForRange(startKey, endKey),
+    fetchAutomaticSalesOverrides({ startKey, endKey }),
   ]);
   if (profilesResult.error) throw profilesResult.error;
   if (itemsResult.error) throw itemsResult.error;
@@ -3955,7 +4355,7 @@ async function renderAdminRouteStats() {
   const routeMap = new Map();
   const automaticUserDateKeys = new Set(ledger.workResults.map((work) => userDateKey(work.user_id, work.work_date)));
   const manualItems = (itemsResult.data || []).filter((item) => !automaticUserDateKeys.has(userDateKey(item.user_id, item.work_date)));
-  [...manualItems, ...ledger.items].forEach((item) => {
+  [...manualItems, ...effectiveAutomaticLedgerItems(ledger.items, overridesResult.rows)].forEach((item) => {
     const route = joinStoredRoutes(item.route);
     const count = toNum(item.delivery_count);
     const revenue = count * toNum(item.unit_snapshot);
@@ -3972,6 +4372,19 @@ async function renderAdminRouteStats() {
     row.users.set(item.user_id, user);
   });
 
+  const detailHeaders = new Map(ledger.workResults.map((work) => [workLedgerKey(work.user_id, work.work_id), work]));
+  (ledger.workRouteDetails || []).forEach((detail) => {
+    if (!detailHeaders.has(workLedgerKey(detail.user_id, detail.work_id))) return;
+    const baseRoute = normalizeBaseSalesRoute(detail.base_route);
+    const detailRoute = normalizeRoute(detail.detail_route);
+    const count = exactLedgerInteger(detail.delivery_count);
+    if (!baseRoute || !/^\d{3}[A-Z]\d{2}$/.test(detailRoute) || count === null) return;
+    if (!routeMap.has(baseRoute)) routeMap.set(baseRoute, { route: baseRoute, count: 0, revenue: 0, automaticCount: 0, users: new Map() });
+    const row = routeMap.get(baseRoute);
+    row.detailRoutes ||= new Map();
+    row.detailRoutes.set(detailRoute, (row.detailRoutes.get(detailRoute) || 0) + count);
+  });
+
   const routes = [...routeMap.values()].sort((a, b) => b.revenue - a.revenue || a.route.localeCompare(b.route));
   el.adminRouteList.innerHTML = routes.length ? routes.map((row) => {
     const avgUnit = row.count ? Math.round(row.revenue / row.count) : 0;
@@ -3981,6 +4394,17 @@ async function renderAdminRouteStats() {
       .slice(0, 3)
       .map((user) => `<span>${profileNameForDisplay(user.profile)} ${fmtCount(user.count)} · ${fmtWon(user.revenue)}</span>`)
       .join("");
+    const detailRows = [...(row.detailRoutes || new Map()).entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const detailTotal = detailRows.reduce((sum, [, count]) => sum + count, 0);
+    const detailDifference = row.automaticCount - detailTotal;
+    const detailMarkup = detailRows.length
+      ? `<div class="admin-route-details">${detailRows.map(([route, count]) => `<span>${escapeAttr(route)} ${fmtCount(count)}</span>`).join("")}</div>`
+      : "";
+    const detailWarning = ledger.workRouteDetailsAvailable && detailDifference > 0
+      ? `<div class="admin-route-detail-warning">세부 미확인·미저장 +${fmtCount(detailDifference)}</div>`
+      : ledger.workRouteDetailsAvailable && detailDifference < 0
+        ? `<div class="admin-route-detail-warning">매출 수정과 ${fmtCount(Math.abs(detailDifference))} 차이 · 감지값 원본</div>`
+        : "";
     return `<div class="admin-route-card">
       <div class="admin-route-head">
         <strong>${formatRouteLabel(row.route)}</strong>
@@ -3991,6 +4415,7 @@ async function renderAdminRouteStats() {
         <span>평균 ${fmtWon(avgUnit)}</span>
         ${row.automaticCount ? `<span>앱 자동 ${fmtCount(row.automaticCount)}</span>` : ""}
       </div>
+      ${detailMarkup}${detailWarning}
       <div class="admin-route-users">${users || "<span>사용자 기록 없음</span>"}</div>
     </div>`;
   }).join("") : `<div class="daily-card"><span>선택한 정산기간 라우트 기록이 없습니다.</span></div>`;
@@ -4524,6 +4949,215 @@ async function deleteAdminProfile(card) {
   renderAdminDashboard();
 }
 
+function makeSalesOverrideRequestId() {
+  return globalThis.crypto?.randomUUID?.()
+    || `sales-override-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+function seedSalesOverrideRows(dateKey, snapshot) {
+  if (snapshot) {
+    return {
+      rows: snapshot.routes.map((row) => ({ route: row.route, count: row.delivery_count, unit: row.unit_snapshot })),
+      warning: "",
+    };
+  }
+  const receipt = state.receiptEntries[dateKey] || getRecord(dateKey, false);
+  const groups = new Map();
+  automaticRows(receipt).forEach((row) => {
+    const route = normalizeBaseSalesRoute(row.route);
+    if (!route) return;
+    const count = toNum(row.count);
+    const unit = effectiveUnit(row);
+    const current = groups.get(route) || { route, count: 0, revenue: 0, units: new Set() };
+    current.count += count;
+    current.revenue += count * unit;
+    current.units.add(unit);
+    groups.set(route, current);
+  });
+  let mergedDifferentUnits = false;
+  const rows = [...groups.values()].sort((a, b) => a.route.localeCompare(b.route)).map((row) => {
+    if (row.units.size > 1) mergedDifferentUnits = true;
+    return {
+      route: row.route,
+      count: row.count,
+      unit: row.count > 0 ? Math.round(row.revenue / row.count) : [...row.units][0] || rateFor(row.route),
+    };
+  });
+  return {
+    rows: rows.length ? rows : [{ route: "", count: 0, unit: 0 }],
+    warning: mergedDifferentUnits ? "같은 A/B 구역에 서로 다른 원본 단가가 있어 가중 평균 단가로 시작했습니다. 저장 전 단가를 확인해 주세요." : "",
+  };
+}
+function setSalesOverrideStatus(message, type = "") {
+  if (!el.salesOverrideStatus) return;
+  el.salesOverrideStatus.textContent = message || "";
+  el.salesOverrideStatus.className = `sales-override-status${type ? ` ${type}` : ""}`;
+  el.salesOverrideStatus.setAttribute("role", type === "error" ? "alert" : "status");
+  el.salesOverrideStatus.setAttribute("aria-live", type === "error" ? "assertive" : "polite");
+}
+function markSalesOverrideDraftDirty() {
+  if (!state.salesOverrideDraft) return;
+  state.salesOverrideDraft.dirty = true;
+  state.salesOverrideDraft.requestId = "";
+  setSalesOverrideStatus("");
+}
+function renderSalesOverrideRows() {
+  const draft = state.salesOverrideDraft;
+  if (!draft || !el.salesOverrideRows) return;
+  el.salesOverrideRows.innerHTML = draft.rows.length ? draft.rows.map((row, index) => {
+    const revenue = toNum(row.count) * toNum(row.unit);
+    return `<div class="sales-override-row" data-index="${index}">
+      <label class="sales-override-route-field" for="salesOverrideRoute${index}"><span>구역</span><input id="salesOverrideRoute${index}" class="sales-override-route" type="text" autocapitalize="characters" autocomplete="off" placeholder="318A" value="${escapeAttr(row.route)}" /></label>
+      <label class="sales-override-count-field" for="salesOverrideCount${index}"><span>상품수</span><input id="salesOverrideCount${index}" class="sales-override-count" type="number" min="0" step="1" inputmode="numeric" value="${escapeAttr(row.count)}" /></label>
+      <label class="sales-override-unit-field" for="salesOverrideUnit${index}"><span>단가</span><input id="salesOverrideUnit${index}" class="sales-override-unit" type="number" min="0" step="1" inputmode="numeric" value="${escapeAttr(row.unit)}" /></label>
+      <output aria-label="행 매출">${fmtWon(revenue)}</output>
+      <button class="sales-override-delete" type="button" aria-label="${index + 1}행 삭제">×</button>
+    </div>`;
+  }).join("") : `<p class="sales-override-empty">구역을 1행 이상 추가해 주세요.</p>`;
+  el.salesOverrideRows.querySelectorAll(".sales-override-row").forEach((node) => {
+    const index = Number(node.dataset.index);
+    const route = node.querySelector(".sales-override-route");
+    const count = node.querySelector(".sales-override-count");
+    const unit = node.querySelector(".sales-override-unit");
+    const output = node.querySelector("output");
+    [route, count, unit].forEach((input) => { input.disabled = Boolean(draft.saving); });
+    node.querySelector(".sales-override-delete").disabled = Boolean(draft.saving);
+    const refreshRow = () => { output.textContent = fmtWon(toNum(count.value) * toNum(unit.value)); };
+    route.addEventListener("input", () => {
+      route.value = route.value.toUpperCase();
+      draft.rows[index].route = route.value;
+      markSalesOverrideDraftDirty();
+    });
+    route.addEventListener("blur", () => {
+      route.value = normalizeRoute(route.value);
+      draft.rows[index].route = route.value;
+    });
+    count.addEventListener("input", () => {
+      draft.rows[index].count = count.value;
+      markSalesOverrideDraftDirty();
+      refreshRow();
+    });
+    unit.addEventListener("input", () => {
+      draft.rows[index].unit = unit.value;
+      markSalesOverrideDraftDirty();
+      refreshRow();
+    });
+    node.querySelector(".sales-override-delete").addEventListener("click", () => {
+      draft.rows.splice(index, 1);
+      markSalesOverrideDraftDirty();
+      renderSalesOverrideRows();
+    });
+  });
+  el.salesOverrideAddRoute.disabled = draft.saving || draft.rows.length >= 100;
+  el.salesOverrideSave.disabled = Boolean(draft.saving);
+  el.salesOverrideClose.disabled = Boolean(draft.saving);
+  el.salesOverrideReason.disabled = Boolean(draft.saving);
+}
+function openSalesOverride(dateKey = state.selectedDate) {
+  const receipt = state.receiptEntries[dateKey] || getRecord(dateKey, false);
+  if (!hasAutomaticEntries(receipt)) {
+    toast("앱 자동기록이 있는 날짜만 매출을 수정할 수 있습니다.", "error");
+    return false;
+  }
+  const snapshot = hasAutomaticSalesOverride(dateKey) ? state.automaticSalesOverrides[dateKey] : null;
+  const seed = seedSalesOverrideRows(dateKey, snapshot);
+  state.salesOverrideDraft = {
+    dateKey,
+    revision: snapshot?.revision ?? null,
+    rows: seed.rows,
+    reason: snapshot?.reason || "",
+    requestId: "",
+    dirty: false,
+    saving: false,
+  };
+  el.salesOverrideTitle.textContent = `${formatLongShort(dateKey)} 매출 수정`;
+  el.salesOverrideReason.value = state.salesOverrideDraft.reason;
+  renderSalesOverrideRows();
+  const contractWarning = state.salesOverrideContractAvailable
+    ? ""
+    : "서버 업데이트 전이라 저장은 실패할 수 있습니다. 실패해도 입력은 이 창에 유지됩니다.";
+  setSalesOverrideStatus([seed.warning, contractWarning].filter(Boolean).join(" "), seed.warning ? "warning" : "");
+  el.salesOverrideOverlay.classList.add("visible");
+  updateModalLayer(el.salesOverrideOverlay, true, ".sales-override-route");
+  return true;
+}
+function closeSalesOverride(force = false) {
+  const draft = state.salesOverrideDraft;
+  if (!force && draft?.saving) return false;
+  if (!force && draft?.dirty && !window.confirm("저장하지 않은 매출 수정 입력이 있습니다. 닫을까요?")) return false;
+  el.salesOverrideOverlay?.classList.remove("visible");
+  updateModalLayer(el.salesOverrideOverlay, false);
+  state.salesOverrideDraft = null;
+  return true;
+}
+function automaticSalesOverrideResult(data) {
+  let value = Array.isArray(data) ? data[0] : data;
+  if (typeof value === "string") {
+    try { value = JSON.parse(value); } catch (_) {}
+  }
+  value = value?.override || value?.snapshot || value;
+  return value && typeof value === "object" && value.work_date && Array.isArray(value.routes)
+    ? normalizeAutomaticSalesOverride(value)
+    : null;
+}
+async function saveSalesOverride() {
+  const draft = state.salesOverrideDraft;
+  if (!draft || draft.saving || !state.db || !currentUserId()) return false;
+  const payload = salesOverridePayload(draft.rows);
+  if (payload.issues.length) {
+    setSalesOverrideStatus(payload.issues.slice(0, 3).join(" "), "error");
+    el.salesOverrideRows.querySelector("input")?.focus();
+    return false;
+  }
+  const context = captureAccountContext();
+  draft.saving = true;
+  draft.reason = el.salesOverrideReason.value.trim();
+  draft.requestId ||= makeSalesOverrideRequestId();
+  renderSalesOverrideRows();
+  setSalesOverrideStatus("매출 수정본을 저장하는 중입니다.");
+  try {
+    const { data, error } = await state.db.rpc(RPC.replaceAutomaticSalesOverride, {
+      p_work_date: draft.dateKey,
+      p_expected_revision: draft.revision ?? 0,
+      p_request_id: draft.requestId,
+      p_reason: draft.reason || "사용자 날짜별 매출 수정",
+      p_routes: payload.routes,
+    });
+    if (!isAccountContextCurrent(context)) throw staleAccountSaveError();
+    if (error) throw error;
+    let snapshot = automaticSalesOverrideResult(data);
+    if (!snapshot) {
+      const refreshed = await fetchAutomaticSalesOverrides({ userId: context.userId, startKey: draft.dateKey, endKey: draft.dateKey });
+      snapshot = refreshed.rows.map(normalizeAutomaticSalesOverride).find((row) => row.work_date === draft.dateKey) || null;
+    }
+    if (!isAccountContextCurrent(context)) throw staleAccountSaveError();
+    if (!snapshot || snapshot.work_date !== draft.dateKey) throw new Error("저장된 매출 수정본을 확인하지 못했습니다.");
+    state.automaticSalesOverrides[draft.dateKey] = snapshot;
+    state.salesOverrideContractAvailable = true;
+    state.entries[draft.dateKey] = applyAutomaticSalesOverrideToRecord(state.entries[draft.dateKey], snapshot);
+    if (state.recordDraftDate === draft.dateKey && state.recordDraft) {
+      state.recordDraft = applyAutomaticSalesOverrideToRecord(state.recordDraft, snapshot);
+    }
+    draft.dirty = false;
+    closeSalesOverride(true);
+    renderAll();
+    if (el.app.dataset.view === "record" && state.selectedDate === snapshot.work_date) renderEntryForm();
+    toast("매출 수정본을 저장했습니다. 자동기록 원본은 그대로 보존됩니다.", "success");
+    return true;
+  } catch (error) {
+    draft.saving = false;
+    renderSalesOverrideRows();
+    const missing = isOptionalSalesContractMissing(error);
+    const conflict = String(error?.message || "").toLowerCase().includes("revision") || String(error?.code || "") === "40001";
+    const message = missing
+      ? "매출 수정 서버 업데이트가 아직 적용되지 않았습니다. 입력은 이 창에 유지됩니다."
+      : conflict
+        ? "다른 기기에서 이 날짜를 먼저 수정했습니다. 입력은 유지됩니다. 새로고침 후 다시 확인해 주세요."
+        : `매출 수정본 저장 실패: ${error.message || "알 수 없는 오류"} 입력은 유지됩니다.`;
+    setSalesOverrideStatus(message, "error");
+    return false;
+  }
+}
+
 function openSheet() {
   el.dbOverlay.classList.add("open");
   el.dbSheet.classList.add("open");
@@ -4628,6 +5262,23 @@ function bindEvents() {
   bindAdminEvents(shared);
   bindSettingsEvents(shared);
   bindOcrEvents(shared);
+  el.openSalesOverride?.addEventListener("click", () => openSalesOverride(state.selectedDate));
+  el.openSalesOverrideFromRecord?.addEventListener("click", () => openSalesOverride(state.selectedDate));
+  el.salesOverrideAddRoute?.addEventListener("click", () => {
+    const draft = state.salesOverrideDraft;
+    if (!draft || draft.rows.length >= 100) return;
+    draft.rows.push({ route: "", count: 0, unit: 0 });
+    markSalesOverrideDraftDirty();
+    renderSalesOverrideRows();
+    el.salesOverrideRows.querySelector(".sales-override-row:last-child .sales-override-route")?.focus();
+  });
+  el.salesOverrideReason?.addEventListener("input", () => {
+    if (!state.salesOverrideDraft) return;
+    state.salesOverrideDraft.reason = el.salesOverrideReason.value;
+    markSalesOverrideDraftDirty();
+  });
+  el.salesOverrideSave?.addEventListener("click", saveSalesOverride);
+  el.salesOverrideClose?.addEventListener("click", () => closeSalesOverride());
   bindModalAccessibility();
   el.measurementWorkDate?.addEventListener("change", () => {
     if (!el.measurementWorkDate.value) return;

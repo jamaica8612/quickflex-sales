@@ -241,16 +241,16 @@ test("light and dark design tokens meet text and control-boundary contrast floor
 });
 
 test("blocking overlays, forms, sheets and live regions keep accessible HTML structure", () => {
-  for (const id of ["setupOverlay", "authOverlay", "pendingOverlay"]) {
+  for (const id of ["setupOverlay", "authOverlay", "pendingOverlay", "salesOverrideOverlay"]) {
     assertAttributes(id, { "aria-hidden": "true", inert: true });
   }
-  for (const id of ["setupTitle", "authTitle", "pendingTitle", "dbSheetTitle"]) {
+  for (const id of ["setupTitle", "authTitle", "pendingTitle", "salesOverrideTitle", "dbSheetTitle"]) {
     assert.match(html, new RegExp(`role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="${id}"[^>]*tabindex="-1"`));
   }
   assertAttributes("dbSheet", { role: "dialog", "aria-modal": "true", "aria-hidden": "true", inert: true });
   assertAttributes("dbOverlay", { "aria-hidden": "true" });
 
-  for (const id of ["setupUrl", "setupKey", "authEmail", "authPassword", "authName", "authDriverType", "supabaseUrl", "supabaseAnonKey"]) {
+  for (const id of ["setupUrl", "setupKey", "authEmail", "authPassword", "authName", "authDriverType", "salesOverrideReason", "supabaseUrl", "supabaseAnonKey"]) {
     assert.match(html, new RegExp(`<label\\s+for="${id}"`), `#${id} needs an explicit label`);
     assert.match(html, new RegExp(`<[^>]+\\bid="${id}"`), `label target #${id} is missing`);
   }
@@ -259,6 +259,7 @@ test("blocking overlays, forms, sheets and live regions keep accessible HTML str
     assertAttributes(id, { role: "alert", "aria-live": "assertive", "aria-atomic": "true" });
   }
   assertAttributes("dbStatus", { role: "status", "aria-live": "polite" });
+  assertAttributes("salesOverrideStatus", { role: "status", "aria-live": "polite", "aria-atomic": "true" });
   assertAttributes("statsChartTooltip", { role: "status", "aria-live": "polite", hidden: true });
   assertAttributes("toast", { role: "status", "aria-live": "polite" });
 });

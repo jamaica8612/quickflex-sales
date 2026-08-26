@@ -9,13 +9,13 @@ const stats = readFileSync(new URL("../src/ui/stats.js", import.meta.url), "utf8
 const ocr = readFileSync(new URL("../src/ui/ocr.js", import.meta.url), "utf8");
 
 test("blocking overlays and the DB sheet expose modal semantics and start inert", () => {
-  for (const id of ["setupOverlay", "authOverlay", "pendingOverlay"]) {
+  for (const id of ["setupOverlay", "authOverlay", "pendingOverlay", "salesOverrideOverlay"]) {
     assert.match(html, new RegExp(`id="${id}"[^>]*aria-hidden="true"[^>]*inert`));
   }
   assert.ok((html.match(/role="dialog" aria-modal="true" aria-labelledby=/g) || []).length >= 4);
   assert.match(html, /id="dbSheet"[^>]*role="dialog"[^>]*aria-modal="true"[^>]*aria-hidden="true"[^>]*inert/);
   assert.match(main, /function bindModalAccessibility\(\)[\s\S]*event\.key !== "Tab"[\s\S]*!layer\.contains\(document\.activeElement\)/);
-  assert.match(main, /return \[el\.pendingOverlay, el\.authOverlay, el\.setupOverlay, el\.dbSheet\]/);
+  assert.match(main, /return \[el\.salesOverrideOverlay, el\.pendingOverlay, el\.authOverlay, el\.setupOverlay, el\.dbSheet\]/);
   assert.match(main, /function closeSheet\(\)[\s\S]*updateModalLayer\(el\.dbSheet, false\)/);
   assert.match(main, /showDeploymentConfigError\(\)[\s\S]*updateModalLayer\(el\.setupOverlay, true/);
 });
