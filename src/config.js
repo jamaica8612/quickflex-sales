@@ -12,9 +12,15 @@ export const TABLES = {
   items: "quickflex_day_route_items",
   workResults: "quickflex_work_results",
   workResultRoutes: "quickflex_work_result_routes",
+  workResultRouteDetails: "quickflex_work_result_route_details",
+  automaticSalesOverrides: "quickflex_automatic_sales_overrides",
   bundles: "quickflex_route_bundles",
   inspections: "quickflex_daily_inspections",
   inspectionSignatures: "quickflex_inspection_signatures",
+};
+
+export const RPC = {
+  replaceAutomaticSalesOverride: "quickflex_replace_automatic_sales_override",
 };
 
 export const DB_KEY = "quickflex-supabase-config";
@@ -62,10 +68,11 @@ export const RATE_UPDATE_OFFER = {
 };
 
 export const APP_UPDATE_NOTICE = {
-  id: "2026-08-13-measurement-v2",
+  id: "2026-08-26-sales-override-v1",
   items: [
     "측정 메뉴에서 근무표 구역을 자동으로 불러올 수 있습니다.",
-    "구역별 측정 종료 시 가구수가 자동 저장되며 기록 화면에서 수정할 수 있습니다.",
+    "업무 종료로 만든 자동기록 원본은 보존하고, 날짜별 A/B 상품수와 단가는 매출 수정 화면에서 바꿀 수 있습니다.",
+    "완료 가구 원시값은 매출·타수에 쓰지 않으며 앱 집계 타수는 측정 앱에서만 참고합니다.",
     "야간 사용자는 오늘 밤 측정 시 다음 날 근무표 구역이 자동으로 선택됩니다.",
   ],
 };

@@ -238,6 +238,31 @@ test("immutable ledger rejects route totals that differ from the header", () => 
   assert.equal(issues.some((issue) => issue.includes("상품 합계 불일치")), true);
 });
 
+test("completed-household differences never block the immutable sales ledger", () => {
+  const { validateWorkLedgerRows } = ledgerValidationHarness();
+  const expectedRoutes = [
+    { route: "310A", delivery_count: 15, household_count: 999, unit_snapshot: 1200, sort_order: 0 },
+  ];
+  const header = canonicalHeader(expectedRoutes, {
+    total_households: -1,
+    canonical_payload: {
+      work_date: "2026-08-24",
+      work_shift: "night",
+      total_items: 15,
+      total_households: 123456,
+      routes: expectedRoutes,
+    },
+  });
+  const actualRoutes = [{
+    user_id: "user-a",
+    work_id: "work-1",
+    ...expectedRoutes[0],
+    household_count: -999,
+  }];
+
+  assert.equal(validateWorkLedgerRows([header], actualRoutes).length, 0);
+});
+
 function createPagedLedgerDb(headerRows, routeRows, requests) {
   class Query {
     constructor(table) {

@@ -35,7 +35,7 @@
       html[data-theme="dark"], body[data-theme="dark"] { background: #0A0E17; color-scheme: dark; }
       html[data-theme="light"], body[data-theme="light"] { background: #EAECEF; color-scheme: light; }
     </style>
-    <link rel="stylesheet" href="./styles.css?v=1.0.33" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.34" />
   </head>
   <body>
     <script>document.body.dataset.theme = document.documentElement.dataset.theme;</script>
@@ -95,6 +95,18 @@
           </div>
           <div id="monthCalendar" class="calendar-grid"></div>
         </main>
+
+        <section id="selectedDateBreakdown" class="selected-date-breakdown hidden" aria-labelledby="selectedDateBreakdownTitle">
+          <div class="selected-breakdown-head">
+            <div>
+              <span>선택 날짜 상세</span>
+              <strong id="selectedDateBreakdownTitle">구역별 매출</strong>
+            </div>
+            <button id="openSalesOverride" class="secondary-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="salesOverrideDialog">매출 수정</button>
+          </div>
+          <div id="selectedDateBreakdownRows" class="selected-breakdown-rows"></div>
+          <p id="selectedDateBreakdownNote" class="selected-breakdown-note"></p>
+        </section>
 
         <footer class="day-dock">
           <div>
@@ -167,7 +179,10 @@
           <div class="entry-actions">
             <button id="addRoute" class="secondary-btn"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>구역 추가</span></button>
           </div>
-          <p id="automaticRecordNotice" class="automatic-record-notice hidden">앱 자동 마감 기록이 있어 이 날짜의 구역·건수·단가는 읽기 전용입니다. 백업수당은 자동 단가에 포함되어 별도로 더하지 않으며, 프레시백 등 날짜 항목은 계속 입력할 수 있습니다.</p>
+          <div id="automaticRecordNotice" class="automatic-record-notice hidden">
+            <p>앱 자동기록 원본은 변경하지 않습니다. 완료 가구 원시값은 매출·타수 계산과 검증에 쓰지 않고, 앱 집계 타수는 측정 앱에서만 참고합니다. A/B 상품수와 단가는 별도 수정본으로 바꿀 수 있고, 프레시백 등 날짜 항목은 계속 입력할 수 있습니다.</p>
+            <button id="openSalesOverrideFromRecord" class="secondary-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="salesOverrideDialog">A/B 매출 수정</button>
+          </div>
 
           <div class="entry-card">
             <div class="entry-head"><span>구역</span><span>건수</span><span>단가</span><span>매출</span><span></span></div>
@@ -470,7 +485,7 @@
               <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
             </div>
           </section>
-          <p class="app-version">퀵플렉스 매출관리 v1.0.33</p>
+          <p class="app-version">퀵플렉스 매출관리 v1.0.34</p>
         </main>
       </section>
 
@@ -625,6 +640,21 @@
         </div>
       </div>
 
+      <div class="overlay" id="salesOverrideOverlay" aria-hidden="true" inert>
+        <div id="salesOverrideDialog" class="modal-card sales-override-card" role="dialog" aria-modal="true" aria-labelledby="salesOverrideTitle" aria-describedby="salesOverrideIntro salesOverrideStatus" tabindex="-1">
+          <h2 id="salesOverrideTitle">매출 수정</h2>
+          <p id="salesOverrideIntro" class="hint">자동기록 원본은 그대로 보존됩니다. 이 날짜의 매출에 사용할 A/B 구역·상품수·단가 전체를 확인한 뒤 저장하세요. 완료 가구 원시값은 매출·타수 계산과 검증에 쓰지 않습니다.</p>
+          <div id="salesOverrideRows" class="sales-override-rows"></div>
+          <button id="salesOverrideAddRoute" class="secondary-btn wide" type="button">A/B 구역 추가</button>
+          <label for="salesOverrideReason" class="sales-override-reason"><span>수정 사유 <small>(선택)</small></span><textarea id="salesOverrideReason" maxlength="1000" placeholder="예: 미분류 2개를 318B에 반영"></textarea></label>
+          <p id="salesOverrideStatus" class="sales-override-status" role="status" aria-live="polite" aria-atomic="true"></p>
+          <div class="two-buttons">
+            <button id="salesOverrideSave" class="full-btn" type="button">수정본 저장</button>
+            <button id="salesOverrideClose" class="secondary-btn" type="button">닫기</button>
+          </div>
+        </div>
+      </div>
+
       <div class="sheet-overlay" id="dbOverlay" aria-hidden="true"></div>
       <div class="bottom-sheet" id="dbSheet" role="dialog" aria-modal="true" aria-labelledby="dbSheetTitle" aria-hidden="true" tabindex="-1" inert>
         <div class="sheet-handle" aria-hidden="true"></div>
@@ -658,7 +688,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.33"></script>
+    <script type="module" src="./src/main.js?v=1.0.34"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
