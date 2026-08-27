@@ -349,7 +349,7 @@ test("immutable ledger fetches all 1201 header rows and all 1201 route rows", as
   );
 });
 
-test("automatic unit snapshots do not receive backup pay twice while manual rows still do", () => {
+test("automatic unit snapshots expose backup pay once while manual rows still add it once", () => {
   const { calcRecordDetails } = loadActualFunctions([
     "defaultFreshUnit",
     "defaultBackupUnit",
@@ -385,11 +385,149 @@ test("automatic unit snapshots do not receive backup pay twice while manual rows
   });
 
   assert.equal(automatic.routeRevenue, 12000);
-  assert.equal(automatic.backupRevenue, 0);
+  assert.equal(automatic.backupRevenue, 1000);
+  assert.equal(automatic.backupRevenueIncluded, 1000);
+  assert.equal(automatic.backupRevenueAdditive, 0);
   assert.equal(automatic.revenue, 12000);
   assert.equal(manual.routeRevenue, 11000);
   assert.equal(manual.backupRevenue, 1000);
+  assert.equal(manual.backupRevenueIncluded, 0);
+  assert.equal(manual.backupRevenueAdditive, 1000);
   assert.equal(manual.revenue, 12000);
+});
+
+test("changing an automatic-date backup unit adjusts all-in snapshots by the delta exactly once", () => {
+  const record = {
+    off: false,
+    rows: [{ route: "324C", count: 10, unit: 1030, source: "automatic", readOnly: true }],
+    automaticWorks: [{ workId: "work-1" }],
+    freshCount: 0,
+    freshUnit: 100,
+    backupUnit: 30,
+    driverType: "backup",
+  };
+  const state = { recordDraft: record };
+  const el = {
+    freshCount: { value: "0" },
+    freshUnit: { value: "100" },
+    freshSoloCount: { value: "0" },
+    freshLinkedCount: { value: "0" },
+    backupUnit: { value: "50" },
+  };
+  const common = {
+    state,
+    el,
+    currentRecordDraft: () => state.recordDraft,
+    isBackupDriver: () => true,
+    defaultBackupUnit: (value) => value == null || value === "" ? 30 : value,
+    toNum: (value) => Number(value) || 0,
+    hasAutomaticEntries: (value) => value.automaticWorks.length > 0,
+    isAutomaticRow: (row) => row.source === "automatic" || row.source === "override" || row.readOnly === true,
+    effectiveUnit: (row) => Math.max(0, Number(row.unit) || 0),
+  };
+  const { syncFormToRecord } = loadActualFunctions(["syncFormToRecord"], common);
+  syncFormToRecord();
+  syncFormToRecord();
+
+  assert.equal(record.rows[0].unit, 1050, "30→50 raises the all-in snapshot by 20 only once");
+  assert.equal(record.backupUnit, 50);
+
+  const { calcRecordDetails } = loadActualFunctions([
+    "defaultFreshUnit",
+    "defaultBackupUnit",
+    "isAutomaticRow",
+    "effectiveUnit",
+    "calcRecordDetails",
+  ], {
+    DEFAULT_BACKUP_UNIT: 30,
+    normalizeRecordShape: (value) => value,
+    toNum: common.toNum,
+    freshbagMode: () => "single",
+    sharedRateForRoutes: () => 0,
+    rateFor: () => 0,
+  });
+  const details = calcRecordDetails(record);
+  assert.equal(details.routeRevenue, 10500);
+  assert.equal(details.backupRevenue, 500);
+  assert.equal(details.backupRevenueAdditive, 0);
+  assert.equal(details.revenue, 10500, "the included 500 won is not added a second time");
+});
+
+test("reloaded automatic overrides separate the saved base unit from the saved backup unit", () => {
+  const isAutomaticRow = (row) => row.source === "automatic" || row.source === "override" || row.readOnly === true;
+  const { displayedRouteUnit, storedRouteUnit } = loadActualFunctions(["displayedRouteUnit", "storedRouteUnit"], {
+    isAutomaticRow,
+    effectiveUnit: (row) => Number(row.unit) || 0,
+    defaultBackupUnit: (value) => value == null || value === "" ? 30 : value,
+    toNum: (value) => Number(value) || 0,
+  });
+  const reloadedRecord = { driverType: "backup", backupUnit: 50 };
+  const reloadedOverrideRow = { route: "324C", unit: 1050, source: "override", readOnly: true };
+
+  assert.equal(displayedRouteUnit(reloadedRecord, reloadedOverrideRow), 1000);
+  assert.equal(storedRouteUnit(reloadedRecord, reloadedOverrideRow, 1000), 1050);
+});
+
+test("automatic-date extras persist without deleting the immutable receipt routes", async () => {
+  const calls = [];
+  const record = {
+    off: false,
+    automaticWorks: [{ workId: "work-1" }],
+    rows: [{ route: "324C", count: 10, unit: 1050, source: "override", readOnly: true }],
+    freshCount: 2,
+    freshUnit: 100,
+    freshSoloCount: 0,
+    freshLinkedCount: 0,
+    backupUnit: 50,
+    driverType: "backup",
+  };
+  const db = {
+    from(table) {
+      return {
+        delete() {
+          calls.push({ op: "delete", table });
+          return { eq() { return this; }, then(resolve) { resolve({ error: null }); } };
+        },
+        upsert(payload) {
+          calls.push({ op: "upsert", table, payload });
+          return Promise.resolve({ error: null });
+        },
+        insert(payload) {
+          calls.push({ op: "insert", table, payload });
+          return Promise.resolve({ error: null });
+        },
+        select() {
+          return { eq() { return this; }, limit() { return Promise.resolve({ data: [{ work_id: "work-1" }], error: null }); } };
+        },
+      };
+    },
+  };
+  const state = { db };
+  const isAutomaticRow = (row) => row?.source === "automatic" || row?.source === "override" || row?.readOnly === true;
+  const { persistDay } = loadActualFunctions(["persistDay"], {
+    state,
+    TABLES: { workResults: "work-results", items: "day-items", days: "days" },
+    captureAccountContext: () => ({ userId: "user-a" }),
+    isAccountContextCurrent: () => true,
+    normalizeRecordShape: (value) => ({ ...value, rows: [...(value.rows || [])], automaticWorks: [...(value.automaticWorks || [])] }),
+    getRecord: () => record,
+    hasAutomaticEntries: (value) => value.automaticWorks.length > 0 || value.rows.some(isAutomaticRow),
+    manualRows: (value) => value.rows.filter((row) => !isAutomaticRow(row)),
+    hasMeaningfulRecord: () => true,
+    isBackupDriver: () => true,
+    defaultFreshUnit: (value) => value == null || value === "" ? 100 : value,
+    defaultBackupUnit: (value) => value == null || value === "" ? 30 : value,
+    toNum: (value) => Number(value) || 0,
+    joinStoredRoutes: (value) => value,
+    effectiveUnit: (row) => Number(row.unit) || 0,
+  });
+
+  assert.equal(await persistDay("2026-08-27", { userId: "user-a" }), true);
+  assert.equal(calls.some((call) => call.op === "delete" && call.table === "day-items"), false);
+  assert.equal(calls.some((call) => call.op === "insert" && call.table === "day-items"), false);
+  const dayWrite = calls.find((call) => call.op === "upsert" && call.table === "days");
+  assert.equal(dayWrite.payload.backup_unit, 50);
+  assert.equal(dayWrite.payload.fresh_count, 2);
 });
 
 test("a 55000 automatic-ledger lock reloads that date but preserves unrelated dirty input", async () => {

@@ -6,6 +6,7 @@ export function bindRecordEvents(ctx) {
     currentRecordDraft,
     defaultEntryRows,
     ensurePendingSavesFlushed,
+    hasAutomaticEntries,
     hasEnteredCounts,
     isBackupDriver,
     refreshTotals,
@@ -38,7 +39,12 @@ export function bindRecordEvents(ctx) {
     const record = currentRecordDraft();
     record.off = false;
     const firstRate = isBackupDriver() ? state.rates[0] || state.defaultRates[0] : null;
-    record.rows.push({ route: firstRate?.route || "", count: "", unit: firstRate?.unit || 0, draft: !firstRate });
+    const automatic = hasAutomaticEntries(record);
+    const baseUnit = Number(firstRate?.unit || 0);
+    const backupUnit = isBackupDriver() ? Number(record.backupUnit || 0) : 0;
+    record.rows.push(automatic
+      ? { route: firstRate?.route || "", count: "", unit: baseUnit + backupUnit, source: "override", readOnly: true, draft: false }
+      : { route: firstRate?.route || "", count: "", unit: baseUnit, draft: !firstRate });
     renderEntryForm();
   });
   [el.freshCount, el.freshUnit, el.backupUnit].forEach((input) => input.addEventListener("input", () => {

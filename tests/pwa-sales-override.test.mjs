@@ -4,6 +4,7 @@ import test from "node:test";
 import vm from "node:vm";
 
 const main = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+const recordUi = readFileSync(new URL("../src/ui/record.js", import.meta.url), "utf8");
 const config = readFileSync(new URL("../src/config.js", import.meta.url), "utf8");
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
@@ -53,11 +54,11 @@ test("PWA config names the immutable-receipt detail and date override contracts"
   assert.match(config, /workResultRouteDetails:\s*"quickflex_work_result_route_details"/);
   assert.match(config, /automaticSalesOverrides:\s*"quickflex_automatic_sales_overrides"/);
   assert.match(config, /replaceAutomaticSalesOverride:\s*"quickflex_replace_automatic_sales_override"/);
-  assert.match(serviceWorker, /quickflex-shell-v1\.0\.34/);
-  assert.match(html, /src\/main\.js\?v=1\.0\.34/);
-  assert.match(html, /styles\.css\?v=1\.0\.34/);
-  assert.match(html, /퀵플렉스 매출관리 v1\.0\.34/);
-  assert.equal(JSON.parse(manifest).version, "1.0.34");
+  assert.match(serviceWorker, /quickflex-shell-v1\.0\.37/);
+  assert.match(html, /src\/main\.js\?v=1\.0\.37/);
+  assert.match(html, /styles\.css\?v=1\.0\.37/);
+  assert.match(html, /퀵플렉스 매출관리 v1\.0\.37/);
+  assert.equal(JSON.parse(manifest).version, "1.0.37");
 });
 
 test("override payload is a 1..100 row A/B-only full snapshot without household fields", () => {
@@ -214,7 +215,7 @@ test("RPC failure keeps the same editable draft and sends first revision zero wi
     salesOverrideReason: { value: "누락 수정" },
     salesOverrideRows: { querySelector: () => null },
   };
-  const { saveSalesOverride } = loadFunctions(["saveSalesOverride"], {
+  const { saveSalesOverride } = loadFunctions(["persistAutomaticSalesSnapshot", "saveSalesOverride"], {
     state,
     el,
     RPC: { replaceAutomaticSalesOverride: "replace-rpc" },
@@ -224,6 +225,9 @@ test("RPC failure keeps the same editable draft and sends first revision zero wi
     isAccountContextCurrent: () => true,
     staleAccountSaveError: () => new Error("stale"),
     makeSalesOverrideRequestId: () => "request-1",
+    automaticSalesOverrideResult: () => null,
+    fetchAutomaticSalesOverrides: async () => ({ rows: [] }),
+    normalizeAutomaticSalesOverride: (row) => row,
     renderSalesOverrideRows: () => {},
     setSalesOverrideStatus: (...args) => statuses.push(args),
     isOptionalSalesContractMissing: () => true,
@@ -240,9 +244,9 @@ test("RPC failure keeps the same editable draft and sends first revision zero wi
 });
 
 test("a late override refetch is account-guarded before writing UI state", () => {
-  const source = extractFunction("saveSalesOverride");
+  const source = extractFunction("persistAutomaticSalesSnapshot");
   const refetchAt = source.indexOf("await fetchAutomaticSalesOverrides");
-  const stateWriteAt = source.indexOf("state.automaticSalesOverrides[draft.dateKey] = snapshot");
+  const returnAt = source.indexOf("return snapshot");
   const postFetchGuardAt = source.indexOf(
     "if (!isAccountContextCurrent(context)) throw staleAccountSaveError();",
     refetchAt,
@@ -250,7 +254,7 @@ test("a late override refetch is account-guarded before writing UI state", () =>
 
   assert.ok(refetchAt >= 0, "override fallback refetch must exist");
   assert.ok(postFetchGuardAt > refetchAt, "account guard must run again after the awaited refetch");
-  assert.ok(stateWriteAt > postFetchGuardAt, "no replacement-account state may be written before that guard");
+  assert.ok(returnAt > postFetchGuardAt, "no replacement-account snapshot may be returned before that guard");
 });
 
 test("account reset clears every new sales surface and force-closes an open editor", () => {
@@ -266,7 +270,7 @@ test("account reset clears every new sales surface and force-closes an open edit
     salesOverrideContractAvailable: true, workRouteDetailsContractAvailable: true,
     salesOverrideDraft: { rows: [1] }, inspections: {}, inspectionSignature: "x", inspectionDate: "",
     inspectionDraft: {}, rateOfferPrompted: true, statsDetailDate: "x", adminStatsDetailUser: "x",
-    recordDraftDate: "x", recordDraft: {}, measurementDate: "x", measurementDateAuto: true,
+    recordDraftDate: "x", recordDraft: {}, recordDraftSalesRequestId: "request", recordDraftSalesPayload: "payload", measurementDate: "x", measurementDateAuto: true,
   };
   const el = {
     salesOverrideOverlay: { classList: { contains: () => true } },
@@ -294,10 +298,13 @@ test("account reset clears every new sales surface and force-closes an open edit
   assert.equal(state.salesOverrideContractAvailable, false);
   assert.equal(state.workRouteDetailsContractAvailable, false);
   assert.equal(state.salesOverrideDraft, null);
+  assert.equal(state.recordDraftSalesRequestId, "");
+  assert.equal(state.recordDraftSalesPayload, "");
 });
 
-test("sales editor exposes add/edit/delete controls, focus semantics, and a 360px-safe layout", () => {
-  assert.match(tagById("openSalesOverride"), /aria-haspopup="dialog"/);
+test("calendar sales correction opens the normal record editor while the fallback dialog stays accessible", () => {
+  assert.doesNotMatch(tagById("openSalesOverride"), /aria-haspopup="dialog"/);
+  assert.match(main, /openSalesOverride\?\.addEventListener[\s\S]*startRecordDraft\(state\.selectedDate\)[\s\S]*showView\("record"\)/);
   assert.match(tagById("salesOverrideOverlay"), /aria-hidden="true"/);
   assert.match(tagById("salesOverrideOverlay"), /\binert\b/);
   assert.match(tagById("salesOverrideDialog"), /role="dialog"/);
@@ -314,12 +321,126 @@ test("sales editor exposes add/edit/delete controls, focus semantics, and a 360p
   assert.match(css, /\.sales-override-card[\s\S]*overflow-x:\s*hidden/);
 });
 
-test("source keeps immutable receipt UI locked while exposing only the separate sales editor", () => {
+test("automatic receipt rows are normal editable rows and save through the override contract", () => {
+  const renderForm = extractFunction("renderEntryForm");
+  const renderRow = extractFunction("renderEntryRow");
+  const startDraft = extractFunction("startRecordDraft");
+  const saveRecord = extractFunction("saveCurrentRecordAndGoHome");
   assert.match(main, /state\.receiptEntries = entriesFromDb/);
   assert.match(main, /state\.entries = applyAutomaticSalesOverrides\(state\.receiptEntries/);
-  assert.match(main, /routeInput\.readOnly = automatic/);
-  assert.match(main, /\[routeInput, count, households, unit\][\s\S]*input\.disabled = true/);
+  assert.match(main, /routeInput\.readOnly = false/);
+  assert.doesNotMatch(renderRow, /input\.disabled = true/);
+  assert.doesNotMatch(renderRow, /🔒/);
   assert.match(main, /householdField\?\.classList\.add\("hidden"\)/);
-  assert.match(main, /p_routes:\s*payload\.routes/);
+  assert.match(renderForm, /el\.addRoute\.disabled = false/);
+  assert.match(renderForm, /el\.backupUnit\.disabled = false/);
+  assert.match(renderForm, /automaticRecordNotice\?\.classList\.add\("hidden"\)/);
+  assert.match(recordUi, /source:\s*"override",\s*readOnly:\s*true/);
+  assert.match(startDraft, /seedSalesOverrideRows/);
+  assert.match(saveRecord, /persistAutomaticSalesSnapshot/);
+  assert.doesNotMatch(startDraft, /todayKey\s*\(/, "past automatic dates must use the same editable draft path");
+  assert.doesNotMatch(saveRecord, /todayKey\s*\(/, "past automatic dates must use the same save path");
+  assert.match(extractFunction("persistAutomaticSalesSnapshot"), /p_routes:\s*payload\.routes/);
   assert.doesNotMatch(extractFunction("saveSalesOverride"), /household/i);
+});
+
+test("leaving an unchanged automatic route field preserves its historical unit", () => {
+  const renderRow = extractFunction("renderEntryRow");
+  const blurStart = renderRow.indexOf('routeInput.addEventListener("blur"');
+  const countStart = renderRow.indexOf('count.addEventListener("input"', blurStart);
+  assert.ok(blurStart >= 0 && countStart > blurStart, "route blur handler must be present");
+  const blurHandler = renderRow.slice(blurStart, countStart);
+  assert.doesNotMatch(blurHandler, /autoUnitForRoutes/, "blur alone must not replace an old unit with today's default rate");
+  assert.match(blurHandler, /displayedRouteUnit\(current, current\.rows\[index\]\)/);
+});
+
+test("normal record save keeps one request id across a day-field failure and retry", async () => {
+  const draft = {
+    off: false,
+    automaticWorks: [{ workId: "work-1" }],
+    rows: [{ route: "324C", count: 10, unit: 1050, source: "override", readOnly: true }],
+    backupUnit: 50,
+  };
+  const state = {
+    selectedDate: "2026-08-27",
+    db: {},
+    automaticSalesOverrides: { "2026-08-27": { revision: 1 } },
+    recordDraftSalesRequestId: "",
+    recordDraftSalesPayload: "",
+  };
+  const overrideCalls = [];
+  let flushAttempts = 0;
+  let commits = 0;
+  const toasts = [];
+  const { saveCurrentRecordAndGoHome } = loadFunctions(["saveCurrentRecordAndGoHome"], {
+    state,
+    syncFormToRecord: () => draft,
+    hasAutomaticEntries: () => true,
+    currentUserId: () => "u1",
+    captureAccountContext: () => ({ userId: "u1", epoch: 1 }),
+    automaticSalesRequestFingerprint: () => "same-payload",
+    makeSalesOverrideRequestId: () => "request-stable",
+    persistAutomaticSalesSnapshot: async (args) => {
+      overrideCalls.push(args);
+      return { work_date: args.dateKey, revision: 2, routes: [] };
+    },
+    applyAutomaticSalesSnapshot: () => {},
+    commitRecordDraft: () => { commits += 1; },
+    scheduleSave: () => {},
+    ensurePendingSavesFlushed: async () => {
+      flushAttempts += 1;
+      if (flushAttempts === 1) throw new Error("day upsert failed");
+    },
+    renderAll: () => {},
+    showView: () => {},
+    toast: (...args) => toasts.push(args),
+  });
+
+  assert.equal(await saveCurrentRecordAndGoHome(), false);
+  assert.equal(state.recordDraftSalesRequestId, "request-stable");
+  assert.equal(state.recordDraftSalesPayload, "same-payload");
+  assert.equal(commits, 0, "the editable draft stays open until date extras persist");
+
+  assert.equal(await saveCurrentRecordAndGoHome(), true);
+  assert.deepEqual(overrideCalls.map((call) => call.requestId), ["request-stable", "request-stable"]);
+  assert.equal(commits, 1);
+  assert.equal(toasts.some(([message]) => String(message).includes("day upsert failed")), true);
+});
+
+test("normal record save preserves the draft and id on an override revision conflict", async () => {
+  const state = {
+    selectedDate: "2026-08-27",
+    db: {},
+    automaticSalesOverrides: { "2026-08-27": { revision: 3 } },
+    recordDraftSalesRequestId: "",
+    recordDraftSalesPayload: "",
+  };
+  let commits = 0;
+  const toasts = [];
+  const { saveCurrentRecordAndGoHome } = loadFunctions(["saveCurrentRecordAndGoHome"], {
+    state,
+    syncFormToRecord: () => ({ automaticWorks: [{ workId: "work-1" }], rows: [{ route: "324D", count: 8, unit: 1100 }] }),
+    hasAutomaticEntries: () => true,
+    currentUserId: () => "u1",
+    captureAccountContext: () => ({ userId: "u1", epoch: 1 }),
+    automaticSalesRequestFingerprint: () => "conflicting-payload",
+    makeSalesOverrideRequestId: () => "request-conflict",
+    persistAutomaticSalesSnapshot: async () => {
+      const error = new Error("automatic sales override revision conflict");
+      error.code = "40001";
+      throw error;
+    },
+    applyAutomaticSalesSnapshot: () => {},
+    commitRecordDraft: () => { commits += 1; },
+    scheduleSave: () => {},
+    ensurePendingSavesFlushed: async () => {},
+    renderAll: () => {},
+    showView: () => {},
+    toast: (...args) => toasts.push(args),
+  });
+
+  assert.equal(await saveCurrentRecordAndGoHome(), false);
+  assert.equal(state.recordDraftSalesRequestId, "request-conflict");
+  assert.equal(commits, 0);
+  assert.equal(toasts.at(-1)[0].includes("다른 기기"), true);
 });

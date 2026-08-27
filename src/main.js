@@ -13,7 +13,7 @@ import {
   RPC,
   SAMPLE_SETTLEMENT,
   TABLES,
-} from "./config.js?v=8";
+} from "./config.js?v=9";
 import {
   addDays,
   formatLong,
@@ -34,13 +34,19 @@ import {
   routeListFromText,
   splitStoredRoutes,
 } from "./lib/route.js";
+import {
+  MAX_CUSTOM_RANGE_DAYS,
+  buildStatsReport,
+  dateRangeDayCount,
+} from "./lib/stats-report.js";
 import { bindAdminEvents } from "./ui/admin.js";
 import { bindAuthEvents } from "./services/auth.js";
 import { mergeDefaultRouteMaster, ratesFromDb } from "./services/db.js";
+import { fetchUsageSummary, trackUsageEvent } from "./services/usage.js";
 import { bindCalendarEvents } from "./ui/calendar.js";
 import { bindInspectionEvents } from "./ui/inspection.js";
 import { bindOcrEvents } from "./ui/ocr.js";
-import { bindRecordEvents } from "./ui/record.js";
+import { bindRecordEvents } from "./ui/record.js?v=2";
 import { bindSettingsEvents } from "./ui/settings.js?v=2";
 import { bindStatsEvents } from "./ui/stats.js";
 
@@ -170,6 +176,8 @@ const state = {
   mode: "amount",
   statsYear: initialPeriodDate.getFullYear(),
   statsMonth: initialPeriodDate.getMonth() + 1,
+  adminYear: initialPeriodDate.getFullYear(),
+  adminMonth: initialPeriodDate.getMonth() + 1,
   statsDetailDate: "",
   adminStatsDetailUser: "",
   adminTab: "summary",
@@ -198,6 +206,8 @@ const state = {
   rateOfferPrompted: false,
   recordDraftDate: "",
   recordDraft: null,
+  recordDraftSalesRequestId: "",
+  recordDraftSalesPayload: "",
   measurementDate: "",
   measurementDateAuto: false,
   statsRangeMode: "thisMonth",
@@ -208,6 +218,20 @@ const state = {
     catch (_) { return {}; }
   })(),
 };
+
+function currentSettlementPeriod(date = new Date()) {
+  const settlementMonth = date.getDate() <= 25 ? date.getMonth() + 1 : date.getMonth() + 2;
+  const anchor = new Date(date.getFullYear(), settlementMonth - 1, 1);
+  return { year: anchor.getFullYear(), month: anchor.getMonth() + 1 };
+}
+
+function syncStatsToCurrentPeriod() {
+  const current = currentSettlementPeriod();
+  const changed = state.statsYear !== current.year || state.statsMonth !== current.month;
+  state.statsYear = current.year;
+  state.statsMonth = current.month;
+  return changed;
+}
 
 let ocrDraftMap = null;
 let toastTimer = null;
@@ -221,6 +245,25 @@ let accountEpoch = 0;
 let authEventEpoch = 0;
 let activeAccountId = "";
 let nativeSessionRevision = 0;
+const usageSessionTrackedUsers = new Set();
+
+function queueUsageEvent(eventName, properties = {}) {
+  const expectedUserId = String(state.session?.user?.id || "");
+  if (!state.db || state.profile?.status !== "approved" || !expectedUserId) return;
+  void trackUsageEvent(state.db, eventName, properties, { expectedUserId });
+}
+
+function trackApprovedSessionStart() {
+  const userId = String(state.session?.user?.id || "");
+  if (!userId || usageSessionTrackedUsers.has(userId)) return;
+  usageSessionTrackedUsers.add(userId);
+  queueUsageEvent("app_session_started");
+  queueUsageEvent("screen_viewed", { screen: el.app?.dataset.view || "home" });
+}
+
+function trackStatsControl(control) {
+  queueUsageEvent("stats_control_used", { control });
+}
 
 function sessionUserId(session) {
   return String(session?.user?.id || "");
@@ -453,9 +496,17 @@ const el = {
   openPaceApp: $("openPaceApp"),
   statsMonthTitle: $("statsMonthTitle"),
   statsRange: $("statsRange"),
+  statsReportTitle: $("statsReportTitle"),
+  statsHeroLabel: $("statsHeroLabel"),
   statsSummaryRange: $("statsSummaryRange"),
   statsSummaryTotal: $("statsSummaryTotal"),
+  statsComparison: $("statsComparison"),
+  statsCompareLabel: $("statsCompareLabel"),
+  statsCompareValue: $("statsCompareValue"),
+  statsCompareMeta: $("statsCompareMeta"),
   statsRevenue: $("statsRevenue"),
+  statsRevenueTotal: $("statsRevenueTotal"),
+  statsGoalMeter: $("statsGoalMeter"),
   statsMeterFill: $("statsMeterFill"),
   statsMeterPct: $("statsMeterPct"),
   statsMeterLabel: $("statsMeterLabel"),
@@ -468,6 +519,8 @@ const el = {
   statsChartSummary: $("statsChartSummary"),
   statsChartTooltip: $("statsChartTooltip"),
   statsChartToggle: $("statsChartToggle"),
+  statsChartEmpty: $("statsChartEmpty"),
+  statsTrendTitle: $("statsTrendTitle"),
   routeStats: $("routeStats"),
   revenueList: $("revenueList"),
   statsAvgCount: $("statsAvgCount"),
@@ -487,6 +540,7 @@ const el = {
   adminRange: $("adminRange"),
   adminPrevMonth: $("adminPrevMonth"),
   adminNextMonth: $("adminNextMonth"),
+  adminUsageSummary: $("adminUsageSummary"),
   adminRevenueList: $("adminRevenueList"),
   adminRouteList: $("adminRouteList"),
   adminBundleLabel: $("adminBundleLabel"),
@@ -603,9 +657,6 @@ function syncModalBackground() {
     child.toggleAttribute("inert", Boolean(active));
   });
   el.openDbSettings?.setAttribute("aria-expanded", String(active === el.dbSheet));
-  [el.openSalesOverride, el.openSalesOverrideFromRecord].filter(Boolean).forEach((button) => {
-    button.setAttribute("aria-expanded", String(active === el.salesOverrideOverlay));
-  });
 }
 
 function updateModalLayer(layer, open, initialFocus) {
@@ -842,6 +893,8 @@ function clearUserScopedState() {
   state.adminStatsDetailUser = "";
   state.recordDraftDate = "";
   state.recordDraft = null;
+  state.recordDraftSalesRequestId = "";
+  state.recordDraftSalesPayload = "";
   state.measurementDate = "";
   state.measurementDateAuto = false;
   ocrDraftMap = null;
@@ -996,6 +1049,13 @@ function salesOverridePayload(rows) {
   });
   return { issues: [...new Set(issues)], routes };
 }
+function automaticSalesRequestFingerprint(rows) {
+  const payload = salesOverridePayload(rows);
+  if (payload.issues.length) return JSON.stringify({ invalid: payload.issues, rows });
+  return JSON.stringify(payload.routes
+    .map((row) => ({ ...row }))
+    .sort((left, right) => left.route.localeCompare(right.route)));
+}
 function normalizeAutomaticSalesOverride(row) {
   if (!row || typeof row !== "object") return null;
   const workDate = String(row.work_date || "");
@@ -1138,6 +1198,18 @@ function cloneRecord(record) {
 function startRecordDraft(dateKey = state.selectedDate) {
   state.recordDraftDate = dateKey;
   state.recordDraft = cloneRecord(getRecord(dateKey, false));
+  if (hasAutomaticEntries(state.recordDraft)) {
+    const snapshot = hasAutomaticSalesOverride(dateKey) ? state.automaticSalesOverrides[dateKey] : null;
+    const seed = seedSalesOverrideRows(dateKey, snapshot);
+    state.recordDraft.rows = seed.rows.map((row) => ({
+      ...row,
+      households: "",
+      source: "override",
+      readOnly: true,
+    }));
+  }
+  state.recordDraftSalesRequestId = "";
+  state.recordDraftSalesPayload = "";
   return state.recordDraft;
 }
 function currentRecordDraft() {
@@ -1147,6 +1219,8 @@ function currentRecordDraft() {
 function discardRecordDraft() {
   state.recordDraftDate = "";
   state.recordDraft = null;
+  state.recordDraftSalesRequestId = "";
+  state.recordDraftSalesPayload = "";
 }
 function commitRecordDraft() {
   if (!state.recordDraft || !state.recordDraftDate) return;
@@ -1280,24 +1354,28 @@ function effectiveUnit(row) {
 }
 function calcRecordDetails(record) {
   const rec = normalizeRecordShape(record);
-  if (rec.off) return { count: 0, routeRevenue: 0, freshCount: 0, freshUnit: toNum(defaultFreshUnit(rec.freshUnit)), freshRevenue: 0, backupUnit: toNum(defaultBackupUnit(rec.backupUnit)), backupRevenue: 0, revenue: 0 };
+  if (rec.off) return { count: 0, routeRevenue: 0, freshCount: 0, freshUnit: toNum(defaultFreshUnit(rec.freshUnit)), freshRevenue: 0, backupUnit: toNum(defaultBackupUnit(rec.backupUnit)), backupRevenue: 0, backupRevenueIncluded: 0, backupRevenueAdditive: 0, revenue: 0 };
   const routeTotal = rec.rows.reduce((sum, row) => {
     const count = toNum(row.count);
+    const automatic = isAutomaticRow(row);
     return {
       count: sum.count + count,
-      manualCount: sum.manualCount + (isAutomaticRow(row) ? 0 : count),
+      manualCount: sum.manualCount + (automatic ? 0 : count),
+      automaticCount: sum.automaticCount + (automatic ? count : 0),
       revenue: sum.revenue + count * effectiveUnit(row),
     };
-  }, { count: 0, manualCount: 0, revenue: 0 });
+  }, { count: 0, manualCount: 0, automaticCount: 0, revenue: 0 });
   const isDual = freshbagMode() === "dual";
   const freshCount = isDual ? toNum(rec.freshSoloCount) + toNum(rec.freshLinkedCount) : toNum(rec.freshCount);
   const freshUnit = isDual ? 0 : toNum(defaultFreshUnit(rec.freshUnit));
   const freshRevenue = isDual ? toNum(rec.freshSoloCount) * 200 + toNum(rec.freshLinkedCount) * 100 : freshCount * freshUnit;
-  // Android 자동 마감 원장은 route별 unit_snapshot만으로 매출을 확정한다.
-  // 현재 프로필의 기사 유형이나 백업 가산 단가를 과거 자동 기록에 적용하지 않는다.
-  const backupApplies = rec.driverType === "backup" && routeTotal.manualCount > 0;
+  // Android 자동 마감 unit_snapshot에는 마감 당시 백업단가가 이미 포함되어 있다.
+  // 자동행은 저장 전에 unit_snapshot 자체를 백업단가 증감분만큼 조정하므로 여기서 다시 더하지 않는다.
+  const backupApplies = rec.driverType === "backup" && routeTotal.count > 0;
   const backupUnit = backupApplies ? toNum(defaultBackupUnit(rec.backupUnit)) : 0;
-  const backupRevenue = backupApplies ? routeTotal.manualCount * backupUnit : 0;
+  const backupRevenueIncluded = routeTotal.automaticCount * backupUnit;
+  const backupRevenueAdditive = routeTotal.manualCount * backupUnit;
+  const backupRevenue = backupRevenueIncluded + backupRevenueAdditive;
   return {
     count: routeTotal.count,
     routeRevenue: routeTotal.revenue,
@@ -1306,7 +1384,9 @@ function calcRecordDetails(record) {
     freshRevenue,
     backupUnit,
     backupRevenue,
-    revenue: routeTotal.revenue + freshRevenue + backupRevenue,
+    backupRevenueIncluded,
+    backupRevenueAdditive,
+    revenue: routeTotal.revenue + freshRevenue + backupRevenueAdditive,
   };
 }
 function calcRecord(record) {
@@ -1319,10 +1399,11 @@ function recordRouteAggregates(record) {
   const rec = normalizeRecordShape(record);
   const out = new Map();
   if (rec.off) return out;
+  const automaticBackupUnit = rec.driverType === "backup" ? toNum(defaultBackupUnit(rec.backupUnit)) : 0;
   rec.rows.forEach((row) => {
     splitStoredRoutes(row.route).forEach((r) => {
       const count = toNum(row.count);
-      const unit = effectiveUnit(row);
+      const unit = Math.max(0, effectiveUnit(row) - (isAutomaticRow(row) ? automaticBackupUnit : 0));
       const share = splitStoredRoutes(row.route).length || 1;
       const entry = out.get(r) || { count: 0, revenue: 0 };
       entry.count += count / share;
@@ -1806,6 +1887,7 @@ async function bootSignedInUser(context = captureAccountContext()) {
     if (!await loadFromDb(context) || !isAccountContextCurrent(context)) return false;
     renderAll();
     showAuth(false);
+    trackApprovedSessionStart();
     await maybeOfferRateUpdate(context);
     if (!isAccountContextCurrent(context)) return false;
     if (state.profile?.role === "admin" && el.app.dataset.view === "admin") await renderAdminDashboard();
@@ -2600,9 +2682,11 @@ async function persistDay(dateKey, context = captureAccountContext()) {
     // 원장 헤더를 다시 확인하고, 그래도 경합하면 DB trigger(55000)가 마지막으로 막는다.
     if (!await assertManualDateUnlocked()) return false;
   }
-  const { error: deleteItemsError } = await state.db.from(TABLES.items).delete().eq("user_id", userId).eq("work_date", dateKey);
-  if (!isAccountContextCurrent(context)) return false;
-  if (deleteItemsError) throw deleteItemsError;
+  if (!hasAutomatic) {
+    const { error: deleteItemsError } = await state.db.from(TABLES.items).delete().eq("user_id", userId).eq("work_date", dateKey);
+    if (!isAccountContextCurrent(context)) return false;
+    if (deleteItemsError) throw deleteItemsError;
+  }
   if (!hasMeaningfulRecord(editableRec) && !hasAutomatic) {
     const { error: deleteDayError } = await state.db.from(TABLES.days).delete().eq("user_id", userId).eq("work_date", dateKey);
     if (!isAccountContextCurrent(context)) return false;
@@ -2637,7 +2721,7 @@ async function persistDay(dateKey, context = captureAccountContext()) {
       sort_order: index,
       updated_at: new Date().toISOString(),
     }));
-  if (itemPayload.length) {
+  if (!hasAutomatic && itemPayload.length) {
     const { error: itemError } = await state.db.from(TABLES.items).insert(itemPayload);
     if (!isAccountContextCurrent(context)) return false;
     if (itemError) throw itemError;
@@ -2700,12 +2784,12 @@ async function recoverAutomaticLedgerLock(error) {
     renderAll();
     error.quickflexHandled = true;
     error.quickflexReported = true;
-    toast(`${dateKey ? `${formatLongShort(dateKey)} ` : ""}앱 자동 마감 기록이 확인되어 최신 원장으로 다시 불러왔습니다. 구역·건수·단가는 읽기 전용입니다.`, "error");
+    toast(`${dateKey ? `${formatLongShort(dateKey)} ` : ""}업무 종료 기록을 최신 상태로 다시 불러왔습니다. 기록 화면에서 수정할 수 있습니다.`, "error");
   } catch (reloadError) {
     error.quickflexHandled = true;
     error.quickflexReported = true;
     error.quickflexReloadError = reloadError;
-    toast(`앱 자동 마감 기록으로 수동 저장이 잠겼지만 최신 원장을 다시 불러오지 못했습니다: ${reloadError.message}`, "error");
+    toast(`업무 종료 기록을 최신 상태로 다시 불러오지 못했습니다: ${reloadError.message}`, "error");
   }
 }
 async function flushSaves() {
@@ -3035,6 +3119,7 @@ async function saveInspectionMonthPdf() {
 
 function showView(view) {
   if (view === "admin" && state.profile?.role !== "admin") view = "home";
+  const previousView = el.app.dataset.view || "home";
   el.app.dataset.view = view;
   el.navTabs.forEach((tab) => {
     const selected = tab.dataset.view === view;
@@ -3049,12 +3134,60 @@ function showView(view) {
     renderMeasurementBridge();
   }
   if (view === "inspection") renderInspection(state.inspectionDate);
-  if (view === "stats") renderStats();
+  if (view === "stats") {
+    if (state.statsRangeMode !== "custom") syncStatsToCurrentPeriod();
+    renderStats();
+  }
   if (view === "admin") renderAdminDashboard();
   if (view === "settings") {
     renderRates();
   }
+  if (view !== previousView) queueUsageEvent("screen_viewed", { screen: view });
 }
+
+function nativeBackAction({ dbSheetOpen = false, salesOverrideOpen = false, blockingModalOpen = false, view = "home" } = {}) {
+  if (dbSheetOpen) return "close-db-sheet";
+  if (salesOverrideOpen) return "close-sales-override";
+  if (blockingModalOpen) return "unhandled";
+  if (view === "record") return "leave-record";
+  if (["inspection", "measurement", "stats", "settings", "admin"].includes(view)) return "go-home";
+  return "unhandled";
+}
+
+function quickflexHandleNativeBack() {
+  const action = nativeBackAction({
+    dbSheetOpen: Boolean(el.dbSheet?.classList.contains("open")),
+    salesOverrideOpen: Boolean(el.salesOverrideOverlay?.classList.contains("visible")),
+    blockingModalOpen: [el.setupOverlay, el.authOverlay, el.pendingOverlay]
+      .some((layer) => Boolean(layer && modalLayerIsOpen(layer))),
+    view: el.app?.dataset.view || "home",
+  });
+  if (action === "close-db-sheet") {
+    closeSheet();
+    return "handled";
+  }
+  if (action === "close-sales-override") {
+    closeSalesOverride();
+    return "handled";
+  }
+  if (action === "leave-record") {
+    if (typeof el.backToCalendar?.click === "function") el.backToCalendar.click();
+    else {
+      discardRecordDraft();
+      renderAll();
+      showView("home");
+    }
+    return "handled";
+  }
+  if (action === "go-home") {
+    showView("home");
+    return "handled";
+  }
+  return "unhandled";
+}
+
+window.quickflexHandleNativeBack = quickflexHandleNativeBack;
+
 function defaultMeasurementWorkDate() {
   if (!isNightShift() || state.selectedDate !== todayKey()) return state.selectedDate;
   return addDays(state.selectedDate, 1);
@@ -3076,7 +3209,7 @@ function renderMeasurementBridge() {
       : `${formatMonthDay(workDate)} 근무표 자동 입력`;
   }
   el.measurementRouteHint.textContent = automatic
-    ? `앱 자동 마감 · 완료 ${households}가구 · 구역·건수·단가는 읽기 전용입니다.`
+    ? `완료 ${households}가구 · 반영된 매출은 기록 화면에서 수정할 수 있습니다.`
     : households > 0
       ? `기존 수동 가구수 ${households}가구 · 측정 종료는 페이스 구간만 저장합니다.`
       : isNightShift()
@@ -3272,7 +3405,6 @@ function renderSelectedDateBreakdown(record) {
   const automatic = hasAutomaticEntries(record);
   el.selectedDateBreakdown.classList.toggle("hidden", !automatic);
   if (!automatic) return;
-  const override = hasAutomaticSalesOverride(state.selectedDate) ? state.automaticSalesOverrides[state.selectedDate] : null;
   const model = selectedDateSalesBreakdown(record, state.workRouteDetails[state.selectedDate]);
   el.selectedDateBreakdownTitle.textContent = `${formatMonthDay(state.selectedDate)} 구역별 매출`;
   el.selectedDateBreakdownRows.innerHTML = model.rows.length ? model.rows.map((row) => {
@@ -3291,16 +3423,13 @@ function renderSelectedDateBreakdown(record) {
     </article>`;
   }).join("") : `<div class="selected-detail-empty">매출 상품수가 0개로 보정되어 있습니다.</div>`;
   const notes = [
-    override ? `매출 수정본 r${override.revision} 적용 중 · 자동기록 원본은 보존됩니다.` : "자동기록 원본 기준 매출입니다.",
     "가구 관련 참고값은 앱 버전별 의미가 달라 매출 계산·검증에 쓰지 않으며, 상품수만 매출 기준입니다.",
     "이전 앱에서 마감한 날짜는 A01/A02 세부구역 기록이 없을 수 있습니다.",
   ];
   if (!state.workRouteDetailsContractAvailable) notes.push("세부구역 조회 서버 업데이트가 아직 적용되지 않았습니다.");
   if (model.invalidDetailRows) notes.push(`형식이 올바르지 않은 세부구역 ${model.invalidDetailRows}행은 표시하지 않았습니다.`);
   el.selectedDateBreakdownNote.textContent = notes.join(" ");
-  el.openSalesOverride.title = state.salesOverrideContractAvailable
-    ? "이 날짜의 A/B 상품수와 단가를 수정합니다."
-    : "수정 화면은 열 수 있지만 저장하려면 서버 업데이트가 필요합니다.";
+  el.openSalesOverride.title = "이 날짜의 기록을 수정합니다.";
 }
 function renderHomeSelection() {
   const record = getRecord(state.selectedDate, false);
@@ -3348,13 +3477,6 @@ function routeOptions(selected) {
   if (!isBackupDriver()) fixedRoutes().forEach((route) => optionRoutes.add(route));
   return [...optionRoutes].sort().map((route) => `<option value="${route}"${selectedRoutes[0] === route ? " selected" : ""}>${route}</option>`).join("");
 }
-function automaticWorkLabel(row) {
-  if (row.source === "override") return `매출 수정 · 수정본 r${row.overrideRevision || 0}`;
-  const shift = row.workShift === "night" ? "야간" : "주간";
-  const workId = String(row.workId || "");
-  const shortWorkId = workId.length > 14 ? `${workId.slice(0, 8)}…${workId.slice(-4)}` : workId || "식별자 없음";
-  return `앱 자동 기록 · ${shift} · 업무 ${shortWorkId}`;
-}
 function renderEntryForm() {
   const existed = Boolean(state.entries[state.selectedDate]);
   let record = currentRecordDraft();
@@ -3368,15 +3490,10 @@ function renderEntryForm() {
   el.offToggle.checked = record.off;
   el.offToggle.disabled = automatic;
   el.offToggle.title = automatic ? "앱 자동 기록이 있는 날짜는 휴무로 바꿀 수 없습니다." : "";
-  el.offToggle.closest(".off-toggle")?.classList.toggle("is-locked", automatic);
-  el.addRoute.disabled = automatic;
-  el.addRoute.title = automatic ? "앱 자동 마감 기록이 있는 날짜에는 수동 구역을 추가할 수 없습니다." : "";
-  el.automaticRecordNotice?.classList.toggle("hidden", !automatic);
-  if (el.openSalesOverrideFromRecord) {
-    el.openSalesOverrideFromRecord.title = state.salesOverrideContractAvailable
-      ? "자동기록 원본을 보존하고 이 날짜의 A/B 매출만 수정합니다."
-      : "수정 화면은 열 수 있지만 저장하려면 서버 업데이트가 필요합니다.";
-  }
+  el.offToggle.closest(".off-toggle")?.classList.remove("is-locked");
+  el.addRoute.disabled = false;
+  el.addRoute.title = "";
+  el.automaticRecordNotice?.classList.add("hidden");
   el.entryRows.innerHTML = "";
   record.rows.forEach((row, index) => renderEntryRow(row, index));
   const defaultRows = defaultEntryRows();
@@ -3391,14 +3508,25 @@ function renderEntryForm() {
   el.freshUnit.value = defaultFreshUnit(record.freshUnit);
   el.freshSoloCount.value = record.freshSoloCount || "";
   el.freshLinkedCount.value = record.freshLinkedCount || "";
-  el.backupUnit.value = automatic ? 0 : defaultBackupUnit(record.backupUnit);
-  el.backupUnit.disabled = automatic;
-  el.backupUnit.title = automatic ? "백업수당은 앱 자동 마감 단가에 이미 포함되어 별도로 더하지 않습니다." : "";
+  el.backupUnit.value = defaultBackupUnit(record.backupUnit);
+  el.backupUnit.disabled = false;
+  el.backupUnit.title = "이 날짜의 백업단가입니다.";
   refreshTotals();
+}
+function displayedRouteUnit(record, row) {
+  const storedUnit = effectiveUnit(row);
+  if (!isAutomaticRow(row) || record.driverType !== "backup") return storedUnit;
+  return Math.max(0, storedUnit - toNum(defaultBackupUnit(record.backupUnit)));
+}
+function storedRouteUnit(record, row, displayedUnit) {
+  const baseUnit = Math.max(0, toNum(displayedUnit));
+  if (!isAutomaticRow(row) || record.driverType !== "backup") return baseUnit;
+  return baseUnit + toNum(defaultBackupUnit(record.backupUnit));
 }
 function renderEntryRow(row, index) {
   const node = el.entryTemplate.content.firstElementChild.cloneNode(true);
   const automatic = isAutomaticRow(row);
+  const record = currentRecordDraft();
   const routeInput = node.querySelector(".route");
   const count = node.querySelector(".count");
   const households = node.querySelector(".households");
@@ -3407,49 +3535,24 @@ function renderEntryRow(row, index) {
   const output = node.querySelector("output");
   const del = node.querySelector(".del-btn");
   routeInput.value = formatRouteLabel(row.route);
-  routeInput.readOnly = automatic;
+  routeInput.readOnly = false;
   count.value = row.count ?? "";
   households.value = row.households ?? "";
-  unit.value = automatic ? (row.unit ?? 0) : (row.unit || sharedRateForRoutes(row.route) || "");
+  unit.value = displayedRouteUnit(record, row) || "";
   unit.title = "이 날짜에만 적용되는 단가입니다. 기본 단가는 바뀌지 않습니다.";
   unit.setAttribute("aria-label", "이 날짜 단가");
   output.textContent = fmtWon(toNum(count.value) * toNum(unit.value));
   del.style.visibility = "visible";
-  if (automatic) {
-    const override = row.source === "override";
-    const badge = document.createElement("div");
-    badge.className = "automatic-record-badge";
-    badge.textContent = automaticWorkLabel(row);
-    badge.title = override
-      ? "적용 중인 날짜별 매출 수정본 · 이 화면에서는 읽기 전용"
-      : row.workId ? `읽기 전용 자동 기록 · ${row.workId}` : "읽기 전용 자동 기록";
-    node.classList.add("is-automatic");
-    node.dataset.workId = row.workId || "";
-    [routeInput, count, households, unit].forEach((input) => {
-      input.disabled = true;
-      input.setAttribute("aria-label", `${input.getAttribute("aria-label") || "기록"} · 앱 자동 기록 읽기 전용`);
-    });
-    householdField?.classList.add("hidden");
-    unit.title = override
-      ? "적용 중인 날짜별 매출 수정 단가입니다. 매출 수정 화면에서 바꿀 수 있습니다."
-      : "앱이 마감한 원본 단가이며 이 화면에서는 수정할 수 없습니다.";
-    del.disabled = true;
-    del.textContent = "🔒";
-    del.setAttribute("aria-label", "이 화면에서는 자동 매출행을 삭제할 수 없습니다");
-    del.title = "A/B 매출 수정 화면에서 행을 추가하거나 삭제할 수 있습니다.";
-    node.prepend(badge);
-    el.entryRows.appendChild(node);
-    return;
-  }
+  if (automatic) householdField?.classList.add("hidden");
   routeInput.addEventListener("input", () => {
     routeInput.value = routeInput.value.toUpperCase();
     const expanded = expandRouteText(routeInput.value);
     const joined = joinStoredRoutes(expanded);
-    const record = currentRecordDraft();
-    record.rows[index].route = joined || routeInput.value;
-    record.rows[index].draft = !joined;
+    const current = currentRecordDraft();
+    current.rows[index].route = joined || routeInput.value;
+    current.rows[index].draft = automatic ? false : !joined;
     const autoUnit = autoUnitForRoutes(joined || expanded);
-    record.rows[index].unit = autoUnit;
+    current.rows[index].unit = storedRouteUnit(current, current.rows[index], autoUnit);
     unit.value = autoUnit || "";
     output.textContent = fmtWon(toNum(count.value) * autoUnit);
     refreshTotals();
@@ -3457,33 +3560,32 @@ function renderEntryRow(row, index) {
   routeInput.addEventListener("blur", () => {
     const expanded = expandRouteText(routeInput.value);
     const joined = joinStoredRoutes(expanded);
-    const record = currentRecordDraft();
-    record.rows[index].route = joined || routeInput.value;
-    record.rows[index].draft = !joined;
+    const current = currentRecordDraft();
+    current.rows[index].route = joined || routeInput.value;
+    current.rows[index].draft = automatic ? false : !joined;
     routeInput.value = joined ? formatRouteLabel(joined) : routeInput.value.trim().toUpperCase();
-    const autoUnit = autoUnitForRoutes(joined || expanded);
-    record.rows[index].unit = autoUnit;
-    unit.value = autoUnit || "";
-    output.textContent = fmtWon(toNum(count.value) * autoUnit);
+    const displayedUnit = displayedRouteUnit(current, current.rows[index]);
+    unit.value = displayedUnit || "";
+    output.textContent = fmtWon(toNum(count.value) * displayedUnit);
     refreshTotals();
   });
   count.addEventListener("input", () => {
-    const record = currentRecordDraft();
-    record.rows[index].count = count.value;
+    const current = currentRecordDraft();
+    current.rows[index].count = count.value;
     refreshTotals();
   });
   households.addEventListener("input", () => {
-    const record = currentRecordDraft();
-    record.rows[index].households = households.value;
+    const current = currentRecordDraft();
+    current.rows[index].households = households.value;
   });
   unit.addEventListener("input", () => {
-    const record = currentRecordDraft();
-    record.rows[index].unit = unit.value;
+    const current = currentRecordDraft();
+    current.rows[index].unit = storedRouteUnit(current, current.rows[index], unit.value);
     refreshTotals();
   });
   del.addEventListener("click", () => {
-    const record = currentRecordDraft();
-    record.rows.splice(index, 1);
+    const current = currentRecordDraft();
+    current.rows.splice(index, 1);
     renderEntryForm();
     refreshTotals();
   });
@@ -3495,7 +3597,15 @@ function syncFormToRecord() {
   record.freshUnit = el.freshUnit.value;
   record.freshSoloCount = el.freshSoloCount.value;
   record.freshLinkedCount = el.freshLinkedCount.value;
-  record.backupUnit = isBackupDriver() ? el.backupUnit.value : 0;
+  const nextBackupUnit = isBackupDriver() ? toNum(defaultBackupUnit(el.backupUnit.value)) : 0;
+  const previousBackupUnit = isBackupDriver() ? toNum(defaultBackupUnit(record.backupUnit)) : 0;
+  if (hasAutomaticEntries(record) && nextBackupUnit !== previousBackupUnit) {
+    const delta = nextBackupUnit - previousBackupUnit;
+    record.rows.filter(isAutomaticRow).forEach((row) => {
+      row.unit = Math.max(0, effectiveUnit(row) + delta);
+    });
+  }
+  record.backupUnit = nextBackupUnit;
   return record;
 }
 function refreshTotals() {
@@ -3503,9 +3613,9 @@ function refreshTotals() {
   const details = calcRecordDetails(record);
   el.entryRows.querySelectorAll(".entry-row").forEach((node, index) => {
     const row = record.rows[index];
-    node.querySelector("output").textContent = fmtWon(toNum(row?.count) * effectiveUnit(row || {}));
+    node.querySelector("output").textContent = fmtWon(toNum(row?.count) * displayedRouteUnit(record, row || {}));
     const unitInput = node.querySelector(".unit");
-    if (!toNum(unitInput.value) && row?.unit) unitInput.value = row.unit;
+    if (!toNum(unitInput.value) && row?.unit) unitInput.value = displayedRouteUnit(record, row);
   });
   el.freshRevenue.textContent = fmtWon(details.freshRevenue);
   el.freshDualRevenue.textContent = fmtWon(details.freshRevenue);
@@ -3517,9 +3627,41 @@ function refreshTotals() {
   renderHomeSelection();
 }
 async function saveCurrentRecordAndGoHome() {
-  syncFormToRecord();
-  commitRecordDraft();
-  scheduleSave({ dateKeys: [state.selectedDate], immediate: true });
+  const draft = syncFormToRecord();
+  const dateKey = state.selectedDate;
+  const automatic = hasAutomaticEntries(draft);
+  if (automatic) {
+    if (!state.db || !currentUserId()) {
+      toast("로그인 상태를 확인한 뒤 다시 저장해 주세요.", "error");
+      return false;
+    }
+    const context = captureAccountContext();
+    const requestPayload = automaticSalesRequestFingerprint(draft.rows);
+    if (!state.recordDraftSalesRequestId || state.recordDraftSalesPayload !== requestPayload) {
+      state.recordDraftSalesRequestId = makeSalesOverrideRequestId();
+      state.recordDraftSalesPayload = requestPayload;
+    }
+    try {
+      const snapshot = await persistAutomaticSalesSnapshot({
+        dateKey,
+        revision: state.automaticSalesOverrides[dateKey]?.revision ?? 0,
+        requestId: state.recordDraftSalesRequestId,
+        reason: "기록 화면에서 매출 수정",
+        rows: draft.rows,
+        context,
+      });
+      applyAutomaticSalesSnapshot(dateKey, snapshot, draft);
+    } catch (error) {
+      const conflict = String(error?.message || "").toLowerCase().includes("revision") || String(error?.code || "") === "40001";
+      toast(conflict
+        ? "다른 기기에서 이 날짜를 먼저 수정했습니다. 새로고침 후 다시 확인해 주세요."
+        : `기록 저장 실패: ${error.message || "알 수 없는 오류"}`, "error");
+      return false;
+    }
+  } else {
+    commitRecordDraft();
+  }
+  scheduleSave({ dateKeys: [dateKey], immediate: true });
   try {
     await ensurePendingSavesFlushed();
   } catch (error) {
@@ -3529,6 +3671,7 @@ async function saveCurrentRecordAndGoHome() {
     }
     return false;
   }
+  if (automatic) commitRecordDraft();
   renderAll();
   showView("home");
   toast("기록을 저장했습니다.", "success");
@@ -3719,37 +3862,119 @@ async function applySettlementRows(rows) {
   return true;
 }
 
+function statsDailyRecords() {
+  return Object.entries(state.entries).map(([dateKey, record]) => {
+    const details = calcRecordDetails(record);
+    return {
+      dateKey,
+      revenue: details.revenue,
+      count: details.count,
+      freshCount: details.freshCount,
+      worked: isWorkedRecord(record, details),
+      off: Boolean(record.off),
+    };
+  });
+}
+
+function statsModeTitle(mode) {
+  return ({
+    thisMonth: "이번 정산",
+    lastMonth: "지난 정산",
+    last3: "최근 3개월",
+    last12: "최근 1년",
+    custom: "직접 조회",
+  })[mode] || "이번 정산";
+}
+
+function renderStatsComparison(report) {
+  if (!el.statsComparison) return;
+  const show = state.statsRangeMode === "thisMonth";
+  el.statsComparison.hidden = !show;
+  if (!show) return;
+
+  const comparison = report.comparison;
+  el.statsComparison.classList.remove("is-positive", "is-negative", "is-neutral");
+  if (comparison.available) {
+    const delta = Math.round(comparison.revenueDelta || 0);
+    const rate = comparison.revenueDeltaRate;
+    el.statsCompareLabel.textContent = `지난 정산 동일 ${comparison.requiredWorkDays}일 대비`;
+    el.statsCompareValue.textContent = delta > 0 ? `+${fmtWon(delta)}` : fmtWon(delta);
+    const rateText = rate === null
+      ? "이전 매출 0원"
+      : `${rate > 0 ? "+" : ""}${Math.round(rate * 100)}%`;
+    el.statsCompareMeta.textContent = `지난 정산 ${fmtWon(comparison.previous.revenue)} · ${rateText}`;
+    el.statsComparison.classList.add(delta > 0 ? "is-positive" : (delta < 0 ? "is-negative" : "is-neutral"));
+    return;
+  }
+
+  el.statsComparison.classList.add("is-neutral");
+  el.statsCompareLabel.textContent = "지난 정산 동일 근무일수 대비";
+  if (comparison.reason === "current_no_workdays") {
+    el.statsCompareValue.textContent = "근무 기록 후 비교됩니다";
+    el.statsCompareMeta.textContent = "매출이 기록된 근무일을 기준으로 비교합니다.";
+    return;
+  }
+  el.statsCompareValue.textContent = "비교할 이전 기록 부족";
+  el.statsCompareMeta.textContent = `이번 ${comparison.requiredWorkDays}일 · 지난 정산 ${comparison.availablePreviousWorkDays}일 기록`;
+}
+
 function renderStats() {
-  const { start: cycleStart, end: cycleEnd } = periodBounds(state.statsYear, state.statsMonth);
-  const keys = getStatsKeys();
-  const { start, end } = getStatsBounds();
-  const total = summarizeKeys(keys);
-  el.statsMonthTitle.textContent = `${state.statsYear}년 ${String(state.statsMonth).padStart(2, "0")}월`;
-  el.statsRange.textContent = `${formatShort(cycleStart)} ~ ${formatShort(cycleEnd)}`;
+  const mode = state.statsRangeMode || "thisMonth";
+  const report = buildStatsReport({
+    dailyRecords: statsDailyRecords(),
+    currentPeriod: { year: state.statsYear, month: state.statsMonth },
+    mode,
+    customRange: state.statsRangeCustom,
+    asOfDate: todayKey(),
+    goal: getGoal(),
+  });
+  const keys = getStatsKeys().filter((dateKey) => dateKey >= report.range.start && dateKey <= report.range.end);
+  const title = statsModeTitle(mode);
+  const start = parseDateKey(report.range.start);
+  const end = parseDateKey(report.range.end);
+  const total = report.summary;
+
+  if (el.statsMonthTitle) el.statsMonthTitle.textContent = title;
+  if (el.statsRange) el.statsRange.textContent = formatRangeLabel(start, end);
+  if (el.statsHeroLabel) el.statsHeroLabel.textContent = `${title} 누적`;
   if (el.statsSummaryRange) el.statsSummaryRange.textContent = formatRangeLabel(start, end);
+  if (el.statsSummaryTotal) el.statsSummaryTotal.textContent = fmtWon(total.revenue);
+  if (el.statsRevenueTotal) el.statsRevenueTotal.textContent = fmtWon(total.revenue);
   if (el.statsRevenue) el.statsRevenue.textContent = fmtWon(total.revenue);
-  const goal = getGoal();
-  const statsPct = goal ? Math.min(100, total.revenue / goal * 100) : 0;
-  el.statsMeterFill.style.width = `${statsPct}%`;
-  el.statsMeterPct.textContent = `${Math.round(statsPct)}%`;
-  el.statsMeterLabel.textContent = goal ? `목표 ${fmtWon(goal)} (설정됨)` : "목표 미설정";
-  renderStatsSummaryRows(total, statsPct);
-  el.statsWorkDays.textContent = `${total.workDays}일`;
-  el.statsOffDays.textContent = `${total.offDays}일`;
-  el.statsCount.textContent = fmtCount(total.count);
-  el.statsFresh.textContent = fmtCount(total.fresh);
-  if (el.statsAvgCount) el.statsAvgCount.textContent = fmtCount(Math.round(total.avgCount));
-  el.statsAverage.textContent = formatCompactWonWithUnit(total.average);
-  el.statsBestDay.textContent = total.best.dateKey ? `${formatLongShort(total.best.dateKey)} ${fmtWon(total.best.revenue)}` : "-";
-  el.statsWorstDay.textContent = total.worst.dateKey ? `${formatLongShort(total.worst.dateKey)} ${fmtWon(total.worst.revenue)}` : "-";
+  if (el.statsWorkDays) el.statsWorkDays.textContent = `${total.workDays}일`;
+  if (el.statsAverage) el.statsAverage.textContent = formatCompactWonWithUnit(total.averageRevenue);
+  if (el.statsOffDays) el.statsOffDays.textContent = `${total.offDays}일`;
+  if (el.statsCount) el.statsCount.textContent = fmtCount(total.count);
+  if (el.statsFresh) el.statsFresh.textContent = fmtCount(total.freshCount);
+  if (el.statsAvgCount) el.statsAvgCount.textContent = fmtCount(Math.round(total.averageCount));
+
+  renderStatsComparison(report);
+  const showGoal = mode === "thisMonth" && report.goal.target;
+  if (el.statsGoalMeter) el.statsGoalMeter.hidden = !showGoal;
+  if (showGoal) {
+    el.statsMeterFill.style.width = `${report.goal.cappedProgressPct}%`;
+    el.statsMeterPct.textContent = `${Math.round(report.goal.progressPct)}%`;
+    el.statsMeterLabel.textContent = `목표 ${fmtWon(report.goal.target)}`;
+  }
+
   syncStatsRangeButtons();
   syncStatsChartToggle();
+  if (el.statsTrendTitle) el.statsTrendTitle.textContent = state.statsChartMetric === "count" ? "물량 추이" : "매출 추이";
+  const showEmpty = report.empty;
+  if (el.statsChartEmpty) el.statsChartEmpty.hidden = !showEmpty;
+  if (el.statsChart) el.statsChart.hidden = showEmpty;
+  if (el.statsChartSummary) el.statsChartSummary.hidden = showEmpty;
+  if (el.statsChartToggle) el.statsChartToggle.hidden = showEmpty;
+  if (showEmpty) {
+    statsChartState.series = [];
+    statsChartState.points = [];
+    if (el.statsChartTooltip) el.statsChartTooltip.hidden = true;
+  } else {
+    renderStatsChart(report.trend);
+  }
   renderRevenueList(keys);
   renderRouteStats(keys);
-  renderStatsChart(keys);
   renderDailyStatsFor(keys);
-  renderYearlyStats();
-  renderTotalStats();
 }
 function syncStatsChartToggle() {
   if (!el.statsChartToggle) return;
@@ -3844,14 +4069,15 @@ function renderDailyStatsFor(allKeys) {
     const record = getRecord(dateKey, false);
     const details = calcRecordDetails(record);
     const open = state.statsDetailDate === dateKey;
+    const detailId = `stats-day-detail-${dateKey}`;
     const routes = record.rows.map((row) => {
-      const sub = toNum(row.count) * effectiveUnit(row);
-      const automaticLabel = isAutomaticRow(row) ? ` · ${escapeAttr(automaticWorkLabel(row))}` : "";
-      return `<div class="dd-row${isAutomaticRow(row) ? " is-automatic" : ""}"><span>${formatRouteLabel(row.route)} · ${fmtCount(row.count)} × ${fmtWon(effectiveUnit(row))}${automaticLabel}</span><strong>${fmtWon(sub)}</strong></div>`;
+      const unit = displayedRouteUnit(record, row);
+      const sub = toNum(row.count) * unit;
+      return `<div class="dd-row"><span>${formatRouteLabel(row.route)} · ${fmtCount(row.count)} × ${fmtWon(unit)}</span><strong>${fmtWon(sub)}</strong></div>`;
     }).join("");
     const routePreview = record.off ? "휴무" : (formatRecordRoutes(record.rows) || "라우트 없음");
     return `<div class="daily-card stat-day-card">
-      <button type="button" data-date="${dateKey}">
+      <button type="button" data-date="${dateKey}" aria-expanded="${open}" aria-controls="${detailId}">
         <div class="daily-top">
           <div>
             <strong>${formatLongShort(dateKey)}</strong>
@@ -3865,19 +4091,19 @@ function renderDailyStatsFor(allKeys) {
           ${details.backupRevenue ? `<span>백업 ${fmtWon(details.backupRevenue)}</span>` : ""}
         </div>
       </button>
-      ${open ? `<div class="daily-detail">${
+      <div class="daily-detail" id="${detailId}"${open ? "" : " hidden"}>${
         record.off ? "<div class=\"dd-row\"><span>휴무</span></div>" :
         `${routes || "<div class=\"dd-row\"><span>라우트 없음</span></div>"}` +
         `${details.freshRevenue ? `<div class="dd-row"><span>프레시백 ${fmtCount(details.freshCount)}</span><strong>${fmtWon(details.freshRevenue)}</strong></div>` : ""}` +
         `${details.backupRevenue ? `<div class="dd-row"><span>백업수당</span><strong>${fmtWon(details.backupRevenue)}</strong></div>` : ""}` +
         `<div class="dd-row dd-total"><span>합계</span><strong>${fmtWon(details.revenue)}</strong></div>`
-      }</div>` : ""}
+      }</div>
     </div>`;
   }).join("") : `<div class="daily-card"><span>기록된 날짜가 없습니다.</span></div>`;
   el.dailyList.querySelectorAll("button[data-date]").forEach((button) => {
     button.addEventListener("click", () => {
       state.statsDetailDate = state.statsDetailDate === button.dataset.date ? "" : button.dataset.date;
-      renderDailyStats();
+      renderDailyStatsFor(allKeys);
     });
   });
 }
@@ -3930,17 +4156,13 @@ function renderRevenueList(keys) {
     el.revenueList.innerHTML = `<div class="rev-empty">기록된 매출 항목이 없습니다.</div>`;
     return;
   }
-  let visibleTotal = 0;
   const renderRow = (item) => {
-    const checked = isVisibleKey(item.key);
-    if (checked) visibleTotal += item.revenue;
     const meta = item.kind === "route" ? fmtCount(item.count) : (item.kind === "fresh" ? fmtCount(item.count) : "");
-    return `<label class="rev-row${checked ? "" : " is-off"}">
-      <input type="checkbox" data-rev-key="${escapeAttr(item.key)}" ${checked ? "checked" : ""} />
+    return `<div class="rev-row">
       <span class="rev-label">${escapeAttr(item.label)}</span>
       ${meta ? `<span class="rev-meta">${meta}</span>` : ""}
       <strong class="rev-amount">${fmtWon(item.revenue)}</strong>
-    </label>`;
+    </div>`;
   };
   const groups = aggregateRevenueGroups(items);
   const sections = [groups.route, groups.fresh, groups.backup]
@@ -3956,16 +4178,10 @@ function renderRevenueList(keys) {
         <div class="rev-section-rows">${group.items.map(renderRow).join("")}</div>
       </section>`;
     }).join("");
-  el.revenueList.innerHTML = `${sections}<div class="rev-row rev-sum"><span class="rev-label">선택 합계</span><strong class="rev-amount">${fmtWon(visibleTotal)}</strong></div>`;
-  el.revenueList.querySelectorAll("input[data-rev-key]").forEach((cb) => {
-    cb.addEventListener("change", () => {
-      state.revenueVisibility[cb.dataset.revKey] = cb.checked;
-      try { localStorage.setItem("quickflex-revenue-vis", JSON.stringify(state.revenueVisibility)); } catch (_) {}
-      renderStats();
-    });
-  });
+  const total = items.reduce((sum, item) => sum + item.revenue, 0);
+  el.revenueList.innerHTML = `${sections}<div class="rev-row rev-sum"><span class="rev-label">합계</span><strong class="rev-amount">${fmtWon(total)}</strong></div>`;
 }
-const statsChartState = { keys: [], series: [], points: [], hoverIndex: -1 };
+const statsChartState = { series: [], points: [], hoverIndex: -1, granularity: "day" };
 function niceStep(rawStep) {
   if (rawStep <= 0) return 1;
   const exp = Math.pow(10, Math.floor(Math.log10(rawStep)));
@@ -3973,7 +4189,18 @@ function niceStep(rawStep) {
   const candidate = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10;
   return candidate * exp;
 }
-function renderStatsChart(keys) {
+function statsTrendUnit(granularity) {
+  if (granularity === "week") return "주";
+  if (granularity === "settlement") return "정산주기";
+  return "일";
+}
+
+function statsAxisLabel(bucket, granularity) {
+  if (granularity === "settlement") return String(bucket.key || "").slice(2).replace("-", ".");
+  return bucket.label || bucket.key || "-";
+}
+
+function renderStatsChart(trend) {
   const canvas = el.statsChart;
   if (!canvas) return;
   const dpr = window.devicePixelRatio || 1;
@@ -3986,15 +4213,13 @@ function renderStatsChart(keys) {
   const ctx = canvas.getContext("2d");
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, cssW, cssH);
-  const series = keys.map((dateKey) => {
-    const record = getRecord(dateKey, false);
-    const details = calcRecordDetails(record);
-    return { dateKey, revenue: recordVisibleRevenue(record), count: details.count, freshCount: details.freshCount };
-  });
-  statsChartState.keys = keys;
+  const series = Array.isArray(trend?.buckets) ? trend.buckets : [];
   statsChartState.series = series;
   statsChartState.points = [];
   statsChartState.hoverIndex = -1;
+  statsChartState.granularity = trend?.granularity || "day";
+  canvas.dataset.pointCount = String(series.length);
+  canvas.dataset.keyboardIndex = "-1";
   if (el.statsChartTooltip) el.statsChartTooltip.hidden = true;
   if (!series.length) {
     const emptySummary = "선택한 기간에 표시할 통계 데이터가 없습니다.";
@@ -4015,9 +4240,10 @@ function renderStatsChart(keys) {
   const totalValue = series.reduce((sum, item) => sum + valOf(item), 0);
   const peak = series.reduce((best, item) => valOf(item) > valOf(best) ? item : best, series[0]);
   const formatMetricValue = (value) => metric === "count" ? fmtCount(value) : fmtWon(value);
-  const chartSummary = `${series.length}일 ${metricLabel} 그래프. 합계 ${formatMetricValue(totalValue)}. 최고 ${formatLongShort(peak.dateKey)} ${formatMetricValue(valOf(peak))}.`;
+  const trendUnit = statsTrendUnit(statsChartState.granularity);
+  const chartSummary = `${series.length}${trendUnit} ${metricLabel} 그래프. 합계 ${formatMetricValue(totalValue)}. 최고 ${peak.label || peak.key} ${formatMetricValue(valOf(peak))}.`;
   canvas.setAttribute("aria-label", chartSummary);
-  if (el.statsChartSummary) el.statsChartSummary.textContent = `${chartSummary} 그래프를 터치하면 날짜별 상세를 확인할 수 있으며 점선은 평균입니다.`;
+  if (el.statsChartSummary) el.statsChartSummary.textContent = `${chartSummary} 그래프를 터치하거나 좌우 방향키로 상세를 확인할 수 있으며 점선은 평균입니다.`;
   const fmtAxis = (v) => (metric === "count" ? String(Math.round(v)) : formatKoreanWon(v));
   const maxVal = Math.max(...series.map(valOf), metric === "count" ? 50 : 100000);
   const step = niceStep(maxVal / 5);
@@ -4048,9 +4274,7 @@ function renderStatsChart(keys) {
   const labelCount = Math.min(5, series.length);
   for (let i = 0; i < labelCount; i += 1) {
     const idx = Math.round((i / Math.max(1, labelCount - 1)) * (series.length - 1));
-    const d = parseDateKey(series[idx].dateKey);
-    if (!d) continue;
-    ctx.fillText(`${d.getMonth() + 1}/${d.getDate()}`, xFor(idx), margin.t + h + 6);
+    ctx.fillText(statsAxisLabel(series[idx], statsChartState.granularity), xFor(idx), margin.t + h + 6);
   }
   const barGap = Math.max(3, Math.min(8, w / Math.max(1, series.length) * .24));
   const barW = Math.max(3, Math.min(18, w / Math.max(1, series.length) - barGap));
@@ -4059,7 +4283,7 @@ function renderStatsChart(keys) {
   series.forEach((s, i) => { if (valOf(s) > (maxIdx < 0 ? 0 : valOf(series[maxIdx]))) maxIdx = i; });
   series.forEach((s, i) => {
     const value = valOf(s);
-    const active = s.revenue > 0;
+    const active = value > 0;
     const x = xFor(i);
     const y = yFor(value);
     statsChartState.points.push({ x, y, ...s });
@@ -4073,7 +4297,7 @@ function renderStatsChart(keys) {
     ctx.arc(x, y, active ? 2.2 : 1.8, 0, Math.PI * 2);
     ctx.fill();
   });
-  const workValues = series.filter((s) => s.revenue > 0).map(valOf);
+  const workValues = series.map(valOf).filter((value) => value > 0);
   if (workValues.length) {
     const avg = workValues.reduce((sum, v) => sum + v, 0) / workValues.length;
     const avgY = yFor(Math.min(avg, yMax));
@@ -4096,8 +4320,7 @@ function renderStatsChart(keys) {
 }
 function showChartTooltip(clientX) {
   const canvas = el.statsChart;
-  const tooltip = el.statsChartTooltip;
-  if (!canvas || !tooltip || !statsChartState.points.length) return;
+  if (!canvas || !statsChartState.points.length) return;
   const rect = canvas.getBoundingClientRect();
   const localX = clientX - rect.left;
   let nearest = 0;
@@ -4106,20 +4329,37 @@ function showChartTooltip(clientX) {
     const dx = Math.abs(p.x - localX);
     if (dx < nearestDx) { nearestDx = dx; nearest = i; }
   });
+  showChartTooltipAtIndex(nearest);
+}
+
+function showChartTooltipAtIndex(index) {
+  const canvas = el.statsChart;
+  const tooltip = el.statsChartTooltip;
+  if (!canvas || !tooltip || !statsChartState.points.length) return;
+  const nearest = Math.max(0, Math.min(statsChartState.points.length - 1, Number(index) || 0));
   const point = statsChartState.points[nearest];
   if (!point) return;
-  tooltip.innerHTML = `<strong>${formatLongShort(point.dateKey)}</strong>` +
+  const pointRange = point.start === point.end
+    ? formatLongShort(point.start)
+    : `${formatLongShort(point.start)} ~ ${formatLongShort(point.end)}`;
+  tooltip.innerHTML = `<strong>${escapeAttr(point.label || pointRange)}</strong>` +
+    `<span>${escapeAttr(pointRange)}</span>` +
     `<div>매출 <b>${fmtWon(point.revenue)}</b></div>` +
     `<div>총 물량 <b>${fmtCount(point.count)}</b></div>` +
     `<div>프레시백 <b>${fmtCount(point.freshCount)}</b></div>`;
   tooltip.hidden = false;
   const cardRect = canvas.parentElement.getBoundingClientRect();
-  let left = point.x - tooltip.offsetWidth / 2;
+  let left = canvas.offsetLeft + point.x - tooltip.offsetWidth / 2;
   const maxLeft = cardRect.width - tooltip.offsetWidth - 4;
   if (left < 4) left = 4;
   if (left > maxLeft) left = maxLeft;
   tooltip.style.left = `${left}px`;
-  tooltip.style.top = `${Math.max(0, point.y - tooltip.offsetHeight - 10)}px`;
+  tooltip.style.top = `${Math.max(0, canvas.offsetTop + point.y - tooltip.offsetHeight - 10)}px`;
+  canvas.dataset.keyboardIndex = String(nearest);
+  if (statsChartState.hoverIndex !== nearest) {
+    statsChartState.hoverIndex = nearest;
+    trackStatsControl("chart_point_viewed");
+  }
 }
 async function loadWorkLedgerForRange(startKey, endKey) {
   return loadVerifiedWorkLedger({ startKey, endKey });
@@ -4153,17 +4393,21 @@ function adminRecordDetails(day, items) {
   if (day.is_off) return { revenue: 0, count: 0, freshCount: 0, backupRevenue: 0, routeRevenue: 0 };
   const routeTotal = (items || []).reduce((sum, item) => {
     const count = toNum(item.delivery_count);
+    const automatic = isAutomaticRow(item);
     return {
       count: sum.count + count,
-      manualCount: sum.manualCount + (isAutomaticRow(item) ? 0 : count),
+      manualCount: sum.manualCount + (automatic ? 0 : count),
+      automaticCount: sum.automaticCount + (automatic ? count : 0),
       revenue: sum.revenue + count * toNum(item.unit_snapshot),
     };
-  }, { count: 0, manualCount: 0, revenue: 0 });
+  }, { count: 0, manualCount: 0, automaticCount: 0, revenue: 0 });
   const freshCount = toNum(day.fresh_count);
   const freshRevenue = freshCount * toNum(day.fresh_unit || 100);
-  const backupRevenue = day.driver_type === "backup" ? routeTotal.manualCount * toNum(defaultBackupUnit(day.backup_unit)) : 0;
+  const backupUnit = day.driver_type === "backup" ? toNum(defaultBackupUnit(day.backup_unit)) : 0;
+  const backupRevenue = routeTotal.count * backupUnit;
+  const backupRevenueAdditive = routeTotal.manualCount * backupUnit;
   return {
-    revenue: routeTotal.revenue + freshRevenue + backupRevenue,
+    revenue: routeTotal.revenue + freshRevenue + backupRevenueAdditive,
     count: routeTotal.count,
     freshCount,
     backupRevenue,
@@ -4172,8 +4416,8 @@ function adminRecordDetails(day, items) {
 }
 function renderAdminPeriodHeader() {
   if (!el.adminMonthTitle || !el.adminRange) return;
-  const { start, end } = periodBounds(state.statsYear, state.statsMonth);
-  el.adminMonthTitle.textContent = `${state.statsYear}년 ${String(state.statsMonth).padStart(2, "0")}월`;
+  const { start, end } = periodBounds(state.adminYear, state.adminMonth);
+  el.adminMonthTitle.textContent = `${state.adminYear}년 ${String(state.adminMonth).padStart(2, "0")}월`;
   el.adminRange.textContent = `${formatShort(start)} ~ ${formatShort(end)}`;
 }
 async function renderAdminDashboard() {
@@ -4206,14 +4450,63 @@ async function renderAdminDashboard() {
     if (target) target.innerHTML = `<div class="daily-card"><span>${error.message}</span></div>`;
   }
 }
+
+function usageMetricCard(label, value, description) {
+  return `<div class="admin-usage-metric">
+    <span>${escapeAttr(label)}</span>
+    <strong>${escapeAttr(value)}</strong>
+    <small>${escapeAttr(description)}</small>
+  </div>`;
+}
+
+async function renderAdminUsageSummary(context = captureAccountContext()) {
+  if (!el.adminUsageSummary || state.profile?.role !== "admin" || !isAccountContextCurrent(context)) return;
+  if (!state.db) {
+    el.adminUsageSummary.innerHTML = `<div class="daily-card"><span>DB 연결 후 사용 현황을 확인할 수 있습니다.</span></div>`;
+    return;
+  }
+  el.adminUsageSummary.innerHTML = `<div class="daily-card"><span>최근 30일 사용 현황을 불러오는 중입니다.</span></div>`;
+  try {
+    const summary = await fetchUsageSummary(state.db, { windowDays: 30 });
+    if (!isAccountContextCurrent(context) || state.profile?.role !== "admin") return;
+    if (!summary) throw new Error("empty usage summary");
+    const activeUsers = toNum(summary.active_user_count);
+    const statsViewers = toNum(summary.stats_viewer_count);
+    const engagedUsers = toNum(summary.engaged_user_count);
+    const repeatViewers = toNum(summary.repeat_viewer_count);
+    const reachRate = toNum(summary.stats_reach_rate);
+    const engagementRate = toNum(summary.stats_engagement_rate);
+    const repeatRate = toNum(summary.repeat_viewer_rate);
+    el.adminUsageSummary.innerHTML = `
+      <div class="admin-usage-head">
+        <div><span>최근 30일</span><strong>통계 화면 사용</strong></div>
+        <small>매출·수량·구역·날짜는 수집하지 않습니다.</small>
+      </div>
+      <div class="admin-usage-grid">
+        ${usageMetricCard("활성 사용자", `${activeUsers}명`, "앱을 연 승인 사용자")}
+        ${usageMetricCard("통계 조회", `${statsViewers}명 · ${reachRate}%`, "활성 사용자 대비")}
+        ${usageMetricCard("기능 사용", `${engagedUsers}명 · ${engagementRate}%`, "통계 조회자 대비")}
+        ${usageMetricCard("주간 재방문", `${repeatViewers}명 · ${repeatRate}%`, "서로 다른 주에 조회")}
+      </div>`;
+  } catch (_) {
+    if (!isAccountContextCurrent(context) || state.profile?.role !== "admin") return;
+    el.adminUsageSummary.innerHTML = `
+      <div class="admin-usage-unavailable">
+        <strong>사용 현황 준비 중</strong>
+        <span>사용 통계 DB 업데이트가 적용되면 최근 30일 요약이 표시됩니다.</span>
+      </div>`;
+  }
+}
+
 async function renderAdminRevenueStats() {
   if (!el.adminRevenueList || state.profile?.role !== "admin") return;
+  void renderAdminUsageSummary();
   if (!state.db) {
     el.adminRevenueList.innerHTML = `<div class="daily-card"><span>DB 연결 후 확인할 수 있습니다.</span></div>`;
     return;
   }
   el.adminRevenueList.innerHTML = `<div class="daily-card"><span>사용자 매출을 불러오는 중입니다.</span></div>`;
-  const { start, end } = periodBounds(state.statsYear, state.statsMonth);
+  const { start, end } = periodBounds(state.adminYear, state.adminMonth);
   const startKey = toDateKey(start);
   const endKey = toDateKey(end);
   const [profilesResult, daysResult, itemsResult, ledger, overridesResult] = await Promise.all([
@@ -4339,7 +4632,7 @@ async function renderAdminRouteStats() {
     return;
   }
   el.adminRouteList.innerHTML = `<div class="daily-card"><span>라우트 통계를 불러오는 중입니다.</span></div>`;
-  const { start, end } = periodBounds(state.statsYear, state.statsMonth);
+  const { start, end } = periodBounds(state.adminYear, state.adminMonth);
   const startKey = toDateKey(start);
   const endKey = toDateKey(end);
   const [profilesResult, itemsResult, ledger, overridesResult] = await Promise.all([
@@ -4555,10 +4848,9 @@ function moveStatsMonth(amount) {
   renderStats();
 }
 function moveAdminMonth(amount) {
-  const date = new Date(state.statsYear, state.statsMonth - 1 + amount, 1);
-  state.statsYear = date.getFullYear();
-  state.statsMonth = date.getMonth() + 1;
-  renderStats();
+  const date = new Date(state.adminYear, state.adminMonth - 1 + amount, 1);
+  state.adminYear = date.getFullYear();
+  state.adminMonth = date.getMonth() + 1;
   renderAdminDashboard();
 }
 
@@ -5099,6 +5391,42 @@ function automaticSalesOverrideResult(data) {
     ? normalizeAutomaticSalesOverride(value)
     : null;
 }
+async function persistAutomaticSalesSnapshot({ dateKey, revision, requestId, reason, rows, context }) {
+  const payload = salesOverridePayload(rows);
+  if (payload.issues.length) {
+    const error = new Error(payload.issues.slice(0, 3).join(" "));
+    error.code = "QUICKFLEX_OVERRIDE_INPUT";
+    error.issues = payload.issues;
+    throw error;
+  }
+  const { data, error } = await state.db.rpc(RPC.replaceAutomaticSalesOverride, {
+    p_work_date: dateKey,
+    p_expected_revision: revision ?? 0,
+    p_request_id: requestId,
+    p_reason: reason || "사용자 날짜별 매출 수정",
+    p_routes: payload.routes,
+  });
+  if (!isAccountContextCurrent(context)) throw staleAccountSaveError();
+  if (error) throw error;
+  let snapshot = automaticSalesOverrideResult(data);
+  if (!snapshot) {
+    const refreshed = await fetchAutomaticSalesOverrides({ userId: context.userId, startKey: dateKey, endKey: dateKey });
+    snapshot = refreshed.rows.map(normalizeAutomaticSalesOverride).find((row) => row.work_date === dateKey) || null;
+  }
+  if (!isAccountContextCurrent(context)) throw staleAccountSaveError();
+  if (!snapshot || snapshot.work_date !== dateKey) throw new Error("저장된 매출 수정본을 확인하지 못했습니다.");
+  return snapshot;
+}
+function applyAutomaticSalesSnapshot(dateKey, snapshot, sourceRecord = state.entries[dateKey]) {
+  state.automaticSalesOverrides[dateKey] = snapshot;
+  state.salesOverrideContractAvailable = true;
+  const effective = applyAutomaticSalesOverrideToRecord(sourceRecord, snapshot);
+  state.entries[dateKey] = effective;
+  if (state.recordDraftDate === dateKey && state.recordDraft) {
+    state.recordDraft = applyAutomaticSalesOverrideToRecord(state.recordDraft, snapshot);
+  }
+  return effective;
+}
 async function saveSalesOverride() {
   const draft = state.salesOverrideDraft;
   if (!draft || draft.saving || !state.db || !currentUserId()) return false;
@@ -5115,28 +5443,15 @@ async function saveSalesOverride() {
   renderSalesOverrideRows();
   setSalesOverrideStatus("매출 수정본을 저장하는 중입니다.");
   try {
-    const { data, error } = await state.db.rpc(RPC.replaceAutomaticSalesOverride, {
-      p_work_date: draft.dateKey,
-      p_expected_revision: draft.revision ?? 0,
-      p_request_id: draft.requestId,
-      p_reason: draft.reason || "사용자 날짜별 매출 수정",
-      p_routes: payload.routes,
+    const snapshot = await persistAutomaticSalesSnapshot({
+      dateKey: draft.dateKey,
+      revision: draft.revision,
+      requestId: draft.requestId,
+      reason: draft.reason,
+      rows: draft.rows,
+      context,
     });
-    if (!isAccountContextCurrent(context)) throw staleAccountSaveError();
-    if (error) throw error;
-    let snapshot = automaticSalesOverrideResult(data);
-    if (!snapshot) {
-      const refreshed = await fetchAutomaticSalesOverrides({ userId: context.userId, startKey: draft.dateKey, endKey: draft.dateKey });
-      snapshot = refreshed.rows.map(normalizeAutomaticSalesOverride).find((row) => row.work_date === draft.dateKey) || null;
-    }
-    if (!isAccountContextCurrent(context)) throw staleAccountSaveError();
-    if (!snapshot || snapshot.work_date !== draft.dateKey) throw new Error("저장된 매출 수정본을 확인하지 못했습니다.");
-    state.automaticSalesOverrides[draft.dateKey] = snapshot;
-    state.salesOverrideContractAvailable = true;
-    state.entries[draft.dateKey] = applyAutomaticSalesOverrideToRecord(state.entries[draft.dateKey], snapshot);
-    if (state.recordDraftDate === draft.dateKey && state.recordDraft) {
-      state.recordDraft = applyAutomaticSalesOverrideToRecord(state.recordDraft, snapshot);
-    }
+    applyAutomaticSalesSnapshot(draft.dateKey, snapshot);
     draft.dirty = false;
     closeSalesOverride(true);
     renderAll();
@@ -5195,6 +5510,7 @@ function bindEvents() {
     driverName,
     ensurePendingSavesFlushed,
     getRecord,
+    hasAutomaticEntries,
     hasEnteredCounts,
     importAdminBundles,
     isBackupDriver,
@@ -5241,11 +5557,16 @@ function bindEvents() {
     setOcrDraft,
     setCalendarRoutesPreference,
     showChartTooltip,
+    showChartTooltipAtIndex,
     shouldShowCalendarRoutes,
     showView,
     signup,
     startRecordDraft,
     syncFormToRecord,
+    trackStatsControl,
+    statsRangeDayCount: dateRangeDayCount,
+    maxStatsCustomRangeDays: MAX_CUSTOM_RANGE_DAYS,
+    syncStatsToCurrentPeriod,
     toDateKey,
     toast,
     printInspectionMonth,
@@ -5262,8 +5583,10 @@ function bindEvents() {
   bindAdminEvents(shared);
   bindSettingsEvents(shared);
   bindOcrEvents(shared);
-  el.openSalesOverride?.addEventListener("click", () => openSalesOverride(state.selectedDate));
-  el.openSalesOverrideFromRecord?.addEventListener("click", () => openSalesOverride(state.selectedDate));
+  el.openSalesOverride?.addEventListener("click", () => {
+    startRecordDraft(state.selectedDate);
+    showView("record");
+  });
   el.salesOverrideAddRoute?.addEventListener("click", () => {
     const draft = state.salesOverrideDraft;
     if (!draft || draft.rows.length >= 100) return;
