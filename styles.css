@@ -742,11 +742,9 @@ body[data-theme="dark"] .day-cell.selected.today-cell.holiday .day-number {
 .selected-breakdown-row > div:first-child span { color: var(--text); font-weight: 800; }
 .selected-breakdown-row > strong { align-self: center; color: var(--text); }
 .selected-detail-routes,
-.selected-detail-empty,
-.selected-detail-warning { grid-column: 1 / -1; }
+.selected-detail-empty { grid-column: 1 / -1; }
 .selected-detail-routes { display: flex; flex-wrap: wrap; gap: 5px 10px; color: var(--muted); font-size: 12px; }
 .selected-detail-empty { color: var(--soft); font-size: 12px; }
-.selected-detail-warning { color: var(--red); font-size: 12px; font-weight: 750; }
 .selected-breakdown-note { margin: 10px 2px 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .ghost-pill { background: transparent; border: 1px solid var(--line); color: var(--muted); padding: 0 18px; }
 .ghost-pill.active { color: var(--red); border-color: var(--red); background: var(--red-bg); }
@@ -1495,8 +1493,6 @@ body:not([data-theme="dark"]) .mode-option input[type="radio"]:checked + span sm
 }
 .admin-route-details,
 .rs-detail-routes { display: flex; flex-wrap: wrap; gap: 5px 10px; color: var(--muted); font-size: 12px; }
-.admin-route-detail-warning,
-.rs-detail-warning { color: var(--red); font-size: 12px; font-weight: 750; }
 .admin-day-list {
   display: grid;
   gap: 6px;
@@ -2628,6 +2624,39 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
   .inspection-header-actions { gap: 4px; }
   .inspection-history-button { min-height: 44px; padding-inline: 9px; font-size: 10px; }
 }
+.update-notice-card {
+  width: min(calc(100% - 18px), 410px);
+  border-radius: 24px;
+  padding: 24px 20px 22px;
+  box-shadow: 0 18px 58px rgba(0,0,0,.24);
+}
+.update-notice-card h2 { margin: 10px 0 8px; font-size: 25px; line-height: 1.15; }
+.update-notice-card .hint { margin: 0; line-height: 1.5; }
+.update-notice-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: var(--primary-bg);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 850;
+}
+.update-notice-items {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 22px;
+  padding: 16px 16px 16px 34px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel2);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.update-notice-items li::marker { color: var(--gold); }
+.update-notice-card .full-btn { min-height: 50px; }
 
 /* Fold portrait / compact tablet: keep the mobile flow, but use the full viewport. */
 @media (min-width: 481px) and (max-width: 767px) {

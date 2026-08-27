@@ -13,7 +13,7 @@ import {
   RPC,
   SAMPLE_SETTLEMENT,
   TABLES,
-} from "./config.js?v=9";
+} from "./config.js?v=10";
 import {
   addDays,
   formatLong,
@@ -54,6 +54,7 @@ const THEME_KEY = "quickflex-theme";
 const NATIVE_SESSION_REVISION_KEY = "quickflex-native-session-revision";
 const THEME_DEFAULT_MARK_KEY = "quickflex-theme-default-dark-gold-v1";
 const CALENDAR_ROUTES_KEY = "quickflex-calendar-routes-visible";
+const APP_NOTICE_LOCAL_KEY_PREFIX = "quickflex-app-notice:";
 function applyTheme(theme) {
   const t = theme === "dark" ? "dark" : "light";
   if (document.documentElement) document.documentElement.dataset.theme = t;
@@ -406,6 +407,10 @@ const el = {
   authError: $("authError"),
   pendingOverlay: $("pendingOverlay"),
   pendingLogout: $("pendingLogout"),
+  updateNoticeOverlay: $("updateNoticeOverlay"),
+  updateNoticeDialog: $("updateNoticeDialog"),
+  updateNoticeItems: $("updateNoticeItems"),
+  acknowledgeUpdateNotice: $("acknowledgeUpdateNotice"),
   salesOverrideOverlay: $("salesOverrideOverlay"),
   salesOverrideDialog: $("salesOverrideDialog"),
   salesOverrideTitle: $("salesOverrideTitle"),
@@ -626,7 +631,7 @@ function modalLayerIsOpen(layer) {
 }
 
 function activeModalLayer() {
-  return [el.salesOverrideOverlay, el.pendingOverlay, el.authOverlay, el.setupOverlay, el.dbSheet]
+  return [el.updateNoticeOverlay, el.salesOverrideOverlay, el.pendingOverlay, el.authOverlay, el.setupOverlay, el.dbSheet]
     .find((layer) => layer && modalLayerIsOpen(layer)) || null;
 }
 
@@ -641,7 +646,7 @@ function focusableIn(layer) {
 }
 
 function syncModalBackground() {
-  const layers = [el.setupOverlay, el.authOverlay, el.pendingOverlay, el.salesOverrideOverlay, el.dbSheet].filter(Boolean);
+  const layers = [el.setupOverlay, el.authOverlay, el.pendingOverlay, el.updateNoticeOverlay, el.salesOverrideOverlay, el.dbSheet].filter(Boolean);
   const active = activeModalLayer();
   layers.forEach((layer) => {
     const available = layer === active;
@@ -868,6 +873,7 @@ function isAccountContextCurrent(context) {
 }
 function clearUserScopedState() {
   clearTimeout(state.saveTimer);
+  if (el.updateNoticeOverlay?.classList.contains("visible")) closeAppUpdateNotice();
   if (el.salesOverrideOverlay?.classList.contains("visible")) closeSalesOverride(true);
   state.saveTimer = null;
   state.flushPromise = null;
@@ -2618,36 +2624,68 @@ async function applyRateUpdateOffer({ ask = true, context = captureAccountContex
     ? `새 단가와 미입력 예정 기록 ${refreshedDates.length}일을 함께 반영했습니다.`
     : "새 단가를 오늘부터 적용했습니다.", "success");
 }
+function appNoticeStorageKey(userId) {
+  return `${APP_NOTICE_LOCAL_KEY_PREFIX}${String(userId || "")}`;
+}
+function appNoticeSeenLocally(userId, noticeVersion = APP_UPDATE_NOTICE.id) {
+  if (!userId || !noticeVersion) return false;
+  try { return localStorage.getItem(appNoticeStorageKey(userId)) === noticeVersion; } catch (_) { return false; }
+}
+function rememberAppNoticeLocally(userId, noticeVersion = APP_UPDATE_NOTICE.id) {
+  if (!userId || !noticeVersion) return false;
+  try {
+    localStorage.setItem(appNoticeStorageKey(userId), noticeVersion);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+function isProductionSiteRuntime() {
+  try { return window.location.origin === new URL(PUBLIC_SITE_URL).origin; } catch (_) { return false; }
+}
+function showAppUpdateNotice() {
+  if (!el.updateNoticeOverlay || !el.updateNoticeItems) return false;
+  el.updateNoticeItems.innerHTML = APP_UPDATE_NOTICE.items
+    .map((item) => `<li>${escapeAttr(item)}</li>`)
+    .join("");
+  el.updateNoticeOverlay.classList.add("visible");
+  updateModalLayer(el.updateNoticeOverlay, true, el.acknowledgeUpdateNotice || el.updateNoticeDialog);
+  return true;
+}
+function closeAppUpdateNotice() {
+  el.updateNoticeOverlay?.classList.remove("visible");
+  updateModalLayer(el.updateNoticeOverlay, false);
+}
+async function persistAppNoticeAudit(noticeVersion, context) {
+  if (!isProductionSiteRuntime() || !state.db || !isAccountContextCurrent(context)) return false;
+  try {
+    const { data, error } = await state.db
+      .from(TABLES.profiles)
+      .update({ app_notice_version: noticeVersion, updated_at: new Date().toISOString() })
+      .eq("id", context.userId)
+      .select("*")
+      .single();
+    if (error || !isAccountContextCurrent(context)) return false;
+    state.profile = data;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+function acknowledgeAppUpdateNotice() {
+  const context = captureAccountContext();
+  const noticeVersion = APP_UPDATE_NOTICE.id;
+  rememberAppNoticeLocally(context.userId, noticeVersion);
+  closeAppUpdateNotice();
+  void persistAppNoticeAudit(noticeVersion, context);
+  return true;
+}
 async function maybeOfferRateUpdate(context = captureAccountContext()) {
   if (!isAccountContextCurrent(context)) return false;
-  const changes = pendingRateOfferChanges();
-  const noticeVersion = `${APP_UPDATE_NOTICE.id}:${RATE_UPDATE_OFFER.id}`;
-  const noticePending = state.profile?.app_notice_version !== noticeVersion;
-  if (!noticePending || state.rateOfferPrompted) return;
+  const noticeVersion = APP_UPDATE_NOTICE.id;
+  if (appNoticeSeenLocally(context.userId, noticeVersion) || state.rateOfferPrompted) return false;
   state.rateOfferPrompted = true;
-  const updateItems = APP_UPDATE_NOTICE.items.map((item) => `• ${item}`).join("\n");
-  const intro = `구역 일부 단가가 업데이트되었습니다.\n\n[이번 업데이트 내역]\n${updateItems}`;
-  let accepted = false;
-  if (changes.length) {
-    accepted = window.confirm(`${intro}\n\n새 단가 ${changes.length}개를 오늘부터 적용할까요?\n완료했거나 건수를 입력한 기존 기록의 단가는 유지됩니다.\n\n확인: 오늘부터 새 단가 적용\n취소: 지금은 유지하고 설정에서 나중에 변경`);
-  } else {
-    window.alert(`${intro}\n\n내 단가는 이미 최신 상태입니다.`);
-  }
-  if (!isAccountContextCurrent(context)) return false;
-  const { data, error } = await state.db
-    .from(TABLES.profiles)
-    .update({ app_notice_version: noticeVersion, updated_at: new Date().toISOString() })
-    .eq("id", context.userId)
-    .select("*")
-    .single();
-  if (!isAccountContextCurrent(context)) return false;
-  if (error) throw error;
-  state.profile = data;
-  if (!changes.length || !accepted) {
-    renderRateUpdateOffer();
-    return true;
-  }
-  return applyRateUpdateOffer({ ask: false, context });
+  return showAppUpdateNotice();
 }
 async function persistDay(dateKey, context = captureAccountContext()) {
   if (!state.db || !isAccountContextCurrent(context)) return false;
@@ -3411,15 +3449,10 @@ function renderSelectedDateBreakdown(record) {
     const details = row.detailRows.length
       ? `<div class="selected-detail-routes">${row.detailRows.map((detail) => `<span>${escapeAttr(detail.route)} ${fmtCount(detail.count)}</span>`).join("")}</div>`
       : `<div class="selected-detail-empty">세부구역 기록 없음 (이전 앱 기록 포함)</div>`;
-    const difference = state.workRouteDetailsContractAvailable && row.difference > 0
-      ? `<div class="selected-detail-warning">세부 미확인·미저장 +${fmtCount(row.difference)}</div>`
-      : state.workRouteDetailsContractAvailable && row.difference < 0
-        ? `<div class="selected-detail-warning">매출 수정과 ${fmtCount(Math.abs(row.difference))} 차이 · 감지값은 그대로 표시</div>`
-        : "";
     return `<article class="selected-breakdown-row">
       <div><strong>${escapeAttr(row.route)}</strong><span>${fmtCount(row.count)}</span></div>
       <strong>${fmtWon(row.revenue)}</strong>
-      ${details}${difference}
+      ${details}
     </article>`;
   }).join("") : `<div class="selected-detail-empty">매출 상품수가 0개로 보정되어 있습니다.</div>`;
   const notes = [
@@ -4026,16 +4059,9 @@ function renderRouteStats(keys) {
     const unit = row.count ? Math.round(row.revenue / row.count) : 0;
     const detailRows = [...(rawDetails.byBase.get(normalizeBaseSalesRoute(row.route)) || new Map()).entries()]
       .sort((a, b) => a[0].localeCompare(b[0]));
-    const rawDetailCount = detailRows.reduce((sum, [, count]) => sum + count, 0);
-    const difference = row.automaticCount - rawDetailCount;
     const detailMarkup = detailRows.length
       ? `<div class="rs-detail-routes">${detailRows.map(([route, count]) => `<span>${escapeAttr(route)} ${fmtCount(count)}</span>`).join("")}</div>`
       : "";
-    const differenceMarkup = state.workRouteDetailsContractAvailable && difference > 0
-      ? `<div class="rs-detail-warning">세부 미확인·미저장 +${fmtCount(difference)}</div>`
-      : state.workRouteDetailsContractAvailable && difference < 0
-        ? `<div class="rs-detail-warning">매출 수정과 ${fmtCount(Math.abs(difference))} 차이 · 감지값 원본</div>`
-        : "";
     return `<div class="route-stat-card">
       <div class="rs-top">
         <span class="rs-name">${escapeAttr(formatRouteLabel(row.route))}</span>
@@ -4046,7 +4072,7 @@ function renderRouteStats(keys) {
         <span>단가 ${fmtWon(unit)}</span>
         <span>${row.days}일</span>
       </div>
-      ${detailMarkup}${differenceMarkup}
+      ${detailMarkup}
       <div class="rs-bar"><span style="width:${pct}%"></span></div>
     </div>`;
   }).join("");
@@ -4688,16 +4714,9 @@ async function renderAdminRouteStats() {
       .map((user) => `<span>${profileNameForDisplay(user.profile)} ${fmtCount(user.count)} · ${fmtWon(user.revenue)}</span>`)
       .join("");
     const detailRows = [...(row.detailRoutes || new Map()).entries()].sort((a, b) => a[0].localeCompare(b[0]));
-    const detailTotal = detailRows.reduce((sum, [, count]) => sum + count, 0);
-    const detailDifference = row.automaticCount - detailTotal;
     const detailMarkup = detailRows.length
       ? `<div class="admin-route-details">${detailRows.map(([route, count]) => `<span>${escapeAttr(route)} ${fmtCount(count)}</span>`).join("")}</div>`
       : "";
-    const detailWarning = ledger.workRouteDetailsAvailable && detailDifference > 0
-      ? `<div class="admin-route-detail-warning">세부 미확인·미저장 +${fmtCount(detailDifference)}</div>`
-      : ledger.workRouteDetailsAvailable && detailDifference < 0
-        ? `<div class="admin-route-detail-warning">매출 수정과 ${fmtCount(Math.abs(detailDifference))} 차이 · 감지값 원본</div>`
-        : "";
     return `<div class="admin-route-card">
       <div class="admin-route-head">
         <strong>${formatRouteLabel(row.route)}</strong>
@@ -4708,7 +4727,7 @@ async function renderAdminRouteStats() {
         <span>평균 ${fmtWon(avgUnit)}</span>
         ${row.automaticCount ? `<span>앱 자동 ${fmtCount(row.automaticCount)}</span>` : ""}
       </div>
-      ${detailMarkup}${detailWarning}
+      ${detailMarkup}
       <div class="admin-route-users">${users || "<span>사용자 기록 없음</span>"}</div>
     </div>`;
   }).join("") : `<div class="daily-card"><span>선택한 정산기간 라우트 기록이 없습니다.</span></div>`;
@@ -5602,6 +5621,7 @@ function bindEvents() {
   });
   el.salesOverrideSave?.addEventListener("click", saveSalesOverride);
   el.salesOverrideClose?.addEventListener("click", () => closeSalesOverride());
+  el.acknowledgeUpdateNotice?.addEventListener("click", acknowledgeAppUpdateNotice);
   bindModalAccessibility();
   el.measurementWorkDate?.addEventListener("change", () => {
     if (!el.measurementWorkDate.value) return;

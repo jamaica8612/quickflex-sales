@@ -54,11 +54,11 @@ test("PWA config names the immutable-receipt detail and date override contracts"
   assert.match(config, /workResultRouteDetails:\s*"quickflex_work_result_route_details"/);
   assert.match(config, /automaticSalesOverrides:\s*"quickflex_automatic_sales_overrides"/);
   assert.match(config, /replaceAutomaticSalesOverride:\s*"quickflex_replace_automatic_sales_override"/);
-  assert.match(serviceWorker, /quickflex-shell-v1\.0\.37/);
-  assert.match(html, /src\/main\.js\?v=1\.0\.37/);
-  assert.match(html, /styles\.css\?v=1\.0\.37/);
-  assert.match(html, /퀵플렉스 매출관리 v1\.0\.37/);
-  assert.equal(JSON.parse(manifest).version, "1.0.37");
+  assert.match(serviceWorker, /quickflex-shell-v1\.0\.38/);
+  assert.match(html, /src\/main\.js\?v=1\.0\.38/);
+  assert.match(html, /styles\.css\?v=1\.0\.38/);
+  assert.match(html, /퀵플렉스 매출관리 v1\.0\.38/);
+  assert.equal(JSON.parse(manifest).version, "1.0.38");
 });
 
 test("override payload is a 1..100 row A/B-only full snapshot without household fields", () => {

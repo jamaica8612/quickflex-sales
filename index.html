@@ -35,7 +35,7 @@
       html[data-theme="dark"], body[data-theme="dark"] { background: #0A0E17; color-scheme: dark; }
       html[data-theme="light"], body[data-theme="light"] { background: #EAECEF; color-scheme: light; }
     </style>
-    <link rel="stylesheet" href="./styles.css?v=1.0.37" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.38" />
   </head>
   <body>
     <script>document.body.dataset.theme = document.documentElement.dataset.theme;</script>
@@ -530,7 +530,7 @@
               <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
             </div>
           </section>
-          <p class="app-version">퀵플렉스 매출관리 v1.0.37</p>
+          <p class="app-version">퀵플렉스 매출관리 v1.0.38</p>
         </main>
       </section>
 
@@ -688,6 +688,16 @@
         </div>
       </div>
 
+      <div class="overlay" id="updateNoticeOverlay" aria-hidden="true" inert>
+        <div id="updateNoticeDialog" class="modal-card update-notice-card" role="dialog" aria-modal="true" aria-labelledby="updateNoticeTitle" aria-describedby="updateNoticeIntro" tabindex="-1">
+          <span class="update-notice-badge">새 버전</span>
+          <h2 id="updateNoticeTitle">앱이 업데이트됐습니다</h2>
+          <p id="updateNoticeIntro" class="hint">이번에 달라진 내용을 확인해 주세요.</p>
+          <ul id="updateNoticeItems" class="update-notice-items"></ul>
+          <button id="acknowledgeUpdateNotice" class="full-btn wide" type="button">확인하고 시작</button>
+        </div>
+      </div>
+
       <div class="overlay" id="salesOverrideOverlay" aria-hidden="true" inert>
         <div id="salesOverrideDialog" class="modal-card sales-override-card" role="dialog" aria-modal="true" aria-labelledby="salesOverrideTitle" aria-describedby="salesOverrideIntro salesOverrideStatus" tabindex="-1">
           <h2 id="salesOverrideTitle">매출 수정</h2>
@@ -736,7 +746,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.37"></script>
+    <script type="module" src="./src/main.js?v=1.0.38"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
