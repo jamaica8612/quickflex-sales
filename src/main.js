@@ -2643,7 +2643,14 @@ function rememberAppNoticeLocally(userId, noticeVersion = APP_UPDATE_NOTICE.id) 
 function isProductionSiteRuntime() {
   try { return window.location.origin === new URL(PUBLIC_SITE_URL).origin; } catch (_) { return false; }
 }
+function isNativeAppRuntime() {
+  return Boolean(
+    window.QuickFlexNative
+    && typeof window.QuickFlexNative.postMessage === "function"
+  );
+}
 function showAppUpdateNotice() {
+  if (!isNativeAppRuntime()) return false;
   if (!el.updateNoticeOverlay || !el.updateNoticeItems) return false;
   el.updateNoticeItems.innerHTML = APP_UPDATE_NOTICE.items
     .map((item) => `<li>${escapeAttr(item)}</li>`)
@@ -2681,6 +2688,7 @@ function acknowledgeAppUpdateNotice() {
   return true;
 }
 async function maybeOfferRateUpdate(context = captureAccountContext()) {
+  if (!isNativeAppRuntime()) return false;
   if (!isAccountContextCurrent(context)) return false;
   const noticeVersion = APP_UPDATE_NOTICE.id;
   if (appNoticeSeenLocally(context.userId, noticeVersion) || state.rateOfferPrompted) return false;
