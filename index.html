@@ -35,7 +35,7 @@
       html[data-theme="dark"], body[data-theme="dark"] { background: #0A0E17; color-scheme: dark; }
       html[data-theme="light"], body[data-theme="light"] { background: #EAECEF; color-scheme: light; }
     </style>
-    <link rel="stylesheet" href="./styles.css?v=1.0.34" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.37" />
   </head>
   <body>
     <script>document.body.dataset.theme = document.documentElement.dataset.theme;</script>
@@ -102,7 +102,7 @@
               <span>선택 날짜 상세</span>
               <strong id="selectedDateBreakdownTitle">구역별 매출</strong>
             </div>
-            <button id="openSalesOverride" class="secondary-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="salesOverrideDialog">매출 수정</button>
+            <button id="openSalesOverride" class="secondary-btn" type="button">기록 수정</button>
           </div>
           <div id="selectedDateBreakdownRows" class="selected-breakdown-rows"></div>
           <p id="selectedDateBreakdownNote" class="selected-breakdown-note"></p>
@@ -179,11 +179,6 @@
           <div class="entry-actions">
             <button id="addRoute" class="secondary-btn"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>구역 추가</span></button>
           </div>
-          <div id="automaticRecordNotice" class="automatic-record-notice hidden">
-            <p>앱 자동기록 원본은 변경하지 않습니다. 완료 가구 원시값은 매출·타수 계산과 검증에 쓰지 않고, 앱 집계 타수는 측정 앱에서만 참고합니다. A/B 상품수와 단가는 별도 수정본으로 바꿀 수 있고, 프레시백 등 날짜 항목은 계속 입력할 수 있습니다.</p>
-            <button id="openSalesOverrideFromRecord" class="secondary-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="salesOverrideDialog">A/B 매출 수정</button>
-          </div>
-
           <div class="entry-card">
             <div class="entry-head"><span>구역</span><span>건수</span><span>단가</span><span>매출</span><span></span></div>
             <div id="entryRows"></div>
@@ -240,7 +235,7 @@
             <h2>측정 앱에서 진행</h2>
             <p class="hint">쿠팡플렉스 화면의 완료 가구·상품수를 읽으려면 설치된 측정 앱을 엽니다. 측정 종료는 페이스 구간만 기기에 저장하며, 매출 기록은 업무 종료 화면에서 구역별 상품수를 확인·보정한 뒤 반영합니다.</p>
             <button id="openPaceApp" class="full-btn" type="button">측정 앱 열기</button>
-            <p class="hint">업무 종료로 반영한 자동 마감 구역·건수·단가는 기록 화면에서 수정할 수 없습니다. 오분류나 누락은 업무 종료 전에 완료 상품수와 합계를 맞춰 보정해 주세요.</p>
+            <p class="hint">업무 종료로 반영된 구역·건수·단가는 해당 날짜의 기록 화면에서 다시 수정할 수 있습니다.</p>
           </section>
         </main>
       </section>
@@ -248,81 +243,131 @@
       <section class="view view-stats">
         <header class="sub-header stats-sub">
           <div class="sub-title left">
-            <span>기록·통계</span>
-            <strong id="statsMonthTitle">-</strong>
+            <strong id="statsReportTitle">정산 리포트</strong>
+            <span id="statsMonthTitle">이번 정산</span>
             <em id="statsRange">-</em>
           </div>
-          <button class="round-btn" id="statsPrevMonth" type="button" aria-label="이전 정산월"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
-          <button class="round-btn" id="statsNextMonth" type="button" aria-label="다음 정산월"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
+          <button class="round-btn" id="statsPrevMonth" type="button" aria-label="이전 정산월" hidden><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <button class="round-btn" id="statsNextMonth" type="button" aria-label="다음 정산월" hidden><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
         </header>
-        <main class="settings-body">
-          <div class="stats-summary-card">
-            <span class="ssc-label">선택 기간</span>
-            <strong class="ssc-range" id="statsSummaryRange">-</strong>
-            <div class="ssc-rows">
-              <div><span>총 매출</span><strong id="statsSummaryTotal">0원</strong></div>
+        <main class="settings-body stats-report-body">
+          <section class="stats-summary-card stats-report-hero" aria-labelledby="statsHeroLabel">
+            <div class="stats-hero-heading">
+              <span class="ssc-label" id="statsHeroLabel">선택 기간 누적</span>
+              <strong class="ssc-range" id="statsSummaryRange">-</strong>
             </div>
-            <div class="ssc-meter">
+            <strong class="stats-report-total" id="statsSummaryTotal">0원</strong>
+            <div class="stats-compare" id="statsComparison" aria-live="polite">
+              <span id="statsCompareLabel">지난 정산 동일 근무일수 대비</span>
+              <strong id="statsCompareValue">비교할 이전 기록 부족</strong>
+              <small id="statsCompareMeta">이번 정산과 같은 근무일수로 비교합니다.</small>
+            </div>
+            <dl class="stats-hero-support">
+              <div>
+                <dt>일평균 매출</dt>
+                <dd id="statsAverage">0원</dd>
+              </div>
+              <div>
+                <dt>근무일수</dt>
+                <dd id="statsWorkDays">0일</dd>
+              </div>
+            </dl>
+            <div class="ssc-meter" id="statsGoalMeter">
               <div class="ssc-meter-bar"><span id="statsMeterFill"></span></div>
               <div class="ssc-meter-foot">
                 <span id="statsMeterPct">0%</span>
                 <span id="statsMeterLabel">목표 미설정</span>
               </div>
             </div>
-          </div>
-          <div class="stats-range-tabs" id="statsRangeTabs" role="group" aria-label="통계 조회 기간">
-            <button data-range="thisMonth" class="active" type="button" aria-pressed="true">이번달</button>
-            <button data-range="lastMonth" type="button" aria-pressed="false">지난달</button>
-            <button data-range="last3" type="button" aria-pressed="false">3개월</button>
-            <button data-range="last12" type="button" aria-pressed="false">1년</button>
-            <button data-range="custom" type="button" aria-pressed="false">직접입력</button>
-          </div>
-          <div class="stats-range-custom" id="statsRangeCustom" hidden>
-            <input type="date" id="statsRangeFrom" />
-            <span>~</span>
-            <input type="date" id="statsRangeTo" />
-            <button id="statsRangeApply">적용</button>
-          </div>
-          <div class="stats-chart-card">
-            <div class="stats-chart-toggle" id="statsChartToggle" role="group" aria-label="그래프 지표">
-              <button type="button" data-metric="revenue" class="active" aria-pressed="true">매출</button>
-              <button type="button" data-metric="count" aria-pressed="false">물량</button>
+          </section>
+
+          <section class="stats-range-control" aria-labelledby="statsRangeLabel">
+            <div class="stats-range-heading">
+              <h2 id="statsRangeLabel">조회 기간</h2>
+              <button class="stats-custom-toggle" id="statsRangeCustomToggle" data-range="custom" type="button" aria-pressed="false" aria-expanded="false" aria-controls="statsRangeCustom">직접입력</button>
             </div>
-            <canvas id="statsChart" height="200" role="img" aria-describedby="statsChartSummary"></canvas>
-            <p class="stats-chart-hint" id="statsChartSummary">그래프를 터치하여 상세 데이터를 확인하세요 · 점선은 평균</p>
-            <div class="stats-chart-tooltip" id="statsChartTooltip" role="status" aria-live="polite" hidden></div>
-          </div>
-          <div class="stats-tabs" role="tablist" aria-label="통계 상세">
-            <button class="stats-tab active" id="statsTabMonthly" data-tab="monthly" type="button" role="tab" aria-controls="statsPanelMonthly" aria-selected="true">월간</button>
-            <button class="stats-tab" id="statsTabRevenue" data-tab="revenue" type="button" role="tab" aria-controls="statsPanelRevenue" aria-selected="false">매출</button>
-            <button class="stats-tab" id="statsTabRoutes" data-tab="routes" type="button" role="tab" aria-controls="statsPanelRoutes" aria-selected="false">구역별</button>
-            <button class="stats-tab" id="statsTabDaily" data-tab="daily" type="button" role="tab" aria-controls="statsPanelDaily" aria-selected="false">일간</button>
-            <button class="stats-tab" id="statsTabYearly" data-tab="yearly" type="button" role="tab" aria-controls="statsPanelYearly" aria-selected="false" hidden>연간</button>
-            <button class="stats-tab" id="statsTabTotal" data-tab="total" type="button" role="tab" aria-controls="statsPanelTotal" aria-selected="false" hidden>누적</button>
-          </div>
-          <section class="stats-panel active" id="statsPanelMonthly" data-panel="monthly" role="tabpanel" aria-labelledby="statsTabMonthly">
-            <div class="stat-cards">
-              <div class="stat-card"><span>총 근무일</span><strong id="statsWorkDays">0일</strong></div>
-              <div class="stat-card"><span>휴무일</span><strong id="statsOffDays">0일</strong></div>
-              <div class="stat-card"><span>총 물량</span><strong id="statsCount">0건</strong></div>
-              <div class="stat-card"><span>일평균 물량</span><strong id="statsAvgCount">0건</strong></div>
-              <div class="stat-card"><span>프레시백</span><strong id="statsFresh">0건</strong></div>
-              <div class="stat-card"><span>일평균 매출</span><strong id="statsAverage">0원</strong></div>
-              <div class="stat-card wide"><span>최고 매출일</span><strong id="statsBestDay">-</strong></div>
-              <div class="stat-card wide"><span>최저 매출일</span><strong id="statsWorstDay">-</strong></div>
+            <div class="stats-range-tabs" id="statsRangeTabs" role="group" aria-label="빠른 조회 기간">
+              <button data-range="thisMonth" class="active" type="button" aria-pressed="true">이번 정산</button>
+              <button data-range="lastMonth" type="button" aria-pressed="false">지난 정산</button>
+              <button data-range="last3" type="button" aria-pressed="false">3개월</button>
+              <button data-range="last12" type="button" aria-pressed="false">1년</button>
+            </div>
+            <div class="stats-range-custom" id="statsRangeCustom" role="group" aria-label="직접 조회 기간" hidden>
+              <label>
+                <span>시작일</span>
+                <input type="date" id="statsRangeFrom" />
+              </label>
+              <span class="stats-range-separator" aria-hidden="true">~</span>
+              <label>
+                <span>종료일</span>
+                <input type="date" id="statsRangeTo" />
+              </label>
+              <button id="statsRangeApply" type="button">적용</button>
             </div>
           </section>
-          <section class="stats-panel" id="statsPanelRevenue" data-panel="revenue" role="tabpanel" aria-labelledby="statsTabRevenue" hidden>
+
+          <section class="stats-chart-card stats-report-section" aria-labelledby="statsTrendTitle">
+            <div class="stats-report-section-head">
+              <div>
+                <span>흐름</span>
+                <h2 id="statsTrendTitle">매출 추이</h2>
+              </div>
+              <div class="stats-chart-toggle" id="statsChartToggle" role="group" aria-label="그래프 지표">
+                <button type="button" data-metric="revenue" class="active" aria-pressed="true">매출</button>
+                <button type="button" data-metric="count" aria-pressed="false">물량</button>
+              </div>
+            </div>
+            <canvas id="statsChart" height="200" role="img" tabindex="0" aria-describedby="statsChartSummary"></canvas>
+            <p class="stats-chart-hint" id="statsChartSummary">그래프를 터치하거나 좌우 방향키로 상세 데이터를 확인하세요 · 점선은 평균</p>
+            <div class="stats-chart-tooltip" id="statsChartTooltip" role="status" aria-live="polite" hidden></div>
+            <div class="stats-empty-state" id="statsChartEmpty" hidden>
+              <strong>기록된 매출이 없습니다</strong>
+              <p>달력에서 업무 기록을 추가하면 추이를 확인할 수 있습니다.</p>
+              <button id="statsEmptyCalendarButton" class="secondary-btn" type="button">달력에서 기록 보기</button>
+            </div>
+          </section>
+
+          <section class="stats-report-section" aria-labelledby="statsRevenueTitle">
+            <div class="stats-report-section-head">
+              <div>
+                <span>수입 내역</span>
+                <h2 id="statsRevenueTitle">매출 구성</h2>
+              </div>
+              <strong class="stats-section-total" id="statsRevenueTotal">0원</strong>
+            </div>
             <div id="revenueList" class="revenue-list"></div>
           </section>
-          <section class="stats-panel" id="statsPanelRoutes" data-panel="routes" role="tabpanel" aria-labelledby="statsTabRoutes" hidden>
+
+          <section class="stats-report-section" aria-labelledby="statsRoutesTitle">
+            <div class="stats-report-section-head">
+              <div>
+                <span>배송 구역</span>
+                <h2 id="statsRoutesTitle">구역별</h2>
+              </div>
+            </div>
             <div id="routeStats" class="route-stats"></div>
           </section>
-          <section class="stats-panel" id="statsPanelDaily" data-panel="daily" role="tabpanel" aria-labelledby="statsTabDaily" hidden>
+
+          <section class="stats-report-section" aria-labelledby="statsDailyTitle">
+            <div class="stats-report-section-head">
+              <div>
+                <span>근무 기록</span>
+                <h2 id="statsDailyTitle">날짜별 기록</h2>
+              </div>
+            </div>
             <div id="dailyList" class="daily-list"></div>
           </section>
-          <section class="stats-panel" id="statsPanelYearly" data-panel="yearly" role="tabpanel" aria-labelledby="statsTabYearly" hidden><div id="yearlyStats" class="stats-list"></div></section>
-          <section class="stats-panel" id="statsPanelTotal" data-panel="total" role="tabpanel" aria-labelledby="statsTabTotal" hidden><div id="totalStats" class="stats-list"></div></section>
+
+          <div class="stats-legacy-fields" hidden aria-hidden="true">
+            <span id="statsOffDays">0일</span>
+            <span id="statsCount">0건</span>
+            <span id="statsAvgCount">0건</span>
+            <span id="statsFresh">0건</span>
+            <span id="statsBestDay">-</span>
+            <span id="statsWorstDay">-</span>
+            <div id="yearlyStats"></div>
+            <div id="totalStats"></div>
+          </div>
         </main>
       </section>
 
@@ -485,7 +530,7 @@
               <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
             </div>
           </section>
-          <p class="app-version">퀵플렉스 매출관리 v1.0.34</p>
+          <p class="app-version">퀵플렉스 매출관리 v1.0.37</p>
         </main>
       </section>
 
@@ -509,6 +554,9 @@
           </div>
 
           <section class="admin-panel active" id="adminPanelSummary" data-admin-panel="summary" role="tabpanel" aria-labelledby="adminTabSummary">
+            <section id="adminUsageSummary" class="admin-usage-summary" aria-label="최근 30일 통계 화면 사용 요약">
+              <div class="daily-card"><span>사용 현황을 불러오는 중입니다.</span></div>
+            </section>
             <div id="adminRevenueList" class="admin-revenue-list"></div>
           </section>
 
@@ -688,7 +736,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.34"></script>
+    <script type="module" src="./src/main.js?v=1.0.37"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
