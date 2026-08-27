@@ -97,3 +97,17 @@ test("approved boot, real view transitions, and admin aggregate are wired withou
   assert.match(html, /id="adminUsageSummary"/);
   assert.match(main, /매출·수량·구역·날짜는 수집하지 않습니다/);
 });
+
+test("detail route counts remain visible without unknown or mismatch warnings", () => {
+  const selected = sourceFunction(main, "renderSelectedDateBreakdown", "renderHomeSelection");
+  const routes = sourceFunction(main, "renderRouteStats", "renderStatsSummaryRows");
+  const adminRoutes = sourceFunction(main, "renderAdminRouteStats", "normalizeBundleRows");
+  assert.match(selected, /selected-detail-routes/);
+  assert.match(routes, /rs-detail-routes/);
+  assert.match(adminRoutes, /admin-route-details/);
+  for (const source of [selected, routes, adminRoutes]) {
+    assert.doesNotMatch(source, /세부 미확인·미저장|매출 수정과/);
+    assert.doesNotMatch(source, /detail-warning/);
+  }
+  assert.doesNotMatch(css, /selected-detail-warning|rs-detail-warning|admin-route-detail-warning/);
+});

@@ -241,10 +241,10 @@ test("light and dark design tokens meet text and control-boundary contrast floor
 });
 
 test("blocking overlays, forms, sheets and live regions keep accessible HTML structure", () => {
-  for (const id of ["setupOverlay", "authOverlay", "pendingOverlay", "salesOverrideOverlay"]) {
+  for (const id of ["setupOverlay", "authOverlay", "pendingOverlay", "updateNoticeOverlay", "salesOverrideOverlay"]) {
     assertAttributes(id, { "aria-hidden": "true", inert: true });
   }
-  for (const id of ["setupTitle", "authTitle", "pendingTitle", "salesOverrideTitle", "dbSheetTitle"]) {
+  for (const id of ["setupTitle", "authTitle", "pendingTitle", "updateNoticeTitle", "salesOverrideTitle", "dbSheetTitle"]) {
     assert.match(html, new RegExp(`role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="${id}"[^>]*tabindex="-1"`));
   }
   assertAttributes("dbSheet", { role: "dialog", "aria-modal": "true", "aria-hidden": "true", inert: true });
