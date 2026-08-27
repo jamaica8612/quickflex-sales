@@ -41,6 +41,28 @@ test("update notice uses an in-app accessible modal instead of browser dialogs",
   assert.doesNotMatch(offer, /app_notice_version/);
 });
 
+test("update notice is limited to the Android app bridge", () => {
+  const runtime = extractFunction("isNativeAppRuntime");
+  const show = extractFunction("showAppUpdateNotice");
+  const offer = extractFunction("maybeOfferRateUpdate");
+
+  assert.match(runtime, /window\.QuickFlexNative/);
+  assert.match(runtime, /typeof window\.QuickFlexNative\.postMessage === ["']function["']/);
+  assert.match(show, /if \(!isNativeAppRuntime\(\)\) return false;/);
+  assert.match(offer, /if \(!isNativeAppRuntime\(\)\) return false;/);
+
+  const evaluateRuntime = (window) => {
+    const context = vm.createContext({ window });
+    vm.runInContext(`${runtime}\nglobalThis.actual = isNativeAppRuntime();`, context);
+    return context.actual;
+  };
+  assert.equal(evaluateRuntime({}), false, "regular browsers must not receive the notice");
+  assert.equal(evaluateRuntime({ matchMedia: () => ({ matches: true }) }), false,
+    "installed standalone PWAs must not receive the notice");
+  assert.equal(evaluateRuntime({ QuickFlexNative: { postMessage() {} } }), true,
+    "the Android WebView bridge enables the notice");
+});
+
 test("notice acknowledgement is isolated by user on each device", () => {
   const values = new Map();
   const sandbox = {
