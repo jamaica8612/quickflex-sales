@@ -203,11 +203,11 @@ label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: 13px;
 .app:not([data-role="admin"]) .admin-only { display: none !important; }
 .hidden { display: none !important; }
 .view-home {
-  background: linear-gradient(180deg, rgba(27,45,80,.68) 0%, #1A2232 22%, #171D2A 44%, var(--bg) 44%);
+  background: linear-gradient(180deg, rgba(27,45,80,.68) 0%, #1A2232 22%, #171D2A 44%, var(--bg) 60%);
 }
 html:not([data-theme="dark"]) .view-home,
 body:not([data-theme="dark"]) .view-home {
-  background: linear-gradient(180deg, #F3F8FF 0%, #EEF5FF 24%, #EAF2FD 44%, var(--bg) 44%);
+  background: linear-gradient(180deg, #F3F8FF 0%, #EEF5FF 24%, #EAF2FD 44%, var(--bg) 60%);
 }
 
 .home-header {
