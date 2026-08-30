@@ -1,4 +1,4 @@
-const CACHE_NAME = "quickflex-shell-v1.0.40";
+const CACHE_NAME = "quickflex-shell-v1.0.41";
 const SHELL_FILES = [
   "./",
   "./index.html",
@@ -25,9 +25,13 @@ const SHELL_FILES = [
   "./src/lib/stats-report.js",
   "./src/lib/revenue.js",
   "./src/lib/format.js",
-  "./manifest.webmanifest",
-  "./icon-192.png?v=2",
-  "./icon-512.png?v=2",
+  "./manifest.webmanifest?v=1.0.41",
+  "./icon-192.png?v=3",
+  "./icon-512.png?v=3",
+  "./icon-maskable-192.png?v=3",
+  "./icon-maskable-512.png?v=3",
+  "./apple-touch-icon.png?v=3",
+  "./favicon-32.png?v=3",
 ];
 
 self.addEventListener("install", (event) => {

@@ -1,20 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QuickFlex Sales">
-  <defs>
-    <linearGradient id="bg" x1="96" y1="40" x2="416" y2="472" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffd34d"/>
-      <stop offset="1" stop-color="#f59e0b"/>
-    </linearGradient>
-    <linearGradient id="card" x1="140" y1="128" x2="372" y2="396" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#1d2331"/>
-      <stop offset="1" stop-color="#0b0d12"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <path d="M130 168c0-28 22-50 50-50h152c28 0 50 22 50 50v176c0 28-22 50-50 50H180c-28 0-50-22-50-50V168Z" fill="url(#card)"/>
-  <path d="M178 198h156" stroke="#ffc226" stroke-width="22" stroke-linecap="round"/>
-  <path d="M178 252h116" stroke="#60a5fa" stroke-width="22" stroke-linecap="round"/>
-  <path d="M178 306h78" stroke="#34d399" stroke-width="22" stroke-linecap="round"/>
-  <circle cx="338" cy="330" r="72" fill="#ffc226"/>
-  <path d="M368 354c-15 13-35 19-57 12-31-10-47-43-36-73 10-31 43-47 73-36 31 10 47 43 36 73" fill="none" stroke="#0b0d12" stroke-width="24" stroke-linecap="round"/>
-  <path d="M356 348l42 42" stroke="#0b0d12" stroke-width="24" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">퀵플렉스 번개 상자 아이콘</title>
+  <desc id="desc">짙은 남색 배경 위의 노란 배송 상자와 굵은 남색 번개</desc>
+  <rect width="512" height="512" fill="#10141F"/>
+  <g transform="translate(-20.48 -20.48) scale(1.08)">
+    <path fill="#FFD24A" d="M92 153 241 79q15-8 30 0l149 74q16 8 0 16l-149 75q-15 8-30 0L92 169q-16-8 0-16Z"/>
+    <path fill="#FFD24A" d="M87 185q-5-3-5 8v152q0 13 12 20l147 74q9 5 9-7V269q0-11-10-16L87 185Z"/>
+    <path fill="#FFD24A" d="M425 185q5-3 5 8v152q0 13-12 20l-147 74q-9 5-9-7V269q0-11 10-16l153-68Z"/>
+    <path fill="#10141F" d="m194 108 38-19 143 71-38 19-143-71Z"/>
+    <path fill="#10141F" d="m354 164-67 114 53-14-136 176 50-128-49 15 75-128 74-35Z"/>
+  </g>
 </svg>

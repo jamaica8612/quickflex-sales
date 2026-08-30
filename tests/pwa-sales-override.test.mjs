@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 
@@ -7,6 +7,7 @@ const main = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
 const recordUi = readFileSync(new URL("../src/ui/record.js", import.meta.url), "utf8");
 const config = readFileSync(new URL("../src/config.js", import.meta.url), "utf8");
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const introHtml = readFileSync(new URL("../intro.html", import.meta.url), "utf8");
 const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 const serviceWorker = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
 const manifest = readFileSync(new URL("../manifest.webmanifest", import.meta.url), "utf8");
@@ -54,11 +55,23 @@ test("PWA config names the immutable-receipt detail and date override contracts"
   assert.match(config, /workResultRouteDetails:\s*"quickflex_work_result_route_details"/);
   assert.match(config, /automaticSalesOverrides:\s*"quickflex_automatic_sales_overrides"/);
   assert.match(config, /replaceAutomaticSalesOverride:\s*"quickflex_replace_automatic_sales_override"/);
-  assert.match(serviceWorker, /quickflex-shell-v1\.0\.40/);
-  assert.match(html, /src\/main\.js\?v=1\.0\.40/);
-  assert.match(html, /styles\.css\?v=1\.0\.40/);
-  assert.match(html, /퀵플렉스 매출관리 v1\.0\.40/);
-  assert.equal(JSON.parse(manifest).version, "1.0.40");
+  assert.match(serviceWorker, /quickflex-shell-v1\.0\.41/);
+  assert.match(html, /src\/main\.js\?v=1\.0\.41/);
+  assert.match(html, /styles\.css\?v=1\.0\.41/);
+  assert.match(html, /퀵플렉스 매출관리 v1\.0\.41/);
+  const parsedManifest = JSON.parse(manifest);
+  assert.equal(parsedManifest.version, "1.0.41");
+  assert.deepEqual(
+    parsedManifest.icons.map(({ sizes, purpose }) => [sizes, purpose]),
+    [["192x192", "any"], ["512x512", "any"], ["192x192", "maskable"], ["512x512", "maskable"]],
+  );
+  parsedManifest.icons.forEach(({ src }) => {
+    assert.ok(existsSync(new URL(`../${src.replace(/^\.\//, "").split("?")[0]}`, import.meta.url)), `missing ${src}`);
+  });
+  assert.match(serviceWorker, /icon-maskable-512\.png\?v=3/);
+  assert.match(html, /favicon-32\.png\?v=3/);
+  assert.match(html, /apple-touch-icon\.png\?v=3/);
+  assert.match(introHtml, /icon-512\.png\?v=3/);
 });
 
 test("override payload is a 1..100 row A/B-only full snapshot without household fields", () => {

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">퀵플렉스 마스커블 번개 상자 아이콘</title>
+  <desc id="desc">짙은 남색 배경 위 안전 영역 안의 노란 배송 상자와 굵은 남색 번개</desc>
+  <rect width="512" height="512" fill="#10141F"/>
+  <path fill="#FFD24A" d="M92 153 241 79q15-8 30 0l149 74q16 8 0 16l-149 75q-15 8-30 0L92 169q-16-8 0-16Z"/>
+  <path fill="#FFD24A" d="M87 185q-5-3-5 8v152q0 13 12 20l147 74q9 5 9-7V269q0-11-10-16L87 185Z"/>
+  <path fill="#FFD24A" d="M425 185q5-3 5 8v152q0 13-12 20l-147 74q-9 5-9-7V269q0-11 10-16l153-68Z"/>
+  <path fill="#10141F" d="m194 108 38-19 143 71-38 19-143-71Z"/>
+  <path fill="#10141F" d="m354 164-67 114 53-14-136 176 50-128-49 15 75-128 74-35Z"/>
+</svg>
