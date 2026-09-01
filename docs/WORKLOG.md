@@ -1057,3 +1057,11 @@ Browser checks:
 - Unlocked the pre-completed inspection records so users can correct checklist results, notes, or no-operation status. Saving a correction converts that date to a normal app-authored record that remains editable.
 - Hid the calendar inspection dot for no-operation records; only completed vehicle inspections now receive the green marker.
 - Added an owner-only reusable inspection signature, stored separately under strict RLS. New completed/no-operation records snapshot that signature, and monthly print/PDF output renders a real signature image in each recorded date column (with the registered signature as the fallback for earlier completed records).
+
+## 2026-09-01 Save Atomicity And Diagnostic Retention
+
+- Replaced the PWA manual-date `DELETE`/`INSERT` sequence with the authenticated `quickflex_replace_manual_day_record` RPC so a network interruption cannot leave a date without its prior route rows.
+- Serialized manual replacement against Android immutable work finalization and retained the existing `55000` conflict path when an automatic receipt wins the race.
+- Added a private daily retention job that removes measurement diagnostics older than 14 days. Normal users cannot execute the cleanup function.
+- Bumped the PWA shell and visible version to `v1.0.42`; update-notice UI remains Android-runtime-only.
+- Verified JavaScript syntax and all 98 Node tests. The migration is prepared but must be applied with the matching frontend release; the RPC-using frontend must not be deployed before the database migration.

@@ -55,12 +55,13 @@ test("PWA config names the immutable-receipt detail and date override contracts"
   assert.match(config, /workResultRouteDetails:\s*"quickflex_work_result_route_details"/);
   assert.match(config, /automaticSalesOverrides:\s*"quickflex_automatic_sales_overrides"/);
   assert.match(config, /replaceAutomaticSalesOverride:\s*"quickflex_replace_automatic_sales_override"/);
-  assert.match(serviceWorker, /quickflex-shell-v1\.0\.41/);
-  assert.match(html, /src\/main\.js\?v=1\.0\.41/);
-  assert.match(html, /styles\.css\?v=1\.0\.41/);
-  assert.match(html, /퀵플렉스 매출관리 v1\.0\.41/);
+  assert.match(config, /replaceManualDayRecord:\s*"quickflex_replace_manual_day_record"/);
+  assert.match(serviceWorker, /quickflex-shell-v1\.0\.42/);
+  assert.match(html, /src\/main\.js\?v=1\.0\.42/);
+  assert.match(html, /styles\.css\?v=1\.0\.42/);
+  assert.match(html, /퀵플렉스 매출관리 v1\.0\.42/);
   const parsedManifest = JSON.parse(manifest);
-  assert.equal(parsedManifest.version, "1.0.41");
+  assert.equal(parsedManifest.version, "1.0.42");
   assert.deepEqual(
     parsedManifest.icons.map(({ sizes, purpose }) => [sizes, purpose]),
     [["192x192", "any"], ["512x512", "any"], ["192x192", "maskable"], ["512x512", "maskable"]],
