@@ -2706,40 +2706,7 @@ async function persistDay(dateKey, context = captureAccountContext()) {
     off: hasAutomatic ? false : rec.off,
     rows: hasAutomatic ? [] : manualRows(rec),
   });
-  const assertManualDateUnlocked = async () => {
-    if (!isAccountContextCurrent(context)) return false;
-    const { data: automaticHeaders, error: automaticHeaderError } = await state.db
-      .from(TABLES.workResults)
-      .select("work_id")
-      .eq("user_id", userId)
-      .eq("work_date", dateKey)
-      .limit(1);
-    if (!isAccountContextCurrent(context)) return false;
-    if (automaticHeaderError) throw automaticHeaderError;
-    if (automaticHeaders?.length) {
-      const lockError = new Error("앱 자동 마감 기록이 생성되어 수동 구역 저장이 잠겼습니다.");
-      lockError.code = "55000";
-      throw lockError;
-    }
-    return true;
-  };
-  if (!hasAutomatic) {
-    // 열린 PWA가 Android 마감보다 오래된 상태일 수 있다. 파괴적인 DELETE 전에
-    // 원장 헤더를 다시 확인하고, 그래도 경합하면 DB trigger(55000)가 마지막으로 막는다.
-    if (!await assertManualDateUnlocked()) return false;
-  }
-  if (!hasAutomatic) {
-    const { error: deleteItemsError } = await state.db.from(TABLES.items).delete().eq("user_id", userId).eq("work_date", dateKey);
-    if (!isAccountContextCurrent(context)) return false;
-    if (deleteItemsError) throw deleteItemsError;
-  }
-  if (!hasMeaningfulRecord(editableRec) && !hasAutomatic) {
-    const { error: deleteDayError } = await state.db.from(TABLES.days).delete().eq("user_id", userId).eq("work_date", dateKey);
-    if (!isAccountContextCurrent(context)) return false;
-    if (deleteDayError) throw deleteDayError;
-    delete state.entries[dateKey];
-    return true;
-  }
+  const deleteManualDay = !hasMeaningfulRecord(editableRec) && !hasAutomatic;
   const dayPayload = {
     user_id: userId,
     work_date: dateKey,
@@ -2752,9 +2719,6 @@ async function persistDay(dateKey, context = captureAccountContext()) {
     driver_type: isBackupDriver() ? "backup" : "fixed",
     updated_at: new Date().toISOString(),
   };
-  const { error: dayError } = await state.db.from(TABLES.days).upsert(dayPayload, { onConflict: "user_id,work_date" });
-  if (!isAccountContextCurrent(context)) return false;
-  if (dayError) throw dayError;
   const itemPayload = editableRec.off ? [] : editableRec.rows
     .filter((row) => row.route)
     .map((row, index) => ({
@@ -2767,15 +2731,36 @@ async function persistDay(dateKey, context = captureAccountContext()) {
       sort_order: index,
       updated_at: new Date().toISOString(),
     }));
-  if (!hasAutomatic && itemPayload.length) {
-    const { error: itemError } = await state.db.from(TABLES.items).insert(itemPayload);
+
+  if (!hasAutomatic) {
+    const rpcItems = itemPayload.map(({ route, delivery_count, household_count, unit_snapshot, sort_order }) => ({
+      route,
+      delivery_count,
+      household_count,
+      unit_snapshot,
+      sort_order,
+    }));
+    const { error: replaceError } = await state.db.rpc(RPC.replaceManualDayRecord, {
+      p_work_date: dateKey,
+      p_delete_day: deleteManualDay,
+      p_is_off: dayPayload.is_off,
+      p_fresh_count: dayPayload.fresh_count,
+      p_fresh_unit: dayPayload.fresh_unit,
+      p_fresh_solo_count: dayPayload.fresh_solo_count,
+      p_fresh_linked_count: dayPayload.fresh_linked_count,
+      p_backup_unit: dayPayload.backup_unit,
+      p_driver_type: dayPayload.driver_type,
+      p_items: rpcItems,
+    });
     if (!isAccountContextCurrent(context)) return false;
-    if (itemError) throw itemError;
+    if (replaceError) throw replaceError;
+    if (deleteManualDay) delete state.entries[dateKey];
+    return true;
   }
-  // DELETE와 INSERT 사이에 Android 마감이 커밋된 경우도 성공으로 오인하지 않는다.
-  // 완전한 원자성은 후속 RPC 범위지만, 사전 확인 + DB trigger + 사후 확인으로
-  // 현재 다중 요청 흐름에서 관찰 가능한 경합은 즉시 원장 재조회 경로로 보낸다.
-  if (!hasAutomatic && !await assertManualDateUnlocked()) return false;
+
+  const { error: dayError } = await state.db.from(TABLES.days).upsert(dayPayload, { onConflict: "user_id,work_date" });
+  if (!isAccountContextCurrent(context)) return false;
+  if (dayError) throw dayError;
   return isAccountContextCurrent(context);
 }
 function scheduleSave({ dateKeys = [], rates = false, immediate = false } = {}) {

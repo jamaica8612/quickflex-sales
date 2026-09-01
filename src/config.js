@@ -20,6 +20,7 @@ export const TABLES = {
 };
 
 export const RPC = {
+  replaceManualDayRecord: "quickflex_replace_manual_day_record",
   replaceAutomaticSalesOverride: "quickflex_replace_automatic_sales_override",
 };
 

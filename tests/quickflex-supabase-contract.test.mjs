@@ -10,6 +10,13 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const atomicManualMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260901110218_atomic_manual_day_save_and_diagnostic_retention.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 function sqlFunction(source, name) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -133,4 +140,38 @@ test("RPC execute privileges are authenticated-only", () => {
     schema,
     /grant execute on function public\.quickflex_replace_automatic_sales_override\(date, bigint, text, text, jsonb\) to authenticated/,
   );
+});
+
+test("manual day replacement is transactional and refuses automatic receipt dates", () => {
+  for (const source of [schema, atomicManualMigration]) {
+    const rpc = sqlFunction(source, "quickflex_replace_manual_day_record");
+    assert.match(rpc, /security invoker\s*set search_path = ''/);
+    assert.match(rpc, /current_user_id text := \(select auth\.uid\(\)\)::text/);
+    assert.match(rpc, /lock table public\.quickflex_day_route_items in share row exclusive mode/);
+    assert.match(rpc, /from public\.quickflex_work_results[\s\S]*?work_date = p_work_date/);
+    assert.match(rpc, /automatic work result exists for this date'[\s\S]*?errcode = '55000'/);
+    assert.ok(
+      rpc.indexOf("delete from public.quickflex_day_route_items")
+        < rpc.indexOf("insert into public.quickflex_day_records"),
+      "route replacement must happen inside the RPC before the new snapshot is inserted",
+    );
+    assert.match(rpc, /jsonb_array_length\(coalesce\(p_items, '\[\]'::jsonb\)\) <>/);
+  }
+  assert.match(
+    atomicManualMigration,
+    /revoke execute on function public\.quickflex_replace_manual_day_record\([\s\S]*?from public, anon, authenticated/,
+  );
+  assert.match(
+    atomicManualMigration,
+    /grant execute on function public\.quickflex_replace_manual_day_record\([\s\S]*?to authenticated/,
+  );
+});
+
+test("measurement diagnostics have a private bounded-retention job", () => {
+  for (const source of [schema, atomicManualMigration]) {
+    assert.match(source, /create or replace function private\.quickflex_prune_measurement_diagnostics\(\)/);
+    assert.match(source, /delete from public\.quickflex_measurement_diagnostics\s+where created_at < clock_timestamp\(\) - interval '14 days'/);
+    assert.match(source, /revoke execute on function private\.quickflex_prune_measurement_diagnostics\(\)\s+from public, anon, authenticated/);
+    assert.match(source, /'quickflex-measurement-diagnostics-retention'[\s\S]*?'27 3 \* \* \*'/);
+  }
 });

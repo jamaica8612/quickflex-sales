@@ -530,6 +530,62 @@ test("automatic-date extras persist without deleting the immutable receipt route
   assert.equal(dayWrite.payload.fresh_count, 2);
 });
 
+test("manual dates are replaced through one atomic RPC without direct route deletion", async () => {
+  const calls = [];
+  const record = {
+    off: false,
+    automaticWorks: [],
+    rows: [{ route: "310A01", count: 7, households: 5, unit: 1030 }],
+    freshCount: 2,
+    freshUnit: 100,
+    freshSoloCount: 1,
+    freshLinkedCount: 1,
+    backupUnit: 30,
+    driverType: "backup",
+  };
+  const db = {
+    rpc(name, payload) {
+      calls.push({ op: "rpc", name, payload });
+      return Promise.resolve({ data: true, error: null });
+    },
+    from(table) {
+      calls.push({ op: "from", table });
+      throw new Error("manual persistence must not issue direct table writes");
+    },
+  };
+  const state = { db, entries: { "2026-09-01": record } };
+  const { persistDay } = loadActualFunctions(["persistDay"], {
+    state,
+    RPC: { replaceManualDayRecord: "quickflex_replace_manual_day_record" },
+    TABLES: { workResults: "work-results", items: "day-items", days: "days" },
+    captureAccountContext: () => ({ userId: "user-a" }),
+    isAccountContextCurrent: () => true,
+    normalizeRecordShape: (value) => ({ ...value, rows: [...(value.rows || [])], automaticWorks: [...(value.automaticWorks || [])] }),
+    getRecord: () => record,
+    hasAutomaticEntries: () => false,
+    manualRows: (value) => value.rows,
+    hasMeaningfulRecord: () => true,
+    isBackupDriver: () => true,
+    defaultFreshUnit: (value) => value == null || value === "" ? 100 : value,
+    defaultBackupUnit: (value) => value == null || value === "" ? 30 : value,
+    toNum: (value) => Number(value) || 0,
+    joinStoredRoutes: (value) => value,
+    effectiveUnit: (row) => Number(row.unit) || 0,
+  });
+
+  assert.equal(await persistDay("2026-09-01", { userId: "user-a" }), true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].name, "quickflex_replace_manual_day_record");
+  assert.equal(calls[0].payload.p_delete_day, false);
+  assert.equal(JSON.stringify(calls[0].payload.p_items), JSON.stringify([{
+    route: "310A01",
+    delivery_count: 7,
+    household_count: 5,
+    unit_snapshot: 1030,
+    sort_order: 0,
+  }]));
+});
+
 test("a 55000 automatic-ledger lock reloads that date but preserves unrelated dirty input", async () => {
   const harness = createSaveHarness();
   const lockedDate = "2026-08-28";
