@@ -1,6 +1,15 @@
 # QuickFlex Worklog
 
-Last updated: 2026-04-30 (number polish and light button cleanup)
+Last updated: 2026-09-03 (fresh-bag sales and return count)
+
+## 2026-09-03 Fresh-bag Sales And Return Count
+
+- Added immutable Android work receipt fields for unique fresh-bag counts and return counts.
+- Applied automatic fresh-bag counts to the daily fresh-bag sales input without lowering a larger manually entered value.
+- Kept return items inside ordinary delivery counts and route revenue while displaying `반품 N개` separately.
+- Added the return count to the selected-date detail and daily statistics only when it is greater than zero.
+- Bumped the PWA shell and visible version to `v1.0.43`.
+- Verified JavaScript syntax, all 100 Node tests, and database RLS/function privileges.
 
 ## 2026-04-30 Number Polish And Light Button Cleanup (Codex)
 

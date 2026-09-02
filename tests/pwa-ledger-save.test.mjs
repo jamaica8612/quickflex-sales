@@ -396,6 +396,39 @@ test("automatic unit snapshots expose backup pay once while manual rows still ad
   assert.equal(manual.revenue, 12000);
 });
 
+test("return count is labeled separately without adding delivery revenue twice", () => {
+  const { calcRecordDetails } = loadActualFunctions([
+    "defaultFreshUnit",
+    "defaultBackupUnit",
+    "isAutomaticRow",
+    "effectiveUnit",
+    "calcRecordDetails",
+  ], {
+    DEFAULT_BACKUP_UNIT: 30,
+    normalizeRecordShape: (record) => record,
+    toNum: (value) => Number(value) || 0,
+    freshbagMode: () => "single",
+    sharedRateForRoutes: () => 0,
+    rateFor: () => 0,
+  });
+
+  const details = calcRecordDetails({
+    off: false,
+    rows: [{ route: "310A", count: 5, unit: 1000, source: "automatic", readOnly: true }],
+    freshCount: 2,
+    returnCount: 3,
+    freshUnit: 100,
+    backupUnit: 0,
+    driverType: "fixed",
+  });
+
+  assert.equal(details.count, 5);
+  assert.equal(details.returnCount, 3);
+  assert.equal(details.routeRevenue, 5000);
+  assert.equal(details.freshRevenue, 200);
+  assert.equal(details.revenue, 5200, "returns are already included in the five delivery items");
+});
+
 test("changing an automatic-date backup unit adjusts all-in snapshots by the delta exactly once", () => {
   const record = {
     off: false,
