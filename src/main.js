@@ -1012,7 +1012,7 @@ function autoUnitForRoutes(routes) {
 function defaultFreshUnit(value) { return value == null || value === "" ? 100 : value; }
 function defaultBackupUnit(value) { return value == null || value === "" ? DEFAULT_BACKUP_UNIT : value; }
 function freshbagMode() { return state.profile?.freshbag_mode || "single"; }
-function emptyRecord() { return { off: false, rows: [], automaticWorks: [], freshCount: "", freshUnit: 100, freshSoloCount: "", freshLinkedCount: "", backupUnit: DEFAULT_BACKUP_UNIT, driverType: isBackupDriver() ? "backup" : "fixed" }; }
+function emptyRecord() { return { off: false, rows: [], automaticWorks: [], freshCount: "", returnCount: "", freshUnit: 100, freshSoloCount: "", freshLinkedCount: "", backupUnit: DEFAULT_BACKUP_UNIT, driverType: isBackupDriver() ? "backup" : "fixed" }; }
 function isAutomaticRow(row) { return row?.source === "automatic" || row?.source === "override" || row?.readOnly === true; }
 function automaticRows(record) { return (record?.rows || []).filter(isAutomaticRow); }
 function manualRows(record) { return (record?.rows || []).filter((row) => !isAutomaticRow(row)); }
@@ -1128,6 +1128,7 @@ function normalizeRecordShape(record) {
     rows: Array.isArray(record?.rows) ? record.rows.map((row) => ({ ...row })) : [],
     automaticWorks: Array.isArray(record?.automaticWorks) ? record.automaticWorks.map((work) => ({ ...work })) : [],
     freshCount: record?.freshCount ?? "",
+    returnCount: record?.returnCount ?? "",
     freshUnit: defaultFreshUnit(record?.freshUnit),
     freshSoloCount: record?.freshSoloCount ?? "",
     freshLinkedCount: record?.freshLinkedCount ?? "",
@@ -1167,6 +1168,8 @@ function normalizeRecordShape(record) {
       finalizedAt: work.finalizedAt || "",
       totalHouseholds: exactLedgerInteger(work.totalHouseholds) ?? null,
       totalItems: exactLedgerInteger(work.totalItems) ?? null,
+      freshCount: exactLedgerInteger(work.freshCount) ?? 0,
+      returnCount: exactLedgerInteger(work.returnCount) ?? 0,
     });
   });
   next.rows.filter(isAutomaticRow).forEach((row) => {
@@ -1177,6 +1180,8 @@ function normalizeRecordShape(record) {
       finalizedAt: row.finalizedAt,
       totalHouseholds: null,
       totalItems: null,
+      freshCount: 0,
+      returnCount: 0,
     });
   });
   next.automaticWorks = [...automaticWorksById.values()];
@@ -1239,13 +1244,14 @@ function commitRecordDraft() {
 }
 function hasMeaningfulRecord(record) {
   const rec = normalizeRecordShape(record);
-  return rec.off || hasAutomaticEntries(rec) || rec.rows.length > 0 || toNum(rec.freshCount) > 0 || toNum(rec.freshUnit) !== 100 || (isBackupDriver() && toNum(rec.backupUnit) !== DEFAULT_BACKUP_UNIT);
+  return rec.off || hasAutomaticEntries(rec) || rec.rows.length > 0 || toNum(rec.freshCount) > 0 || toNum(rec.returnCount) > 0 || toNum(rec.freshUnit) !== 100 || (isBackupDriver() && toNum(rec.backupUnit) !== DEFAULT_BACKUP_UNIT);
 }
 function hasEnteredCounts(record) {
   const rec = normalizeRecordShape(record);
   return hasAutomaticEntries(rec)
     || rec.rows.some((row) => toNum(row.count) > 0)
     || toNum(rec.freshCount) > 0
+    || toNum(rec.returnCount) > 0
     || toNum(rec.freshSoloCount) > 0
     || toNum(rec.freshLinkedCount) > 0;
 }
@@ -1360,7 +1366,7 @@ function effectiveUnit(row) {
 }
 function calcRecordDetails(record) {
   const rec = normalizeRecordShape(record);
-  if (rec.off) return { count: 0, routeRevenue: 0, freshCount: 0, freshUnit: toNum(defaultFreshUnit(rec.freshUnit)), freshRevenue: 0, backupUnit: toNum(defaultBackupUnit(rec.backupUnit)), backupRevenue: 0, backupRevenueIncluded: 0, backupRevenueAdditive: 0, revenue: 0 };
+  if (rec.off) return { count: 0, routeRevenue: 0, freshCount: 0, returnCount: 0, freshUnit: toNum(defaultFreshUnit(rec.freshUnit)), freshRevenue: 0, backupUnit: toNum(defaultBackupUnit(rec.backupUnit)), backupRevenue: 0, backupRevenueIncluded: 0, backupRevenueAdditive: 0, revenue: 0 };
   const routeTotal = rec.rows.reduce((sum, row) => {
     const count = toNum(row.count);
     const automatic = isAutomaticRow(row);
@@ -1386,6 +1392,7 @@ function calcRecordDetails(record) {
     count: routeTotal.count,
     routeRevenue: routeTotal.revenue,
     freshCount,
+    returnCount: toNum(rec.returnCount),
     freshUnit,
     freshRevenue,
     backupUnit,
@@ -2124,7 +2131,7 @@ function userDateKey(userId, dateKey) {
 const LEDGER_PAGE_SIZE = 500;
 const LEDGER_WORK_ID_BATCH_SIZE = 40;
 const LEDGER_VERIFY_ATTEMPTS = 2;
-const WORK_RESULT_SELECT = "user_id,work_id,work_date,work_shift,total_households,total_items,canonical_payload,finalized_at";
+const WORK_RESULT_SELECT = "user_id,work_id,work_date,work_shift,total_households,total_items,fresh_count,return_count,canonical_payload,finalized_at";
 const WORK_RESULT_ROUTE_SELECT = "user_id,work_id,route,delivery_count,household_count,unit_snapshot,sort_order";
 const WORK_RESULT_ROUTE_DETAIL_SELECT = "user_id,work_id,detail_route,base_route,delivery_count";
 const AUTOMATIC_SALES_OVERRIDE_SELECT = "user_id,work_date,routes,total_items,revision,reason,request_id,updated_at";
@@ -2415,6 +2422,7 @@ function entriesFromDb(dayRows, itemRows, workResultRows = [], workRouteRows = [
       off: row.is_off,
       rows: [],
       freshCount: row.fresh_count ?? "",
+      returnCount: row.return_count ?? "",
       freshUnit: row.fresh_unit ?? 100,
       freshSoloCount: row.fresh_solo_count ?? "",
       freshLinkedCount: row.fresh_linked_count ?? "",
@@ -2449,6 +2457,8 @@ function entriesFromDb(dayRows, itemRows, workResultRows = [], workRouteRows = [
         finalizedAt: work.finalized_at || "",
         totalHouseholds: exactLedgerInteger(work.total_households),
         totalItems: exactLedgerInteger(work.total_items),
+        freshCount: exactLedgerInteger(work.fresh_count) ?? 0,
+        returnCount: exactLedgerInteger(work.return_count) ?? 0,
       });
       const workRoutes = (routesByWork.get(workLedgerKey(work.user_id, work.work_id)) || [])
         .slice()
@@ -3437,8 +3447,9 @@ function renderSelectedDateBreakdown(record) {
   el.selectedDateBreakdown.classList.toggle("hidden", !automatic);
   if (!automatic) return;
   const model = selectedDateSalesBreakdown(record, state.workRouteDetails[state.selectedDate]);
+  const totals = calcRecordDetails(record);
   el.selectedDateBreakdownTitle.textContent = `${formatMonthDay(state.selectedDate)} 구역별 매출`;
-  el.selectedDateBreakdownRows.innerHTML = model.rows.length ? model.rows.map((row) => {
+  const routeRows = model.rows.length ? model.rows.map((row) => {
     const details = row.detailRows.length
       ? `<div class="selected-detail-routes">${row.detailRows.map((detail) => `<span>${escapeAttr(detail.route)} ${fmtCount(detail.count)}</span>`).join("")}</div>`
       : `<div class="selected-detail-empty">세부구역 기록 없음 (이전 앱 기록 포함)</div>`;
@@ -3448,6 +3459,15 @@ function renderSelectedDateBreakdown(record) {
       ${details}
     </article>`;
   }).join("") : `<div class="selected-detail-empty">매출 상품수가 0개로 보정되어 있습니다.</div>`;
+  const auxiliaryRows = [
+    totals.freshCount > 0
+      ? `<article class="selected-breakdown-row"><div><strong>프레시백</strong><span>${fmtCount(totals.freshCount)}</span></div><strong>${fmtWon(totals.freshRevenue)}</strong></article>`
+      : "",
+    totals.returnCount > 0
+      ? `<article class="selected-breakdown-row"><div><strong>반품</strong><span>${fmtCount(totals.returnCount)}</span></div><strong>배송 매출에 포함</strong></article>`
+      : "",
+  ].join("");
+  el.selectedDateBreakdownRows.innerHTML = routeRows + auxiliaryRows;
   const notes = [
     "가구 관련 참고값은 앱 버전별 의미가 달라 매출 계산·검증에 쓰지 않으며, 상품수만 매출 기준입니다.",
     "이전 앱에서 마감한 날짜는 A01/A02 세부구역 기록이 없을 수 있습니다.",
@@ -3896,6 +3916,7 @@ function statsDailyRecords() {
       revenue: details.revenue,
       count: details.count,
       freshCount: details.freshCount,
+      returnCount: details.returnCount,
       worked: isWorkedRecord(record, details),
       off: Boolean(record.off),
     };
@@ -4107,6 +4128,7 @@ function renderDailyStatsFor(allKeys) {
         <div class="daily-metrics">
           <span>배송 ${fmtCount(details.count)}</span>
           <span>프레시백 ${fmtCount(details.freshCount)}</span>
+          ${details.returnCount ? `<span>반품 ${fmtCount(details.returnCount)}</span>` : ""}
           ${details.backupRevenue ? `<span>백업 ${fmtWon(details.backupRevenue)}</span>` : ""}
         </div>
       </button>
@@ -4114,6 +4136,7 @@ function renderDailyStatsFor(allKeys) {
         record.off ? "<div class=\"dd-row\"><span>휴무</span></div>" :
         `${routes || "<div class=\"dd-row\"><span>라우트 없음</span></div>"}` +
         `${details.freshRevenue ? `<div class="dd-row"><span>프레시백 ${fmtCount(details.freshCount)}</span><strong>${fmtWon(details.freshRevenue)}</strong></div>` : ""}` +
+        `${details.returnCount ? `<div class="dd-row"><span>반품 ${fmtCount(details.returnCount)}</span><strong>배송 매출에 포함</strong></div>` : ""}` +
         `${details.backupRevenue ? `<div class="dd-row"><span>백업수당</span><strong>${fmtWon(details.backupRevenue)}</strong></div>` : ""}` +
         `<div class="dd-row dd-total"><span>합계</span><strong>${fmtWon(details.revenue)}</strong></div>`
       }</div>
@@ -4409,7 +4432,7 @@ function effectiveAutomaticLedgerItems(ledgerItems, overrideRows) {
 }
 
 function adminRecordDetails(day, items) {
-  if (day.is_off) return { revenue: 0, count: 0, freshCount: 0, backupRevenue: 0, routeRevenue: 0 };
+  if (day.is_off) return { revenue: 0, count: 0, freshCount: 0, returnCount: 0, backupRevenue: 0, routeRevenue: 0 };
   const routeTotal = (items || []).reduce((sum, item) => {
     const count = toNum(item.delivery_count);
     const automatic = isAutomaticRow(item);
@@ -4429,6 +4452,7 @@ function adminRecordDetails(day, items) {
     revenue: routeTotal.revenue + freshRevenue + backupRevenueAdditive,
     count: routeTotal.count,
     freshCount,
+    returnCount: toNum(day.return_count),
     backupRevenue,
     routeRevenue: routeTotal.revenue,
   };

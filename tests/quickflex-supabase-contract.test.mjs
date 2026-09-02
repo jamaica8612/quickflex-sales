@@ -17,6 +17,20 @@ const atomicManualMigration = readFileSync(
   ),
   "utf8",
 );
+const auxiliaryCountsMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260902231410_record_freshbag_and_return_counts.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const shortRetentionMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260902031419_quickflex_diagnostic_retention_3_days.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 function sqlFunction(source, name) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -42,8 +56,9 @@ const canonicalOverride = sqlFunction(schema, "quickflex_replace_automatic_sales
 const migrationOverride = sqlFunction(migration, "quickflex_replace_automatic_sales_override");
 
 test("canonical schema and generated migration keep identical RPC bodies", () => {
-  assert.equal(canonicalFinalize, migrationFinalize);
-  assert.equal(canonicalOverride, migrationOverride);
+  const normalizedSql = (value) => value.replace(/\r\n/g, "\n");
+  assert.equal(normalizedSql(canonicalFinalize), normalizedSql(migrationFinalize));
+  assert.equal(normalizedSql(canonicalOverride), normalizedSql(migrationOverride));
   for (const table of [
     "quickflex_work_result_route_details",
     "quickflex_automatic_sales_overrides",
@@ -168,10 +183,27 @@ test("manual day replacement is transactional and refuses automatic receipt date
 });
 
 test("measurement diagnostics have a private bounded-retention job", () => {
-  for (const source of [schema, atomicManualMigration]) {
+  assert.match(
+    atomicManualMigration,
+    /delete from public\.quickflex_measurement_diagnostics\s+where created_at < clock_timestamp\(\) - interval '14 days'/,
+  );
+  for (const source of [schema, shortRetentionMigration]) {
     assert.match(source, /create or replace function private\.quickflex_prune_measurement_diagnostics\(\)/);
-    assert.match(source, /delete from public\.quickflex_measurement_diagnostics\s+where created_at < clock_timestamp\(\) - interval '14 days'/);
+    assert.match(source, /delete from public\.quickflex_measurement_diagnostics\s+where created_at < clock_timestamp\(\) - interval '3 days'/);
     assert.match(source, /revoke execute on function private\.quickflex_prune_measurement_diagnostics\(\)\s+from public, anon, authenticated/);
-    assert.match(source, /'quickflex-measurement-diagnostics-retention'[\s\S]*?'27 3 \* \* \*'/);
   }
+  assert.match(schema, /'quickflex-measurement-diagnostics-retention'[\s\S]*?'27 3 \* \* \*'/);
+});
+
+test("fresh-bag and return counts are stored without double-counting return revenue", () => {
+  for (const source of [schema, auxiliaryCountsMigration]) {
+    assert.match(source, /quickflex_work_results[\s\S]*?fresh_count integer not null default 0[\s\S]*?return_count integer not null default 0/);
+    assert.match(source, /quickflex_day_records[\s\S]*?return_count integer not null default 0/);
+    assert.match(source, /p_fresh_count integer,[\s\S]*?p_return_count integer,[\s\S]*?p_routes jsonb/);
+    assert.match(source, /p_return_count > p_total_items/);
+    assert.match(source, /set fresh_count = p_fresh_count,[\s\S]*?return_count = p_return_count/);
+    assert.match(source, /fresh_count = greatest\(/);
+    assert.match(source, /return_count = greatest\(/);
+  }
+  assert.match(auxiliaryCountsMigration, /displayed separately without extra revenue/);
 });

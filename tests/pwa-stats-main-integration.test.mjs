@@ -100,6 +100,7 @@ test("approved boot, real view transitions, and admin aggregate are wired withou
 
 test("detail route counts remain visible without unknown or mismatch warnings", () => {
   const selected = sourceFunction(main, "renderSelectedDateBreakdown", "renderHomeSelection");
+  const daily = sourceFunction(main, "renderDailyStatsFor", "renderYearlyStats");
   const routes = sourceFunction(main, "renderRouteStats", "renderStatsSummaryRows");
   const adminRoutes = sourceFunction(main, "renderAdminRouteStats", "normalizeBundleRows");
   assert.match(selected, /selected-detail-routes/);
@@ -110,4 +111,8 @@ test("detail route counts remain visible without unknown or mismatch warnings", 
     assert.doesNotMatch(source, /detail-warning/);
   }
   assert.doesNotMatch(css, /selected-detail-warning|rs-detail-warning|admin-route-detail-warning/);
+  assert.match(selected, /totals\.returnCount > 0/);
+  assert.match(selected, /반품/);
+  assert.match(selected, /배송 매출에 포함/);
+  assert.match(daily, /details\.returnCount/);
 });
