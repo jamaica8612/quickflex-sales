@@ -115,4 +115,8 @@ test("detail route counts remain visible without unknown or mismatch warnings", 
   assert.match(selected, /반품/);
   assert.match(selected, /배송 매출에 포함/);
   assert.match(daily, /details\.returnCount/);
+  assert.match(selected, /totals\.cancellationCount > 0/);
+  assert.match(selected, /취소/);
+  assert.match(daily, /details\.cancellationCount/);
+  assert.match(main, /WORK_RESULT_SELECT = "[^"]*cancel_count/);
 });

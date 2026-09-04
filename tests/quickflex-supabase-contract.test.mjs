@@ -24,6 +24,13 @@ const auxiliaryCountsMigration = readFileSync(
   ),
   "utf8",
 );
+const cancellationCountsMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260904161505_record_delivery_cancellation_counts.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const shortRetentionMigration = readFileSync(
   new URL(
     "../supabase/migrations/20260902031419_quickflex_diagnostic_retention_3_days.sql",
@@ -206,4 +213,15 @@ test("fresh-bag and return counts are stored without double-counting return reve
     assert.match(source, /return_count = greatest\(/);
   }
   assert.match(auxiliaryCountsMigration, /displayed separately without extra revenue/);
+});
+
+test("cancellation counts are stored as delivery revenue metadata", () => {
+  for (const source of [schema, cancellationCountsMigration]) {
+    assert.match(source, /quickflex_work_results[\s\S]*?cancel_count integer not null default 0/);
+    assert.match(source, /quickflex_day_records[\s\S]*?cancel_count integer not null default 0/);
+    assert.match(source, /p_return_count integer,[\s\S]*?p_cancel_count integer,[\s\S]*?p_routes jsonb/);
+    assert.match(source, /p_cancel_count > p_total_items/);
+    assert.match(source, /set cancel_count = p_cancel_count/);
+  }
+  assert.match(cancellationCountsMigration, /displayed separately without adding revenue again/);
 });
