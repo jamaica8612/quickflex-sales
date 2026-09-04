@@ -1012,7 +1012,7 @@ function autoUnitForRoutes(routes) {
 function defaultFreshUnit(value) { return value == null || value === "" ? 100 : value; }
 function defaultBackupUnit(value) { return value == null || value === "" ? DEFAULT_BACKUP_UNIT : value; }
 function freshbagMode() { return state.profile?.freshbag_mode || "single"; }
-function emptyRecord() { return { off: false, rows: [], automaticWorks: [], freshCount: "", returnCount: "", freshUnit: 100, freshSoloCount: "", freshLinkedCount: "", backupUnit: DEFAULT_BACKUP_UNIT, driverType: isBackupDriver() ? "backup" : "fixed" }; }
+function emptyRecord() { return { off: false, rows: [], automaticWorks: [], freshCount: "", returnCount: "", cancellationCount: "", freshUnit: 100, freshSoloCount: "", freshLinkedCount: "", backupUnit: DEFAULT_BACKUP_UNIT, driverType: isBackupDriver() ? "backup" : "fixed" }; }
 function isAutomaticRow(row) { return row?.source === "automatic" || row?.source === "override" || row?.readOnly === true; }
 function automaticRows(record) { return (record?.rows || []).filter(isAutomaticRow); }
 function manualRows(record) { return (record?.rows || []).filter((row) => !isAutomaticRow(row)); }
@@ -1129,6 +1129,7 @@ function normalizeRecordShape(record) {
     automaticWorks: Array.isArray(record?.automaticWorks) ? record.automaticWorks.map((work) => ({ ...work })) : [],
     freshCount: record?.freshCount ?? "",
     returnCount: record?.returnCount ?? "",
+    cancellationCount: record?.cancellationCount ?? "",
     freshUnit: defaultFreshUnit(record?.freshUnit),
     freshSoloCount: record?.freshSoloCount ?? "",
     freshLinkedCount: record?.freshLinkedCount ?? "",
@@ -1366,7 +1367,7 @@ function effectiveUnit(row) {
 }
 function calcRecordDetails(record) {
   const rec = normalizeRecordShape(record);
-  if (rec.off) return { count: 0, routeRevenue: 0, freshCount: 0, returnCount: 0, freshUnit: toNum(defaultFreshUnit(rec.freshUnit)), freshRevenue: 0, backupUnit: toNum(defaultBackupUnit(rec.backupUnit)), backupRevenue: 0, backupRevenueIncluded: 0, backupRevenueAdditive: 0, revenue: 0 };
+  if (rec.off) return { count: 0, routeRevenue: 0, freshCount: 0, returnCount: 0, cancellationCount: 0, freshUnit: toNum(defaultFreshUnit(rec.freshUnit)), freshRevenue: 0, backupUnit: toNum(defaultBackupUnit(rec.backupUnit)), backupRevenue: 0, backupRevenueIncluded: 0, backupRevenueAdditive: 0, revenue: 0 };
   const routeTotal = rec.rows.reduce((sum, row) => {
     const count = toNum(row.count);
     const automatic = isAutomaticRow(row);
@@ -1393,6 +1394,7 @@ function calcRecordDetails(record) {
     routeRevenue: routeTotal.revenue,
     freshCount,
     returnCount: toNum(rec.returnCount),
+    cancellationCount: toNum(rec.cancellationCount),
     freshUnit,
     freshRevenue,
     backupUnit,
@@ -2131,7 +2133,7 @@ function userDateKey(userId, dateKey) {
 const LEDGER_PAGE_SIZE = 500;
 const LEDGER_WORK_ID_BATCH_SIZE = 40;
 const LEDGER_VERIFY_ATTEMPTS = 2;
-const WORK_RESULT_SELECT = "user_id,work_id,work_date,work_shift,total_households,total_items,fresh_count,return_count,canonical_payload,finalized_at";
+const WORK_RESULT_SELECT = "user_id,work_id,work_date,work_shift,total_households,total_items,fresh_count,return_count,cancel_count,canonical_payload,finalized_at";
 const WORK_RESULT_ROUTE_SELECT = "user_id,work_id,route,delivery_count,household_count,unit_snapshot,sort_order";
 const WORK_RESULT_ROUTE_DETAIL_SELECT = "user_id,work_id,detail_route,base_route,delivery_count";
 const AUTOMATIC_SALES_OVERRIDE_SELECT = "user_id,work_date,routes,total_items,revision,reason,request_id,updated_at";
@@ -2423,6 +2425,7 @@ function entriesFromDb(dayRows, itemRows, workResultRows = [], workRouteRows = [
       rows: [],
       freshCount: row.fresh_count ?? "",
       returnCount: row.return_count ?? "",
+      cancellationCount: row.cancel_count ?? "",
       freshUnit: row.fresh_unit ?? 100,
       freshSoloCount: row.fresh_solo_count ?? "",
       freshLinkedCount: row.fresh_linked_count ?? "",
@@ -2459,6 +2462,7 @@ function entriesFromDb(dayRows, itemRows, workResultRows = [], workRouteRows = [
         totalItems: exactLedgerInteger(work.total_items),
         freshCount: exactLedgerInteger(work.fresh_count) ?? 0,
         returnCount: exactLedgerInteger(work.return_count) ?? 0,
+        cancellationCount: exactLedgerInteger(work.cancel_count) ?? 0,
       });
       const workRoutes = (routesByWork.get(workLedgerKey(work.user_id, work.work_id)) || [])
         .slice()
@@ -3466,6 +3470,9 @@ function renderSelectedDateBreakdown(record) {
     totals.returnCount > 0
       ? `<article class="selected-breakdown-row"><div><strong>반품</strong><span>${fmtCount(totals.returnCount)}</span></div><strong>배송 매출에 포함</strong></article>`
       : "",
+    totals.cancellationCount > 0
+      ? `<article class="selected-breakdown-row"><div><strong>취소</strong><span>${fmtCount(totals.cancellationCount)}</span></div><strong>배송 매출에 포함</strong></article>`
+      : "",
   ].join("");
   el.selectedDateBreakdownRows.innerHTML = routeRows + auxiliaryRows;
   const notes = [
@@ -4129,6 +4136,7 @@ function renderDailyStatsFor(allKeys) {
           <span>배송 ${fmtCount(details.count)}</span>
           <span>프레시백 ${fmtCount(details.freshCount)}</span>
           ${details.returnCount ? `<span>반품 ${fmtCount(details.returnCount)}</span>` : ""}
+          ${details.cancellationCount ? `<span>취소 ${fmtCount(details.cancellationCount)}</span>` : ""}
           ${details.backupRevenue ? `<span>백업 ${fmtWon(details.backupRevenue)}</span>` : ""}
         </div>
       </button>
@@ -4137,6 +4145,7 @@ function renderDailyStatsFor(allKeys) {
         `${routes || "<div class=\"dd-row\"><span>라우트 없음</span></div>"}` +
         `${details.freshRevenue ? `<div class="dd-row"><span>프레시백 ${fmtCount(details.freshCount)}</span><strong>${fmtWon(details.freshRevenue)}</strong></div>` : ""}` +
         `${details.returnCount ? `<div class="dd-row"><span>반품 ${fmtCount(details.returnCount)}</span><strong>배송 매출에 포함</strong></div>` : ""}` +
+        `${details.cancellationCount ? `<div class="dd-row"><span>취소 ${fmtCount(details.cancellationCount)}</span><strong>배송 매출에 포함</strong></div>` : ""}` +
         `${details.backupRevenue ? `<div class="dd-row"><span>백업수당</span><strong>${fmtWon(details.backupRevenue)}</strong></div>` : ""}` +
         `<div class="dd-row dd-total"><span>합계</span><strong>${fmtWon(details.revenue)}</strong></div>`
       }</div>
@@ -4432,7 +4441,7 @@ function effectiveAutomaticLedgerItems(ledgerItems, overrideRows) {
 }
 
 function adminRecordDetails(day, items) {
-  if (day.is_off) return { revenue: 0, count: 0, freshCount: 0, returnCount: 0, backupRevenue: 0, routeRevenue: 0 };
+  if (day.is_off) return { revenue: 0, count: 0, freshCount: 0, returnCount: 0, cancellationCount: 0, backupRevenue: 0, routeRevenue: 0 };
   const routeTotal = (items || []).reduce((sum, item) => {
     const count = toNum(item.delivery_count);
     const automatic = isAutomaticRow(item);
@@ -4453,6 +4462,7 @@ function adminRecordDetails(day, items) {
     count: routeTotal.count,
     freshCount,
     returnCount: toNum(day.return_count),
+    cancellationCount: toNum(day.cancel_count),
     backupRevenue,
     routeRevenue: routeTotal.revenue,
   };
