@@ -1,6 +1,16 @@
 # QuickFlex Worklog
 
-Last updated: 2026-09-05 (detailed-route cancellation annotations)
+Last updated: 2026-09-05 (work-date and daily fresh-bag mode hardening)
+
+## 2026-09-05 Work-date And Daily Fresh-bag Mode Hardening
+
+- Default the measurement work date to the previous date from 00:00 through 06:59 while keeping the date input freely editable.
+- Snapshot `freshbag_mode` on each day record so later profile-setting changes do not recalculate historical sales.
+- Preserve and reopen same-owner active Android work from local state even when remote work-date synchronization fails.
+- Show confirmed route quantities consistently against the completed-item total while keeping pending confirmation visible.
+- Removed the automatic discard that previously closed an unfinished work merely because another date was selected.
+- PWA version/cache `1.0.46`; paired Android release `2.0-test71`.
+- Validation: all 130 Node tests, JavaScript syntax checks, Android `testDebugUnitTest`, `assembleDebug`, and diff checks passed.
 
 ## 2026-09-05 Detailed-route Cancellation Annotations
 

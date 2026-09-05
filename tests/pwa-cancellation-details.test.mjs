@@ -29,7 +29,7 @@ const shared = [
   "workLedgerKey", "userDateKey", "parseCanonicalWorkPayload", "exactLedgerInteger",
   "normalizeBaseSalesRoute", "workRouteDetailsByDate", "rawDetailBreakdown",
   "formatDetailRouteCount", "isAutomaticRow", "automaticRows", "automaticBaseBreakdown",
-  "selectedDateSalesBreakdown", "calcRecordDetails",
+  "selectedDateSalesBreakdown", "freshbagModeForRecord", "calcRecordDetails",
 ];
 
 function load(names = [], extra = {}) {

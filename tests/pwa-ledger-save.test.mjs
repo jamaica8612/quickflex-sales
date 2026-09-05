@@ -353,6 +353,7 @@ test("automatic unit snapshots expose backup pay once while manual rows still ad
   const { calcRecordDetails } = loadActualFunctions([
     "defaultFreshUnit",
     "defaultBackupUnit",
+    "freshbagModeForRecord",
     "isAutomaticRow",
     "effectiveUnit",
     "calcRecordDetails",
@@ -400,6 +401,7 @@ test("return count is labeled separately without adding delivery revenue twice",
   const { calcRecordDetails } = loadActualFunctions([
     "defaultFreshUnit",
     "defaultBackupUnit",
+    "freshbagModeForRecord",
     "isAutomaticRow",
     "effectiveUnit",
     "calcRecordDetails",
@@ -457,6 +459,7 @@ test("changing an automatic-date backup unit adjusts all-in snapshots by the del
     hasAutomaticEntries: (value) => value.automaticWorks.length > 0,
     isAutomaticRow: (row) => row.source === "automatic" || row.source === "override" || row.readOnly === true,
     effectiveUnit: (row) => Math.max(0, Number(row.unit) || 0),
+    freshbagModeForRecord: () => "single",
   };
   const { syncFormToRecord } = loadActualFunctions(["syncFormToRecord"], common);
   syncFormToRecord();
@@ -468,6 +471,7 @@ test("changing an automatic-date backup unit adjusts all-in snapshots by the del
   const { calcRecordDetails } = loadActualFunctions([
     "defaultFreshUnit",
     "defaultBackupUnit",
+    "freshbagModeForRecord",
     "isAutomaticRow",
     "effectiveUnit",
     "calcRecordDetails",
@@ -491,6 +495,7 @@ test("reloaded automatic overrides separate the saved base unit from the saved b
   const { displayedRouteUnit, storedRouteUnit } = loadActualFunctions(["displayedRouteUnit", "storedRouteUnit"], {
     isAutomaticRow,
     effectiveUnit: (row) => Number(row.unit) || 0,
+    freshbagModeForRecord: () => "single",
     defaultBackupUnit: (value) => value == null || value === "" ? 30 : value,
     toNum: (value) => Number(value) || 0,
   });
@@ -553,6 +558,7 @@ test("automatic-date extras persist without deleting the immutable receipt route
     toNum: (value) => Number(value) || 0,
     joinStoredRoutes: (value) => value,
     effectiveUnit: (row) => Number(row.unit) || 0,
+    freshbagModeForRecord: () => "single",
   });
 
   assert.equal(await persistDay("2026-08-27", { userId: "user-a" }), true);
@@ -561,6 +567,7 @@ test("automatic-date extras persist without deleting the immutable receipt route
   const dayWrite = calls.find((call) => call.op === "upsert" && call.table === "days");
   assert.equal(dayWrite.payload.backup_unit, 50);
   assert.equal(dayWrite.payload.fresh_count, 2);
+  assert.equal(dayWrite.payload.freshbag_mode, "single");
 });
 
 test("manual dates are replaced through one atomic RPC without direct route deletion", async () => {
@@ -573,6 +580,7 @@ test("manual dates are replaced through one atomic RPC without direct route dele
     freshUnit: 100,
     freshSoloCount: 1,
     freshLinkedCount: 1,
+    freshbagMode: "dual",
     backupUnit: 30,
     driverType: "backup",
   };
@@ -604,12 +612,14 @@ test("manual dates are replaced through one atomic RPC without direct route dele
     toNum: (value) => Number(value) || 0,
     joinStoredRoutes: (value) => value,
     effectiveUnit: (row) => Number(row.unit) || 0,
+    freshbagModeForRecord: (value) => value.freshbagMode,
   });
 
   assert.equal(await persistDay("2026-09-01", { userId: "user-a" }), true);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].name, "quickflex_replace_manual_day_record");
   assert.equal(calls[0].payload.p_delete_day, false);
+  assert.equal(calls[0].payload.p_freshbag_mode, "dual");
   assert.equal(JSON.stringify(calls[0].payload.p_items), JSON.stringify([{
     route: "310A01",
     delivery_count: 7,

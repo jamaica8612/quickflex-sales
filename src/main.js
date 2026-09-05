@@ -1012,7 +1012,11 @@ function autoUnitForRoutes(routes) {
 function defaultFreshUnit(value) { return value == null || value === "" ? 100 : value; }
 function defaultBackupUnit(value) { return value == null || value === "" ? DEFAULT_BACKUP_UNIT : value; }
 function freshbagMode() { return state.profile?.freshbag_mode || "single"; }
-function emptyRecord() { return { off: false, rows: [], automaticWorks: [], freshCount: "", returnCount: "", cancellationCount: "", freshUnit: 100, freshSoloCount: "", freshLinkedCount: "", backupUnit: DEFAULT_BACKUP_UNIT, driverType: isBackupDriver() ? "backup" : "fixed" }; }
+function freshbagModeForRecord(record) {
+  const stored = record?.freshbagMode || record?.freshbag_mode;
+  return stored === "dual" || stored === "single" ? stored : freshbagMode();
+}
+function emptyRecord() { return { off: false, rows: [], automaticWorks: [], freshCount: "", returnCount: "", cancellationCount: "", freshUnit: 100, freshSoloCount: "", freshLinkedCount: "", freshbagMode: freshbagMode(), backupUnit: DEFAULT_BACKUP_UNIT, driverType: isBackupDriver() ? "backup" : "fixed" }; }
 function isAutomaticRow(row) { return row?.source === "automatic" || row?.source === "override" || row?.readOnly === true; }
 function automaticRows(record) { return (record?.rows || []).filter(isAutomaticRow); }
 function manualRows(record) { return (record?.rows || []).filter((row) => !isAutomaticRow(row)); }
@@ -1133,6 +1137,7 @@ function normalizeRecordShape(record) {
     freshUnit: defaultFreshUnit(record?.freshUnit),
     freshSoloCount: record?.freshSoloCount ?? "",
     freshLinkedCount: record?.freshLinkedCount ?? "",
+    freshbagMode: freshbagModeForRecord(record),
     backupUnit: defaultBackupUnit(record?.backupUnit),
     driverType: record?.driverType || (isBackupDriver() ? "backup" : "fixed"),
   };
@@ -1245,7 +1250,7 @@ function commitRecordDraft() {
 }
 function hasMeaningfulRecord(record) {
   const rec = normalizeRecordShape(record);
-  return rec.off || hasAutomaticEntries(rec) || rec.rows.length > 0 || toNum(rec.freshCount) > 0 || toNum(rec.returnCount) > 0 || toNum(rec.freshUnit) !== 100 || (isBackupDriver() && toNum(rec.backupUnit) !== DEFAULT_BACKUP_UNIT);
+  return rec.off || hasAutomaticEntries(rec) || rec.rows.length > 0 || toNum(rec.freshCount) > 0 || toNum(rec.freshSoloCount) > 0 || toNum(rec.freshLinkedCount) > 0 || toNum(rec.returnCount) > 0 || toNum(rec.freshUnit) !== 100 || (isBackupDriver() && toNum(rec.backupUnit) !== DEFAULT_BACKUP_UNIT);
 }
 function hasEnteredCounts(record) {
   const rec = normalizeRecordShape(record);
@@ -1378,7 +1383,7 @@ function calcRecordDetails(record) {
       revenue: sum.revenue + count * effectiveUnit(row),
     };
   }, { count: 0, manualCount: 0, automaticCount: 0, revenue: 0 });
-  const isDual = freshbagMode() === "dual";
+  const isDual = freshbagModeForRecord(rec) === "dual";
   const freshCount = isDual ? toNum(rec.freshSoloCount) + toNum(rec.freshLinkedCount) : toNum(rec.freshCount);
   const freshUnit = isDual ? 0 : toNum(defaultFreshUnit(rec.freshUnit));
   const freshRevenue = isDual ? toNum(rec.freshSoloCount) * 200 + toNum(rec.freshLinkedCount) * 100 : freshCount * freshUnit;
@@ -2459,6 +2464,7 @@ function entriesFromDb(dayRows, itemRows, workResultRows = [], workRouteRows = [
       freshUnit: row.fresh_unit ?? 100,
       freshSoloCount: row.fresh_solo_count ?? "",
       freshLinkedCount: row.fresh_linked_count ?? "",
+      freshbagMode: row.freshbag_mode || "single",
       backupUnit: row.backup_unit ?? DEFAULT_BACKUP_UNIT,
       driverType: row.driver_type || "backup",
     });
@@ -2759,6 +2765,7 @@ async function persistDay(dateKey, context = captureAccountContext()) {
     fresh_unit: toNum(defaultFreshUnit(editableRec.freshUnit)),
     fresh_solo_count: editableRec.off ? 0 : toNum(editableRec.freshSoloCount),
     fresh_linked_count: editableRec.off ? 0 : toNum(editableRec.freshLinkedCount),
+    freshbag_mode: freshbagModeForRecord(editableRec),
     backup_unit: isBackupDriver() ? toNum(defaultBackupUnit(editableRec.backupUnit)) : 0,
     driver_type: isBackupDriver() ? "backup" : "fixed",
     updated_at: new Date().toISOString(),
@@ -2792,6 +2799,7 @@ async function persistDay(dateKey, context = captureAccountContext()) {
       p_fresh_unit: dayPayload.fresh_unit,
       p_fresh_solo_count: dayPayload.fresh_solo_count,
       p_fresh_linked_count: dayPayload.fresh_linked_count,
+      p_freshbag_mode: dayPayload.freshbag_mode,
       p_backup_unit: dayPayload.backup_unit,
       p_driver_type: dayPayload.driver_type,
       p_items: rpcItems,
@@ -3205,7 +3213,7 @@ function showView(view) {
   if (view === "record") renderEntryForm();
   if (view === "measurement") {
     state.measurementDate = defaultMeasurementWorkDate();
-    state.measurementDateAuto = isNightShift() && state.selectedDate === todayKey();
+    state.measurementDateAuto = state.measurementDate !== state.selectedDate;
     renderMeasurementBridge();
   }
   if (view === "inspection") renderInspection(state.inspectionDate);
@@ -3263,9 +3271,13 @@ function quickflexHandleNativeBack() {
 
 window.quickflexHandleNativeBack = quickflexHandleNativeBack;
 
-function defaultMeasurementWorkDate() {
-  if (!isNightShift() || state.selectedDate !== todayKey()) return state.selectedDate;
-  return addDays(state.selectedDate, 1);
+function measurementWorkDateForClock(selectedDate, currentDate, localHour) {
+  if (selectedDate !== currentDate) return selectedDate;
+  return localHour >= 0 && localHour < 7 ? addDays(currentDate, -1) : currentDate;
+}
+function defaultMeasurementWorkDate(now = new Date()) {
+  const currentDate = toDateKey(now);
+  return measurementWorkDateForClock(state.selectedDate, currentDate, now.getHours());
 }
 function renderMeasurementBridge() {
   if (!el.measurementWorkDate) return;
@@ -3277,10 +3289,10 @@ function renderMeasurementBridge() {
   el.measurementRouteText.textContent = record.off ? "휴무" : routes.length ? routes.join(" · ") : "등록된 구역 없음";
   const households = record.rows.reduce((sum, row) => sum + toNum(row.households), 0);
   const automatic = hasAutomaticEntries(record);
-  const autoNightDate = state.measurementDateAuto;
+  const autoPreviousDate = state.measurementDateAuto;
   if (el.measurementScheduleMeta) {
-    el.measurementScheduleMeta.textContent = autoNightDate
-      ? `${formatMonthDay(state.selectedDate)} 밤 → ${formatMonthDay(workDate)} 근무표`
+    el.measurementScheduleMeta.textContent = autoPreviousDate
+      ? `오전 7시 전 · ${formatMonthDay(workDate)} 업무`
       : `${formatMonthDay(workDate)} 근무표 자동 입력`;
   }
   el.measurementRouteHint.textContent = automatic
@@ -3597,7 +3609,7 @@ function renderEntryForm() {
     record.rows = defaultRows;
     record.rows.forEach((row, index) => renderEntryRow(row, index));
   }
-  const dual = freshbagMode() === "dual";
+  const dual = freshbagModeForRecord(record) === "dual";
   el.freshSingleRow.classList.toggle("hidden", dual);
   el.freshDualRow.classList.toggle("hidden", !dual);
   el.freshCount.value = record.freshCount || "";
@@ -3693,6 +3705,7 @@ function syncFormToRecord() {
   record.freshUnit = el.freshUnit.value;
   record.freshSoloCount = el.freshSoloCount.value;
   record.freshLinkedCount = el.freshLinkedCount.value;
+  record.freshbagMode = freshbagModeForRecord(record);
   const nextBackupUnit = isBackupDriver() ? toNum(defaultBackupUnit(el.backupUnit.value)) : 0;
   const previousBackupUnit = isBackupDriver() ? toNum(defaultBackupUnit(record.backupUnit)) : 0;
   if (hasAutomaticEntries(record) && nextBackupUnit !== previousBackupUnit) {
@@ -4495,8 +4508,13 @@ function adminRecordDetails(day, items) {
       revenue: sum.revenue + count * toNum(item.unit_snapshot),
     };
   }, { count: 0, manualCount: 0, automaticCount: 0, revenue: 0 });
-  const freshCount = toNum(day.fresh_count);
-  const freshRevenue = freshCount * toNum(day.fresh_unit || 100);
+  const dualFreshbag = freshbagModeForRecord(day) === "dual";
+  const freshCount = dualFreshbag
+    ? toNum(day.fresh_solo_count) + toNum(day.fresh_linked_count)
+    : toNum(day.fresh_count);
+  const freshRevenue = dualFreshbag
+    ? toNum(day.fresh_solo_count) * 200 + toNum(day.fresh_linked_count) * 100
+    : freshCount * toNum(day.fresh_unit || 100);
   const backupUnit = day.driver_type === "backup" ? toNum(defaultBackupUnit(day.backup_unit)) : 0;
   const backupRevenue = routeTotal.count * backupUnit;
   const backupRevenueAdditive = routeTotal.manualCount * backupUnit;
