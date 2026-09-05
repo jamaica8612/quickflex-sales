@@ -2264,17 +2264,47 @@ async function fetchAutomaticSalesOverrides({ userId = "", startKey = "", endKey
 function workRouteDetailsByDate(workResults, details) {
   const headerByWork = new Map((workResults || []).map((work) => [workLedgerKey(work.user_id, work.work_id), work]));
   const byDate = {};
+  const seenDetails = new Set();
+  const cancellationsByWork = new Map();
+  headerByWork.forEach((work, workKey) => {
+    const value = parseCanonicalWorkPayload(work.canonical_payload)?.cancellation_detail_counts;
+    const entries = value && typeof value === "object" && !Array.isArray(value) ? Object.entries(value) : [];
+    const total = exactLedgerInteger(work.cancel_count) ?? 0;
+    const valid = entries.every(([route, count]) => /^\d{3}[A-Z]\d{2}$/.test(route) && Number.isSafeInteger(count) && count >= 0)
+      && entries.reduce((sum, [, count]) => sum + count, 0) <= total;
+    cancellationsByWork.set(workKey, new Map(valid ? entries : []));
+  });
   (details || []).forEach((detail) => {
-    const work = headerByWork.get(workLedgerKey(detail.user_id, detail.work_id));
+    const workKey = workLedgerKey(detail.user_id, detail.work_id);
+    const work = headerByWork.get(workKey);
     if (!work) return;
     const dateKey = String(work.work_date || "");
     if (!dateKey) return;
+    const detailRoute = normalizeRoute(detail.detail_route);
+    const detailKey = `${workKey}|${detailRoute}`;
+    if (seenDetails.has(detailKey)) return;
+    seenDetails.add(detailKey);
+    const deliveryCount = exactLedgerInteger(detail.delivery_count);
+    const cancellationCount = cancellationsByWork.get(workKey).get(detailRoute) || 0;
     if (!byDate[dateKey]) byDate[dateKey] = [];
     byDate[dateKey].push({
       workId: String(detail.work_id || ""),
-      detailRoute: normalizeRoute(detail.detail_route),
+      detailRoute,
       baseRoute: normalizeBaseSalesRoute(detail.base_route),
-      deliveryCount: exactLedgerInteger(detail.delivery_count),
+      deliveryCount,
+      cancellationCount,
+    });
+  });
+  headerByWork.forEach((work, workKey) => {
+    const dateKey = String(work.work_date || "");
+    if (!dateKey) return;
+    cancellationsByWork.get(workKey).forEach((cancellationCount, detailRoute) => {
+      if (!cancellationCount || seenDetails.has(`${workKey}|${detailRoute}`)) return;
+      if (!byDate[dateKey]) byDate[dateKey] = [];
+      byDate[dateKey].push({
+        workId: String(work.work_id || ""), detailRoute, baseRoute: detailRoute.slice(0, 4),
+        deliveryCount: null, cancellationCount,
+      });
     });
   });
   return byDate;
@@ -3406,21 +3436,33 @@ function automaticBaseBreakdown(record) {
 }
 function rawDetailBreakdown(details) {
   const byBase = new Map();
+  const cancellationByRoute = new Map();
   let invalidCount = 0;
   (details || []).forEach((detail) => {
     const detailRoute = normalizeRoute(detail.detailRoute ?? detail.detail_route);
     const baseRoute = normalizeBaseSalesRoute(detail.baseRoute ?? detail.base_route)
       || normalizeBaseSalesRoute(detailRoute.slice(0, 4));
-    const count = exactLedgerInteger(detail.deliveryCount ?? detail.delivery_count);
-    if (!baseRoute || !/^\d{3}[A-Z]\d{2}$/.test(detailRoute) || count === null) {
+    const rawCount = detail.deliveryCount ?? detail.delivery_count;
+    const count = rawCount == null ? null : exactLedgerInteger(rawCount);
+    const cancellationCount = Number.isSafeInteger(detail.cancellationCount) && detail.cancellationCount > 0 ? detail.cancellationCount : 0;
+    if (!baseRoute || !/^\d{3}[A-Z]\d{2}$/.test(detailRoute) || (count === null && !cancellationCount)) {
       invalidCount += 1;
       return;
     }
     if (!byBase.has(baseRoute)) byBase.set(baseRoute, new Map());
     const detailCounts = byBase.get(baseRoute);
-    detailCounts.set(detailRoute, (detailCounts.get(detailRoute) || 0) + count);
+    const incomplete = count === null || (detailCounts.has(detailRoute) && detailCounts.get(detailRoute) === null);
+    detailCounts.set(detailRoute, incomplete ? null : (detailCounts.get(detailRoute) || 0) + count);
+    if (cancellationCount) {
+      cancellationByRoute.set(detailRoute, (cancellationByRoute.get(detailRoute) || 0) + cancellationCount);
+    }
   });
-  return { byBase, invalidCount };
+  return { byBase, cancellationByRoute, invalidCount };
+}
+function formatDetailRouteCount(route, count, cancellationCount = 0) {
+  const quantity = count === null ? "" : ` ${fmtCount(count)}`;
+  const cancellation = cancellationCount > 0 ? `${count === null ? " " : ", "}취소 ${fmtCount(cancellationCount)}` : "";
+  return `${escapeAttr(route)}${quantity}${cancellation}`;
 }
 function selectedDateSalesBreakdown(record, details) {
   const effective = automaticBaseBreakdown(record);
@@ -3431,16 +3473,17 @@ function selectedDateSalesBreakdown(record, details) {
     rows: bases.map((baseRoute) => {
       const sales = effective.get(baseRoute) || { route: baseRoute, count: 0, revenue: 0 };
       const detailRows = [...(raw.byBase.get(baseRoute) || new Map()).entries()]
-        .map(([route, count]) => ({ route, count }))
+        .map(([route, count]) => ({ route, count, cancellationCount: raw.cancellationByRoute.get(route) || 0 }))
         .sort((a, b) => a.route.localeCompare(b.route));
-      const detailCount = detailRows.reduce((sum, row) => sum + row.count, 0);
+      const detailCount = detailRows.some((row) => row.count === null)
+        ? null : detailRows.reduce((sum, row) => sum + row.count, 0);
       return {
         route: baseRoute,
         count: Math.round(sales.count),
         revenue: Math.round(sales.revenue),
         detailRows,
         detailCount,
-        difference: Math.round(sales.count) - detailCount,
+        difference: detailCount === null ? null : Math.round(sales.count) - detailCount,
       };
     }),
   };
@@ -3455,7 +3498,7 @@ function renderSelectedDateBreakdown(record) {
   el.selectedDateBreakdownTitle.textContent = `${formatMonthDay(state.selectedDate)} 구역별 매출`;
   const routeRows = model.rows.length ? model.rows.map((row) => {
     const details = row.detailRows.length
-      ? `<div class="selected-detail-routes">${row.detailRows.map((detail) => `<span>${escapeAttr(detail.route)} ${fmtCount(detail.count)}</span>`).join("")}</div>`
+      ? `<div class="selected-detail-routes">${row.detailRows.map((detail) => `<span>${formatDetailRouteCount(detail.route, detail.count, detail.cancellationCount)}</span>`).join("")}</div>`
       : `<div class="selected-detail-empty">세부구역 기록 없음 (이전 앱 기록 포함)</div>`;
     return `<article class="selected-breakdown-row">
       <div><strong>${escapeAttr(row.route)}</strong><span>${fmtCount(row.count)}</span></div>
@@ -4081,7 +4124,7 @@ function renderRouteStats(keys) {
     const detailRows = [...(rawDetails.byBase.get(normalizeBaseSalesRoute(row.route)) || new Map()).entries()]
       .sort((a, b) => a[0].localeCompare(b[0]));
     const detailMarkup = detailRows.length
-      ? `<div class="rs-detail-routes">${detailRows.map(([route, count]) => `<span>${escapeAttr(route)} ${fmtCount(count)}</span>`).join("")}</div>`
+      ? `<div class="rs-detail-routes">${detailRows.map(([route, count]) => `<span>${formatDetailRouteCount(route, count, rawDetails.cancellationByRoute.get(route) || 0)}</span>`).join("")}</div>`
       : "";
     return `<div class="route-stat-card">
       <div class="rs-top">
@@ -4718,17 +4761,11 @@ async function renderAdminRouteStats() {
     row.users.set(item.user_id, user);
   });
 
-  const detailHeaders = new Map(ledger.workResults.map((work) => [workLedgerKey(work.user_id, work.work_id), work]));
-  (ledger.workRouteDetails || []).forEach((detail) => {
-    if (!detailHeaders.has(workLedgerKey(detail.user_id, detail.work_id))) return;
-    const baseRoute = normalizeBaseSalesRoute(detail.base_route);
-    const detailRoute = normalizeRoute(detail.detail_route);
-    const count = exactLedgerInteger(detail.delivery_count);
-    if (!baseRoute || !/^\d{3}[A-Z]\d{2}$/.test(detailRoute) || count === null) return;
+  const rawDetails = rawDetailBreakdown(Object.values(workRouteDetailsByDate(ledger.workResults, ledger.workRouteDetails)).flat());
+  rawDetails.byBase.forEach((detailRoutes, baseRoute) => {
     if (!routeMap.has(baseRoute)) routeMap.set(baseRoute, { route: baseRoute, count: 0, revenue: 0, automaticCount: 0, users: new Map() });
     const row = routeMap.get(baseRoute);
-    row.detailRoutes ||= new Map();
-    row.detailRoutes.set(detailRoute, (row.detailRoutes.get(detailRoute) || 0) + count);
+    row.detailRoutes = detailRoutes;
   });
 
   const routes = [...routeMap.values()].sort((a, b) => b.revenue - a.revenue || a.route.localeCompare(b.route));
@@ -4742,7 +4779,7 @@ async function renderAdminRouteStats() {
       .join("");
     const detailRows = [...(row.detailRoutes || new Map()).entries()].sort((a, b) => a[0].localeCompare(b[0]));
     const detailMarkup = detailRows.length
-      ? `<div class="admin-route-details">${detailRows.map(([route, count]) => `<span>${escapeAttr(route)} ${fmtCount(count)}</span>`).join("")}</div>`
+      ? `<div class="admin-route-details">${detailRows.map(([route, count]) => `<span>${formatDetailRouteCount(route, count, rawDetails.cancellationByRoute.get(route) || 0)}</span>`).join("")}</div>`
       : "";
     return `<div class="admin-route-card">
       <div class="admin-route-head">
