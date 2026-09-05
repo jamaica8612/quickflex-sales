@@ -1,6 +1,16 @@
 # QuickFlex Worklog
 
-Last updated: 2026-09-03 (fresh-bag sales and return count)
+Last updated: 2026-09-05 (detailed-route cancellation annotations)
+
+## 2026-09-05 Detailed-route Cancellation Annotations
+
+- Display inclusive quantities with cancellation annotations, e.g. `310D01 10건, 취소 1건`, in selected-date sales, user route statistics, and administrator route statistics.
+- Persist `p_routes[*].cancellation_detail_counts` at the immutable receipt's `canonical_payload.cancellation_detail_counts`; repeated uploads must preserve the same metadata.
+- Keep delivery totals and revenue unchanged. Missing legacy attribution stays unknown; metadata-only detail routes do not fabricate delivery quantities.
+- Apply only migration `20260905043306_record_cancellation_detail_counts.sql`. It was created using the CLI and renamed to the server-assigned version after deployment. Do not reapply the full canonical schema: its historical base finalizer predates the deployed removal of lease restrictions.
+- Database migration deployed and verified: base and auxiliary finalizers unchanged, authenticated owner-scoped access retained, anonymous execution denied, receipt RLS enabled.
+- PWA version/cache `1.0.45`; paired Android release `2.0-test70` carries attribution through finish and the durable Room outbox.
+- Validation: all 126 Node tests, syntax checks and diff checks passed. The 14 PostgreSQL behavior tests also passed using a read-only copy of the production base finalizer.
 
 ## 2026-09-03 Fresh-bag Sales And Return Count
 
