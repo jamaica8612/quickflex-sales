@@ -14,6 +14,10 @@ export const TABLES = {
   workResultRoutes: "quickflex_work_result_routes",
   workResultRouteDetails: "quickflex_work_result_route_details",
   automaticSalesOverrides: "quickflex_automatic_sales_overrides",
+  salesWorkResults: "quickflex_sales_work_results",
+  salesWorkRoutes: "quickflex_sales_work_routes",
+  salesWorkDetails: "quickflex_sales_work_details",
+  salesOverrides: "quickflex_sales_overrides",
   bundles: "quickflex_route_bundles",
   inspections: "quickflex_daily_inspections",
   inspectionSignatures: "quickflex_inspection_signatures",
@@ -22,6 +26,8 @@ export const TABLES = {
 export const RPC = {
   replaceManualDayRecord: "quickflex_replace_manual_day_record",
   replaceAutomaticSalesOverride: "quickflex_replace_automatic_sales_override",
+  replaceTeamSalesOverride: "quickflex_replace_team_sales_override",
+  updateSalesDay: "quickflex_update_sales_day",
 };
 
 export const DB_KEY = "quickflex-supabase-config";

@@ -327,7 +327,7 @@ test("immutable ledger fetches all 1201 header rows and all 1201 route rows", as
     "fetchWorkResultRoutes",
   ], {
     state,
-    TABLES: { workResults: "work-results", workResultRoutes: "work-result-routes" },
+    TABLES: { salesWorkResults: "work-results", salesWorkRoutes: "work-result-routes" },
     LEDGER_PAGE_SIZE: 500,
     LEDGER_WORK_ID_BATCH_SIZE: 40,
     WORK_RESULT_SELECT: "header-select",
@@ -518,8 +518,14 @@ test("automatic-date extras persist without deleting the immutable receipt route
     freshLinkedCount: 0,
     backupUnit: 50,
     driverType: "backup",
+    salesDayBasis: { fresh_count: 1 },
+    salesDayRevision: 2,
   };
   const db = {
+    async rpc(name, args) {
+      calls.push({ op: "rpc", name, args });
+      return { data: { ...args.p_values, fresh_count: 3, work_date: args.p_work_date, user_id: "user-a", sales_edit_revision: 3 }, error: null };
+    },
     from(table) {
       return {
         delete() {
@@ -540,11 +546,13 @@ test("automatic-date extras persist without deleting the immutable receipt route
       };
     },
   };
-  const state = { db };
+  const state = { db, recordDraftDate: "2026-08-27", recordDraft: { ...record, freshCount: 4 } };
   const isAutomaticRow = (row) => row?.source === "automatic" || row?.source === "override" || row?.readOnly === true;
-  const { persistDay } = loadActualFunctions(["persistDay"], {
+  const { persistDay } = loadActualFunctions(["persistDay", "salesDayEditableValues"], {
     state,
     TABLES: { workResults: "work-results", items: "day-items", days: "days" },
+    RPC: { updateSalesDay: "update-sales-day" },
+    DEFAULT_BACKUP_UNIT: 30,
     captureAccountContext: () => ({ userId: "user-a" }),
     isAccountContextCurrent: () => true,
     normalizeRecordShape: (value) => ({ ...value, rows: [...(value.rows || [])], automaticWorks: [...(value.automaticWorks || [])] }),
@@ -564,10 +572,16 @@ test("automatic-date extras persist without deleting the immutable receipt route
   assert.equal(await persistDay("2026-08-27", { userId: "user-a" }), true);
   assert.equal(calls.some((call) => call.op === "delete" && call.table === "day-items"), false);
   assert.equal(calls.some((call) => call.op === "insert" && call.table === "day-items"), false);
-  const dayWrite = calls.find((call) => call.op === "upsert" && call.table === "days");
-  assert.equal(dayWrite.payload.backup_unit, 50);
-  assert.equal(dayWrite.payload.fresh_count, 2);
-  assert.equal(dayWrite.payload.freshbag_mode, "single");
+  const dayWrite = calls.find((call) => call.op === "rpc" && call.name === "update-sales-day");
+  assert.equal(dayWrite.args.p_values.backup_unit, 50);
+  assert.equal(dayWrite.args.p_values.fresh_count, 2);
+  assert.equal(dayWrite.args.p_values.freshbag_mode, "single");
+  assert.equal(dayWrite.args.p_expected_revision, 2);
+  assert.equal(record.salesDayRevision, 3);
+  assert.equal(record.freshCount, 3, "late automatic bag is reflected in the saved record");
+  assert.equal(state.recordDraft.salesDayRevision, 3, "committing the draft must not restore a stale revision");
+  assert.equal(state.recordDraft.freshCount, 5, "two newer draft edits survive alongside the late automatic bag");
+  assert.equal(calls.some((call) => call.op === "upsert"), false);
 });
 
 test("manual dates are replaced through one atomic RPC without direct route deletion", async () => {
