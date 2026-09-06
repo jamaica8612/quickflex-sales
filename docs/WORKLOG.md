@@ -1,6 +1,12 @@
 # QuickFlex Worklog
 
-Last updated: 2026-09-06 (PWA Outfit typography; Android unchanged at test73 / PWA 1.0.48)
+Last updated: 2026-09-06 (PWA typography restored / PWA 1.0.49)
+
+## 2026-09-06 Restore PWA Typography (1.0.49)
+
+- At the user's request, remove the Outfit experiment and restore the pre-1.0.48 Pretendard UI / Wanted Sans amount fonts, including the original chart and print font stacks. No layout, data or counting changes.
+- Remove only the Outfit font, license and source files introduced by `803c455`; that commit preserves them if needed. Retain font regression tests for the restored families and offline shell.
+- Bump the visible version, asset queries and service-worker cache to `1.0.49` so existing installations receive the rollback.
 
 ## 2026-09-06 PWA English And Digit Typography (1.0.48)
 

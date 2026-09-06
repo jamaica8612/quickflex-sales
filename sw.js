@@ -1,10 +1,9 @@
-const CACHE_NAME = "quickflex-shell-v1.0.48";
+const CACHE_NAME = "quickflex-shell-v1.0.49";
 const SHELL_FILES = [
   "./",
   "./index.html",
   "./intro.html",
   "./styles.css",
-  "./assets/fonts/OutfitLatinVariable.woff2",
   "./assets/fonts/PretendardVariable.woff2",
   "./assets/fonts/WantedSansVariable.woff2",
   "./app.js",
@@ -26,7 +25,7 @@ const SHELL_FILES = [
   "./src/lib/stats-report.js",
   "./src/lib/revenue.js",
   "./src/lib/format.js",
-  "./manifest.webmanifest?v=1.0.48",
+  "./manifest.webmanifest?v=1.0.49",
   "./icon-192.png?v=3",
   "./icon-512.png?v=3",
   "./icon-maskable-192.png?v=3",
