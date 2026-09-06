@@ -5,8 +5,8 @@ import test from "node:test";
 const migration = readFileSync(new URL("../supabase/migrations/20260905095422_snapshot_daily_freshbag_mode.sql", import.meta.url), "utf8").trim();
 const schema = readFileSync(new URL("../supabase-schema.sql", import.meta.url), "utf8").trim();
 
-test("canonical schema ends with the daily fresh-bag mode migration", () => {
-  assert.equal(schema.endsWith(migration), true);
+test("canonical schema preserves the complete daily fresh-bag mode migration", () => {
+  assert.equal(schema.includes(migration), true);
 });
 
 test("daily mode is constrained and the authenticated atomic save snapshots it", () => {

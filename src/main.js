@@ -1131,6 +1131,9 @@ function normalizeRecordShape(record) {
     off: Boolean(record?.off),
     rows: Array.isArray(record?.rows) ? record.rows.map((row) => ({ ...row })) : [],
     automaticWorks: Array.isArray(record?.automaticWorks) ? record.automaticWorks.map((work) => ({ ...work })) : [],
+    salesBasisCounts: record?.salesBasisCounts ? { ...record.salesBasisCounts } : null,
+    salesDayBasis: record?.salesDayBasis ? { ...record.salesDayBasis } : null,
+    salesDayRevision: record?.salesDayRevision ?? 0,
     freshCount: record?.freshCount ?? "",
     returnCount: record?.returnCount ?? "",
     cancellationCount: record?.cancellationCount ?? "",
@@ -2172,7 +2175,7 @@ async function fetchPagedRows(buildQuery) {
 async function fetchWorkResultHeaders({ userId = "", startKey = "", endKey = "" } = {}) {
   return fetchPagedRows((from, to) => {
     let query = state.db
-      .from(TABLES.workResults)
+      .from(TABLES.salesWorkResults)
       .select(WORK_RESULT_SELECT, { count: "exact" });
     if (userId) query = query.eq("user_id", userId);
     if (startKey) query = query.gte("work_date", startKey);
@@ -2200,7 +2203,7 @@ async function fetchWorkResultRoutes(workResults) {
     for (let offset = 0; offset < workIds.length; offset += LEDGER_WORK_ID_BATCH_SIZE) {
       const batchIds = workIds.slice(offset, offset + LEDGER_WORK_ID_BATCH_SIZE);
       const batchRows = await fetchPagedRows((from, to) => state.db
-        .from(TABLES.workResultRoutes)
+        .from(TABLES.salesWorkRoutes)
         .select(WORK_RESULT_ROUTE_SELECT, { count: "exact" })
         .eq("user_id", userId)
         .in("work_id", batchIds)
@@ -2230,7 +2233,7 @@ async function fetchWorkResultRouteDetails(workResults) {
       for (let offset = 0; offset < workIds.length; offset += LEDGER_WORK_ID_BATCH_SIZE) {
         const batchIds = workIds.slice(offset, offset + LEDGER_WORK_ID_BATCH_SIZE);
         const batchRows = await fetchPagedRows((from, to) => state.db
-          .from(TABLES.workResultRouteDetails)
+          .from(TABLES.salesWorkDetails)
           .select(WORK_RESULT_ROUTE_DETAIL_SELECT, { count: "exact" })
           .eq("user_id", userId)
           .in("work_id", batchIds)
@@ -2251,7 +2254,7 @@ async function fetchAutomaticSalesOverrides({ userId = "", startKey = "", endKey
   try {
     const rows = await fetchPagedRows((from, to) => {
       let query = state.db
-        .from(TABLES.automaticSalesOverrides)
+        .from(TABLES.salesOverrides)
         .select(AUTOMATIC_SALES_OVERRIDE_SELECT, { count: "exact" });
       if (userId) query = query.eq("user_id", userId);
       if (startKey) query = query.gte("work_date", startKey);
@@ -2465,6 +2468,8 @@ function entriesFromDb(dayRows, itemRows, workResultRows = [], workRouteRows = [
       freshSoloCount: row.fresh_solo_count ?? "",
       freshLinkedCount: row.fresh_linked_count ?? "",
       freshbagMode: row.freshbag_mode || "single",
+      salesDayBasis: salesDayEditableValues(row),
+      salesDayRevision: row.sales_edit_revision ?? 0,
       backupUnit: row.backup_unit ?? DEFAULT_BACKUP_UNIT,
       driverType: row.driver_type || "backup",
     });
@@ -2519,6 +2524,11 @@ function entriesFromDb(dayRows, itemRows, workResultRows = [], workRouteRows = [
       });
     });
   Object.keys(entries).forEach((dateKey) => {
+    entries[dateKey].salesBasisCounts = {};
+    entries[dateKey].rows.filter((row) => row.source === "automatic").forEach((row) => {
+      const basis = entries[dateKey].salesBasisCounts;
+      basis[row.route] = (basis[row.route] || 0) + toNum(row.count);
+    });
     entries[dateKey] = normalizeRecordShape(entries[dateKey]);
     if (!isBackupDriver() && !hasAutomaticEntries(entries[dateKey]) && !entries[dateKey].rows.length) ensureFixedRecordRows(entries[dateKey]);
   });
@@ -2745,6 +2755,14 @@ async function maybeOfferRateUpdate(context = captureAccountContext()) {
   state.rateOfferPrompted = true;
   return showAppUpdateNotice();
 }
+function salesDayEditableValues(row) {
+  return {
+    fresh_count: row.fresh_count ?? 0, fresh_unit: row.fresh_unit ?? 100,
+    fresh_solo_count: row.fresh_solo_count ?? 0, fresh_linked_count: row.fresh_linked_count ?? 0,
+    backup_unit: row.backup_unit ?? DEFAULT_BACKUP_UNIT,
+    freshbag_mode: row.freshbag_mode || "single", driver_type: row.driver_type || "backup",
+  };
+}
 async function persistDay(dateKey, context = captureAccountContext()) {
   if (!state.db || !isAccountContextCurrent(context)) return false;
   const userId = context.userId;
@@ -2810,9 +2828,27 @@ async function persistDay(dateKey, context = captureAccountContext()) {
     return true;
   }
 
-  const { error: dayError } = await state.db.from(TABLES.days).upsert(dayPayload, { onConflict: "user_id,work_date" });
+  if (!rec.salesDayBasis) throw new Error("날짜 기록을 새로고침한 뒤 다시 저장해 주세요.");
+  const { data: savedDay, error: dayError } = await state.db.rpc(RPC.updateSalesDay, {
+    p_work_date: dateKey,
+    p_expected_revision: rec.salesDayRevision,
+    p_expected: rec.salesDayBasis,
+    p_values: salesDayEditableValues(dayPayload),
+  });
   if (!isAccountContextCurrent(context)) return false;
   if (dayError) throw dayError;
+  if (!savedDay || savedDay.work_date !== dateKey || savedDay.user_id !== userId) {
+    throw new Error("저장된 날짜 기록을 확인하지 못했습니다.");
+  }
+  const targets = new Set([getRecord(dateKey, false)]);
+  if (state.recordDraftDate === dateKey && state.recordDraft) targets.add(state.recordDraft);
+  for (const current of targets) {
+    // Keep both the visible draft and persisted record on the same saved basis.
+    // Any edit made during the request remains an unsaved delta, not overwritten.
+    current.freshCount = Math.max(0, savedDay.fresh_count + toNum(current.freshCount) - dayPayload.fresh_count);
+    current.salesDayBasis = salesDayEditableValues(savedDay);
+    current.salesDayRevision = savedDay.sales_edit_revision;
+  }
   return isAccountContextCurrent(context);
 }
 function scheduleSave({ dateKeys = [], rates = false, immediate = false } = {}) {
@@ -3757,6 +3793,7 @@ async function saveCurrentRecordAndGoHome() {
         requestId: state.recordDraftSalesRequestId,
         reason: "기록 화면에서 매출 수정",
         rows: draft.rows,
+        basisCounts: draft.salesBasisCounts,
         context,
       });
       applyAutomaticSalesSnapshot(dateKey, snapshot, draft);
@@ -5457,6 +5494,7 @@ function openSalesOverride(dateKey = state.selectedDate) {
     dateKey,
     revision: snapshot?.revision ?? null,
     rows: seed.rows,
+    basisCounts: { ...receipt.salesBasisCounts },
     reason: snapshot?.reason || "",
     requestId: "",
     dirty: false,
@@ -5492,7 +5530,7 @@ function automaticSalesOverrideResult(data) {
     ? normalizeAutomaticSalesOverride(value)
     : null;
 }
-async function persistAutomaticSalesSnapshot({ dateKey, revision, requestId, reason, rows, context }) {
+async function persistAutomaticSalesSnapshot({ dateKey, revision, requestId, reason, rows, basisCounts, context }) {
   const payload = salesOverridePayload(rows);
   if (payload.issues.length) {
     const error = new Error(payload.issues.slice(0, 3).join(" "));
@@ -5500,12 +5538,16 @@ async function persistAutomaticSalesSnapshot({ dateKey, revision, requestId, rea
     error.issues = payload.issues;
     throw error;
   }
-  const { data, error } = await state.db.rpc(RPC.replaceAutomaticSalesOverride, {
+  if (!basisCounts || !Object.keys(basisCounts).length) {
+    throw new Error("자동 배송 기록을 새로고침한 뒤 다시 수정해 주세요.");
+  }
+  const { data, error } = await state.db.rpc(RPC.replaceTeamSalesOverride, {
     p_work_date: dateKey,
     p_expected_revision: revision ?? 0,
     p_request_id: requestId,
     p_reason: reason || "사용자 날짜별 매출 수정",
     p_routes: payload.routes,
+    p_basis_counts: basisCounts,
   });
   if (!isAccountContextCurrent(context)) throw staleAccountSaveError();
   if (error) throw error;
@@ -5550,6 +5592,7 @@ async function saveSalesOverride() {
       requestId: draft.requestId,
       reason: draft.reason,
       rows: draft.rows,
+      basisCounts: draft.basisCounts,
       context,
     });
     applyAutomaticSalesSnapshot(draft.dateKey, snapshot);

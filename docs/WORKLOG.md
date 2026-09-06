@@ -1,6 +1,18 @@
 # QuickFlex Worklog
 
-Last updated: 2026-09-05 (work-date and daily fresh-bag mode hardening)
+Last updated: 2026-09-06 (team sales and shared pace; Android test73 / PWA 1.0.47)
+
+## 2026-09-06 Team Sales And Shared Pace (test73 / 1.0.47)
+
+- No headcount or team-leader selection. New Android work submits immutable phone-local evidence; sales merge by account and the chosen work date.
+- Deduplicate known invoice hashes and collected fresh-bag serials across work submissions. Unknown invoices stay separate; neither routes nor shared Coupang counters prove cross-phone identity.
+- Keep per-work manual adjustments and date-level sales corrections as differences from the observed quantities. A60 corrected to65 followed by B40 remains105; new colleague routes keep their dated rates.
+- Returns and cancellations remain inclusive delivery revenue with deduplicated annotations. Preserve all legacy receipts; evidence-free historical or already-running work is not retroactively deduplicated.
+- Make automatic-date fresh-bag edits retry-safe and preserve late colleague contributions, including the open form draft. Existing manual-day saves reject a newly automatic date and retain the established refresh flow.
+- Android personal stops/items/rates use local completion evidence, not shared counter increases. Keep the existing speed-centered gauge: its large household/hour number and `예상 완료` use shared progress, with `남은 가구` alongside the forecast. Show the personal count/rate only as small text, e.g. `52가구 · 39 가구/시간`; never label it `내 타수` or `타`. Never add two phones' common counters together. Existing measurement pause/resume behavior is retained with separately persisted shared progress.
+- Validation: all 149 PWA/SQL tests, JavaScript syntax checks, all 466 Android unit tests, `assembleDebug`, `assembleDebugAndroidTest`, and diff checks. PostgreSQL tests run locally with PGlite. UI test sources compile, but no device is attached: no physical two-phone, instrumented UI, or true simultaneous production transaction test has been performed.
+- Supabase/Postgres guidance informed owner-scoped permissions, immutable retry verification and account/date transaction locks. Applied only `20260906022033_team_sales_ledger.sql` (CLI-created file renamed to the server-assigned migration version). Existing receipt, route, override and daily-record checksums are unchanged, and legacy finalizer/lease function hashes are unchanged. All 10 new views use security-invoker mode; anonymous RPC execution and direct client ledger writes are denied. The advisor reports the three intentionally authenticated write endpoints; each checks approval and derives its owner from `auth.uid()`.
+- Paired release: Android `2.0-test73` / versionCode `90`, PWA version and cache `1.0.47`. The APK signature matches test72 for in-place updates. Database migration is applied before publishing clients. Do not reapply the full canonical schema. All participating phones must use the new app and start new work before relying on cross-phone deduplication; old clients do not understand team projections.
 
 ## 2026-09-05 Work-date And Daily Fresh-bag Mode Hardening
 
