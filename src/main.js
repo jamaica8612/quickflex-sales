@@ -4399,7 +4399,7 @@ function renderStatsChart(trend) {
   const labelColor = (cs.getPropertyValue("--muted") || "#70737C").trim() || "#70737C";
   ctx.strokeStyle = gridColor;
   ctx.fillStyle = labelColor;
-  ctx.font = "10px 'Outfit', 'Pretendard Variable', Pretendard, system-ui, sans-serif";
+  ctx.font = "10px 'Pretendard Variable', Pretendard, system-ui, sans-serif";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   ctx.lineWidth = 1;
@@ -4456,7 +4456,7 @@ function renderStatsChart(trend) {
     ctx.stroke();
     ctx.restore();
     ctx.fillStyle = accentColor;
-    ctx.font = "9px 'Outfit', 'Pretendard Variable', Pretendard, system-ui, sans-serif";
+    ctx.font = "9px 'Pretendard Variable', Pretendard, system-ui, sans-serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "bottom";
     ctx.fillText(`평균 ${fmtAxis(avg)}`, margin.l + 2, Math.max(margin.t + 8, avgY - 2));
