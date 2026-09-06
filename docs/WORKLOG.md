@@ -1,6 +1,13 @@
 # QuickFlex Worklog
 
-Last updated: 2026-09-06 (team sales and shared pace; Android test73 / PWA 1.0.47)
+Last updated: 2026-09-06 (PWA Outfit typography; Android unchanged at test73 / PWA 1.0.48)
+
+## 2026-09-06 PWA English And Digit Typography (1.0.48)
+
+- Apply Outfit only to ASCII English letters and digits in the PWA, introduction, chart labels and printable inspection text. Preserve the existing Pretendard/Wanted Sans Korean and punctuation fallbacks, weights, sizes, layout and data logic. Leave saved signature generation unchanged.
+- Bundle the unmodified Google Fonts Latin variable WOFF2 with its SIL OFL 1.1 license and source/hash record. Cache the font locally with the shell for offline use; no runtime Google Fonts request is required.
+- Bump the PWA version and shell cache to `1.0.48`. No Android source/APK or database changes. The native measurement screen stays unchanged; the Android sales WebView uses the same published PWA.
+- Validation: all 154 PWA/SQL tests, including five new font/character-range/offline-cache checks, JavaScript syntax checks and `git diff --check` passed. The font binary header, declared file length and official download hash are verified.
 
 ## 2026-09-06 Team Sales And Shared Pace (test73 / 1.0.47)
 

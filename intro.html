@@ -11,10 +11,20 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>퀵플 소개</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=1.0.41" />
+    <link rel="manifest" href="./manifest.webmanifest?v=1.0.48" />
     <link rel="icon" href="./favicon-32.png?v=3" type="image/png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=3" />
     <style>
+      /* Keep the existing Korean and punctuation fonts. */
+      @font-face {
+        font-family: "Outfit";
+        font-style: normal;
+        font-weight: 100 900;
+        font-display: swap;
+        src: url("./assets/fonts/OutfitLatinVariable.woff2") format("woff2");
+        unicode-range: U+0030-0039, U+0041-005A, U+0061-007A;
+      }
+
       @font-face {
         font-family: "Pretendard Variable";
         font-style: normal;
@@ -32,8 +42,8 @@
       }
 
       :root {
-        --font-ui: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-        --font-numeric: "Wanted Sans Variable", "Pretendard Variable", Pretendard, system-ui, sans-serif;
+        --font-ui: "Outfit", "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        --font-numeric: "Outfit", "Wanted Sans Variable", "Pretendard Variable", Pretendard, system-ui, sans-serif;
         --bg: #0f1219;
         --panel: #181d2b;
         --panel2: #111724;
