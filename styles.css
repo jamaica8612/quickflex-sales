@@ -1,3 +1,13 @@
+/* Only English letters and digits change; Korean and punctuation keep their existing fonts. */
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./assets/fonts/OutfitLatinVariable.woff2") format("woff2");
+  unicode-range: U+0030-0039, U+0041-005A, U+0061-007A;
+}
+
 @font-face {
   font-family: "Pretendard Variable";
   font-style: normal;
@@ -15,9 +25,9 @@
 }
 
 :root {
-  --font-ui: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-ui: "Outfit", "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-numeric: var(--font-ui);
-  --font-amount: "Wanted Sans Variable", var(--font-ui);
+  --font-amount: "Outfit", "Wanted Sans Variable", var(--font-ui);
   --shell-bg: #EAECEF;
   --bg: #F7F7F8;
   --panel: #FFFFFF;
@@ -408,7 +418,7 @@ h1 { margin: 0; font-size: 22px; font-weight: 850; letter-spacing: -0.3px; line-
   display: none;
   color: #111;
   background: #fff;
-  font-family: "Pretendard Variable", sans-serif;
+  font-family: "Outfit", "Pretendard Variable", sans-serif;
 }
 .inspection-print-sheet h1 { margin: 0 0 8px; text-align: center; font-size: 18px; }
 .inspection-print-meta { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #222; border-bottom: 0; font-size: 9px; }
