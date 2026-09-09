@@ -202,7 +202,7 @@ test("admin statistics use receipt-scoped cancellation metadata without multiply
     profile: { role: "admin" }, adminYear: 2026, adminMonth: 9,
     db: { from: (table) => ({ select: () => table === "profiles" ? Promise.resolve({ data: [], error: null }) : itemsQuery }) },
   };
-  const api = load(["renderAdminRouteStats"], {
+  const api = load(["renderAdminRouteStats", "manualLedgerItemsForSales"], {
     el, state, TABLES: { profiles: "profiles", items: "items" },
     periodBounds: () => ({ start: date, end: date }), toDateKey: (value) => value,
     loadWorkLedgerForRange: async () => ({ workResults: [work()], workRouteDetails: rawDetails, items: [] }),
