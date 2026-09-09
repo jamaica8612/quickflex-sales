@@ -216,3 +216,53 @@ test('legacy receipts and their saved prices stay unchanged alongside new work',
   assert.equal(rows.length,2); assert.deepEqual(rows[0].canonical_payload,receipt);
   assert.equal((await db.query('select sum(delivery_count * unit_snapshot)::integer revenue from public.quickflex_sales_work_routes')).rows[0].revenue,11000);
 });
+
+test('daytime team finalization preserves preexisting manual route rows and their dated prices in storage', async () => {
+  await db.query(
+    'select public.quickflex_replace_manual_day_record($1,false,false,12,100,0,0,30,$2,$3::jsonb)',
+    [day, 'backup', JSON.stringify([{route:'310D',delivery_count:120,household_count:90,unit_snapshot:1050,sort_order:0}])]
+  );
+  const before = (await db.query('select * from public.quickflex_day_route_items where user_id=$1 and work_date=$2', [owner, day])).rows;
+  const daytime = { ...payload('work-daytime', [evidence('daytime', {count:40})]), work_shift:'day' };
+  assert.equal((await submit(daytime)).status, 'applied');
+  const after = (await db.query('select * from public.quickflex_day_route_items where user_id=$1 and work_date=$2', [owner, day])).rows;
+  assert.deepEqual(after, before, 'finalization must not delete, zero or rewrite the manual baseline');
+  assert.equal((await total()).total_items, 40, 'automatic projection contains its own items, not manual baseline');
+  assert.equal((await submit(daytime)).status, 'already_applied');
+  assert.deepEqual((await db.query('select * from public.quickflex_day_route_items where user_id=$1 and work_date=$2', [owner, day])).rows, before);
+});
+
+test('daytime and nighttime immutable team inputs are both retained in the date aggregate', async () => {
+  const night = payload('work-nighttime', [evidence('nighttime', {count:120})]);
+  const daytime = { ...payload('work-daytime', [evidence('daytime', {count:40})]), work_shift:'day' };
+  await submit(night);
+  await submit(daytime);
+  const inputs = (await db.query('select payload from public.quickflex_team_work_inputs order by work_id')).rows;
+  assert.equal(inputs.length, 2);
+  assert.deepEqual(inputs.map((row) => row.payload).sort((a,b) => a.work_id.localeCompare(b.work_id)), [daytime, night]);
+  assert.equal((await total()).total_items, 160);
+  assert.equal((await total()).work_shift, 'day', 'the aggregate label is min(day,night), not a shift filter');
+});
+
+test('full date correction including manual night baseline receives later automatic delta only once', async () => {
+  await db.query(
+    'select public.quickflex_replace_manual_day_record($1,false,false,0,100,0,0,30,$2,$3::jsonb)',
+    [day, 'backup', JSON.stringify([{route:'310D',delivery_count:120,household_count:90,unit_snapshot:1050,sort_order:0}])]
+  );
+  await submit({...payload('work-daytime', [evidence('daytime', {count:40})]), work_shift:'day'});
+  const originalManual = (await db.query('select * from public.quickflex_day_route_items')).rows;
+  const editedFullDay = [
+    {route:'310D',delivery_count:125,unit_snapshot:1080,sort_order:0},
+    {route:'314D',delivery_count:40,unit_snapshot:1000,sort_order:1}
+  ];
+  const args = [day,0,'correction-manual-baseline','manual night plus day',JSON.stringify(editedFullDay),JSON.stringify({'314D':40})];
+  await db.query('select * from public.quickflex_replace_team_sales_override($1,$2,$3,$4,$5::jsonb,$6::jsonb)', args);
+  assert.equal((await db.query('select total_items from public.quickflex_sales_overrides')).rows[0].total_items,165);
+  await submit({...payload('work-daytime-later',[evidence('daytime-later',{count:20})]),work_shift:'day'});
+  const effective = (await db.query('select * from public.quickflex_sales_overrides')).rows[0];
+  assert.equal(effective.total_items,185, 'manual120 plus edited5 plus auto60, not manual120 added again');
+  assert.deepEqual(effective.routes.map(row=>[row.route,row.delivery_count,row.unit_snapshot]),[['310D',125,1080],['314D',60,1000]]);
+  assert.deepEqual((await db.query('select * from public.quickflex_day_route_items')).rows, originalManual);
+  assert.equal((await db.query('select * from public.quickflex_replace_team_sales_override($1,$2,$3,$4,$5::jsonb,$6::jsonb)',args)).rows[0].status,'already_applied');
+  assert.equal((await db.query('select total_items from public.quickflex_sales_overrides')).rows[0].total_items,185);
+});

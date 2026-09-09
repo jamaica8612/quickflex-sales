@@ -18,7 +18,7 @@ function extractFunction(name) {
   throw new Error(`Could not extract ${name}`);
 }
 
-test("00:00 through 06:59 defaults today's measurement to the previous date", () => {
+test("night measurement defaults to next date and day keeps selected date", () => {
   const context = vm.createContext({
     addDays: (dateKey, amount) => {
       const date = new Date(`${dateKey}T12:00:00`);
@@ -26,11 +26,32 @@ test("00:00 through 06:59 defaults today's measurement to the previous date", ()
       return date.toISOString().slice(0, 10);
     },
   });
-  vm.runInContext(`${extractFunction("measurementWorkDateForClock")}; globalThis.actual = measurementWorkDateForClock;`, context);
-  assert.equal(context.actual("2026-09-05", "2026-09-05", 0), "2026-09-04");
-  assert.equal(context.actual("2026-09-05", "2026-09-05", 6), "2026-09-04");
-  assert.equal(context.actual("2026-09-05", "2026-09-05", 7), "2026-09-05");
-  assert.equal(context.actual("2026-09-03", "2026-09-05", 2), "2026-09-03", "a manually selected date stays unchanged");
+  vm.runInContext(`${extractFunction("measurementWorkDateForShift")}; globalThis.actual = measurementWorkDateForShift;`, context);
+  assert.equal(context.actual("2026-09-09", "night"), "2026-09-10");
+  assert.equal(context.actual("2026-09-09", "day"), "2026-09-09");
+  assert.equal(context.actual("2026-09-30", "night"), "2026-10-01");
+  assert.equal(context.actual("2026-12-31", "night"), "2027-01-01");
+  assert.equal(context.actual("2026-09-03", "day"), "2026-09-03");
+});
+
+test("entry defaults do not depend on the clock and a manually edited measurement date survives refresh", () => {
+  const context = vm.createContext({
+    state: { selectedDate: "2026-09-09", measurementDate: "2026-09-08", measurementDateAuto: false },
+    isNightShift: () => true,
+    toDateKey: () => "2026-09-09",
+    addDays: (key, days) => new Date(Date.parse(`${key}T12:00:00Z`) + days * 86400000).toISOString().slice(0, 10),
+    el: { measurementWorkDate: {}, measurementRouteText: {}, measurementRouteHint: {}, measurementScheduleMeta: {}, openPaceApp: {} },
+    getRecord: () => ({ off: false, rows: [] }),
+    hasAutomaticEntries: () => false,
+    formatMonthDay: (key) => key,
+  });
+  vm.runInContext(["measurementWorkDateForShift", "defaultMeasurementWorkDate", "renderMeasurementBridge"].map(extractFunction).join("\n"), context);
+  for (const hour of [0, 6, 7, 23]) {
+    assert.equal(context.defaultMeasurementWorkDate(new Date(2026, 8, 9, hour)), "2026-09-10");
+  }
+  context.renderMeasurementBridge();
+  assert.equal(context.el.measurementWorkDate.value, "2026-09-08");
+  assert.equal(context.state.measurementDate, "2026-09-08");
 });
 
 test("fresh-bag revenue follows the saved day mode instead of the current profile mode", () => {

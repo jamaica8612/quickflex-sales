@@ -1,6 +1,18 @@
 # QuickFlex Worklog
 
-Last updated: 2026-09-06 (PWA typography restored / PWA 1.0.49)
+Last updated: 2026-09-09 (manual sales preservation / PWA 1.0.50)
+
+## 2026-09-09 Manual Night Sales And Measurement Entry (1.0.50)
+
+- Preserve existing manual sales when separate automatic work arrives on the same date,
+  including ordinary edit drafts and administrator totals. Full-day overrides still replace
+  the whole date. Keep automatic-only basis counts so late work preserves the manual delta.
+- Night measurement entry defaults to the selected date plus one day, day entry to the
+  selected date, as explicitly requested. Keep manual date edits and resumed active work.
+- 161 PWA/SQL tests passed, including manual120+auto40=160 and corrected165+late20=185;
+  JavaScript syntax and diff checks passed. No production data rewrite or schema migration.
+- Paired Android test92 includes delivery-success counting, separate return pickup quantities,
+  missing-rate entry without automatic retry, and consistent full-day sales corrections.
 
 ## 2026-09-06 Restore PWA Typography (1.0.49)
 

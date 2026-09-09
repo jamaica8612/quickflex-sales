@@ -1200,7 +1200,8 @@ function normalizeRecordShape(record) {
   next.rows = mergeGroupedRows(next.rows);
   if (hasAutomaticEntries(next)) {
     next.off = false;
-    next.rows = automaticRows(next);
+    // Manual sales can be a different shift on this date. Automatic receipts
+    // add to them; only an explicit full-date override replaces both sources.
   }
   return next;
 }
@@ -3307,13 +3308,11 @@ function quickflexHandleNativeBack() {
 
 window.quickflexHandleNativeBack = quickflexHandleNativeBack;
 
-function measurementWorkDateForClock(selectedDate, currentDate, localHour) {
-  if (selectedDate !== currentDate) return selectedDate;
-  return localHour >= 0 && localHour < 7 ? addDays(currentDate, -1) : currentDate;
+function measurementWorkDateForShift(selectedDate, workShift) {
+  return workShift === "night" ? addDays(selectedDate, 1) : selectedDate;
 }
 function defaultMeasurementWorkDate(now = new Date()) {
-  const currentDate = toDateKey(now);
-  return measurementWorkDateForClock(state.selectedDate, currentDate, now.getHours());
+  return measurementWorkDateForShift(state.selectedDate || toDateKey(now), isNightShift() ? "night" : "day");
 }
 function renderMeasurementBridge() {
   if (!el.measurementWorkDate) return;
@@ -3325,10 +3324,10 @@ function renderMeasurementBridge() {
   el.measurementRouteText.textContent = record.off ? "휴무" : routes.length ? routes.join(" · ") : "등록된 구역 없음";
   const households = record.rows.reduce((sum, row) => sum + toNum(row.households), 0);
   const automatic = hasAutomaticEntries(record);
-  const autoPreviousDate = state.measurementDateAuto;
+  const autoNextDate = state.measurementDateAuto;
   if (el.measurementScheduleMeta) {
-    el.measurementScheduleMeta.textContent = autoPreviousDate
-      ? `오전 7시 전 · ${formatMonthDay(workDate)} 업무`
+    el.measurementScheduleMeta.textContent = autoNextDate
+      ? `야간 다음 날 · ${formatMonthDay(workDate)} 업무`
       : `${formatMonthDay(workDate)} 근무표 자동 입력`;
   }
   el.measurementRouteHint.textContent = automatic
@@ -3468,7 +3467,7 @@ function hasAutomaticSalesOverride(dateKey) {
 }
 function automaticBaseBreakdown(record) {
   const byRoute = new Map();
-  automaticRows(record).forEach((row) => {
+  (record?.rows || []).forEach((row) => {
     const routes = splitStoredRoutes(row.route);
     const share = routes.length || 1;
     routes.forEach((route) => {
@@ -3476,7 +3475,9 @@ function automaticBaseBreakdown(record) {
       if (!baseRoute) return;
       const current = byRoute.get(baseRoute) || { route: baseRoute, count: 0, revenue: 0 };
       current.count += toNum(row.count) / share;
-      current.revenue += (toNum(row.count) * effectiveUnit(row)) / share;
+      const manualBackup = !isAutomaticRow(row) && record.driverType === "backup"
+        ? toNum(defaultBackupUnit(record.backupUnit)) : 0;
+      current.revenue += (toNum(row.count) * (effectiveUnit(row) + manualBackup)) / share;
       byRoute.set(baseRoute, current);
     });
   });
@@ -3627,7 +3628,6 @@ function renderEntryForm() {
   const automatic = hasAutomaticEntries(record);
   if (automatic) {
     record.off = false;
-    record.rows = automaticRows(record);
   }
   else if (record.off) record.rows = [];
   el.selectedDateTitle.textContent = formatRecordTitleDate(state.selectedDate);
@@ -4533,6 +4533,10 @@ function effectiveAutomaticLedgerItems(ledgerItems, overrideRows) {
   return effective;
 }
 
+function manualLedgerItemsForSales(items, overrideRows) {
+  const overriddenDates = new Set((overrideRows || []).map((row) => userDateKey(row.user_id, row.work_date)));
+  return (items || []).filter((item) => !overriddenDates.has(userDateKey(item.user_id, item.work_date)));
+}
 function adminRecordDetails(day, items) {
   if (day.is_off) return { revenue: 0, count: 0, freshCount: 0, returnCount: 0, cancellationCount: 0, backupRevenue: 0, routeRevenue: 0 };
   const routeTotal = (items || []).reduce((sum, item) => {
@@ -4673,7 +4677,7 @@ async function renderAdminRevenueStats() {
 
   const automaticUserDateKeys = new Set(ledger.workResults.map((work) => userDateKey(work.user_id, work.work_date)));
   const overrideUserDateKeys = new Set(overridesResult.rows.map((row) => userDateKey(row.user_id, row.work_date)));
-  const manualItems = (itemsResult.data || []).filter((item) => !automaticUserDateKeys.has(userDateKey(item.user_id, item.work_date)));
+  const manualItems = manualLedgerItemsForSales(itemsResult.data, overridesResult.rows);
   const combinedItems = [...manualItems, ...effectiveAutomaticLedgerItems(ledger.items, overridesResult.rows)];
   const itemsByUserDate = new Map();
   combinedItems.forEach((item) => {
@@ -4797,8 +4801,7 @@ async function renderAdminRouteStats() {
 
   const profiles = new Map((profilesResult.data || []).map((profile) => [profile.id, profile]));
   const routeMap = new Map();
-  const automaticUserDateKeys = new Set(ledger.workResults.map((work) => userDateKey(work.user_id, work.work_date)));
-  const manualItems = (itemsResult.data || []).filter((item) => !automaticUserDateKeys.has(userDateKey(item.user_id, item.work_date)));
+  const manualItems = manualLedgerItemsForSales(itemsResult.data, overridesResult.rows);
   [...manualItems, ...effectiveAutomaticLedgerItems(ledger.items, overridesResult.rows)].forEach((item) => {
     const route = joinStoredRoutes(item.route);
     const count = toNum(item.delivery_count);
@@ -5392,11 +5395,16 @@ function seedSalesOverrideRows(dateKey, snapshot) {
   }
   const receipt = state.receiptEntries[dateKey] || getRecord(dateKey, false);
   const groups = new Map();
-  automaticRows(receipt).forEach((row) => {
-    const route = normalizeBaseSalesRoute(row.route);
+  let hasGroupedManualRoute = false;
+  (receipt.rows || []).forEach((row) => {
+    const baseRoute = normalizeBaseSalesRoute(row.route);
+    const route = baseRoute || (!isAutomaticRow(row) ? joinStoredRoutes(row.route) : "");
     if (!route) return;
+    if (!baseRoute) hasGroupedManualRoute = true;
     const count = toNum(row.count);
-    const unit = effectiveUnit(row);
+    // Override unit snapshots include backup pay, unlike original manual rows.
+    const unit = effectiveUnit(row) + (!isAutomaticRow(row) && receipt.driverType === "backup"
+      ? toNum(defaultBackupUnit(receipt.backupUnit)) : 0);
     const current = groups.get(route) || { route, count: 0, revenue: 0, units: new Set() };
     current.count += count;
     current.revenue += count * unit;
@@ -5414,7 +5422,10 @@ function seedSalesOverrideRows(dateKey, snapshot) {
   });
   return {
     rows: rows.length ? rows : [{ route: "", count: 0, unit: 0 }],
-    warning: mergedDifferentUnits ? "같은 A/B 구역에 서로 다른 원본 단가가 있어 가중 평균 단가로 시작했습니다. 저장 전 단가를 확인해 주세요." : "",
+    warning: [
+      mergedDifferentUnits ? "같은 A/B 구역에 서로 다른 원본 단가가 있어 가중 평균 단가로 시작했습니다. 저장 전 단가를 확인해 주세요." : "",
+      hasGroupedManualRoute ? "수기 묶음 구역의 합계는 보존했습니다. 매출을 수정해 저장하려면 A/B 구역별 건수를 나눠 입력해 주세요." : "",
+    ].filter(Boolean).join(" "),
   };
 }
 function setSalesOverrideStatus(message, type = "") {
