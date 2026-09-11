@@ -1,6 +1,13 @@
 # QuickFlex Worklog
 
-Last updated: 2026-09-09 (manual sales preservation / PWA 1.0.50)
+Last updated: 2026-09-12 (overnight measurement entry / PWA 1.0.51)
+
+## 2026-09-12 Overnight Measurement Entry (1.0.51)
+
+- Automatic entry uses the current local clock, not a stale calendar selection: night work before noon belongs to today; noon onward belongs to tomorrow. Day work belongs to today.
+- Recalculate automatic dates on measurement entry/refresh while preserving an explicitly edited measurement date and passing that exact date to Android. Android still gives same-owner active work priority.
+- Register the date helper in the offline shell and bump the visible version, asset queries and cache to 1.0.51. No database, authentication or sales changes.
+- Validation: 162 Node tests passed, including midnight/noon/month/year boundaries and the native manual-date bridge; JavaScript syntax and diff checks passed. Actual phone UI testing is still pending.
 
 ## 2026-09-09 Manual Night Sales And Measurement Entry (1.0.50)
 

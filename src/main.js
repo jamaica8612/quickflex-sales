@@ -149,6 +149,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
+import { measurementWorkDateForClock } from "./lib/work-date.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
 const LEGACY_USER_NAMES = new Map([["kim-gwanhyun", "김관현"]]);
@@ -3249,8 +3250,7 @@ function showView(view) {
   });
   if (view === "record") renderEntryForm();
   if (view === "measurement") {
-    state.measurementDate = defaultMeasurementWorkDate();
-    state.measurementDateAuto = state.measurementDate !== state.selectedDate;
+    currentMeasurementWorkDate();
     renderMeasurementBridge();
   }
   if (view === "inspection") renderInspection(state.inspectionDate);
@@ -3308,23 +3308,26 @@ function quickflexHandleNativeBack() {
 
 window.quickflexHandleNativeBack = quickflexHandleNativeBack;
 
-function measurementWorkDateForShift(selectedDate, workShift) {
-  return workShift === "night" ? addDays(selectedDate, 1) : selectedDate;
-}
 function defaultMeasurementWorkDate(now = new Date()) {
-  return measurementWorkDateForShift(state.selectedDate || toDateKey(now), isNightShift() ? "night" : "day");
+  return measurementWorkDateForClock(now, isNightShift() ? "night" : "day");
+}
+function currentMeasurementWorkDate(now = new Date()) {
+  if (!state.measurementDate || state.measurementDateAuto) {
+    state.measurementDate = defaultMeasurementWorkDate(now);
+    state.measurementDateAuto = true;
+  }
+  return state.measurementDate;
 }
 function renderMeasurementBridge() {
   if (!el.measurementWorkDate) return;
-  const workDate = state.measurementDate || defaultMeasurementWorkDate();
-  state.measurementDate = workDate;
+  const workDate = currentMeasurementWorkDate();
   el.measurementWorkDate.value = workDate;
   const record = getRecord(workDate, false);
   const routes = record.off ? [] : record.rows.flatMap((row) => splitStoredRoutes(row.route));
   el.measurementRouteText.textContent = record.off ? "휴무" : routes.length ? routes.join(" · ") : "등록된 구역 없음";
   const households = record.rows.reduce((sum, row) => sum + toNum(row.households), 0);
   const automatic = hasAutomaticEntries(record);
-  const autoNextDate = state.measurementDateAuto;
+  const autoNextDate = state.measurementDateAuto && isNightShift() && workDate !== todayKey();
   if (el.measurementScheduleMeta) {
     el.measurementScheduleMeta.textContent = autoNextDate
       ? `야간 다음 날 · ${formatMonthDay(workDate)} 업무`
@@ -3344,7 +3347,7 @@ async function openPaceMeasurementApp() {
   if (signedInEmail !== "jamaica8612@gmail.com") {
     return toast("개발 중입니다.", "info");
   }
-  const workDate = state.measurementDate || defaultMeasurementWorkDate();
+  const workDate = currentMeasurementWorkDate();
   if (getRecord(workDate, false).off) return toast("휴무일은 측정을 시작할 수 없습니다.", "error");
   const shift = isNightShift() ? "night" : "day";
   if (window.QuickFlexNative?.postMessage && state.db) {
