@@ -98,6 +98,20 @@
           <div id="monthCalendar" class="calendar-grid"></div>
         </main>
 
+        <aside id="homeDayPanel" class="home-day-panel" aria-label="선택 날짜">
+          <section class="home-day-overview" aria-live="polite" aria-atomic="true">
+            <p class="home-day-eyebrow">선택한 날짜</p>
+            <div class="home-day-heading">
+              <h2 id="homeDayTitle">날짜를 선택하세요</h2>
+              <span id="homeDayToday" hidden>오늘</span>
+            </div>
+            <div class="home-day-status">
+              <svg id="homeDayIcon" class="home-day-icon" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" hidden><path d="M20.5 14A8.5 8.5 0 0 1 10 3.5 8.5 8.5 0 1 0 20.5 14Z"/></svg>
+              <strong id="homeDayValue">미기록</strong>
+              <p id="homeDayHint">선택한 날짜의 기록을 확인하세요.</p>
+            </div>
+            <dl class="home-day-meta"><div><dt>근무 상태</dt><dd id="homeDayState">미기록</dd></div></dl>
+          </section>
         <section id="selectedDateBreakdown" class="selected-date-breakdown hidden" aria-labelledby="selectedDateBreakdownTitle">
           <div class="selected-breakdown-head">
             <div>
@@ -115,9 +129,10 @@
             <span id="homeSelectedDate">날짜를 선택하세요</span>
             <strong id="homeSelectedTotal">0원</strong>
           </div>
-          <button class="ghost-pill" id="homeOffToggle" type="button" role="checkbox" aria-checked="false">휴무</button>
+          <button class="ghost-pill" id="homeOffToggle" type="button" role="checkbox" aria-checked="false"><span class="home-off-mobile-label">휴무</span><span class="home-off-wide-label" id="homeOffWideLabel">휴무로 설정</span></button>
           <button class="primary-pill" id="openRecord">기록하기</button>
         </footer>
+        </aside>
       </section>
 
       <section class="view view-inspection">

@@ -425,6 +425,14 @@ const el = {
   todayButton: $("todayButton"),
   homeSelectedDate: $("homeSelectedDate"),
   homeSelectedTotal: $("homeSelectedTotal"),
+  homeDayPanel: $("homeDayPanel"),
+  homeDayTitle: $("homeDayTitle"),
+  homeDayToday: $("homeDayToday"),
+  homeDayIcon: $("homeDayIcon"),
+  homeDayValue: $("homeDayValue"),
+  homeDayHint: $("homeDayHint"),
+  homeDayState: $("homeDayState"),
+  homeOffWideLabel: $("homeOffWideLabel"),
   homeOffToggle: $("homeOffToggle"),
   openRecord: $("openRecord"),
   selectedDateBreakdown: $("selectedDateBreakdown"),
@@ -3662,7 +3670,30 @@ function renderHomeSelection() {
   el.homeOffToggle.setAttribute("aria-checked", String(record.off));
   el.homeOffToggle.disabled = automatic;
   el.homeOffToggle.title = automatic ? "앱 자동 기록이 있는 날짜는 휴무로 바꿀 수 없습니다." : "";
+  renderHomeDayOverview(record, calc, automatic);
   renderSelectedDateBreakdown(record);
+}
+function renderHomeDayOverview(record, calc, automatic) {
+  const recorded = automatic || calc.revenue !== 0 || hasEnteredCounts(record);
+  const planned = !recorded && record.rows.some((row) => Boolean(row.route));
+  const dayState = record.off ? "off" : recorded ? "recorded" : planned ? "planned" : "missing";
+  el.homeDayPanel.dataset.dayState = dayState;
+  el.homeDayTitle.textContent = new Intl.DateTimeFormat("ko-KR", {
+    month: "long", day: "numeric", weekday: "long",
+  }).format(new Date(`${state.selectedDate}T12:00:00`));
+  el.homeDayToday.hidden = state.selectedDate !== toDateKey(new Date());
+  el.homeDayIcon.toggleAttribute("hidden", !record.off);
+  if (dayState === "recorded") renderNumberWithUnit(el.homeDayValue, fmtWon(calc.revenue));
+  else el.homeDayValue.textContent = record.off ? "휴무일" : "매출 미기록";
+  el.homeDayHint.textContent = record.off
+    ? "휴무로 기록된 날이에요."
+    : recorded
+      ? "이 날짜에 기록된 매출이에요."
+      : planned
+        ? "근무표가 등록되어 있어요. 실적을 기록해주세요."
+        : "아직 기록이 없어요. 근무 내역을 남겨보세요.";
+  el.homeDayState.textContent = record.off ? "휴무" : recorded ? "기록 있음" : planned ? "근무표 등록" : "미기록";
+  el.homeOffWideLabel.textContent = record.off ? "근무로 변경" : "휴무로 설정";
 }
 function selectDate(dateKey) {
   state.selectedDate = dateKey;

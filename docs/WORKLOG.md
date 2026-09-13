@@ -1205,3 +1205,11 @@ Browser checks:
 - Standardized home/record tabular numerals and smaller units, settings input sizes, mobile record date heading and neutral secondary buttons in light mode.
 - Published-contact privacy policy and introduction links are prepared. DESIGN-RULES.md remains the only design authority; HANDOFF.md is marked historical.
 - Validation: npm ci completed; full Node suite 207/207 passed with no skips, syntax and diff checks passed. Inspected actual dark/light browser screens at 360px and 614px. Detailed scope and remaining Google public/Samsung boundaries: docs/design-audit-2026-09-13.md.
+
+## 2026-09-13 - Landscape calendar and persistent selected-day panel
+
+- Replaced conflicting wide-home layouts with a compact full-width summary, left calendar, right selected-day panel and vertical navigation. Enabled at landscape widths of 768px or desktop widths of 1100px; portrait keeps the existing single-column flow.
+- Off, missing, scheduled, manual-revenue and automatic-record days retain the same panel. Existing record/off actions are reused within it; calculation, settlement ranges, storage and financial records are unchanged.
+- Calendar cell tracks preserve route labels without vertical clipping. Paired panel actions share 44px height, 13px type and weight 600. Documented responsive rules and refreshed the service-worker cache name.
+- Validation: full Node suite 209/209 passed, followed by 17/17 focused accessibility/design/day-state checks. app.js, src/main.js and sw.js syntax and git diff whitespace checks passed.
+- Actual browser inspection covered dark/light landscape at 768x600, 960x720 and 1280x960, plus light portrait at 360x900 and 800x1100. Checked no horizontal overflow, route label clipping, manual/automatic/planned/off states and record-editor return without saving. No physical-device verification or financial writes were performed in this layout task. Private screenshots remain outside the release.
