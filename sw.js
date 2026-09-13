@@ -1,4 +1,4 @@
-const CACHE_NAME = "quickflex-shell-v1.0.52-design-audit";
+const CACHE_NAME = "quickflex-shell-v1.0.52-landscape-panel";
 const SHELL_FILES = [
   "./",
   "./index.html",

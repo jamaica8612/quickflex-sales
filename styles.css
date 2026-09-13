@@ -2679,290 +2679,6 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
   }
 }
 
-/* === responsive workspace === */
-@media (min-width: 768px) {
-  .app {
-    width: min(100%, 1040px);
-  }
-
-  .app[data-view="home"] .view-home {
-    display: grid;
-    grid-template-columns: minmax(280px, 38%) minmax(0, 62%);
-    grid-template-rows: auto auto auto auto;
-    grid-template-areas:
-      "summary inspection"
-      "summary calendar"
-      "summary breakdown"
-      "summary dock";
-    min-height: 100dvh;
-    align-content: start;
-    padding-bottom: calc(var(--nav-h) + var(--safe-b));
-    background: var(--bg);
-  }
-
-  .home-header {
-    grid-area: summary;
-    min-width: 0;
-    padding: 34px 22px 28px;
-    background: linear-gradient(180deg, rgba(27,45,80,.72), rgba(23,29,42,.96));
-    border-right: 1px solid var(--line);
-  }
-
-  .inspection-entry-card {
-    grid-area: inspection;
-    margin: 14px 24px 0;
-  }
-
-  html:not([data-theme="dark"]) .home-header,
-  body:not([data-theme="dark"]) .home-header {
-    background: linear-gradient(180deg, #F3F8FF, #EAF2FD);
-  }
-
-  .home-top {
-    margin-bottom: 24px;
-  }
-
-  .home-header .summary-card {
-    border-bottom: 1px solid var(--line);
-    padding: 22px;
-  }
-
-  .home-header .summary-row strong {
-    font-size: clamp(31px, 4vw, 42px);
-  }
-
-  .home-header .summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0;
-  }
-
-  .home-header .summary-grid div {
-    padding: 16px 8px;
-    border-top: 1px solid var(--line);
-  }
-
-  .home-header .summary-grid div + div {
-    border-left: 0;
-  }
-
-  .home-header .summary-grid div:nth-child(even) {
-    border-left: 1px solid var(--line);
-  }
-
-  .home-header .summary-grid strong {
-    font-size: 17px;
-  }
-
-  .calendar-panel {
-    grid-area: calendar;
-    min-width: 0;
-    margin: 12px 24px 0;
-    overflow: hidden;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 18px 18px 0 0;
-  }
-
-  html:not([data-theme="dark"]) .calendar-panel,
-  body:not([data-theme="dark"]) .calendar-panel {
-    background: var(--panel);
-  }
-
-  .calendar-toolbar {
-    padding: 18px 18px 12px;
-  }
-
-  .mode-toggle {
-    padding: 0 18px 14px;
-  }
-
-  .calendar-grid {
-    grid-auto-rows: clamp(84px, 9.2dvh, 110px);
-  }
-
-  .day-cell {
-    padding: 10px 6px 7px;
-    grid-template-rows: 30px 22px minmax(0, 1fr);
-  }
-
-  .day-number {
-    width: 28px;
-    height: 28px;
-    font-size: 13px;
-  }
-
-  .inspection-day-dot {
-    top: 11px;
-    left: calc(50% + 10px);
-  }
-
-  .day-value {
-    font-size: 12px;
-  }
-
-  .day-routes {
-    font-size: 9px;
-  }
-
-  .day-dock {
-    grid-area: dock;
-    position: sticky;
-    bottom: calc(var(--nav-h) + var(--safe-b));
-    margin: 0 24px 24px;
-    padding: 14px 18px;
-    border: 1px solid var(--line);
-    border-top: 0;
-    border-radius: 0 0 18px 18px;
-    box-shadow: none;
-  }
-
-  .selected-date-breakdown {
-    grid-area: breakdown;
-    margin: 12px 24px 0;
-  }
-
-  .selected-date-breakdown:not(.hidden) + .day-dock {
-    margin-top: 12px;
-    border-top: 1px solid var(--line);
-    border-radius: 18px;
-  }
-
-  .bottom-nav {
-    width: min(100%, 1040px);
-  }
-}
-
-@media (min-width: 1100px) {
-  .app {
-    width: min(100%, 1440px);
-  }
-
-  .view {
-    padding-left: 88px;
-    padding-bottom: 0;
-  }
-
-  .app[data-view="home"] .view-home {
-    grid-template-columns: 330px minmax(0, 1fr);
-    grid-template-rows: auto auto auto auto;
-    padding-left: 88px;
-    padding-bottom: 0;
-  }
-
-  .home-header {
-    padding: 36px 24px;
-  }
-
-  .home-header .summary-card {
-    padding: 24px 20px;
-  }
-
-  .home-header .summary-row strong {
-    font-size: 38px;
-  }
-
-  .calendar-panel {
-    margin: 12px 28px 0;
-  }
-
-  .inspection-entry-card { margin: 24px 28px 0; }
-
-  .calendar-toolbar {
-    padding: 20px 22px 12px;
-  }
-
-  .calendar-toolbar strong {
-    font-size: 20px;
-  }
-
-  .mode-toggle {
-    width: min(360px, 44%);
-    margin-left: auto;
-    padding: 0 22px 16px;
-  }
-
-  .week-head span {
-    padding: 11px 0 12px;
-    font-size: 12px;
-  }
-
-  .calendar-grid {
-    grid-auto-rows: clamp(80px, 8.8dvh, 96px);
-  }
-
-  .day-cell {
-    padding: 10px 8px 8px;
-  }
-
-  .day-value {
-    font-size: 13px;
-  }
-
-  .day-routes {
-    font-size: 10px;
-  }
-
-  .day-dock {
-    position: static;
-    margin: 0 28px 24px;
-    padding: 16px 20px;
-  }
-
-  .selected-date-breakdown { margin-inline: 28px; }
-
-  .day-dock strong {
-    font-size: 20px;
-  }
-
-  .bottom-nav {
-    left: max(0px, calc(50% - 720px));
-    top: 0;
-    bottom: auto;
-    transform: none;
-    width: 88px;
-    height: 100dvh;
-    padding: 24px 8px;
-    flex-direction: column;
-    justify-content: center;
-    gap: 8px;
-    border-top: 0;
-    border-right: 1px solid var(--line);
-  }
-
-  .nav-tab {
-    flex: 0 0 72px;
-    width: 100%;
-    border-radius: 14px;
-    gap: 7px;
-  }
-
-  .nav-tab:hover {
-    background: var(--panel2);
-  }
-
-  .nav-tab.active {
-    background: var(--primary-bg);
-  }
-
-  .nav-tab svg {
-    width: 24px;
-    height: 24px;
-  }
-
-  .settings-body,
-  .record-body,
-  .view-stats > .settings-body,
-  .view-admin > .settings-body {
-    width: min(100%, 960px);
-    margin-inline: auto;
-  }
-
-  .sub-header {
-    max-width: 960px;
-    margin-inline: auto;
-  }
-}
-
 /* 숫자 스타일 - Pretendard 통일 */
 #periodRevenue,
 #homeSelectedTotal,
@@ -3679,203 +3395,365 @@ html[data-theme="dark"][data-dark="ink"], body[data-theme="dark"][data-dark="ink
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   20. 넓은 화면 (폴드 · 태블릿 · PC) 보정
-   기존 768/1100 그리드는 살리되, 리프레시와 어긋난 부분을 맞춘다.
+   20. 가로 태블릿 · 데스크톱 홈
+   세로 1099px 이하는 모바일 흐름을 유지하고, 가로 화면은
+   요약 / 달력 / 선택 날짜 패널의 한 가지 구조만 사용한다.
    ═══════════════════════════════════════════════════════════════════ */
-@media (min-width: 768px) {
-  /* (1) 좌측 컬럼이 옛 네이비로 하드코딩돼 있어 리프레시 토큰을 따라오지 않았다.
-         표면 토큰 기반으로 바꿔 다크/라이트 어느 쪽에서도 어긋나지 않게. */
-  .app[data-view="home"] .home-header,
-  html:not([data-theme="dark"]) .home-header,
-  body:not([data-theme="dark"]) .home-header {
-    background: var(--panel);
-    border-right: 1px solid var(--line);
-  }
-  html[data-theme="dark"] .app[data-view="home"] .home-header,
-  body[data-theme="dark"] .app[data-view="home"] .home-header {
-    background: linear-gradient(180deg,
-      color-mix(in srgb, var(--gold) 7%, var(--panel)) 0%,
-      var(--panel) 46%);
-  }
+.home-day-panel { display: contents; }
+.home-day-overview { display: none; }
+.day-dock .home-off-mobile-label,
+.day-dock .home-off-wide-label { font: inherit; }
+.day-dock .home-off-wide-label { display: none; }
 
-  /* (2) 일상점검이 요약 카드 안으로 들어갔으므로 inspection 영역을 없앤다.
-         비워두면 우측 컬럼 위에 빈 행이 생긴다. */
-  .app[data-view="home"] .view-home {
-    grid-template-columns: minmax(360px, 38%) minmax(0, 62%);
-    grid-template-rows: auto auto 1fr auto;
-    grid-template-areas:
-      "summary   calendar"
-      "summary   breakdown"
-      "summary   filler"
-      "dock      dock";
-  }
-  .home-header .inspection-entry-card {
-    grid-area: auto;
-    margin: 0 -18px;
-  }
-
-  /* (3) 좁아진 컬럼에서 히어로 숫자가 두 줄로 깨졌다. 폭에 맞춰 낮춘다. */
-  .home-header .summary-row strong { font-size: clamp(26px, 3.1vw, 36px); }
-  .home-header .summary-card { padding: 20px 18px 0; }
-
-  /* (4) 4지표가 2×2로 접히면서 내 border-top 과 겹쳐 이중선이 됐다. */
-  .home-header .summary-grid { border-top: 0; }
-  .home-header .summary-grid div { padding: 13px 8px; }
-  .home-header .summary-grid strong { font-size: 16px; }
-
-  /* (5) 날짜 상세는 우측 컬럼 폭이 넓으니 행 높이 고정을 푼다. */
-  .selected-date-breakdown { grid-area: breakdown; margin: 14px 24px 0; padding: 0; }
-  .selected-breakdown-rows .selected-breakdown-row { height: auto; min-height: 56px; }
-
-  /* (6) 하단 독은 두 컬럼을 가로질러 화면 아래에 붙인다. */
-  .day-dock {
-    grid-area: dock;
-    position: sticky;
-    bottom: calc(var(--nav-h) + var(--safe-b));
-    padding-left: 24px;
-    padding-right: 24px;
-  }
-}
-
-/* 폴드 펼침·태블릿 세로 — 2단으로 쪼개면 양쪽 다 좁다. 한 단으로 두고 폭만 제한한다. */
 @media (min-width: 600px) and (max-width: 767px) {
   .app { width: min(100%, 560px); }
 }
 
-@media (min-width: 1100px) {
-  /* 넓은 화면에서 히어로가 과하게 커지지 않게 상한을 둔다 */
-  .home-header .summary-row strong { font-size: 34px; }
-  .home-header .summary-card { padding: 24px 22px 0; }
-  .home-header .summary-grid div { padding: 15px 8px; }
-  /* 달력이 지나치게 늘어나면 셀이 납작해진다 */
-  .calendar-panel { max-width: 780px; }
-  .selected-date-breakdown { max-width: 780px; }
-}
+@media (min-width: 768px) and (orientation: landscape), (min-width: 1100px) {
+  .app { width: min(100%, 1440px); }
 
-@media (min-width: 1100px) {
-  /* 상한을 두면 오른쪽에 죽은 공간이 생긴다. 폭은 채우되 행을 키워
-     셀이 납작해지는 것을 막는다 (78px 유지 시 112×78의 눌린 칸이 된다). */
-  .calendar-panel, .selected-date-breakdown { max-width: none; }
-  .calendar-grid { grid-auto-rows: 94px; }
-  .day-cell { grid-template-rows: 28px 22px minmax(0, 1fr); padding: 9px 6px 8px; }
-  .day-number { width: 26px; height: 26px; font-size: 13px; }
-  .day-value { font-size: 13px; line-height: 22px; }
-  .day-routes { font-size: 9.5px; }
-  /* 넓은 컬럼에서 구역 행 좌우가 지나치게 벌어진다 */
-  .selected-breakdown-rows { max-width: 620px; }
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   21. 넓은 화면 레이아웃 재구성
-   기존 2단은 모바일 화면을 세로로 자른 것이라, 요약 카드가 좁게 눌려
-   4지표가 2×2로 접히고(모바일보다 나쁨) 좌측 아래가 비었다.
-   요약을 가로 띠로 눕히고 그 아래를 달력 | 날짜상세 로 나눈다.
-   ═══════════════════════════════════════════════════════════════════ */
-@media (min-width: 768px) {
-  .app[data-view="home"] .view-home {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
-    grid-template-rows: auto 1fr auto;
-    grid-template-areas:
-      "summary  summary"
-      "calendar breakdown"
-      "dock     dock";
-    column-gap: 20px;
-    padding: 0 24px calc(var(--nav-h) + var(--safe-b));
+  .view {
+    padding-left: 76px;
+    padding-bottom: 0;
   }
 
-  /* 요약 띠 — 가로 전체를 쓰므로 배경·테두리를 카드에 돌려준다 */
+  .app[data-view="home"] .view-home {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(240px, 31vw, 350px);
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "summary summary"
+      "calendar day-panel";
+    align-content: start;
+    gap: 14px 16px;
+    min-height: 100dvh;
+    padding: 0 16px 20px 92px;
+    background: var(--bg);
+  }
+
   .app[data-view="home"] .home-header,
   html:not([data-theme="dark"]) .home-header,
-  body:not([data-theme="dark"]) .home-header {
-    grid-area: summary;
-    background: transparent;
-    border-right: 0;
-    padding: 22px 0 0;
-  }
+  body:not([data-theme="dark"]) .home-header,
   html[data-theme="dark"] .app[data-view="home"] .home-header,
   body[data-theme="dark"] .app[data-view="home"] .home-header {
+    grid-area: summary;
+    min-width: 0;
+    padding: 14px 0 0;
     background: transparent;
+    border: 0;
   }
-  .home-top { margin-bottom: 16px; }
 
-  /* 카드 안을 3열로 눕힌다: 금액 | 진행률 | 4지표, 점검은 아래 한 줄 */
+  .home-top { margin-bottom: 10px; }
+
   .home-header .summary-card {
+    grid-template-columns: minmax(210px, .9fr) minmax(0, 1.1fr);
+    grid-template-rows: auto auto auto auto;
+    grid-template-areas:
+      "amount meter"
+      "amount mlabel"
+      "stats  stats"
+      "insp   insp";
+    align-items: center;
+    column-gap: 22px;
+    padding: 14px 16px 0;
+  }
+
+  .home-header .summary-row {
+    grid-area: amount;
+    grid-template-columns: auto 1fr;
+    align-self: center;
+    align-items: baseline;
+  }
+  .home-header .summary-row strong {
+    font-size: clamp(27px, 3.4vw, 34px);
+    margin-top: 5px;
+  }
+  .home-header .summary-period-badge {
+    justify-self: start;
+    margin-left: 8px;
+  }
+  .home-header .meter-wrap {
+    grid-area: meter;
+    align-self: end;
+    margin: 0;
+  }
+  .home-header .meter-label {
+    grid-area: mlabel;
+    align-self: start;
+    margin: 7px 0 0;
+    text-align: left;
+  }
+  .home-header .summary-grid {
+    grid-area: stats;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 11px;
+    border-top: 1px solid var(--line);
+  }
+  .home-header .summary-grid div { padding: 9px 6px 10px; }
+  .home-header .summary-grid div + div { border-left: 1px solid var(--line); }
+  .home-header .summary-grid strong { font-size: 15px; }
+  .home-header .inspection-entry-card {
+    grid-area: insp;
+    margin: 0 -16px;
+    padding: 9px 16px;
+  }
+
+  .calendar-panel {
+    grid-area: calendar;
+    min-width: 0;
+    margin: 0;
+    align-self: start;
+    overflow: hidden;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+  }
+  html:not([data-theme="dark"]) .calendar-panel,
+  body:not([data-theme="dark"]) .calendar-panel { background: var(--panel); }
+  .calendar-panel .calendar-toolbar {
+    --month-gap: 64px;
+    min-height: 54px;
+    padding: 10px 12px;
+  }
+  .calendar-panel .calendar-toolbar .mode-btn { padding-inline: 6px; }
+  .week-head { border-top: 0; }
+  .week-head span { padding: 8px 0 9px; }
+  .calendar-grid { grid-auto-rows: minmax(84px, auto); }
+  .day-cell {
+    grid-template-rows: 26px 20px minmax(14px, auto);
+    gap: 2px;
+    padding: 7px 4px 6px;
+  }
+  .day-number {
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+  }
+  .inspection-day-dot {
+    top: 8px;
+    left: calc(50% + 9px);
+  }
+  .day-value {
+    font-size: 11.5px;
+    line-height: 20px;
+  }
+  .day-routes {
+    font-size: 8.5px;
+    line-height: 14px;
+  }
+
+  .home-day-panel {
+    grid-area: day-panel;
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    align-self: start;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+  }
+  .home-day-overview {
+    display: flex;
+    flex-direction: column;
+    padding: 18px 18px 16px;
+  }
+  .home-day-eyebrow {
+    margin: 0 0 7px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .12em;
+  }
+  .home-day-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .home-day-heading h2 {
+    min-width: 0;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -.022em;
+    line-height: 1.35;
+  }
+  #homeDayToday {
+    flex: 0 0 auto;
+    padding: 4px 7px;
+    border-radius: 999px;
+    background: var(--primary-bg);
+    color: var(--gold);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .home-day-status {
     display: grid;
-    grid-template-columns: minmax(230px, auto) minmax(200px, 1fr) minmax(340px, auto);
+    justify-items: start;
+    gap: 6px;
+    padding: 22px 0 18px;
+  }
+  .home-day-panel[data-day-state="off"] .home-day-status {
+    justify-items: center;
+    padding: 32px 0;
+    text-align: center;
+  }
+  .home-day-icon {
+    width: 38px;
+    height: 38px;
+    margin-bottom: 2px;
+    color: var(--muted);
+  }
+  .home-day-icon[hidden] { display: none; }
+  .home-day-status strong {
+    color: var(--text);
+    font-family: var(--font-numeric);
+    font-size: 27px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.028em;
+    line-height: 1.15;
+  }
+  .home-day-status strong .number-unit {
+    margin-left: 3px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .home-day-status p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .home-day-meta {
+    margin: 0;
+    padding-top: 13px;
+    border-top: 1px solid var(--line);
+  }
+  .home-day-meta > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .home-day-meta dt {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .home-day-meta dd {
+    margin: 0;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .home-day-panel .selected-date-breakdown {
+    margin: 0;
+    padding: 16px 18px 6px;
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .home-day-panel #openSalesOverride { display: none; }
+  .home-day-panel .selected-breakdown-rows { max-width: none; }
+  .home-day-panel .selected-breakdown-rows .selected-breakdown-row {
+    height: auto;
+    min-height: 54px;
+  }
+
+  .home-day-panel .day-dock {
+    position: static;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+    margin-top: 0;
+    padding: 14px 18px 16px;
+    background: transparent;
+    border-top: 1px solid var(--line);
+    box-shadow: none;
+  }
+  .home-day-panel .day-dock > div { display: none; }
+  .home-day-panel .day-dock button {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    font-size: 13px;
+    font-weight: 600;
+    padding-inline: 10px;
+  }
+  #homeDayPanel #homeOffToggle {
+    background: var(--panel2);
+    border-color: transparent;
+    color: var(--text);
+    font-size: 13px;
+    padding-inline: 10px;
+  }
+  .home-day-panel .day-dock .home-off-mobile-label { display: none; }
+  .home-day-panel .day-dock .home-off-wide-label { display: inline; color: inherit; }
+
+  .bottom-nav {
+    left: max(0px, calc(50% - 720px));
+    top: 0;
+    bottom: auto;
+    transform: none;
+    width: 76px;
+    height: 100dvh;
+    padding: 20px 7px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    border-top: 0;
+    border-right: 1px solid var(--line);
+  }
+  .nav-tab {
+    flex: 0 0 68px;
+    width: 100%;
+    border-radius: 14px;
+    gap: 6px;
+  }
+  .nav-tab:hover { background: var(--panel2); }
+  .nav-tab.active { background: var(--primary-bg); }
+  .nav-tab svg {
+    width: 23px;
+    height: 23px;
+  }
+
+  .settings-body,
+  .record-body,
+  .view-stats > .settings-body,
+  .view-admin > .settings-body {
+    width: min(100%, 960px);
+    margin-inline: auto;
+  }
+  .sub-header {
+    max-width: 960px;
+    margin-inline: auto;
+  }
+}
+
+@media (min-width: 1001px) and (orientation: landscape), (min-width: 1100px) {
+  .home-header .summary-card {
+    grid-template-columns: minmax(220px, auto) minmax(180px, 1fr) minmax(330px, auto);
     grid-template-rows: auto auto auto;
     grid-template-areas:
       "amount meter  stats"
       "amount mlabel stats"
       "insp   insp   insp";
-    align-items: center;
-    column-gap: 28px;
-    padding: 20px 22px 0;
   }
-  .home-header .summary-row   { grid-area: amount; align-self: center; }
-  .home-header .meter-wrap    { grid-area: meter;  margin: 0; align-self: end; }
-  .home-header .meter-label   { grid-area: mlabel; margin: 8px 0 0; text-align: left; align-self: start; }
-  .home-header .summary-grid  { grid-area: stats;  border-top: 0; }
-  .home-header .inspection-entry-card { grid-area: insp; margin: 18px -22px 0; }
-
-  /* 금액은 다시 커져도 된다 — 가로 폭이 넉넉하다 */
-  .home-header .summary-row strong { font-size: clamp(30px, 2.6vw, 40px); }
-  .home-header .summary-row { grid-template-columns: auto 1fr; align-items: baseline; }
-  .home-header .summary-period-badge { justify-self: start; margin-left: 8px; }
-
-  /* 4지표는 한 줄 4열로 되돌린다 (모바일과 같은 형태) */
-  .home-header .summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .home-header .summary-grid div { padding: 6px 10px; border-top: 0; }
-  .home-header .summary-grid div + div { border-left: 1px solid var(--line); }
-  .home-header .summary-grid div:nth-child(even) { border-left: 1px solid var(--line); }
-  .home-header .summary-grid strong { font-size: 17px; }
-
-  /* 달력은 남는 폭을 전부 쓴다 */
-  .calendar-panel {
-    grid-area: calendar;
-    margin: 16px 0 0;
-    align-self: start;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    overflow: hidden;
+  .home-header .summary-grid {
+    margin-top: 0;
+    border-top: 0;
   }
-  .calendar-panel .calendar-toolbar { padding: 16px 16px 12px; }
-  .week-head { border-top: 0; }
-  .day-cell:nth-child(7n) { border-right: 0; }
-
-  /* 날짜 상세는 달력 옆 사이드 패널 — 날짜를 누르면 바로 옆에서 바뀐다 */
-  .selected-date-breakdown {
-    grid-area: breakdown;
-    margin: 16px 0 0;
-    align-self: start;
-    padding: 16px 18px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 18px;
-  }
-  .selected-breakdown-rows { max-width: none; }
-  .selected-breakdown-rows .selected-breakdown-row { height: auto; min-height: 54px; }
-
-  .day-dock {
-    grid-area: dock;
-    position: sticky;
-    bottom: calc(var(--nav-h) + var(--safe-b));
-    margin-top: 16px;
-    padding: 12px 18px 13px;
-    border: 1px solid var(--line);
-    border-radius: 16px 16px 0 0;
-  }
-}
-
-@media (min-width: 1100px) {
-  .app[data-view="home"] .view-home {
-    grid-template-columns: minmax(0, 1fr) 380px;
-    padding-left: 112px;
-    padding-right: 32px;
-  }
-  .home-header .summary-row strong { font-size: 40px; }
-  .home-header .summary-grid strong { font-size: 18px; }
-  .calendar-grid { grid-auto-rows: 96px; }
+  .home-header .summary-grid div { padding: 6px 9px; }
+  .calendar-panel .calendar-toolbar { --month-gap: 74px; }
+  .day-value { font-size: 12px; }
+  .day-routes { font-size: 9px; }
 }
 
 /* 22. 로컬 디자인 방향 비교: 배경 + 강조색 + 표면을 함께 비교 */
