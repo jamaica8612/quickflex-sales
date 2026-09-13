@@ -633,7 +633,7 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
 }
 .day-cell.off .inspection-day-dot { box-shadow: 0 0 0 2px var(--panel2); }
 .calendar-grid .day-cell:nth-child(7n + 1) .day-number { color: var(--red); }
-.calendar-grid .day-cell:nth-child(7n) .day-number { color: var(--gold2); }
+.calendar-grid .day-cell:nth-child(7n):not(.today-cell):not(.holiday) .day-number { color: var(--blue); }
 .today-cell .day-number { background: var(--gold); color: #fff; }
 .day-cell.holiday .day-number { color: var(--red); }
 .today-cell.holiday .day-number { color: #fff; }
@@ -2375,6 +2375,76 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
 .measurement-route-summary > span,
 .measurement-route-summary > small { color: var(--muted); font-size: 12px; }
 .measurement-route-summary > strong { color: var(--gold); font-family: var(--font-code); font-size: 24px; font-weight: 700; letter-spacing: -.3px; }
+.measurement-guide-trigger {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel2);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.measurement-guide-trigger svg { width: 19px; height: 19px; color: var(--gold); }
+.measurement-guide-trigger:active { opacity: .72; }
+.measurement-guide-card {
+  width: min(100%, 520px);
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+.measurement-guide-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.measurement-guide-heading h2 { margin: 6px 0 0; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.measurement-guide-badge { color: var(--gold); font-size: 12px; font-weight: 600; }
+.measurement-guide-close {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  margin: -10px -10px 0 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+}
+.measurement-guide-close svg { width: 22px; height: 22px; }
+.measurement-guide-close:active { background: var(--panel2); }
+.measurement-guide-intro { margin: -10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.measurement-guide-section { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+.measurement-guide-section h3 { margin: 0; display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; }
+.measurement-guide-section h3 > span {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--primary-bg);
+  color: var(--gold);
+  font-family: var(--font-code);
+  font-size: 12px;
+  font-weight: 700;
+}
+.measurement-guide-section ol { margin: 0; padding-left: 24px; color: var(--muted); font-size: 13px; font-weight: 500; line-height: 1.55; }
+.measurement-guide-section li { padding-left: 2px; }
+.measurement-guide-section li + li { margin-top: 7px; }
+.measurement-guide-section strong { color: var(--text); font-weight: 600; }
+.measurement-download { display: inline-grid; place-items: center; text-decoration: none; }
+.measurement-release-link { justify-self: center; color: var(--muted); font-size: 12px; font-weight: 500; text-underline-offset: 3px; }
+body:has(#measurementGuideOverlay.visible) { overflow: hidden; }
+@media (max-width: 600px) {
+  .measurement-guide-overlay { padding: 0; align-items: flex-end; }
+  .measurement-guide-card { width: 100%; max-height: 88dvh; border-radius: 24px 24px 0 0; padding: 14px 18px max(20px, env(safe-area-inset-bottom)); }
+  .measurement-guide-card::before { content: ""; width: 36px; height: 4px; margin-bottom: -4px; border-radius: 999px; background: var(--line-strong); justify-self: center; }
+}
 
 /* === theme toggle === */
 .theme-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
