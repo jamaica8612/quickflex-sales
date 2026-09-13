@@ -7,6 +7,7 @@ const main = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
 const recordUi = readFileSync(new URL("../src/ui/record.js", import.meta.url), "utf8");
 const config = readFileSync(new URL("../src/config.js", import.meta.url), "utf8");
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const installHtml = readFileSync(new URL("../install.html", import.meta.url), "utf8");
 const introHtml = readFileSync(new URL("../intro.html", import.meta.url), "utf8");
 const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 const serviceWorker = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
@@ -64,6 +65,9 @@ test("PWA config names the immutable-receipt detail and date override contracts"
   assert.match(html, /<title>플렉스노트<\/title>/);
   assert.equal((html.match(/플렉스노트 · Beta 1\.02/g) || []).length, 2);
   assert.match(html, /releases\/download\/android-beta-1\.02\/flexnote-beta-1\.02\.apk/);
+  assert.match(html, /href="\.\/install\.html#play-protect"/);
+  assert.match(installHtml, /<section class="step" id="play-protect">[\s\S]*?<details open>/);
+  assert.match(installHtml, /support\.google\.com\/googleplay\/answer\/2812853\?hl=ko/);
   assert.match(serviceWorker, /\.\/src\/lib\/work-date\.js/);
   const parsedManifest = JSON.parse(manifest);
   assert.equal(parsedManifest.name, "플렉스노트");
