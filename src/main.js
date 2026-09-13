@@ -493,6 +493,11 @@ const el = {
   measurementRouteText: $("measurementRouteText"),
   measurementRouteHint: $("measurementRouteHint"),
   openPaceApp: $("openPaceApp"),
+  openMeasurementGuide: $("openMeasurementGuide"),
+  measurementGuideOverlay: $("measurementGuideOverlay"),
+  measurementGuideDialog: $("measurementGuideDialog"),
+  closeMeasurementGuide: $("closeMeasurementGuide"),
+  measurementGuideDone: $("measurementGuideDone"),
   statsMonthTitle: $("statsMonthTitle"),
   statsRange: $("statsRange"),
   statsReportTitle: $("statsReportTitle"),
@@ -617,7 +622,7 @@ function modalLayerIsOpen(layer) {
 }
 
 function activeModalLayer() {
-  return [el.updateNoticeOverlay, el.salesOverrideOverlay, el.pendingOverlay, el.authOverlay, el.setupOverlay, el.profileSignatureOverlay, el.dbSheet]
+  return [el.updateNoticeOverlay, el.salesOverrideOverlay, el.pendingOverlay, el.authOverlay, el.setupOverlay, el.measurementGuideOverlay, el.profileSignatureOverlay, el.dbSheet]
     .find((layer) => layer && modalLayerIsOpen(layer)) || null;
 }
 
@@ -632,7 +637,7 @@ function focusableIn(layer) {
 }
 
 function syncModalBackground() {
-  const layers = [el.setupOverlay, el.authOverlay, el.pendingOverlay, el.updateNoticeOverlay, el.salesOverrideOverlay, el.profileSignatureOverlay, el.dbSheet].filter(Boolean);
+  const layers = [el.setupOverlay, el.authOverlay, el.pendingOverlay, el.updateNoticeOverlay, el.salesOverrideOverlay, el.measurementGuideOverlay, el.profileSignatureOverlay, el.dbSheet].filter(Boolean);
   const active = activeModalLayer();
   layers.forEach((layer) => {
     const available = layer === active;
@@ -648,6 +653,7 @@ function syncModalBackground() {
     child.toggleAttribute("inert", Boolean(active));
   });
   el.openDbSettings?.setAttribute("aria-expanded", String(active === el.dbSheet));
+  el.openMeasurementGuide?.setAttribute("aria-expanded", String(active === el.measurementGuideOverlay));
 }
 
 function updateModalLayer(layer, open, initialFocus) {
@@ -695,6 +701,11 @@ function bindModalAccessibility() {
     if (event.key === "Escape" && layer === el.salesOverrideOverlay) {
       event.preventDefault();
       closeSalesOverride();
+      return;
+    }
+    if (event.key === "Escape" && layer === el.measurementGuideOverlay) {
+      event.preventDefault();
+      closeMeasurementGuide();
       return;
     }
     if (event.key !== "Tab") return;
@@ -3339,10 +3350,11 @@ function showView(view) {
   if (view !== previousView) queueUsageEvent("screen_viewed", { screen: view });
 }
 
-function nativeBackAction({ dbSheetOpen = false, salesOverrideOpen = false, blockingModalOpen = false, view = "home" } = {}) {
+function nativeBackAction({ dbSheetOpen = false, salesOverrideOpen = false, blockingModalOpen = false, measurementGuideOpen = false, view = "home" } = {}) {
   if (dbSheetOpen) return "close-db-sheet";
   if (salesOverrideOpen) return "close-sales-override";
   if (blockingModalOpen) return "unhandled";
+  if (measurementGuideOpen) return "close-measurement-guide";
   if (view === "record") return "leave-record";
   if (view === "schedule") return "go-settings";
   if (["inspection", "measurement", "stats", "settings", "expenses"].includes(view)) return "go-home";
@@ -3357,6 +3369,7 @@ function quickflexHandleNativeBack() {
     salesOverrideOpen: Boolean(el.salesOverrideOverlay?.classList.contains("visible")),
     blockingModalOpen: [el.setupOverlay, el.authOverlay, el.pendingOverlay]
       .some((layer) => Boolean(layer && modalLayerIsOpen(layer))),
+    measurementGuideOpen: Boolean(el.measurementGuideOverlay?.classList.contains("visible")),
     view: el.app?.dataset.view || "home",
   });
   if (action === "close-db-sheet") {
@@ -3365,6 +3378,10 @@ function quickflexHandleNativeBack() {
   }
   if (action === "close-sales-override") {
     closeSalesOverride();
+    return "handled";
+  }
+  if (action === "close-measurement-guide") {
+    closeMeasurementGuide();
     return "handled";
   }
   if (action === "leave-record") {
@@ -3459,6 +3476,16 @@ async function openPaceMeasurementApp() {
     return;
   }
   window.location.href = `quickflexpace://measure?date=${encodeURIComponent(workDate)}&shift=${shift}`;
+}
+function openMeasurementGuide() {
+  if (!el.measurementGuideOverlay) return;
+  el.measurementGuideOverlay.classList.add("visible");
+  updateModalLayer(el.measurementGuideOverlay, true, el.closeMeasurementGuide || el.measurementGuideDialog);
+}
+function closeMeasurementGuide() {
+  if (!el.measurementGuideOverlay) return;
+  el.measurementGuideOverlay.classList.remove("visible");
+  updateModalLayer(el.measurementGuideOverlay, false);
 }
 async function refreshAfterNativeMeasurement() {
   if (!currentUserId()) return;
@@ -5464,6 +5491,12 @@ function bindEvents() {
     renderMeasurementBridge();
   });
   el.openPaceApp?.addEventListener("click", openPaceMeasurementApp);
+  el.openMeasurementGuide?.addEventListener("click", openMeasurementGuide);
+  el.closeMeasurementGuide?.addEventListener("click", closeMeasurementGuide);
+  el.measurementGuideDone?.addEventListener("click", closeMeasurementGuide);
+  el.measurementGuideOverlay?.addEventListener("click", (event) => {
+    if (event.target === el.measurementGuideOverlay) closeMeasurementGuide();
+  });
   document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState !== "visible" || el.app.dataset.view !== "measurement" || !currentUserId()) return;
     await refreshAfterNativeMeasurement();

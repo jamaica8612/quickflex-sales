@@ -45,6 +45,8 @@ test("native back action is deterministic and only home is unhandled", () => {
   assert.equal(nativeBackAction({ dbSheetOpen: true, salesOverrideOpen: true, blockingModalOpen: true, view: "record" }), "close-db-sheet");
   assert.equal(nativeBackAction({ salesOverrideOpen: true, blockingModalOpen: true, view: "record" }), "close-sales-override");
   assert.equal(nativeBackAction({ blockingModalOpen: true, view: "settings" }), "unhandled");
+  assert.equal(nativeBackAction({ blockingModalOpen: true, measurementGuideOpen: true, view: "measurement" }), "unhandled");
+  assert.equal(nativeBackAction({ measurementGuideOpen: true, view: "measurement" }), "close-measurement-guide");
   assert.equal(nativeBackAction({ view: "record" }), "leave-record");
   ["inspection", "measurement", "stats", "settings", "expenses"].forEach((view) => {
     assert.equal(nativeBackAction({ view }), "go-home", `${view} should return home`);
@@ -89,6 +91,29 @@ test("native back preserves the sales editor discard confirmation", () => {
   });
   assert.equal(quickflexHandleNativeBack(), "handled", "declining the existing confirm must not exit the app");
   assert.equal(closeCalls, 1);
+});
+
+test("native back closes the measurement guide before leaving measurement", () => {
+  let closeCalls = 0;
+  let navigations = 0;
+  const { quickflexHandleNativeBack } = loadNativeBack({
+    el: {
+      app: { dataset: { view: "measurement" } },
+      dbSheet: layer(),
+      salesOverrideOverlay: layer(),
+      measurementGuideOverlay: layer("visible"),
+      setupOverlay: layer(),
+      authOverlay: layer(),
+      pendingOverlay: layer(),
+    },
+    modalLayerIsOpen: (node) => node.classList.contains("visible"),
+    closeMeasurementGuide: () => { closeCalls += 1; },
+    showView: () => { navigations += 1; },
+  });
+
+  assert.equal(quickflexHandleNativeBack(), "handled");
+  assert.equal(closeCalls, 1);
+  assert.equal(navigations, 0);
 });
 
 test("native back uses the existing record back control", () => {
