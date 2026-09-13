@@ -1138,3 +1138,70 @@ Browser checks:
 - Added a private daily retention job that removes measurement diagnostics older than 14 days. Normal users cannot execute the cleanup function.
 - Bumped the PWA shell and visible version to `v1.0.42`; update-notice UI remains Android-runtime-only.
 - Verified JavaScript syntax and all 98 Node tests. The migration is prepared but must be applied with the matching frontend release; the RPC-using frontend must not be deployed before the database migration.
+
+## 2026-09-13 Driver Statistics Refresh
+
+- Reordered the report around cumulative revenue, equal-workday comparison, typical daily revenue, weekday averages, and reconciliation. Preserved the selected original charcoal/brass palette.
+- Collapsed volume/unit/extra comparisons, route details, date records and the trend chart; route details are hidden when no route actuals exist. No profile route registration is required to count a worked day.
+- Added pure stats-insights calculations and regression tests for schedule uncertainty, revenue-only records, weighted delivery units and median/IQR. Schedule-based projection is optional and never fills unknown future workdays.
+- Reconciliation now sums canonical day totals instead of rounded per-route subtotals. No persisted accounting, collection, auth or input contracts changed.
+- Validation: 140 non-SQL tests passed in the actual worktree; 36 SQL tests passed against identical schema/migration copies in an isolated PGlite 0.5.8 staging runtime. JavaScript syntax and diff whitespace checks passed. Source-worktree dependencies were not installed or modified.
+- Browser review: original dark and light themes, 360/390px widths without horizontal overflow, previous/custom/empty ranges, route hiding, disclosure behavior and keyboard chart selection verified. Final side browser shows the original dark statistics page without the palette-preview toolbar. No deployment requested.
+
+## 2026-09-13 Statistics Visual Polish
+
+- Reduced weekday bars from full-column width to a maximum of 18px and added subtle vertical gradients to weekday and trend bars.
+- Removed the duplicate amount beside the reconciliation heading. Reconciliation rows now share a 44px height with 13px labels, 16px values and 12px units; only the final total uses the accent color.
+- Standardized disclosure height, daily metadata/detail typography, weekday samples and the trend canvas font. Removed the empty review placeholder's extra grid spacing.
+- Validation: 39 related tests, JavaScript syntax checks, dark/light browser inspection, 360px no-overflow and daily detail review, and keyboard chart navigation passed. No data or accounting calculations changed.
+
+## 2026-09-13 Trend Line Chart
+
+- Replaced the trend bars with a 2.4px line, lightly shaded area and theme-colored outlined points. The average label sits above the plot; numeric axis labels remain 11px.
+- Connect only contiguous worked buckets. Actual recorded zero values remain on the baseline; off/missing/schedule-only gaps are not presented as zero-revenue work. Their tooltip reports the record state.
+- Kept full totals/peak descriptions on the canvas accessibility label and shortened the visible interaction hint.
+- Validation: 40 related tests, including a rendered-path regression for actual-zero and missing-day gaps; syntax checks; dark/light visual review, 360px no overflow, quantity/long-range charts and keyboard off-day tooltip. No accounting or stored records changed.
+
+## 2026-09-13 Compact Revenue Flow
+
+- Moved the revenue flow above daily patterns as an always-visible 112px graphic, without a surrounding card, axes, average line, markers, metric selection or tooltip interaction.
+- Exclude off/missing/schedule-only buckets from the horizontal sequence and join worked records continuously; preserve genuine zero-revenue work. Use a soft curve through recorded values and a faint theme-colored fill.
+- Keep an accessible text alternative and an honest empty state; redraw for viewport changes. Updated the design rules and offline cache key.
+- Validation: 27 related tests passed, including dense worked-record spacing, recorded zero and empty-state regression; JavaScript syntax and diff checks passed. Dark/light side-browser review and 360px layout passed without horizontal overflow. No stored data or accounting changes.
+
+## 2026-09-13 Revenue Flow Context
+
+- Kept the compact curve and added first/latest dates and approximate revenue below it, with first-workday change above daily charts. Zero baselines use an amount change instead of an undefined percentage.
+- Weekly/settlement views identify the aggregation and show the actual bucket date ranges; they do not compare incomplete bucket totals as a percentage. Empty/single-record states remain truthful.
+- Validation: 28 related tests, main/bootstrap/service-worker syntax and diff checks passed. Dark/light and 360px browser review, daily/annual labels and no horizontal overflow verified. No stored data or accounting changes.
+
+
+## 2026-09-13 - Expenses, exports, calendar and private records
+- Added receipt-first expenses, owner-only backend/RLS migrations, XLSX/evidence ZIP, Google calendar implementation, and compact Settings groups. Retired other-user sales and record-deletion UI.
+- Validation: 194 Node tests; isolated browser fixture for receipt draft, confirmed expense, refund, trash/restore, and account reset; 360px dark/light UI checks.
+- Production deployment was initially held for explicit project approval, then completed after the user approved (see following entry). Google OAuth secrets/worker setup remain required.
+- See docs/expense-rollout-review.md for exact scope and verification boundaries.
+
+## 2026-09-13 - Approved expense and calendar backend deployment
+
+- Applied expense/privacy and calendar migrations to the configured Supabase project xrrdokcjhjqdfvwtbenl, plus a follow-up for four FK indexes and calendar sequence privilege revocation. Deployed calendar-sync ACTIVE version 1 with custom JWT/worker authentication.
+- Verified owner RLS, private receipts bucket, narrow member RPCs, removed admin read/delete bypasses, and no browser access to calendar tables/sequences. Existing record counts stayed 1402/1995/6/36.
+- Verified real PWA expense reads and export preview: settlement sales 4,616,185 KRW across 16 workdays, no expenses/receipts. HTTP anonymous status/worker requests return 401; OPTIONS 200, malformed callback 400, unsupported method 405.
+- Added a passing PGlite sequence privilege regression. Fixed cramped checkbox/filter labels and made calendar connection failures visible with a retry action. Refreshed the offline cache key.
+- Registered the production PWA and current local preview origins for calendar CORS/callback validation. Google OAuth client, encryption key, worker secret/scheduler and real Google/Samsung/receipt-binary integration tests remain outstanding. No real test financial rows or Google events were created.
+
+
+## 2026-09-13 - Google Calendar live setup and reconnect completion
+- Enabled Calendar API, configured the dedicated web OAuth client and exact callback, and saved four server-only secrets. The worker secret is read from Vault by an active five-minute Supabase Cron job; no secret values are in source or documentation.
+- Deployed calendar-sync version 4 with the existing custom callback/user/worker authentication. Reconnection verifies access to the existing app-created calendar before persisting refreshed credentials and preserves its ID and mappings.
+- A real work/off snapshot produced 26 events in the dedicated Google calendar. Identical requeue, disconnect/reconnect, and a subsequent sync preserved the events without duplicates; revenue and route export stayed OFF.
+- Added pending/failed/conflict reporting, bounded polling, panel reopen refresh, and lifecycle guards. Live pending-to-success UI verification preserved the focused date input.
+- Calendar tests: 13/13 passed; JS/TS syntax checks and diff whitespace check passed. Follow-up UI tests: 5/5 passed. Dark/light calendar panel verified at 360px and 614px; primary/secondary button roles and light-mode surface colors corrected locally.
+- Google remains External Testing. Public operator/contact are supplied, and a privacy-page draft is ready for the design-audit/site-deployment phase. Public Google availability and physical Samsung Calendar display are not yet verified. External edit/delete conflicts are covered only by targeted code/status tests, not a live destructive scenario.
+
+
+## 2026-09-13 - Final design audit before Pages release
+
+- Standardized home/record tabular numerals and smaller units, settings input sizes, mobile record date heading and neutral secondary buttons in light mode.
+- Published-contact privacy policy and introduction links are prepared. DESIGN-RULES.md remains the only design authority; HANDOFF.md is marked historical.
+- Validation: npm ci completed; full Node suite 207/207 passed with no skips, syntax and diff checks passed. Inspected actual dark/light browser screens at 360px and 614px. Detailed scope and remaining Google public/Samsung boundaries: docs/design-audit-2026-09-13.md.

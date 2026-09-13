@@ -186,38 +186,10 @@ test("user route statistics show the same annotation and inclusive final quantit
   state.workRouteDetails = api.workRouteDetailsByDate([work()], [detail()]);
   api.renderRouteStats([date]);
   assert.match(el.routeStats.innerHTML, /310D01 10건, 취소 1건/);
-  assert.match(el.routeStats.innerHTML, /<span>10건<\/span>/);
+  assert.match(el.routeStats.innerHTML, /<summary>누적 10건 · 9000원<\/summary>/);
   assert.match(el.routeStats.innerHTML, /9000원/);
   state.workRouteDetails = api.workRouteDetailsByDate([work()], []);
   api.renderRouteStats([date]);
   assert.match(el.routeStats.innerHTML, /310D01 취소 1건/);
   assert.doesNotMatch(el.routeStats.innerHTML, /310D01 0건/);
-});
-
-test("admin statistics use receipt-scoped cancellation metadata without multiplying repeated joins", async () => {
-  const el = { adminRouteList: {} };
-  let rawDetails = [detail(), detail()];
-  const itemsQuery = { gte() { return this; }, lte: async () => ({ data: [], error: null }) };
-  const state = {
-    profile: { role: "admin" }, adminYear: 2026, adminMonth: 9,
-    db: { from: (table) => ({ select: () => table === "profiles" ? Promise.resolve({ data: [], error: null }) : itemsQuery }) },
-  };
-  const api = load(["renderAdminRouteStats", "manualLedgerItemsForSales"], {
-    el, state, TABLES: { profiles: "profiles", items: "items" },
-    periodBounds: () => ({ start: date, end: date }), toDateKey: (value) => value,
-    loadWorkLedgerForRange: async () => ({ workResults: [work()], workRouteDetails: rawDetails, items: [] }),
-    fetchAutomaticSalesOverrides: async () => ({ rows: [] }),
-    effectiveAutomaticLedgerItems: () => [{ user_id: "user-1", route: "310D", delivery_count: 10, unit_snapshot: 900, source: "automatic" }],
-    joinStoredRoutes: (value) => value, LEGACY_USER_NAMES: new Map(),
-    profileNameForDisplay: () => "기사", formatRouteLabel: (value) => value,
-  });
-  await api.renderAdminRouteStats();
-  assert.match(el.adminRouteList.innerHTML, /310D01 10건, 취소 1건/);
-  assert.doesNotMatch(el.adminRouteList.innerHTML, /310D01 20건|취소 2건/);
-  assert.match(el.adminRouteList.innerHTML, /배송 10건/);
-  assert.match(el.adminRouteList.innerHTML, /9000원/);
-  rawDetails = [];
-  await api.renderAdminRouteStats();
-  assert.match(el.adminRouteList.innerHTML, /310D01 취소 1건/);
-  assert.doesNotMatch(el.adminRouteList.innerHTML, /310D01 0건/);
 });

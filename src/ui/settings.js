@@ -17,6 +17,7 @@ export function bindSettingsEvents(ctx) {
     saveGoalAmount,
     saveInspectionSignature,
     saveProfile,
+    saveWorkPreferences,
     setCalendarRoutesPreference,
     shouldShowCalendarRoutes,
     TABLES,
@@ -37,8 +38,35 @@ export function bindSettingsEvents(ctx) {
     });
   });
   el.saveProfile.addEventListener("click", () => saveProfile().catch((error) => toast(`프로필 저장 실패: ${error.message}`, "error")));
+  document.querySelectorAll("[data-save-profile]").forEach((button) => button.addEventListener("click", () => saveProfile().catch((error) => toast(`설정 저장 실패: ${error.message}`, "error"))));
+  document.querySelectorAll('input[name="workShift"], input[name="freshbagMode"]').forEach((radio) => {
+    radio.addEventListener("change", () => saveWorkPreferences().catch((error) => {
+      if (!error?.quickflexHandled) toast(`근무 설정 저장 실패: ${error.message}`, "error");
+    }));
+  });
   el.clearProfileSignature.addEventListener("click", () => ctx.clearProfileSignature());
-  el.saveProfileSignature.addEventListener("click", () => saveInspectionSignature().catch((error) => toast(`서명 저장 실패: ${error.message}`, "error")));
+  el.openProfileSignature.addEventListener("click", () => ctx.openSignatureEditor());
+  el.closeProfileSignature.addEventListener("click", () => ctx.closeSignatureEditor());
+  el.saveProfileSignature.addEventListener("click", async () => {
+    if (el.saveProfileSignature.disabled) return;
+    el.saveProfileSignature.disabled = true;
+    el.clearProfileSignature.disabled = true;
+    el.closeProfileSignature.disabled = true;
+    el.profileSignatureOverlay.setAttribute("aria-busy", "true");
+    el.profileSignatureStatus.textContent = "저장 중…";
+    let saved = false;
+    try {
+      saved = await saveInspectionSignature();
+    } catch (error) {
+      el.profileSignatureStatus.textContent = `저장하지 못했습니다. ${error.message}`;
+    } finally {
+      el.saveProfileSignature.disabled = false;
+      el.clearProfileSignature.disabled = false;
+      el.closeProfileSignature.disabled = false;
+      el.profileSignatureOverlay.removeAttribute("aria-busy");
+    }
+    if (saved) ctx.closeSignatureEditor();
+  });
   el.applyRateUpdate?.addEventListener("click", () => applyRateUpdateOffer().catch((error) => toast(`단가 업데이트 실패: ${error.message}`, "error")));
   el.goalAmountInput.addEventListener("input", () => {
     const pos = el.goalAmountInput.selectionStart;

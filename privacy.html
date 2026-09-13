@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="플렉스노트 개인정보처리방침과 Google Calendar 데이터 이용 안내" />
+    <meta name="color-scheme" content="light dark" />
+    <title>개인정보처리방침 | 플렉스노트</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans+KR:wght@500;600;700&display=swap");
+
+      :root {
+        --font-ui: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+        --font-numeric: "Archivo", "IBM Plex Sans KR", sans-serif;
+        --bg: #f5f5f5;
+        --panel: #ffffff;
+        --panel2: #f7f7f8;
+        --line: rgba(112, 115, 124, 0.18);
+        --text: #171719;
+        --muted: #70737c;
+        --gold: #1b62d6;
+        --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05), 0 10px 28px -14px rgba(16, 24, 40, 0.16);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #141414;
+          --panel: #1c1c1c;
+          --panel2: #242424;
+          --line: rgba(255, 255, 255, 0.075);
+          --text: #eceef2;
+          --muted: #8a9099;
+          --gold: #e8b85c;
+          --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 40px -20px rgba(0, 0, 0, 0.55);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-ui);
+        font-size: 16px;
+        font-weight: 500;
+        line-height: 1.75;
+        word-break: keep-all;
+      }
+      a { color: var(--gold); text-underline-offset: 0.18em; }
+      a:focus-visible { outline: 3px solid color-mix(in srgb, var(--gold) 48%, transparent); outline-offset: 3px; border-radius: 4px; }
+      .page { width: min(100% - 32px, 760px); margin: 0 auto; padding: 28px 0 48px; }
+      .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 36px; }
+      .brand { color: var(--text); font-size: 17px; font-weight: 700; text-decoration: none; }
+      .back { font-size: 14px; font-weight: 600; }
+      header { padding: 6px 0 28px; }
+      h1 { margin: 0 0 12px; font-size: clamp(32px, 7vw, 48px); font-weight: 700; line-height: 1.18; letter-spacing: -0.035em; }
+      .lead { max-width: 640px; margin: 0; color: var(--muted); font-size: 17px; line-height: 1.7; }
+      .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 20px; color: var(--muted); font-family: var(--font-numeric); font-size: 13px; font-variant-numeric: tabular-nums; }
+      .notice { margin: 4px 0 26px; padding: 18px; border-radius: 18px; background: var(--panel); box-shadow: var(--shadow-card); }
+      .notice strong { display: block; margin-bottom: 5px; font-weight: 700; }
+      .notice p { margin: 0; color: var(--muted); }
+      nav { margin: 0 0 30px; padding: 17px 18px; border-radius: 16px; background: var(--panel2); }
+      nav strong { display: block; margin-bottom: 8px; font-weight: 700; }
+      nav ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 18px; margin: 0; padding-left: 20px; }
+      main section { padding: 27px 0; border-top: 1px solid var(--line); }
+      h2 { margin: 0 0 12px; font-size: 22px; font-weight: 700; line-height: 1.4; letter-spacing: -0.022em; }
+      h3 { margin: 22px 0 8px; font-size: 17px; font-weight: 700; }
+      p { margin: 8px 0; }
+      ul { margin: 8px 0; padding-left: 22px; }
+      li + li { margin-top: 7px; }
+      code { font-family: var(--font-numeric); font-size: 0.9em; }
+      .contact { padding: 20px; border-radius: 18px; background: var(--panel); box-shadow: var(--shadow-card); }
+      footer { padding: 28px 0 4px; color: var(--muted); font-size: 13px; }
+
+      @media (max-width: 560px) {
+        .page { width: min(100% - 28px, 760px); padding-top: 20px; }
+        .topbar { margin-bottom: 26px; }
+        nav ul { grid-template-columns: 1fr; }
+        main section { padding: 24px 0; }
+      }
+
+      @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="topbar">
+        <a class="brand" href="./intro.html" aria-label="플렉스노트 소개로 이동">플렉스노트</a>
+        <a class="back" href="./intro.html">서비스 소개</a>
+      </div>
+
+      <header>
+        <h1>개인정보처리방침</h1>
+        <p class="lead">플렉스노트는 배송 업무 기록과 비용 정리, 차량 점검, 선택한 Google Calendar 동기화를 제공하는 웹 앱입니다. 일부 기존 화면과 주소에는 QuickFlex 또는 퀵플렉스라는 이전 이름이 표시될 수 있습니다.</p>
+        <div class="meta"><span>운영자 김관현</span><span>시행일 2026-09-13</span></div>
+      </header>
+
+      <aside class="notice" aria-label="Google Calendar 핵심 안내">
+        <strong>Google Calendar 연결은 선택 사항입니다.</strong>
+        <p>연결하면 플렉스노트가 만든 별도 Google 보조 캘린더에만 근무 일정을 반영합니다. 개인 기본 캘린더나 다른 캘린더의 일정은 읽거나 변경하지 않습니다.</p>
+      </aside>
+
+      <nav aria-label="문서 목차">
+        <strong>내용 찾기</strong>
+        <ul>
+          <li><a href="#data">처리하는 정보</a></li>
+          <li><a href="#purpose">이용 목적</a></li>
+          <li><a href="#google">Google 데이터</a></li>
+          <li><a href="#providers">외부 서비스</a></li>
+          <li><a href="#retention">보관과 삭제</a></li>
+          <li><a href="#rights">이용자 선택과 문의</a></li>
+        </ul>
+      </nav>
+
+      <main>
+        <section id="data">
+          <h2>1. 처리하는 정보</h2>
+          <ul>
+            <li><strong>계정 정보:</strong> 이메일 주소, 비밀번호, 표시 이름, 계정 승인 상태와 역할, 기사 유형, 고정 구역, 근무조, 목표 금액. 비밀번호는 Supabase Auth가 인증을 위해 처리하며 플렉스노트가 읽을 수 있는 형태로 별도 저장하지 않습니다.</li>
+            <li><strong>근무·매출 정보:</strong> 근무일과 휴무 여부, 구역, 배송·가구·프레시·반품 건수, 단가와 수당, 계산된 매출, 근무 결과</li>
+            <li><strong>지출·증빙 정보:</strong> 지출일, 금액, 분류, 거래처, 결제수단, 업무 사용 비율, 메모, 환불·보전 내역, 첨부한 영수증 이미지 또는 PDF와 파일 정보</li>
+            <li><strong>차량 점검 정보:</strong> 점검 날짜와 결과, 이상·조치 내용, 서명 이름·시각과 서명 이미지</li>
+            <li><strong>OCR 입력:</strong> 이용자가 분석을 요청한 근무표·정산표 이미지, 이름·연월 등 분석에 필요한 입력값, OCR 결과</li>
+            <li><strong>서비스 이용 정보:</strong> 로그인 세션, 캘린더 연결·동기화 상태와 오류 기록</li>
+          </ul>
+        </section>
+
+        <section id="purpose">
+          <h2>2. 이용 목적</h2>
+          <p>이메일과 비밀번호 인증, 이용 승인, 본인 근무·매출 계산, 지출과 영수증 정리, 차량 점검 기록, 근무표·정산표 OCR 입력 보조, 데이터 내보내기, Google Calendar 동기화와 오류 확인을 위해 정보를 사용합니다.</p>
+          <p>각 이용자의 업무·재무·영수증·점검·서명 정보는 로그인한 본인 계정 기준으로 처리합니다.</p>
+        </section>
+
+        <section id="google">
+          <h2>3. Google Calendar 데이터 이용</h2>
+          <h3>요청 권한</h3>
+          <p>플렉스노트는 <code>calendar.app.created</code> 권한만 요청합니다. 이 권한으로 앱 전용 보조 캘린더를 만들고, 그 캘린더의 일정을 확인·생성·수정·삭제할 수 있습니다.</p>
+          <h3>접근하고 사용하는 데이터</h3>
+          <p>앱이 만든 보조 캘린더의 식별자와 앱이 만든 일정의 식별자·변경 상태를 확인합니다. 이용자가 동기화를 선택하면 근무·휴무 정보를 종일 일정으로 만들며, 매출과 구역 표시는 각각 이용자가 켠 경우에만 일정 제목에 포함합니다.</p>
+          <h3>저장과 보호</h3>
+          <p>Google 연결을 유지하는 데 필요한 인증정보는 서버에서 암호화해 보관합니다. 다른 이용자에게 이 인증정보가 공개되지 않도록 접근을 제한합니다.</p>
+          <h3>공유와 다른 용도</h3>
+          <p>Google에서 받은 사용자 데이터를 광고, 판매, 신용평가 또는 제3자의 감시 목적으로 사용하거나 제공하지 않습니다. Google Calendar 데이터는 이용자가 선택한 동기화 기능을 제공하고 그 오류를 처리하는 데만 사용합니다.</p>
+          <h3>연결 해제와 삭제</h3>
+          <p>연결을 해제하면 새 동기화가 중단됩니다. 이미 Google에 만든 보조 캘린더와 일정은 자동으로 지우지 않습니다. 이용자는 Google 계정의 보안 설정에서 플렉스노트의 접근 권한을 철회할 수 있고, 서버에 저장된 Google 연결정보 삭제는 아래 이메일로 요청할 수 있습니다.</p>
+          <p>Google API에서 받은 정보의 이용은 <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>와 그 Limited Use 요건을 따릅니다.</p>
+        </section>
+
+        <section id="providers">
+          <h2>4. 외부 서비스와 정보 처리</h2>
+          <ul>
+            <li><strong>Supabase:</strong> 계정 인증, 데이터베이스, 비공개 영수증 파일 보관, 서버 함수 실행에 사용합니다.</li>
+            <li><strong>Google Calendar API:</strong> 이용자가 연결한 경우 앱 전용 보조 캘린더와 일정을 생성·동기화하는 데 사용합니다.</li>
+            <li><strong>Google Cloud Vision 또는 Google Gemini:</strong> 이용자가 OCR을 실행한 이미지에서 문자와 표 내용을 추출하는 데 사용합니다. 실제 처리 경로는 기능과 운영 설정에 따라 달라질 수 있습니다.</li>
+          </ul>
+          <p>이 외에 정보를 판매하거나 광고 사업자에게 제공하지 않습니다.</p>
+        </section>
+
+        <section id="retention">
+          <h2>5. 보관과 삭제</h2>
+          <p>정보 종류마다 앱에서 제공하는 삭제 방식이 다릅니다.</p>
+          <ul>
+            <li><strong>수동 근무 기록·단가·점검·서명:</strong> 설정의 데이터 초기화 또는 탈퇴 요청 때 삭제됩니다. 앱이 자동으로 마감한 근무 기록은 이 동작으로 삭제되지 않습니다.</li>
+            <li><strong>지출·영수증:</strong> 지출 삭제는 먼저 휴지통으로 옮기며 복원할 수 있습니다. 휴지통으로 옮긴 것만으로 지출과 첨부 영수증 파일이 영구 삭제되지는 않습니다.</li>
+            <li><strong>계정 탈퇴:</strong> 앱의 탈퇴 요청은 일부 수동 데이터를 삭제하고 운영자가 확인할 요청을 남긴 뒤 로그아웃합니다. 인증 계정과 남은 자동 마감 기록·지출·영수증 등의 최종 삭제는 운영자 처리가 필요합니다.</li>
+            <li><strong>Google Calendar:</strong> 연결 해제 후에도 기존 Google 일정과 서버의 연결정보는 자동 삭제되지 않습니다. Google 접근 권한은 Google 계정 보안 설정에서 철회할 수 있습니다.</li>
+          </ul>
+          <p>계정과 남은 기록, 휴지통의 지출·영수증, Google 연결정보의 영구 삭제는 아래 이메일로 요청해 주세요. 삭제가 완료되기 전까지 해당 정보는 서비스 제공과 요청 처리에 필요한 범위에서 보관됩니다.</p>
+        </section>
+
+        <section id="security">
+          <h2>6. 보호 조치</h2>
+          <p>로그인한 이용자만 본인의 업무·재무·영수증·점검·서명 정보에 접근하도록 제한합니다. 영수증은 공개되지 않는 저장소에 보관하고, Google 연결 인증정보는 서버에서 암호화합니다. 외부 서비스의 비밀키는 브라우저에 저장하지 않습니다.</p>
+          <p>공용 기기에서는 사용 후 로그아웃해 주세요. 브라우저에는 로그인 유지를 위한 Supabase 세션 정보가 저장될 수 있습니다.</p>
+        </section>
+
+        <section id="rights">
+          <h2>7. 이용자 선택과 문의</h2>
+          <p>Google Calendar와 OCR은 이용자가 해당 기능을 선택했을 때만 사용합니다. 본인 정보의 확인·정정·영구 삭제, 계정 탈퇴 처리, Google 연결정보 삭제, 개인정보 처리 관련 문의는 운영자에게 보낼 수 있습니다.</p>
+          <div class="contact">
+            <strong>개인정보 처리 및 공개 문의</strong><br />
+            운영자: 김관현<br />
+            이메일: <a href="mailto:flexnote2026@gmail.com">flexnote2026@gmail.com</a>
+          </div>
+        </section>
+
+        <section id="changes">
+          <h2>8. 방침 변경</h2>
+          <p>처리하는 정보나 이용 방식이 바뀌면 이 문서를 갱신하고 시행일을 표시합니다. Google 사용자 데이터의 이용 목적이 달라지는 경우에는 변경 내용을 알리고 필요한 동의를 다시 받습니다.</p>
+        </section>
+      </main>
+
+      <footer>© 2026 플렉스노트 · 일부 화면에는 이전 이름인 QuickFlex 또는 퀵플렉스가 표시될 수 있습니다.</footer>
+    </div>
+  </body>
+</html>

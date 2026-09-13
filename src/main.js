@@ -1,3 +1,8 @@
+import { createExpenseService } from "./services/expenses.js";
+import { createExpensesController } from "./ui/expenses.js";
+import { createExportsController } from "./ui/exports.js";
+import { mountCalendarSync } from "./ui/calendar-sync.js";
+import { buildStatsInsights } from "./lib/stats-insights.js";
 ﻿"use strict";
 
 import {
@@ -42,7 +47,7 @@ import {
 import { bindAdminEvents } from "./ui/admin.js";
 import { bindAuthEvents } from "./services/auth.js";
 import { mergeDefaultRouteMaster, ratesFromDb } from "./services/db.js";
-import { fetchUsageSummary, trackUsageEvent } from "./services/usage.js";
+import { trackUsageEvent } from "./services/usage.js";
 import { bindCalendarEvents } from "./ui/calendar.js";
 import { bindInspectionEvents } from "./ui/inspection.js";
 import { bindOcrEvents } from "./ui/ocr.js";
@@ -178,11 +183,7 @@ const state = {
   mode: "amount",
   statsYear: initialPeriodDate.getFullYear(),
   statsMonth: initialPeriodDate.getMonth() + 1,
-  adminYear: initialPeriodDate.getFullYear(),
-  adminMonth: initialPeriodDate.getMonth() + 1,
   statsDetailDate: "",
-  adminStatsDetailUser: "",
-  adminTab: "summary",
   rates: [],
   defaultRates: [],
   routeBundles: [],
@@ -213,7 +214,6 @@ const state = {
   measurementDate: "",
   measurementDateAuto: false,
   statsRangeMode: "thisMonth",
-  statsChartMetric: "revenue",
   statsRangeCustom: { from: "", to: "" },
   revenueVisibility: (() => {
     try { return JSON.parse(localStorage.getItem("quickflex-revenue-vis") || "{}") || {}; }
@@ -243,6 +243,7 @@ let nativeLogoutInProgress = false;
 let nativeSessionSyncPromise = null;
 let nativeSessionSyncTail = Promise.resolve();
 let accountBootTask = null;
+let workPreferencesSaveTask = null;
 let accountEpoch = 0;
 let authEventEpoch = 0;
 let activeAccountId = "";
@@ -307,23 +308,6 @@ function isValidSignatureData(value) {
     && /^data:image\/(?:png|webp);base64,[A-Za-z0-9+/=]+$/.test(value);
 }
 
-function createAccessibleSignatureData(name) {
-  const signer = String(name || "").trim();
-  if (!signer) return "";
-  const canvas = document.createElement("canvas");
-  canvas.width = 600;
-  canvas.height = 180;
-  const context = canvas.getContext("2d");
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.fillStyle = "#111827";
-  context.font = "600 42px sans-serif";
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillText(`${signer} 전자서명`, canvas.width / 2, canvas.height / 2);
-  return canvas.toDataURL("image/webp", 0.78);
-}
-
 function createSignaturePad(canvas) {
   if (!canvas) return null;
   const context = canvas.getContext("2d");
@@ -338,6 +322,7 @@ function createSignaturePad(canvas) {
   };
   const clear = () => {
     context.clearRect(0, 0, canvas.width, canvas.height);
+    drawing = false;
     hasInk = false;
   };
   const load = (value) => {
@@ -354,7 +339,6 @@ function createSignaturePad(canvas) {
   const begin = (event) => {
     event.preventDefault();
     drawing = true;
-    hasInk = true;
     canvas.setPointerCapture?.(event.pointerId);
     const p = point(event);
     context.beginPath();
@@ -370,6 +354,7 @@ function createSignaturePad(canvas) {
     context.strokeStyle = "#111827";
     context.lineTo(p.x, p.y);
     context.stroke();
+    hasInk = true;
   };
   const end = (event) => {
     if (!drawing) return;
@@ -511,7 +496,6 @@ const el = {
   statsCompareValue: $("statsCompareValue"),
   statsCompareMeta: $("statsCompareMeta"),
   statsRevenue: $("statsRevenue"),
-  statsRevenueTotal: $("statsRevenueTotal"),
   statsGoalMeter: $("statsGoalMeter"),
   statsMeterFill: $("statsMeterFill"),
   statsMeterPct: $("statsMeterPct"),
@@ -523,11 +507,11 @@ const el = {
   statsRangeApply: $("statsRangeApply"),
   statsChart: $("statsChart"),
   statsChartSummary: $("statsChartSummary"),
-  statsChartTooltip: $("statsChartTooltip"),
-  statsChartToggle: $("statsChartToggle"),
+  statsChartChange: $("statsChartChange"),
+  statsChartEndpoints: $("statsChartEndpoints"),
   statsChartEmpty: $("statsChartEmpty"),
-  statsTrendTitle: $("statsTrendTitle"),
   routeStats: $("routeStats"),
+  weekdayStats: $("weekdayStats"),
   revenueList: $("revenueList"),
   statsAvgCount: $("statsAvgCount"),
   statsWorkDays: $("statsWorkDays"),
@@ -542,13 +526,6 @@ const el = {
   dailyList: $("dailyList"),
   yearlyStats: $("yearlyStats"),
   totalStats: $("totalStats"),
-  adminMonthTitle: $("adminMonthTitle"),
-  adminRange: $("adminRange"),
-  adminPrevMonth: $("adminPrevMonth"),
-  adminNextMonth: $("adminNextMonth"),
-  adminUsageSummary: $("adminUsageSummary"),
-  adminRevenueList: $("adminRevenueList"),
-  adminRouteList: $("adminRouteList"),
   adminBundleLabel: $("adminBundleLabel"),
   adminBundleRoutes: $("adminBundleRoutes"),
   saveAdminBundle: $("saveAdminBundle"),
@@ -563,7 +540,10 @@ const el = {
   profileVehicleNumber: $("profileVehicleNumber"),
   signatureSettingsSection: $("signatureSettingsSection"),
   profileSignatureCanvas: $("profileSignatureCanvas"),
-  profileSignatureAlternative: $("profileSignatureAlternative"),
+  profileSignatureOverlay: $("profileSignatureOverlay"),
+  openProfileSignature: $("openProfileSignature"),
+  closeProfileSignature: $("closeProfileSignature"),
+  profileSignatureStatus: $("profileSignatureStatus"),
   clearProfileSignature: $("clearProfileSignature"),
   saveProfileSignature: $("saveProfileSignature"),
   fixedRoutesText: $("fixedRoutesText"),
@@ -591,7 +571,6 @@ const el = {
   settlementPreview: $("settlementPreview"),
   csvInput: $("csvInput"),
   parseCsv: $("parseCsv"),
-  adminSection: $("adminSection"),
   adminProfiles: $("adminProfiles"),
   resetData: $("resetData"),
   requestAccountDelete: $("requestAccountDelete"),
@@ -612,8 +591,6 @@ const el = {
   modeBtns: document.querySelectorAll(".mode-btn"),
   statsTabs: document.querySelectorAll("[data-tab]"),
   statsPanels: document.querySelectorAll(".stats-panel"),
-  adminTabs: document.querySelectorAll("[data-admin-tab]"),
-  adminPanels: document.querySelectorAll("[data-admin-panel]"),
 };
 
 const MODAL_FOCUSABLE_SELECTOR = [
@@ -632,7 +609,7 @@ function modalLayerIsOpen(layer) {
 }
 
 function activeModalLayer() {
-  return [el.updateNoticeOverlay, el.salesOverrideOverlay, el.pendingOverlay, el.authOverlay, el.setupOverlay, el.dbSheet]
+  return [el.updateNoticeOverlay, el.salesOverrideOverlay, el.pendingOverlay, el.authOverlay, el.setupOverlay, el.profileSignatureOverlay, el.dbSheet]
     .find((layer) => layer && modalLayerIsOpen(layer)) || null;
 }
 
@@ -647,7 +624,7 @@ function focusableIn(layer) {
 }
 
 function syncModalBackground() {
-  const layers = [el.setupOverlay, el.authOverlay, el.pendingOverlay, el.updateNoticeOverlay, el.salesOverrideOverlay, el.dbSheet].filter(Boolean);
+  const layers = [el.setupOverlay, el.authOverlay, el.pendingOverlay, el.updateNoticeOverlay, el.salesOverrideOverlay, el.profileSignatureOverlay, el.dbSheet].filter(Boolean);
   const active = activeModalLayer();
   layers.forEach((layer) => {
     const available = layer === active;
@@ -697,6 +674,11 @@ function bindModalAccessibility() {
   document.addEventListener("keydown", (event) => {
     const layer = activeModalLayer();
     if (!layer) return;
+    if (event.key === "Escape" && layer === el.profileSignatureOverlay) {
+      event.preventDefault();
+      closeSignatureEditor();
+      return;
+    }
     if (event.key === "Escape" && layer === el.dbSheet) {
       event.preventDefault();
       closeSheet();
@@ -876,6 +858,7 @@ function clearUserScopedState() {
   clearTimeout(state.saveTimer);
   if (el.updateNoticeOverlay?.classList.contains("visible")) closeAppUpdateNotice();
   if (el.salesOverrideOverlay?.classList.contains("visible")) closeSalesOverride(true);
+  if (el.profileSignatureOverlay?.classList.contains("visible")) closeSignatureEditor(true);
   state.saveTimer = null;
   state.flushPromise = null;
   state.pendingDates.clear();
@@ -897,7 +880,10 @@ function clearUserScopedState() {
   state.inspectionDraft = inspectionDraftFromRecord(null);
   state.rateOfferPrompted = false;
   state.statsDetailDate = "";
-  state.adminStatsDetailUser = "";
+  expensesController?.reset();
+  exportsController?.reset();
+  calendarSyncController?.dispose();
+  calendarSyncController = null;
   state.recordDraftDate = "";
   state.recordDraft = null;
   state.recordDraftSalesRequestId = "";
@@ -906,13 +892,14 @@ function clearUserScopedState() {
   state.measurementDateAuto = false;
   ocrDraftMap = null;
   accountBootTask = null;
+  workPreferencesSaveTask = null;
   profileSignaturePad?.clear();
   if (el.scheduleDraftSection) el.scheduleDraftSection.classList.add("hidden");
   if (el.scheduleDraftCards) el.scheduleDraftCards.innerHTML = "";
   if (el.salesOverrideRows) el.salesOverrideRows.innerHTML = "";
   if (el.salesOverrideReason) el.salesOverrideReason.value = "";
   if (el.salesOverrideStatus) el.salesOverrideStatus.textContent = "";
-  [el.adminRevenueList, el.adminRouteList, el.adminBundleList, el.adminProfiles]
+  [el.adminBundleList, el.adminProfiles]
     .filter(Boolean)
     .forEach((node) => { node.innerHTML = ""; });
 }
@@ -1547,6 +1534,18 @@ function formatCompactWonWithUnit(value) {
   if (Math.abs(n) >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, "")}만원`;
   return `${n.toLocaleString("ko-KR")}원`;
 }
+function renderNumberWithUnit(target, formatted) {
+  const text = String(formatted ?? "");
+  const match = text.match(/^(.*?)(만원|원|건|일)$/);
+  if (!match?.[1]) {
+    target.textContent = text;
+    return;
+  }
+  const unit = document.createElement("span");
+  unit.className = "number-unit";
+  unit.textContent = match[2];
+  target.replaceChildren(document.createTextNode(match[1]), unit);
+}
 function aggregateRevenueByItem(keys) {
   const routes = new Map();
   let freshCount = 0;
@@ -1841,6 +1840,23 @@ function setDbBadge(connected, text = "") {
   el.syncStatus.textContent = connected ? (text || "DB 연결됨") : "미연결";
   el.syncStatus.classList.toggle("sync-ok", connected);
 }
+function applyWorkPreferencesUi(profile = state.profile, disabled = false) {
+  const pendingTask = workPreferencesSaveTask && isAccountContextCurrent(workPreferencesSaveTask.context)
+    ? workPreferencesSaveTask
+    : null;
+  const preferences = pendingTask?.next || profile;
+  const controlsDisabled = disabled || Boolean(pendingTask);
+  const mode = preferences?.freshbag_mode === "dual" ? "dual" : "single";
+  document.querySelectorAll('input[name="freshbagMode"]').forEach((radio) => {
+    radio.checked = radio.value === mode;
+    radio.disabled = controlsDisabled;
+  });
+  const workShift = preferences?.work_shift === "night" ? "night" : "day";
+  document.querySelectorAll('input[name="workShift"]').forEach((radio) => {
+    radio.checked = radio.value === workShift;
+    radio.disabled = controlsDisabled;
+  });
+}
 function applyProfileUi() {
   const profile = state.profile || {};
   const isAdmin = profile.role === "admin";
@@ -1854,16 +1870,9 @@ function applyProfileUi() {
   el.fixedRoutesInput.value = fixedRouteText;
   if (el.fixedRoutesText) el.fixedRoutesText.textContent = fixedRouteText || "관리자가 지정한 라우트가 없습니다.";
   document.querySelectorAll(".admin-only").forEach((node) => node.classList.toggle("hidden", !isAdmin));
-  if (!isAdmin && el.app.dataset.view === "admin") showView("home");
-  el.openDbSettings.style.display = hasPublicDbConfig() && !isAdmin ? "none" : "";
-  const mode = profile.freshbag_mode || "single";
-  document.querySelectorAll('input[name="freshbagMode"]').forEach((radio) => {
-    radio.checked = radio.value === mode;
-  });
-  const workShift = profile.work_shift === "night" ? "night" : "day";
-  document.querySelectorAll('input[name="workShift"]').forEach((radio) => {
-    radio.checked = radio.value === workShift;
-  });
+  if (el.app.dataset.view === "admin") showView("settings");
+  el.openDbSettings.style.display = canUseManualDbConfig() ? "" : "none";
+  applyWorkPreferencesUi(profile);
   const goal = getGoal();
   el.goalAmountInput.value = goal > 0 ? goal.toLocaleString("ko-KR") : "";
 }
@@ -1915,7 +1924,6 @@ async function bootSignedInUser(context = captureAccountContext()) {
     trackApprovedSessionStart();
     await maybeOfferRateUpdate(context);
     if (!isAccountContextCurrent(context)) return false;
-    if (state.profile?.role === "admin" && el.app.dataset.view === "admin") await renderAdminDashboard();
     return isAccountContextCurrent(context);
   })();
   const task = { epoch: context.epoch, userId: context.userId, promise: bootPromise };
@@ -1988,18 +1996,79 @@ async function saveProfile() {
   toast("내 정보를 저장했습니다.", "success");
   return true;
 }
+async function saveWorkPreferences() {
+  if (workPreferencesSaveTask) return workPreferencesSaveTask.promise;
+  const context = captureAccountContext();
+  if (!isAccountContextCurrent(context)) return false;
+  const previous = {
+    freshbag_mode: state.profile?.freshbag_mode === "dual" ? "dual" : "single",
+    work_shift: state.profile?.work_shift === "night" ? "night" : "day",
+  };
+  const next = {
+    freshbag_mode: document.querySelector('input[name="freshbagMode"]:checked')?.value === "dual" ? "dual" : "single",
+    work_shift: document.querySelector('input[name="workShift"]:checked')?.value === "night" ? "night" : "day",
+  };
+  if (next.freshbag_mode === previous.freshbag_mode && next.work_shift === previous.work_shift) return true;
+
+  const task = { context, next, promise: null };
+  workPreferencesSaveTask = task;
+  applyWorkPreferencesUi(next, true);
+  task.promise = (async () => {
+    try {
+      const payload = { ...next, updated_at: new Date().toISOString() };
+      const { data, error } = await state.db.from(TABLES.profiles)
+        .update(payload)
+        .eq("id", context.userId)
+        .select("work_shift,freshbag_mode,updated_at")
+        .single();
+      if (!isAccountContextCurrent(context)) return false;
+      if (error) throw error;
+      state.profile = {
+        ...state.profile,
+        work_shift: data?.work_shift === "night" ? "night" : "day",
+        freshbag_mode: data?.freshbag_mode === "dual" ? "dual" : "single",
+        updated_at: data?.updated_at || payload.updated_at,
+      };
+      applyWorkPreferencesUi(state.profile);
+      return true;
+    } catch (error) {
+      if (!isAccountContextCurrent(context)) return false;
+      task.next = previous;
+      applyWorkPreferencesUi(previous);
+      error.quickflexHandled = true;
+      toast(`근무 설정 저장 실패: ${error.message}`, "error");
+      throw error;
+    } finally {
+      if (workPreferencesSaveTask === task) {
+        workPreferencesSaveTask = null;
+        if (isAccountContextCurrent(context)) {
+          document.querySelectorAll('input[name="freshbagMode"], input[name="workShift"]').forEach((radio) => {
+            radio.disabled = false;
+          });
+        }
+      }
+    }
+  })();
+  return task.promise;
+}
+function openSignatureEditor() {
+  profileSignaturePad?.clear();
+  el.profileSignatureStatus.textContent = "";
+  el.profileSignatureOverlay.classList.add("visible");
+  updateModalLayer(el.profileSignatureOverlay, true, el.closeProfileSignature);
+}
+function closeSignatureEditor(force = false) {
+  if (!force && el.saveProfileSignature.disabled) return;
+  el.profileSignatureOverlay.classList.remove("visible");
+  profileSignaturePad?.clear();
+  updateModalLayer(el.profileSignatureOverlay, false);
+}
 async function saveInspectionSignature() {
   const context = captureAccountContext();
   if (!isAccountContextCurrent(context)) return false;
-  const handwrittenSignature = profileSignaturePad?.value() || "";
-  const useAccessibleAlternative = Boolean(el.profileSignatureAlternative?.checked);
-  const signatureData = useAccessibleAlternative
-    ? createAccessibleSignatureData(el.profileDisplayName.value.trim() || driverName())
-    : isValidSignatureData(handwrittenSignature)
-      ? handwrittenSignature
-      : "";
+  const signatureData = profileSignaturePad?.value() || "";
   if (!isValidSignatureData(signatureData)) {
-    throw new Error("서명란에 서명하거나 이름 전자서명 확인에 체크해 주세요.");
+    throw new Error("흰 공간에 손글씨로 서명해 주세요.");
   }
   const payload = {
     user_id: context.userId,
@@ -2014,12 +2083,8 @@ async function saveInspectionSignature() {
   if (!isAccountContextCurrent(context)) return false;
   if (error) throw error;
   state.inspectionSignature = data.signature_data;
-  profileSignaturePad?.load(state.inspectionSignature);
-  if (el.profileSignatureAlternative) el.profileSignatureAlternative.checked = false;
   if (el.app.dataset.view === "inspection") renderInspection(state.inspectionDate);
-  toast(useAccessibleAlternative
-    ? "이름 전자서명을 저장했습니다."
-    : "일상점검 서명을 저장했습니다.", "success");
+  toast("일상점검 서명을 저장했습니다.", "success");
   return true;
 }
 async function saveGoalAmount() {
@@ -2561,8 +2626,8 @@ async function loadFromDb(context = captureAccountContext()) {
     loaded = await Promise.all([
       state.db.from(TABLES.rates).select("*").eq("user_id", userId).order("route"),
       defaultRatesQuery,
-      state.db.from(TABLES.days).select("*").eq("user_id", userId),
-      state.db.from(TABLES.items).select("*").eq("user_id", userId).order("sort_order"),
+      fetchPagedRows((from, to) => state.db.from(TABLES.days).select("*", { count: "exact" }).eq("user_id", userId).order("work_date").order("id").range(from, to)).then((data) => ({ data })),
+      fetchPagedRows((from, to) => state.db.from(TABLES.items).select("*", { count: "exact" }).eq("user_id", userId).order("work_date").order("sort_order").order("id").range(from, to)).then((data) => ({ data })),
       loadVerifiedWorkLedger({ userId }),
       fetchAutomaticSalesOverrides({ userId }),
       state.db.from(TABLES.bundles).select("*").eq("active", true).order("sort_order").order("label"),
@@ -2596,7 +2661,6 @@ async function loadFromDb(context = captureAccountContext()) {
   state.entries = applyAutomaticSalesOverrides(state.receiptEntries, state.automaticSalesOverrides);
   state.inspections = Object.fromEntries((inspectionsResult.data || []).map((row) => [row.inspection_date, row]));
   state.inspectionSignature = isValidSignatureData(signatureResult.data?.signature_data) ? signatureResult.data.signature_data : "";
-  profileSignaturePad?.load(state.inspectionSignature);
   const hadRates = state.rates.length > 0;
   if (state.profile?.role === "admin" && !state.rates.length) {
     state.rates = avgRates(SAMPLE_SETTLEMENT);
@@ -2969,6 +3033,7 @@ async function flushSaves() {
 async function ensurePendingSavesFlushed() {
   clearTimeout(state.saveTimer);
   state.saveTimer = null;
+  if (workPreferencesSaveTask) await workPreferencesSaveTask.promise;
   await flushSaves();
 }
 
@@ -3239,11 +3304,12 @@ async function saveInspectionMonthPdf() {
 }
 
 function showView(view) {
-  if (view === "admin" && state.profile?.role !== "admin") view = "home";
+  if (view === "admin") view = "settings";
+  if (!["home", "record", "measurement", "inspection", "stats", "settings", "expenses", "schedule"].includes(view)) view = "home";
   const previousView = el.app.dataset.view || "home";
   el.app.dataset.view = view;
   el.navTabs.forEach((tab) => {
-    const selected = tab.dataset.view === view;
+    const selected = tab.dataset.view === (view === "schedule" ? "settings" : view);
     tab.classList.toggle("active", selected);
     if (selected) tab.setAttribute("aria-current", "page");
     else tab.removeAttribute("aria-current");
@@ -3258,7 +3324,7 @@ function showView(view) {
     if (state.statsRangeMode !== "custom") syncStatsToCurrentPeriod();
     renderStats();
   }
-  if (view === "admin") renderAdminDashboard();
+  if (view === "expenses") ensureExpenseController().refresh();
   if (view === "settings") {
     renderRates();
   }
@@ -3270,11 +3336,14 @@ function nativeBackAction({ dbSheetOpen = false, salesOverrideOpen = false, bloc
   if (salesOverrideOpen) return "close-sales-override";
   if (blockingModalOpen) return "unhandled";
   if (view === "record") return "leave-record";
-  if (["inspection", "measurement", "stats", "settings", "admin"].includes(view)) return "go-home";
+  if (view === "schedule") return "go-settings";
+  if (["inspection", "measurement", "stats", "settings", "expenses"].includes(view)) return "go-home";
   return "unhandled";
 }
 
 function quickflexHandleNativeBack() {
+  if (document.querySelector(".expense-dialog[open]")) { expensesController?.handleBack(); return "handled"; }
+  if (document.querySelector(".exports-overlay:not([hidden])")) { exportsController?.close(); return "handled"; }
   const action = nativeBackAction({
     dbSheetOpen: Boolean(el.dbSheet?.classList.contains("open")),
     salesOverrideOpen: Boolean(el.salesOverrideOverlay?.classList.contains("visible")),
@@ -3297,6 +3366,10 @@ function quickflexHandleNativeBack() {
       renderAll();
       showView("home");
     }
+    return "handled";
+  }
+  if (action === "go-settings") {
+    showView("settings");
     return "handled";
   }
   if (action === "go-home") {
@@ -3394,7 +3467,7 @@ function renderAll() {
   renderMeasurementBridge();
   renderRates();
   renderStats();
-  if (el.app.dataset.view === "admin") renderAdminDashboard();
+
 }
 function renderSummary() {
   const { start, end } = periodBounds();
@@ -3402,11 +3475,11 @@ function renderSummary() {
   el.periodRange.textContent = `정산기간 ${formatShort(start)} ~ ${formatShort(end)}`;
   el.monthTitle.textContent = `${state.year}년 ${String(state.month).padStart(2, "0")}월`;
   el.periodRange.textContent = `정산기간 ${formatPeriodRangeSimple(start, end)}`;
-  el.periodRevenue.textContent = fmtWon(total.revenue);
-  el.periodCount.textContent = fmtCount(total.count);
-  el.averageCountHome.textContent = fmtCount(Math.round(total.averageCount || 0));
-  el.dailyAverage.textContent = formatCompactWonWithUnit(total.average);
-  el.workDaysHome.textContent = `${total.workDays}일`;
+  renderNumberWithUnit(el.periodRevenue, fmtWon(total.revenue));
+  renderNumberWithUnit(el.periodCount, fmtCount(total.count));
+  renderNumberWithUnit(el.averageCountHome, fmtCount(Math.round(total.averageCount || 0)));
+  renderNumberWithUnit(el.dailyAverage, formatCompactWonWithUnit(total.average));
+  renderNumberWithUnit(el.workDaysHome, `${total.workDays}일`);
   const goal = getGoal();
   const pct = Math.min(100, total.revenue / goal * 100);
   el.meterFill.style.width = `${pct}%`;
@@ -3570,13 +3643,11 @@ function renderSelectedDateBreakdown(record) {
       : "",
   ].join("");
   el.selectedDateBreakdownRows.innerHTML = routeRows + auxiliaryRows;
-  const notes = [
-    "가구 관련 참고값은 앱 버전별 의미가 달라 매출 계산·검증에 쓰지 않으며, 상품수만 매출 기준입니다.",
-    "이전 앱에서 마감한 날짜는 A01/A02 세부구역 기록이 없을 수 있습니다.",
-  ];
+  const notes = [];
   if (!state.workRouteDetailsContractAvailable) notes.push("세부구역 조회 서버 업데이트가 아직 적용되지 않았습니다.");
   if (model.invalidDetailRows) notes.push(`형식이 올바르지 않은 세부구역 ${model.invalidDetailRows}행은 표시하지 않았습니다.`);
   el.selectedDateBreakdownNote.textContent = notes.join(" ");
+  el.selectedDateBreakdownNote.hidden = notes.length === 0;
   el.openSalesOverride.title = "이 날짜의 기록을 수정합니다.";
 }
 function renderHomeSelection() {
@@ -3584,9 +3655,9 @@ function renderHomeSelection() {
   const calc = calcRecord(record);
   const automatic = hasAutomaticEntries(record);
   el.homeSelectedDate.textContent = formatLong(state.selectedDate);
-  el.homeSelectedTotal.textContent = record.off ? "휴무" : fmtWon(calc.revenue);
   el.homeSelectedDate.textContent = formatMonthDay(state.selectedDate);
-  el.homeSelectedTotal.textContent = record.off ? "휴무" : fmtWon(calc.revenue);
+  if (record.off) el.homeSelectedTotal.textContent = "휴무";
+  else renderNumberWithUnit(el.homeSelectedTotal, fmtWon(calc.revenue));
   el.homeOffToggle.classList.toggle("active", record.off);
   el.homeOffToggle.setAttribute("aria-checked", String(record.off));
   el.homeOffToggle.disabled = automatic;
@@ -3769,7 +3840,7 @@ function refreshTotals() {
   el.freshDualRevenue.textContent = fmtWon(details.freshRevenue);
   el.backupCount.textContent = fmtCount(details.count);
   el.backupRevenue.textContent = fmtWon(details.backupRevenue);
-  el.selectedDayTotal.textContent = fmtWon(details.revenue);
+  renderNumberWithUnit(el.selectedDayTotal, fmtWon(details.revenue));
   renderSummary();
   renderMonth();
   renderHomeSelection();
@@ -4014,9 +4085,18 @@ async function applySettlementRows(rows) {
 function statsDailyRecords() {
   return Object.entries(state.entries).map(([dateKey, record]) => {
     const details = calcRecordDetails(record);
+    const delivery = [...recordRouteAggregates(record).values()].reduce((sum, row) => ({
+      revenue: sum.revenue + row.revenue,
+      count: sum.count + row.count,
+    }), { revenue: 0, count: 0 });
     return {
       dateKey,
       revenue: details.revenue,
+      deliveryRevenue: delivery.revenue,
+      freshRevenue: details.freshRevenue,
+      backupRevenue: details.backupRevenue,
+      volumeKnown: delivery.count > 0 && Math.abs(delivery.count - details.count) < 0.000001,
+      planned: !record.off && (record.rows || []).some((row) => !isAutomaticRow(row) && splitStoredRoutes(row.route).some((route) => /^\d{3}[A-Z]$/.test(route))),
       count: details.count,
       freshCount: details.freshCount,
       returnCount: details.returnCount,
@@ -4048,7 +4128,7 @@ function renderStatsComparison(report) {
     const delta = Math.round(comparison.revenueDelta || 0);
     const rate = comparison.revenueDeltaRate;
     el.statsCompareLabel.textContent = `지난 정산 동일 ${comparison.requiredWorkDays}일 대비`;
-    el.statsCompareValue.textContent = delta > 0 ? `+${fmtWon(delta)}` : fmtWon(delta);
+    el.statsCompareValue.innerHTML = `${delta > 0 ? "+" : ""}${statsMetric(delta)}`;
     const rateText = rate === null
       ? "이전 매출 0원"
       : `${rate > 0 ? "+" : ""}${Math.round(rate * 100)}%`;
@@ -4066,6 +4146,62 @@ function renderStatsComparison(report) {
   }
   el.statsCompareValue.textContent = "비교할 이전 기록 부족";
   el.statsCompareMeta.textContent = `이번 ${comparison.requiredWorkDays}일 · 지난 정산 ${comparison.availablePreviousWorkDays}일 기록`;
+}
+
+function statsMetric(value, unit = "원", digits = 0) {
+  if (value === null || !Number.isFinite(value)) return "—";
+  return `<span class="stats-numeric">${value.toLocaleString("ko-KR", { maximumFractionDigits: digits })}</span><small class="stats-unit">${unit}</small>`;
+}
+function renderDriverInsights(report) {
+  const days = statsDailyRecords();
+  const { outlook, drivers, typical } = buildStatsInsights({ days, report, asOfDate: todayKey() });
+  const heading = $("statsHeroLabel");
+  const value = $("statsOutlookValue");
+  const message = $("statsOutlookMessage");
+  const plan = $("statsOutlookPlan");
+  const planWasOpen = Boolean(plan?.querySelector("details")?.open);
+  if (!value) return;
+  const current = outlook.applicable;
+  heading.textContent = `${statsModeTitle(state.statsRangeMode)} 누적 매출`;
+  value.innerHTML = statsMetric(report.summary.revenue);
+  if (!current) {
+    message.textContent = `${report.summary.workDays}일의 근무 기록을 모았습니다.`;
+    plan.innerHTML = "";
+  } else {
+    message.textContent = !report.summary.workDays ? "매출을 기록하면 하루 평균과 지난 정산을 비교할 수 있습니다."
+      : outlook.target && outlook.remainingAmount === 0 ? "이번 정산 목표를 채웠습니다."
+      : outlook.target ? `목표까지 ${fmtWon(outlook.remainingAmount)} 남았습니다.` : `${report.summary.workDays}일의 근무 기록을 모았습니다.`;
+    const required = outlook.requiredDailyRevenue === null ? "일정 확인 필요" : statsMetric(Math.ceil(outlook.requiredDailyRevenue));
+    const caveats = [];
+    if (outlook.pendingToday) caveats.push("오늘 기록이 끝나면 전망을 계산합니다.");
+    if (outlook.unknownDays) caveats.push(`남은 ${outlook.unknownDays}일은 일정이 비어 있습니다.`);
+    if (!outlook.plannedDays) caveats.push("등록된 남은 근무일이 없습니다.");
+    if (!outlook.pendingToday && outlook.plannedDays && report.summary.workDays < 3) caveats.push("3일 이상 기록이 쌓이면 예상액을 보여드립니다.");
+    if (outlook.requiredDailyRevenue !== null && outlook.unknownDays) caveats.push("필요 매출은 등록된 일정만 기준으로 합니다.");
+    plan.innerHTML = !outlook.plannedDays ? "" : `<details class="stats-disclosure"><summary>남은 일정으로 전망 보기</summary><div class="stats-plan-pair"><div><span>등록된 남은 근무</span><strong>${statsMetric(outlook.plannedDays, "일")}</strong></div><div><span>근무일당 필요한 매출</span><strong>${outlook.target ? required : "목표 미설정"}</strong></div></div>`
+      + (outlook.projectedRevenue !== null ? `<p class="stats-projection">이 평균이 이어지면 <strong>${statsMetric(Math.round(outlook.projectedRevenue))}</strong><small>현재 근무일당 평균 × 남은 등록 일정 · 예상값</small></p>` : "")
+      + (caveats.length ? `<p class="stats-reading-note">${caveats.join(" ")}</p>` : "") + "</details>";
+  }
+  if (planWasOpen) plan.querySelector("details")?.setAttribute("open", "");
+  $("statsSummaryTotal").innerHTML = statsMetric(report.summary.revenue);
+  $("statsAverage").innerHTML = statsMetric(Math.round(report.summary.averageRevenue));
+  $("statsWorkDays").innerHTML = statsMetric(report.summary.workDays, "일");
+  $("statsChangeSection").hidden = report.mode !== "thisSettlement";
+  $("statsDriverDisclosure").hidden = !drivers.available;
+  const signed = (number, unit, digits) => `${number > 0 ? "+" : ""}${statsMetric(number, unit, digits)}`;
+  const driverFields = [
+    ["하루 배송 물량", "averageCount", "건", 1],
+    ["배송 평균단가", "averageDeliveryUnit", "원", 0],
+    ["하루 부가매출", "averageExtraRevenue", "원", 0],
+  ].filter(([, field]) => drivers.current[field] !== null && drivers.previous[field] !== null);
+  $("statsDrivers").innerHTML = drivers.available ? driverFields.map(([label, field, unit, digits]) => {
+    const now = drivers.current[field], previous = drivers.previous[field];
+    return `<div><span>${label}</span><strong>${statsMetric(now, unit, digits)}</strong><small class="stats-previous"><span>지난번</span><span>${statsMetric(previous, unit, digits)}</span></small><em>${now === null || previous === null ? "비교 불가" : signed(now - previous, unit, digits)}</em></div>`;
+  }).join("") : "";
+  $("statsDriversNote").textContent = drivers.available && drivers.current.averageCount === null ? "물량이 없는 기록이 포함되어 물량·단가는 비교하지 않습니다. 매출 비교에는 모두 포함했습니다." : "부가매출은 백업수당·프레시백 합계입니다. 같은 근무일수라도 물량과 업무 구성은 다를 수 있습니다.";
+  $("statsTypical").innerHTML = typical.days ? `<div><span>기록된 하루 매출의 중간값</span><strong>${statsMetric(Math.round(typical.medianRevenue))}</strong></div><p>${typical.days}일 기록${typical.days < 4 ? " · 표본이 적어 참고만 해주세요." : ` · 가운데 절반은 ${fmtWon(Math.round(typical.lowRevenue))}~${fmtWon(Math.round(typical.highRevenue))}`}</p>` : `<p>근무 기록이 쌓이면 나의 평소 매출을 확인할 수 있습니다.</p>`;
+  $("statsReview").innerHTML = outlook.reviewDates.length ? `<details class="stats-disclosure"><summary>일정은 있지만 실적이 없는 ${outlook.reviewDates.length}일</summary><p class="stats-reading-note">미입력·일정 변경·실제 0건 근무일 수 있습니다. 날짜별 기록에서 확인하세요.</p><p>${outlook.reviewDates.map(formatMonthDay).join(" · ")}</p></details>` : "";
+  $("statsDailyTitle").textContent = `날짜별 기록 보기 · ${report.summary.recordDays}일`;
 }
 
 function renderStats() {
@@ -4089,7 +4225,6 @@ function renderStats() {
   if (el.statsHeroLabel) el.statsHeroLabel.textContent = `${title} 누적`;
   if (el.statsSummaryRange) el.statsSummaryRange.textContent = formatRangeLabel(start, end);
   if (el.statsSummaryTotal) el.statsSummaryTotal.textContent = fmtWon(total.revenue);
-  if (el.statsRevenueTotal) el.statsRevenueTotal.textContent = fmtWon(total.revenue);
   if (el.statsRevenue) el.statsRevenue.textContent = fmtWon(total.revenue);
   if (el.statsWorkDays) el.statsWorkDays.textContent = `${total.workDays}일`;
   if (el.statsAverage) el.statsAverage.textContent = formatCompactWonWithUnit(total.averageRevenue);
@@ -4099,6 +4234,7 @@ function renderStats() {
   if (el.statsAvgCount) el.statsAvgCount.textContent = fmtCount(Math.round(total.averageCount));
 
   renderStatsComparison(report);
+  renderDriverInsights(report);
   const showGoal = mode === "thisMonth" && report.goal.target;
   if (el.statsGoalMeter) el.statsGoalMeter.hidden = !showGoal;
   if (showGoal) {
@@ -4108,32 +4244,62 @@ function renderStats() {
   }
 
   syncStatsRangeButtons();
-  syncStatsChartToggle();
-  if (el.statsTrendTitle) el.statsTrendTitle.textContent = state.statsChartMetric === "count" ? "물량 추이" : "매출 추이";
-  const showEmpty = report.empty;
-  if (el.statsChartEmpty) el.statsChartEmpty.hidden = !showEmpty;
-  if (el.statsChart) el.statsChart.hidden = showEmpty;
-  if (el.statsChartSummary) el.statsChartSummary.hidden = showEmpty;
-  if (el.statsChartToggle) el.statsChartToggle.hidden = showEmpty;
-  if (showEmpty) {
-    statsChartState.series = [];
-    statsChartState.points = [];
-    if (el.statsChartTooltip) el.statsChartTooltip.hidden = true;
-  } else {
-    renderStatsChart(report.trend);
-  }
+  renderStatsChart(report.trend);
   renderRevenueList(keys);
   renderRouteStats(keys);
+  $("statsRouteDisclosure").hidden = !el.routeStats.querySelector(".route-stat-card");
   renderDailyStatsFor(keys);
+  renderWeekdayStats(keys);
 }
-function syncStatsChartToggle() {
-  if (!el.statsChartToggle) return;
-  el.statsChartToggle.querySelectorAll("button[data-metric]").forEach((btn) => {
-    const selected = btn.dataset.metric === (state.statsChartMetric || "revenue");
-    btn.classList.toggle("active", selected);
-    btn.setAttribute("aria-pressed", String(selected));
+const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+function renderWeekdayStats(keys) {
+  if (!el.weekdayStats) return;
+  const buckets = WEEKDAY_LABELS.map((label, index) => ({ label, index, revenue: 0, count: 0, days: 0 }));
+  (keys || []).forEach((dateKey) => {
+    const record = getRecord(dateKey, false);
+    if (!hasMeaningfulRecord(record) || normalizeRecordShape(record).off) return;
+    const details = calcRecordDetails(record);
+    if (!isWorkedRecord(record, details)) return;
+    const bucket = buckets[parseDateKey(dateKey).getDay()];
+    bucket.revenue += details.revenue;
+    bucket.count += details.count;
+    bucket.days += 1;
   });
+  const worked = buckets.filter((bucket) => bucket.days > 0);
+  if (!worked.length) {
+    el.weekdayStats.innerHTML = `<div class="rs-empty">기록된 근무일이 없습니다.</div>`;
+    return;
+  }
+  // 요일마다 근무일수가 다르므로 합계가 아니라 근무일당 평균으로 비교해야 공정하다.
+  const averages = buckets.map((bucket) => (bucket.days ? bucket.revenue / bucket.days : 0));
+  const max = Math.max(...averages, 1);
+  const best = worked.reduce((a, b) => ((b.revenue / b.days) > (a.revenue / a.days) ? b : a));
+  const bars = buckets.map((bucket, index) => {
+    const average = averages[index];
+    const pct = bucket.days ? Math.max(4, Math.round((average / max) * 100)) : 0;
+    const tone = index === 0 ? " is-sun" : (index === 6 ? " is-sat" : "");
+    const top = index === best.index ? " is-best" : "";
+    return `<div class="wd-col${tone}${top}">
+      <span class="wd-avg">${bucket.days ? compactMoneyLabel(average) : "-"}</span>
+      <div class="wd-track"><span style="height:${pct}%"></span></div>
+      <span class="wd-label">${bucket.label}</span>
+      <span class="wd-days">${bucket.days ? bucket.days + "일" : ""}</span>
+    </div>`;
+  }).join("");
+  const bestAverage = best.revenue / best.days;
+  const lowest = worked.reduce((a, b) => ((b.revenue / b.days) < (a.revenue / a.days) ? b : a));
+  const gap = bestAverage - (lowest.revenue / lowest.days);
+  const note = worked.length > 1 && gap > 0
+    ? `${best.label}요일이 ${lowest.label}요일보다 근무일당 ${fmtWon(Math.round(gap))} 많습니다.`
+    : "요일을 비교하려면 근무 기록이 더 필요합니다.";
+  el.weekdayStats.innerHTML = `<div class="wd-bars">${bars}</div><p class="wd-note">${note}</p>`;
 }
+function compactMoneyLabel(value) {
+  const won = Math.round(value || 0);
+  if (won >= 10000) return `${Math.round(won / 10000)}만`;
+  return String(won);
+}
+
 function renderRouteStats(keys) {
   if (!el.routeStats) return;
   const routes = new Map();
@@ -4147,7 +4313,7 @@ function renderRouteStats(keys) {
       const entry = routes.get(route) || { count: 0, revenue: 0, days: 0, automaticCount: 0 };
       entry.count += agg.count;
       entry.revenue += agg.revenue;
-      entry.days += 1;
+      if (agg.count > 0 || agg.revenue > 0) entry.days += 1;
       routes.set(route, entry);
     });
     automaticRows(record).forEach((row) => {
@@ -4165,14 +4331,13 @@ function renderRouteStats(keys) {
   });
   const rows = Array.from(routes.entries())
     .map(([route, agg]) => ({ route, count: Math.round(agg.count), revenue: Math.round(agg.revenue), days: agg.days, automaticCount: Math.round(agg.automaticCount) }))
-    .sort((a, b) => b.revenue - a.revenue);
+    .filter((row) => row.days > 0 && (row.count > 0 || row.revenue > 0))
+    .sort((a, b) => b.revenue / b.days - a.revenue / a.days);
   if (!rows.length) {
     el.routeStats.innerHTML = `<div class="rs-empty">기록된 구역이 없습니다.</div>`;
     return;
   }
-  const maxRevenue = Math.max(...rows.map((row) => row.revenue), 1);
-  el.routeStats.innerHTML = rows.map((row) => {
-    const pct = Math.max(2, Math.round((row.revenue / maxRevenue) * 100));
+  const routeCards = rows.map((row) => {
     const unit = row.count ? Math.round(row.revenue / row.count) : 0;
     const detailRows = [...(rawDetails.byBase.get(normalizeBaseSalesRoute(row.route)) || new Map()).entries()]
       .sort((a, b) => a[0].localeCompare(b[0]));
@@ -4182,17 +4347,18 @@ function renderRouteStats(keys) {
     return `<div class="route-stat-card">
       <div class="rs-top">
         <span class="rs-name">${escapeAttr(formatRouteLabel(row.route))}</span>
-        <strong class="rs-amount">${fmtWon(row.revenue)}</strong>
+        <strong class="rs-amount">${fmtWon(Math.round(row.revenue / row.days))}<small> / 근무일</small></strong>
       </div>
       <div class="rs-meta">
-        <span>${fmtCount(row.count)}</span>
-        <span>단가 ${fmtWon(unit)}</span>
-        <span>${row.days}일</span>
+        <span>평균 ${fmtCount(Math.round(row.count / row.days))}</span>
+        <span>적용 평균단가 ${fmtWon(unit)}</span>
+        <span>${row.days}일 기록${row.days < 3 ? " · 표본 적음" : ""}</span>
       </div>
-      ${detailMarkup}
-      <div class="rs-bar"><span style="width:${pct}%"></span></div>
+      <details class="stats-route-detail"><summary>누적 ${fmtCount(row.count)} · ${fmtWon(row.revenue)}</summary>${detailMarkup}</details>
+
     </div>`;
-  }).join("");
+  });
+  el.routeStats.innerHTML = routeCards.slice(0, 5).join("") + (routeCards.length > 5 ? `<details class="stats-disclosure"><summary>나머지 ${routeCards.length - 5}개 구역 보기</summary>${routeCards.slice(5).join("")}</details>` : "");
 }
 function renderStatsSummaryRows(total, statsPct) {
   const rows = document.querySelector(".stats-summary-card .ssc-rows");
@@ -4298,218 +4464,112 @@ function syncStatsRangeButtons() {
 }
 function renderRevenueList(keys) {
   if (!el.revenueList) return;
-  const items = aggregateRevenueByItem(keys);
-  if (!items.length) {
-    el.revenueList.innerHTML = `<div class="rev-empty">기록된 매출 항목이 없습니다.</div>`;
-    return;
-  }
-  const renderRow = (item) => {
-    const meta = item.kind === "route" ? fmtCount(item.count) : (item.kind === "fresh" ? fmtCount(item.count) : "");
-    return `<div class="rev-row">
-      <span class="rev-label">${escapeAttr(item.label)}</span>
-      ${meta ? `<span class="rev-meta">${meta}</span>` : ""}
-      <strong class="rev-amount">${fmtWon(item.revenue)}</strong>
-    </div>`;
-  };
-  const groups = aggregateRevenueGroups(items);
-  const sections = [groups.route, groups.fresh, groups.backup]
-    .filter((group) => group.items.length)
-    .map((group) => {
-      const meta = group.count ? fmtCount(group.count) : "";
-      return `<section class="rev-section">
-        <div class="rev-section-head">
-          <span>${group.label}</span>
-          ${meta ? `<em>${meta}</em>` : ""}
-          <strong>${fmtWon(group.revenue)}</strong>
-        </div>
-        <div class="rev-section-rows">${group.items.map(renderRow).join("")}</div>
-      </section>`;
-    }).join("");
-  const total = items.reduce((sum, item) => sum + item.revenue, 0);
-  el.revenueList.innerHTML = `${sections}<div class="rev-row rev-sum"><span class="rev-label">합계</span><strong class="rev-amount">${fmtWon(total)}</strong></div>`;
+  const total = (keys || []).reduce((sum, key) => {
+    const value = calcRecordDetails(getRecord(key, false));
+    sum.revenue += value.revenue;
+    sum.fresh += value.freshRevenue;
+    sum.backup += value.backupRevenue;
+    return sum;
+  }, { revenue: 0, fresh: 0, backup: 0 });
+  const rows = [["배송 매출", total.revenue - total.fresh - total.backup], ["백업수당", total.backup], ["프레시백", total.fresh]];
+  el.revenueList.innerHTML = rows.map(([label, amount]) => `<div class="rev-row"><span class="rev-label">${label}</span><strong class="rev-amount">${statsMetric(amount)}</strong></div>`).join("")
+    + `<div class="rev-row rev-sum"><span class="rev-label">합계</span><strong class="rev-amount">${statsMetric(total.revenue)}</strong></div>`;
 }
-const statsChartState = { series: [], points: [], hoverIndex: -1, granularity: "day" };
-function niceStep(rawStep) {
-  if (rawStep <= 0) return 1;
-  const exp = Math.pow(10, Math.floor(Math.log10(rawStep)));
-  const norm = rawStep / exp;
-  const candidate = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10;
-  return candidate * exp;
-}
-function statsTrendUnit(granularity) {
-  if (granularity === "week") return "주";
-  if (granularity === "settlement") return "정산주기";
-  return "일";
-}
-
-function statsAxisLabel(bucket, granularity) {
-  if (granularity === "settlement") return String(bucket.key || "").slice(2).replace("-", ".");
-  return bucket.label || bucket.key || "-";
-}
-
 function renderStatsChart(trend) {
   const canvas = el.statsChart;
   if (!canvas) return;
+  // Omit non-working buckets entirely, preserving genuine zero-revenue work.
+  const series = (Array.isArray(trend?.buckets) ? trend.buckets : [])
+    .filter((bucket) => bucket.workDays > 0 || bucket.revenue > 0);
+  canvas.hidden = !series.length;
+  if (el.statsChartChange) el.statsChartChange.hidden = !series.length;
+  if (el.statsChartEndpoints) el.statsChartEndpoints.hidden = !series.length;
+  if (el.statsChartEmpty) el.statsChartEmpty.hidden = Boolean(series.length);
+  if (!series.length) {
+    const emptySummary = "선택한 기간에 표시할 근무 기록이 없습니다.";
+    canvas.setAttribute("aria-label", emptySummary);
+    if (el.statsChartSummary) el.statsChartSummary.textContent = emptySummary;
+    return;
+  }
+  const first = series[0];
+  const last = series.at(-1);
+  const granularity = trend?.granularity || "day";
+  const compactAmount = (amount) => Math.abs(amount) >= 100000000
+    ? statsMetric(amount / 100000000, "억원", 1)
+    : (Math.abs(amount) >= 10000 ? statsMetric(amount / 10000, "만원", 1) : statsMetric(amount));
+  if (el.statsChartChange) {
+    const delta = last.revenue - first.revenue;
+    if (granularity !== "day") {
+      // Partial weeks/settlements have different coverage; avoid a misleading change rate.
+      el.statsChartChange.textContent = granularity === "week" ? "주별 합계" : "정산별 합계";
+    } else if (series.length === 1) {
+      el.statsChartChange.textContent = "기록 1일";
+    } else {
+      const percent = first.revenue ? Math.abs(delta / first.revenue * 100) : null;
+      const change = !delta ? "변동 없음" : (percent === null ? compactAmount(Math.abs(delta))
+        : statsMetric(percent < 0.1 ? 0.1 : percent, percent < 0.1 ? "% 미만" : "%", 1));
+      el.statsChartChange.innerHTML = `<span>첫 근무일 대비</span><strong>${change}${delta ? (delta > 0 ? " 증가" : " 감소") : ""}</strong>`;
+    }
+  }
+  if (el.statsChartEndpoints) {
+    const includeYear = first.start?.slice(0, 4) !== last.end?.slice(0, 4);
+    const shortDate = (key) => key ? `${includeYear ? key.slice(2, 4) + "." : ""}${Number(key.slice(5, 7))}.${Number(key.slice(8, 10))}` : "";
+    const dateLabel = (bucket) => bucket.start === bucket.end ? shortDate(bucket.start)
+      : `${shortDate(bucket.start)}–${shortDate(bucket.end)}`;
+    const endpoint = (bucket, label) => `<div><span>${dateLabel(bucket)} · ${label}</span><strong>${compactAmount(bucket.revenue)}</strong></div>`;
+    el.statsChartEndpoints.innerHTML = endpoint(first, "시작") + (series.length > 1 ? endpoint(last, "최근") : "");
+  }
+  const chartSummary = `매출 흐름. 휴무·미기록을 제외한 ${series.length}개 근무 구간을 순서대로 연결했습니다. 첫 구간 ${fmtWon(series[0].revenue)}, 마지막 구간 ${fmtWon(series.at(-1).revenue)}.`;
+  canvas.setAttribute("aria-label", chartSummary);
+  if (el.statsChartSummary) el.statsChartSummary.textContent = chartSummary;
   const dpr = window.devicePixelRatio || 1;
-  const cssW = canvas.parentElement ? canvas.parentElement.clientWidth - 24 : 320;
-  const cssH = 190;
-  canvas.style.width = `${cssW}px`;
-  canvas.style.height = `${cssH}px`;
+  const cssW = canvas.clientWidth || 320;
+  const cssH = 112;
   canvas.width = Math.round(cssW * dpr);
   canvas.height = Math.round(cssH * dpr);
   const ctx = canvas.getContext("2d");
+  if (!ctx) return;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, cssW, cssH);
-  const series = Array.isArray(trend?.buckets) ? trend.buckets : [];
-  statsChartState.series = series;
-  statsChartState.points = [];
-  statsChartState.hoverIndex = -1;
-  statsChartState.granularity = trend?.granularity || "day";
-  canvas.dataset.pointCount = String(series.length);
-  canvas.dataset.keyboardIndex = "-1";
-  if (el.statsChartTooltip) el.statsChartTooltip.hidden = true;
-  if (!series.length) {
-    const emptySummary = "선택한 기간에 표시할 통계 데이터가 없습니다.";
-    canvas.setAttribute("aria-label", emptySummary);
-    if (el.statsChartSummary) el.statsChartSummary.textContent = emptySummary;
-    ctx.fillStyle = "#98a2b3";
-    ctx.font = "12px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("표시할 데이터가 없습니다", cssW / 2, cssH / 2);
-    return;
-  }
-  const margin = { l: 42, r: 10, t: 12, b: 26 };
-  const w = cssW - margin.l - margin.r;
-  const h = cssH - margin.t - margin.b;
-  const metric = state.statsChartMetric === "count" ? "count" : "revenue";
-  const valOf = (s) => (metric === "count" ? s.count : s.revenue);
-  const metricLabel = metric === "count" ? "물량" : "매출";
-  const totalValue = series.reduce((sum, item) => sum + valOf(item), 0);
-  const peak = series.reduce((best, item) => valOf(item) > valOf(best) ? item : best, series[0]);
-  const formatMetricValue = (value) => metric === "count" ? fmtCount(value) : fmtWon(value);
-  const trendUnit = statsTrendUnit(statsChartState.granularity);
-  const chartSummary = `${series.length}${trendUnit} ${metricLabel} 그래프. 합계 ${formatMetricValue(totalValue)}. 최고 ${peak.label || peak.key} ${formatMetricValue(valOf(peak))}.`;
-  canvas.setAttribute("aria-label", chartSummary);
-  if (el.statsChartSummary) el.statsChartSummary.textContent = `${chartSummary} 그래프를 터치하거나 좌우 방향키로 상세를 확인할 수 있으며 점선은 평균입니다.`;
-  const fmtAxis = (v) => (metric === "count" ? String(Math.round(v)) : formatKoreanWon(v));
-  const maxVal = Math.max(...series.map(valOf), metric === "count" ? 50 : 100000);
-  const step = niceStep(maxVal / 5);
-  const yMax = Math.ceil(maxVal / step) * step;
-  const cs = getComputedStyle(document.documentElement);
-  const primaryColor = (cs.getPropertyValue("--gold") || "#0066FF").trim() || "#0066FF";
-  const accentColor = (cs.getPropertyValue("--gold2") || primaryColor).trim() || primaryColor;
-  const gridColor = (cs.getPropertyValue("--line") || "rgba(112,115,124,.18)").trim() || "rgba(112,115,124,.18)";
-  const labelColor = (cs.getPropertyValue("--muted") || "#70737C").trim() || "#70737C";
-  ctx.strokeStyle = gridColor;
-  ctx.fillStyle = labelColor;
-  ctx.font = "10px 'Pretendard Variable', Pretendard, system-ui, sans-serif";
-  ctx.textAlign = "right";
-  ctx.textBaseline = "middle";
-  ctx.lineWidth = 1;
-  for (let v = 0; v <= yMax; v += step) {
-    const y = margin.t + h - (v / yMax) * h;
+  const inset = 4;
+  const baseline = cssH - inset;
+  const maxRevenue = Math.max(...series.map((item) => item.revenue), 1);
+  const points = series.map((item, index) => ({
+    x: series.length === 1 ? cssW / 2 : inset + index * (cssW - inset * 2) / (series.length - 1),
+    y: baseline - (item.revenue / maxRevenue) * (cssH - 20),
+  }));
+  const primaryColor = getComputedStyle(document.documentElement).getPropertyValue("--gold").trim();
+  const trace = () => {
     ctx.beginPath();
-    ctx.moveTo(margin.l, y);
-    ctx.lineTo(margin.l + w, y);
-    ctx.stroke();
-    ctx.fillText(fmtAxis(v), margin.l - 6, y);
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let index = 1; index < points.length; index += 1) {
+      const previous = points[index - 1];
+      const current = points[index];
+      const middle = (previous.x + current.x) / 2;
+      // Horizontal control points soften the line without overshooting recorded values.
+      ctx.bezierCurveTo(middle, previous.y, middle, current.y, current.x, current.y);
+    }
+  };
+  const fill = ctx.createLinearGradient(0, 0, 0, baseline);
+  fill.addColorStop(0, primaryColor);
+  fill.addColorStop(1, `${primaryColor}00`);
+  trace();
+  ctx.lineTo(points.at(-1).x, baseline);
+  ctx.lineTo(points[0].x, baseline);
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.globalAlpha = 0.14;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  trace();
+  ctx.strokeStyle = primaryColor;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  if (points.length === 1) {
+    ctx.lineTo(points[0].x + 0.1, points[0].y);
   }
-  const xFor = (i) => series.length === 1 ? margin.l + w / 2 : margin.l + (i / (series.length - 1)) * w;
-  const yFor = (v) => margin.t + h - (v / yMax) * h;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  const labelCount = Math.min(5, series.length);
-  for (let i = 0; i < labelCount; i += 1) {
-    const idx = Math.round((i / Math.max(1, labelCount - 1)) * (series.length - 1));
-    ctx.fillText(statsAxisLabel(series[idx], statsChartState.granularity), xFor(idx), margin.t + h + 6);
-  }
-  const barGap = Math.max(3, Math.min(8, w / Math.max(1, series.length) * .24));
-  const barW = Math.max(3, Math.min(18, w / Math.max(1, series.length) - barGap));
-  const zeroY = yFor(0);
-  let maxIdx = -1;
-  series.forEach((s, i) => { if (valOf(s) > (maxIdx < 0 ? 0 : valOf(series[maxIdx]))) maxIdx = i; });
-  series.forEach((s, i) => {
-    const value = valOf(s);
-    const active = value > 0;
-    const x = xFor(i);
-    const y = yFor(value);
-    statsChartState.points.push({ x, y, ...s });
-    const barH = Math.max(active ? 3 : 1, zeroY - y);
-    ctx.fillStyle = !active ? (cs.getPropertyValue("--soft").trim() || "#AEB0B6") : (i === maxIdx ? accentColor : primaryColor);
-    ctx.globalAlpha = active ? (i === maxIdx ? 1 : .9) : .35;
-    ctx.fillRect(x - barW / 2, zeroY - barH, barW, barH);
-    ctx.globalAlpha = 1;
-    ctx.beginPath();
-    ctx.fillStyle = active ? "#fff" : (cs.getPropertyValue("--muted").trim() || "#70737C");
-    ctx.arc(x, y, active ? 2.2 : 1.8, 0, Math.PI * 2);
-    ctx.fill();
-  });
-  const workValues = series.map(valOf).filter((value) => value > 0);
-  if (workValues.length) {
-    const avg = workValues.reduce((sum, v) => sum + v, 0) / workValues.length;
-    const avgY = yFor(Math.min(avg, yMax));
-    ctx.save();
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = accentColor;
-    ctx.globalAlpha = .8;
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(margin.l, avgY);
-    ctx.lineTo(margin.l + w, avgY);
-    ctx.stroke();
-    ctx.restore();
-    ctx.fillStyle = accentColor;
-    ctx.font = "9px 'Pretendard Variable', Pretendard, system-ui, sans-serif";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "bottom";
-    ctx.fillText(`평균 ${fmtAxis(avg)}`, margin.l + 2, Math.max(margin.t + 8, avgY - 2));
-  }
-}
-function showChartTooltip(clientX) {
-  const canvas = el.statsChart;
-  if (!canvas || !statsChartState.points.length) return;
-  const rect = canvas.getBoundingClientRect();
-  const localX = clientX - rect.left;
-  let nearest = 0;
-  let nearestDx = Infinity;
-  statsChartState.points.forEach((p, i) => {
-    const dx = Math.abs(p.x - localX);
-    if (dx < nearestDx) { nearestDx = dx; nearest = i; }
-  });
-  showChartTooltipAtIndex(nearest);
-}
-
-function showChartTooltipAtIndex(index) {
-  const canvas = el.statsChart;
-  const tooltip = el.statsChartTooltip;
-  if (!canvas || !tooltip || !statsChartState.points.length) return;
-  const nearest = Math.max(0, Math.min(statsChartState.points.length - 1, Number(index) || 0));
-  const point = statsChartState.points[nearest];
-  if (!point) return;
-  const pointRange = point.start === point.end
-    ? formatLongShort(point.start)
-    : `${formatLongShort(point.start)} ~ ${formatLongShort(point.end)}`;
-  tooltip.innerHTML = `<strong>${escapeAttr(point.label || pointRange)}</strong>` +
-    `<span>${escapeAttr(pointRange)}</span>` +
-    `<div>매출 <b>${fmtWon(point.revenue)}</b></div>` +
-    `<div>총 물량 <b>${fmtCount(point.count)}</b></div>` +
-    `<div>프레시백 <b>${fmtCount(point.freshCount)}</b></div>`;
-  tooltip.hidden = false;
-  const cardRect = canvas.parentElement.getBoundingClientRect();
-  let left = canvas.offsetLeft + point.x - tooltip.offsetWidth / 2;
-  const maxLeft = cardRect.width - tooltip.offsetWidth - 4;
-  if (left < 4) left = 4;
-  if (left > maxLeft) left = maxLeft;
-  tooltip.style.left = `${left}px`;
-  tooltip.style.top = `${Math.max(0, canvas.offsetTop + point.y - tooltip.offsetHeight - 10)}px`;
-  canvas.dataset.keyboardIndex = String(nearest);
-  if (statsChartState.hoverIndex !== nearest) {
-    statsChartState.hoverIndex = nearest;
-    trackStatsControl("chart_point_viewed");
-  }
-}
-async function loadWorkLedgerForRange(startKey, endKey) {
-  return loadVerifiedWorkLedger({ startKey, endKey });
+  ctx.stroke();
 }
 
 function effectiveAutomaticLedgerItems(ledgerItems, overrideRows) {
@@ -4539,323 +4599,6 @@ function effectiveAutomaticLedgerItems(ledgerItems, overrideRows) {
 function manualLedgerItemsForSales(items, overrideRows) {
   const overriddenDates = new Set((overrideRows || []).map((row) => userDateKey(row.user_id, row.work_date)));
   return (items || []).filter((item) => !overriddenDates.has(userDateKey(item.user_id, item.work_date)));
-}
-function adminRecordDetails(day, items) {
-  if (day.is_off) return { revenue: 0, count: 0, freshCount: 0, returnCount: 0, cancellationCount: 0, backupRevenue: 0, routeRevenue: 0 };
-  const routeTotal = (items || []).reduce((sum, item) => {
-    const count = toNum(item.delivery_count);
-    const automatic = isAutomaticRow(item);
-    return {
-      count: sum.count + count,
-      manualCount: sum.manualCount + (automatic ? 0 : count),
-      automaticCount: sum.automaticCount + (automatic ? count : 0),
-      revenue: sum.revenue + count * toNum(item.unit_snapshot),
-    };
-  }, { count: 0, manualCount: 0, automaticCount: 0, revenue: 0 });
-  const dualFreshbag = freshbagModeForRecord(day) === "dual";
-  const freshCount = dualFreshbag
-    ? toNum(day.fresh_solo_count) + toNum(day.fresh_linked_count)
-    : toNum(day.fresh_count);
-  const freshRevenue = dualFreshbag
-    ? toNum(day.fresh_solo_count) * 200 + toNum(day.fresh_linked_count) * 100
-    : freshCount * toNum(day.fresh_unit || 100);
-  const backupUnit = day.driver_type === "backup" ? toNum(defaultBackupUnit(day.backup_unit)) : 0;
-  const backupRevenue = routeTotal.count * backupUnit;
-  const backupRevenueAdditive = routeTotal.manualCount * backupUnit;
-  return {
-    revenue: routeTotal.revenue + freshRevenue + backupRevenueAdditive,
-    count: routeTotal.count,
-    freshCount,
-    returnCount: toNum(day.return_count),
-    cancellationCount: toNum(day.cancel_count),
-    backupRevenue,
-    routeRevenue: routeTotal.revenue,
-  };
-}
-function renderAdminPeriodHeader() {
-  if (!el.adminMonthTitle || !el.adminRange) return;
-  const { start, end } = periodBounds(state.adminYear, state.adminMonth);
-  el.adminMonthTitle.textContent = `${state.adminYear}년 ${String(state.adminMonth).padStart(2, "0")}월`;
-  el.adminRange.textContent = `${formatShort(start)} ~ ${formatShort(end)}`;
-}
-async function renderAdminDashboard() {
-  if (state.profile?.role !== "admin") return;
-  renderAdminPeriodHeader();
-  el.adminTabs.forEach((tab) => {
-    const selected = tab.dataset.adminTab === state.adminTab;
-    tab.classList.toggle("active", selected);
-    tab.setAttribute("aria-selected", String(selected));
-    tab.tabIndex = selected ? 0 : -1;
-  });
-  el.adminPanels.forEach((panel) => {
-    const selected = panel.dataset.adminPanel === state.adminTab;
-    panel.classList.toggle("active", selected);
-    panel.hidden = !selected;
-  });
-  try {
-    if (state.adminTab === "summary") await renderAdminRevenueStats();
-    if (state.adminTab === "routes") await renderAdminRouteStats();
-    if (state.adminTab === "users") await renderAdminProfiles();
-    if (state.adminTab === "bundles") await renderAdminBundles();
-  } catch (error) {
-    const target = state.adminTab === "routes"
-      ? el.adminRouteList
-      : state.adminTab === "users"
-        ? el.adminProfiles
-        : state.adminTab === "bundles"
-          ? el.adminBundleList
-          : el.adminRevenueList;
-    if (target) target.innerHTML = `<div class="daily-card"><span>${error.message}</span></div>`;
-  }
-}
-
-function usageMetricCard(label, value, description) {
-  return `<div class="admin-usage-metric">
-    <span>${escapeAttr(label)}</span>
-    <strong>${escapeAttr(value)}</strong>
-    <small>${escapeAttr(description)}</small>
-  </div>`;
-}
-
-async function renderAdminUsageSummary(context = captureAccountContext()) {
-  if (!el.adminUsageSummary || state.profile?.role !== "admin" || !isAccountContextCurrent(context)) return;
-  if (!state.db) {
-    el.adminUsageSummary.innerHTML = `<div class="daily-card"><span>DB 연결 후 사용 현황을 확인할 수 있습니다.</span></div>`;
-    return;
-  }
-  el.adminUsageSummary.innerHTML = `<div class="daily-card"><span>최근 30일 사용 현황을 불러오는 중입니다.</span></div>`;
-  try {
-    const summary = await fetchUsageSummary(state.db, { windowDays: 30 });
-    if (!isAccountContextCurrent(context) || state.profile?.role !== "admin") return;
-    if (!summary) throw new Error("empty usage summary");
-    const activeUsers = toNum(summary.active_user_count);
-    const statsViewers = toNum(summary.stats_viewer_count);
-    const engagedUsers = toNum(summary.engaged_user_count);
-    const repeatViewers = toNum(summary.repeat_viewer_count);
-    const reachRate = toNum(summary.stats_reach_rate);
-    const engagementRate = toNum(summary.stats_engagement_rate);
-    const repeatRate = toNum(summary.repeat_viewer_rate);
-    el.adminUsageSummary.innerHTML = `
-      <div class="admin-usage-head">
-        <div><span>최근 30일</span><strong>통계 화면 사용</strong></div>
-        <small>매출·수량·구역·날짜는 수집하지 않습니다.</small>
-      </div>
-      <div class="admin-usage-grid">
-        ${usageMetricCard("활성 사용자", `${activeUsers}명`, "앱을 연 승인 사용자")}
-        ${usageMetricCard("통계 조회", `${statsViewers}명 · ${reachRate}%`, "활성 사용자 대비")}
-        ${usageMetricCard("기능 사용", `${engagedUsers}명 · ${engagementRate}%`, "통계 조회자 대비")}
-        ${usageMetricCard("주간 재방문", `${repeatViewers}명 · ${repeatRate}%`, "서로 다른 주에 조회")}
-      </div>`;
-  } catch (_) {
-    if (!isAccountContextCurrent(context) || state.profile?.role !== "admin") return;
-    el.adminUsageSummary.innerHTML = `
-      <div class="admin-usage-unavailable">
-        <strong>사용 현황 준비 중</strong>
-        <span>사용 통계 DB 업데이트가 적용되면 최근 30일 요약이 표시됩니다.</span>
-      </div>`;
-  }
-}
-
-async function renderAdminRevenueStats() {
-  if (!el.adminRevenueList || state.profile?.role !== "admin") return;
-  void renderAdminUsageSummary();
-  if (!state.db) {
-    el.adminRevenueList.innerHTML = `<div class="daily-card"><span>DB 연결 후 확인할 수 있습니다.</span></div>`;
-    return;
-  }
-  el.adminRevenueList.innerHTML = `<div class="daily-card"><span>사용자 매출을 불러오는 중입니다.</span></div>`;
-  const { start, end } = periodBounds(state.adminYear, state.adminMonth);
-  const startKey = toDateKey(start);
-  const endKey = toDateKey(end);
-  const [profilesResult, daysResult, itemsResult, ledger, overridesResult] = await Promise.all([
-    state.db.from(TABLES.profiles).select("id,email,display_name,driver_type,status").order("display_name"),
-    state.db.from(TABLES.days).select("*").gte("work_date", startKey).lte("work_date", endKey),
-    state.db.from(TABLES.items).select("*").gte("work_date", startKey).lte("work_date", endKey).order("work_date"),
-    loadWorkLedgerForRange(startKey, endKey),
-    fetchAutomaticSalesOverrides({ startKey, endKey }),
-  ]);
-  if (profilesResult.error) throw profilesResult.error;
-  if (daysResult.error) throw daysResult.error;
-  if (itemsResult.error) throw itemsResult.error;
-
-  const automaticUserDateKeys = new Set(ledger.workResults.map((work) => userDateKey(work.user_id, work.work_date)));
-  const overrideUserDateKeys = new Set(overridesResult.rows.map((row) => userDateKey(row.user_id, row.work_date)));
-  const manualItems = manualLedgerItemsForSales(itemsResult.data, overridesResult.rows);
-  const combinedItems = [...manualItems, ...effectiveAutomaticLedgerItems(ledger.items, overridesResult.rows)];
-  const itemsByUserDate = new Map();
-  combinedItems.forEach((item) => {
-    const key = userDateKey(item.user_id, item.work_date);
-    if (!itemsByUserDate.has(key)) itemsByUserDate.set(key, []);
-    itemsByUserDate.get(key).push(item);
-  });
-  const daysByUserDate = new Map();
-  const userDateKeys = new Set();
-  (daysResult.data || []).forEach((day) => {
-    const key = userDateKey(day.user_id, day.work_date);
-    daysByUserDate.set(key, day);
-    userDateKeys.add(key);
-  });
-  combinedItems.forEach((item) => userDateKeys.add(userDateKey(item.user_id, item.work_date)));
-  ledger.workResults.forEach((work) => userDateKeys.add(userDateKey(work.user_id, work.work_date)));
-
-  const profilesById = new Map((profilesResult.data || []).map((profile) => [profile.id, profile]));
-  const summaryByUser = new Map((profilesResult.data || []).map((profile) => [profile.id, {
-    profile,
-    revenue: 0,
-    count: 0,
-    fresh: 0,
-    workDays: 0,
-    offDays: 0,
-    days: [],
-  }]));
-  const ensureSummary = (userId, driverType = "backup") => {
-    if (!summaryByUser.has(userId)) {
-      summaryByUser.set(userId, {
-        profile: profilesById.get(userId) || {
-          id: userId,
-          display_name: LEGACY_USER_NAMES.get(userId) || "사용자",
-          driver_type: driverType || "backup",
-          status: "approved",
-        },
-        revenue: 0,
-        count: 0,
-        fresh: 0,
-        workDays: 0,
-        offDays: 0,
-        days: [],
-      });
-    }
-    return summaryByUser.get(userId);
-  };
-  userDateKeys.forEach((key) => {
-    const [userId, dateKey] = JSON.parse(key);
-    const storedDay = daysByUserDate.get(key) || null;
-    const summary = ensureSummary(userId, storedDay?.driver_type);
-    const items = itemsByUserDate.get(key) || [];
-    const hasAutomatic = automaticUserDateKeys.has(key) || items.some(isAutomaticRow);
-    const day = storedDay
-      ? { ...storedDay, is_off: Boolean(storedDay.is_off) && !hasAutomatic }
-      : {
-          user_id: userId,
-          work_date: dateKey,
-          is_off: false,
-          fresh_count: 0,
-          fresh_unit: 100,
-          backup_unit: DEFAULT_BACKUP_UNIT,
-          driver_type: summary.profile.driver_type || "backup",
-        };
-    const details = adminRecordDetails(day, items);
-    summary.revenue += details.revenue;
-    summary.count += details.count;
-    summary.fresh += details.freshCount;
-    summary.workDays += (!day.is_off && (details.revenue > 0 || hasAutomatic)) ? 1 : 0;
-    summary.offDays += day.is_off ? 1 : 0;
-    summary.days.push({ dateKey, day, details, hasAutomatic, hasOverride: overrideUserDateKeys.has(key) });
-  });
-
-  const summaries = [...summaryByUser.values()].sort((a, b) => b.revenue - a.revenue || String(a.profile.display_name || "").localeCompare(String(b.profile.display_name || "")));
-  el.adminRevenueList.innerHTML = summaries.length ? summaries.map((summary) => {
-    const profile = summary.profile;
-    const open = state.adminStatsDetailUser === profile.id;
-    const driverLabel = driverTypeLabel(profile.driver_type);
-    const profileStatus = statusLabel(profile.status);
-    const dayRows = summary.days
-      .sort((a, b) => a.dateKey.localeCompare(b.dateKey))
-      .map((row) => `<div class="admin-day-row"><span>${formatLongShort(row.dateKey)}${row.day.is_off ? " 휴무" : ""}${row.hasAutomatic ? " · 앱 자동" : ""}${row.hasOverride ? " · 매출 수정" : ""}</span><strong>${fmtWon(row.details.revenue)} · ${fmtCount(row.details.count)}</strong></div>`)
-      .join("");
-    return `<div class="admin-revenue-card">
-      <button type="button" data-admin-user="${profile.id}">
-        <div class="admin-revenue-head">
-          <div><strong>${profileNameForDisplay(profile)}</strong><span>${driverLabel} · ${profileStatus}</span></div>
-          <div class="admin-revenue-total">${fmtWon(summary.revenue)}</div>
-        </div>
-        <div class="admin-revenue-metrics"><span>배송 ${fmtCount(summary.count)}</span><span>근무 ${summary.workDays}일</span><span>휴무 ${summary.offDays}일</span></div>
-      </button>
-      ${open ? `<div class="admin-day-list">${dayRows || `<span>선택한 정산기간 기록이 없습니다.</span>`}</div>` : ""}
-    </div>`;
-  }).join("") : `<div class="daily-card"><span>사용자 정보가 없습니다.</span></div>`;
-  el.adminRevenueList.querySelectorAll("[data-admin-user]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.adminStatsDetailUser = state.adminStatsDetailUser === button.dataset.adminUser ? "" : button.dataset.adminUser;
-      renderAdminRevenueStats().catch((error) => {
-        el.adminRevenueList.innerHTML = `<div class="daily-card"><span>${error.message}</span></div>`;
-      });
-    });
-  });
-}
-async function renderAdminRouteStats() {
-  if (!el.adminRouteList || state.profile?.role !== "admin") return;
-  if (!state.db) {
-    el.adminRouteList.innerHTML = `<div class="daily-card"><span>DB 연결 후 확인할 수 있습니다.</span></div>`;
-    return;
-  }
-  el.adminRouteList.innerHTML = `<div class="daily-card"><span>라우트 통계를 불러오는 중입니다.</span></div>`;
-  const { start, end } = periodBounds(state.adminYear, state.adminMonth);
-  const startKey = toDateKey(start);
-  const endKey = toDateKey(end);
-  const [profilesResult, itemsResult, ledger, overridesResult] = await Promise.all([
-    state.db.from(TABLES.profiles).select("id,email,display_name,driver_type,status"),
-    state.db.from(TABLES.items).select("user_id,work_date,route,delivery_count,unit_snapshot").gte("work_date", startKey).lte("work_date", endKey),
-    loadWorkLedgerForRange(startKey, endKey),
-    fetchAutomaticSalesOverrides({ startKey, endKey }),
-  ]);
-  if (profilesResult.error) throw profilesResult.error;
-  if (itemsResult.error) throw itemsResult.error;
-
-  const profiles = new Map((profilesResult.data || []).map((profile) => [profile.id, profile]));
-  const routeMap = new Map();
-  const manualItems = manualLedgerItemsForSales(itemsResult.data, overridesResult.rows);
-  [...manualItems, ...effectiveAutomaticLedgerItems(ledger.items, overridesResult.rows)].forEach((item) => {
-    const route = joinStoredRoutes(item.route);
-    const count = toNum(item.delivery_count);
-    const revenue = count * toNum(item.unit_snapshot);
-    if (!route || count <= 0) return;
-    if (!routeMap.has(route)) routeMap.set(route, { route, count: 0, revenue: 0, automaticCount: 0, users: new Map() });
-    const row = routeMap.get(route);
-    row.count += count;
-    row.revenue += revenue;
-    if (isAutomaticRow(item)) row.automaticCount += count;
-    const user = row.users.get(item.user_id) || { count: 0, revenue: 0, automaticCount: 0 };
-    user.count += count;
-    user.revenue += revenue;
-    if (isAutomaticRow(item)) user.automaticCount += count;
-    row.users.set(item.user_id, user);
-  });
-
-  const rawDetails = rawDetailBreakdown(Object.values(workRouteDetailsByDate(ledger.workResults, ledger.workRouteDetails)).flat());
-  rawDetails.byBase.forEach((detailRoutes, baseRoute) => {
-    if (!routeMap.has(baseRoute)) routeMap.set(baseRoute, { route: baseRoute, count: 0, revenue: 0, automaticCount: 0, users: new Map() });
-    const row = routeMap.get(baseRoute);
-    row.detailRoutes = detailRoutes;
-  });
-
-  const routes = [...routeMap.values()].sort((a, b) => b.revenue - a.revenue || a.route.localeCompare(b.route));
-  el.adminRouteList.innerHTML = routes.length ? routes.map((row) => {
-    const avgUnit = row.count ? Math.round(row.revenue / row.count) : 0;
-    const users = [...row.users.entries()]
-      .map(([userId, user]) => ({ profile: profiles.get(userId) || { id: userId, display_name: LEGACY_USER_NAMES.get(userId) || "사용자" }, ...user }))
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 3)
-      .map((user) => `<span>${profileNameForDisplay(user.profile)} ${fmtCount(user.count)} · ${fmtWon(user.revenue)}</span>`)
-      .join("");
-    const detailRows = [...(row.detailRoutes || new Map()).entries()].sort((a, b) => a[0].localeCompare(b[0]));
-    const detailMarkup = detailRows.length
-      ? `<div class="admin-route-details">${detailRows.map(([route, count]) => `<span>${formatDetailRouteCount(route, count, rawDetails.cancellationByRoute.get(route) || 0)}</span>`).join("")}</div>`
-      : "";
-    return `<div class="admin-route-card">
-      <div class="admin-route-head">
-        <strong>${formatRouteLabel(row.route)}</strong>
-        <span>${fmtWon(row.revenue)}</span>
-      </div>
-      <div class="admin-route-metrics">
-        <span>배송 ${fmtCount(row.count)}</span>
-        <span>평균 ${fmtWon(avgUnit)}</span>
-        ${row.automaticCount ? `<span>앱 자동 ${fmtCount(row.automaticCount)}</span>` : ""}
-      </div>
-      ${detailMarkup}
-      <div class="admin-route-users">${users || "<span>사용자 기록 없음</span>"}</div>
-    </div>`;
-  }).join("") : `<div class="daily-card"><span>선택한 정산기간 라우트 기록이 없습니다.</span></div>`;
 }
 function normalizeBundleRows(rows) {
   return (rows || [])
@@ -4991,13 +4734,6 @@ function moveStatsMonth(amount) {
   state.statsMonth = date.getMonth() + 1;
   renderStats();
 }
-function moveAdminMonth(amount) {
-  const date = new Date(state.adminYear, state.adminMonth - 1 + amount, 1);
-  state.adminYear = date.getFullYear();
-  state.adminMonth = date.getMonth() + 1;
-  renderAdminDashboard();
-}
-
 function routesFromCell(value) {
   const clean = String(value || "").toUpperCase();
   if (/휴무|OFF/.test(clean)) return null;
@@ -5284,105 +5020,32 @@ async function runSettlementOcr() {
 }
 
 async function renderAdminProfiles() {
-  if (!el.adminProfiles || state.profile?.role !== "admin") return;
-  if (!state.db) {
-    el.adminProfiles.innerHTML = `<div class="daily-card"><span>DB 연결 후 확인할 수 있습니다.</span></div>`;
-    return;
-  }
-  const { data, error } = await state.db.from(TABLES.profiles).select("*").order("created_at", { ascending: false });
-  if (error) {
-    el.adminProfiles.innerHTML = `<p class="error-text">${error.message}</p>`;
-    return;
-  }
-  const profiles = [...(data || [])].sort((a, b) => {
-    const ar = isDeleteRequestedProfile(a) ? 1 : 0;
-    const br = isDeleteRequestedProfile(b) ? 1 : 0;
-    if (ar !== br) return br - ar;
-    return String(b.created_at || "").localeCompare(String(a.created_at || ""));
-  });
-  el.adminProfiles.innerHTML = profiles.map((profile) => {
-    const name = profileNameForDisplay(profile);
-    const fixedRouteText = (profile.fixed_routes || []).join(", ");
-    const goalAmount = toNum(profile.goal_amount) || GOAL;
-    const roleLabel = profile.role === "admin" ? "관리자" : "기사";
-    const deleteRequested = isDeleteRequestedProfile(profile);
-    const canDelete = profile.id !== currentUserId();
-    return `<div class="admin-card${deleteRequested ? " is-delete-request" : ""}" data-id="${escapeAttr(profile.id)}">
-    <div class="admin-profile-head">
-      <div>
-        <strong>${escapeAttr(name)}</strong>
-        <span class="hint">${escapeAttr(profile.email || "")}</span>
-      </div>
-      <span class="admin-status-pill">${deleteRequested ? "탈퇴요청" : statusLabel(profile.status)}</span>
-    </div>
-    <div class="admin-meta-grid">
-      <span>역할 <b>${roleLabel}</b></span>
-      <span>기사유형 <b>${driverTypeLabel(profile.driver_type)}</b></span>
-      <span>월목표 <b>${fmtWon(goalAmount)}</b></span>
-      <span>가입 <b>${formatDateTimeShort(profile.created_at)}</b></span>
-      <span>수정 <b>${formatDateTimeShort(profile.updated_at)}</b></span>
-      <span class="admin-id-line">ID <b>${escapeAttr(profile.id || "-")}</b></span>
-    </div>
-    <label class="admin-route-field">
-      <span>표시 이름</span>
-      <input data-field="display_name" type="text" placeholder="이름" value="${escapeAttr(name)}" />
-    </label>
-    <div class="admin-card-row">
-      <select data-field="status"><option value="pending"${profile.status === "pending" ? " selected" : ""}>대기</option><option value="approved"${profile.status === "approved" ? " selected" : ""}>승인</option><option value="blocked"${profile.status === "blocked" ? " selected" : ""}>차단</option></select>
-      <select data-field="driver_type"><option value="backup"${profile.driver_type === "backup" ? " selected" : ""}>백업</option><option value="fixed"${profile.driver_type === "fixed" ? " selected" : ""}>고정</option></select>
-      <button class="secondary-btn" data-action="save-admin">저장</button>
-    </div>
-    <label class="admin-route-field">
-      <span>월 목표</span>
-      <input data-field="goal_amount" type="text" inputmode="numeric" placeholder="6,000,000" value="${escapeAttr(goalAmount.toLocaleString("ko-KR"))}" />
-    </label>
-    <label class="admin-route-field">
-      <span>고정기사 라우트</span>
-      <input data-field="fixed_routes" type="text" placeholder="예: 322A, 322B" value="${escapeAttr(fixedRouteText)}" />
-    </label>
-    ${canDelete ? `<button class="secondary-btn danger admin-delete-btn" data-action="delete-admin" type="button">프로필 삭제 · 자동 원장 보존</button>` : `<p class="hint">현재 로그인한 관리자 계정은 여기서 삭제할 수 없습니다.</p>`}
-    <p class="hint">기사 유형을 고정으로 저장하면 해당 기사는 이 라우트만 기록 화면과 단가 관리에 표시됩니다.</p>
-  </div>`;
-  }).join("");
+  if (!el.adminProfiles || state.profile?.role !== "admin" || !state.db) return;
+  const context = captureAccountContext();
+  el.adminProfiles.textContent = "가입 정보를 불러오고 있습니다.";
+  const { data, error } = await state.db.rpc("quickflex_list_admin_members");
+  if (!isAccountContextCurrent(context)) return;
+  if (error) { el.adminProfiles.textContent = `가입 정보를 불러오지 못했습니다. ${error.message}`; return; }
+  el.adminProfiles.innerHTML = (data || []).filter((profile) => profile.id !== context.userId).map((profile) => `<div class="admin-card" data-id="${escapeAttr(profile.id)}">
+    <div class="admin-profile-head"><strong>${escapeAttr(profileNameForDisplay(profile))}</strong><span class="admin-status-pill">${profile.deletion_requested_at ? "탈퇴 요청" : statusLabel(profile.status)}</span></div>
+    <div class="admin-card-row"><select data-field="status" aria-label="가입 승인 상태"><option value="pending"${profile.status === "pending" ? " selected" : ""}>대기</option><option value="approved"${profile.status === "approved" ? " selected" : ""}>승인</option><option value="blocked"${profile.status === "blocked" ? " selected" : ""}>차단</option></select><select data-field="driver_type" aria-label="기사 유형"><option value="backup"${profile.driver_type === "backup" ? " selected" : ""}>백업</option><option value="fixed"${profile.driver_type === "fixed" ? " selected" : ""}>고정</option></select><button class="secondary-btn" data-action="save-admin" type="button">저장</button></div>
+    <label class="admin-route-field"><span>고정 구역</span><input data-field="fixed_routes" value="${escapeAttr((profile.fixed_routes || []).join(", "))}" placeholder="예: 322A, 322B" /></label>
+  </div>`).join("") || '<p class="hint">표시할 가입 요청이 없습니다.</p>';
 }
 async function saveAdminProfile(card) {
-  const id = card.dataset.id;
-  const status = card.querySelector('[data-field="status"]').value;
+  const context = captureAccountContext();
+  if (!isAccountContextCurrent(context) || state.profile?.role !== "admin") return;
   const driverType = card.querySelector('[data-field="driver_type"]').value;
-  const fixedRoutes = expandRouteText(card.querySelector('[data-field="fixed_routes"]')?.value || "");
-  const displayName = card.querySelector('[data-field="display_name"]')?.value.trim() || "사용자";
-  const goalAmount = parseInt((card.querySelector('[data-field="goal_amount"]')?.value || "").replace(/,/g, ""), 10) || GOAL;
-  const { error } = await state.db.from(TABLES.profiles).update({
-    display_name: displayName,
-    status,
-    driver_type: driverType,
-    fixed_routes: driverType === "fixed" ? fixedRoutes : [],
-    goal_amount: goalAmount,
-    updated_at: new Date().toISOString(),
-  }).eq("id", id);
+  const { error } = await state.db.rpc("quickflex_update_admin_member", {
+    p_member_id: card.dataset.id,
+    p_status: card.querySelector('[data-field="status"]').value,
+    p_driver_type: driverType,
+    p_fixed_routes: driverType === "fixed" ? expandRouteText(card.querySelector('[data-field="fixed_routes"]').value) : [],
+  });
+  if (!isAccountContextCurrent(context)) return;
   if (error) throw error;
-  toast("사용자 정보를 저장했습니다.", "success");
-  renderAdminDashboard();
-}
-async function deleteAdminProfile(card) {
-  const id = card?.dataset?.id || "";
-  if (!id) return;
-  if (id === currentUserId()) return toast("현재 로그인한 관리자 계정은 삭제할 수 없습니다.", "error");
-  const name = card.querySelector(".admin-profile-head strong")?.textContent || "사용자";
-  if (!window.confirm(`${name} 프로필과 수동 매출·단가·저장 서명을 삭제할까요?\n\n앱 자동 마감 원장, 점검 기록, Supabase Auth 로그인 계정은 삭제하지 않고 보존합니다.`)) return;
-  if (!window.confirm("프로필과 수동 데이터(매출·단가·저장 서명)만 삭제합니다. 자동 마감 원장은 계속 통계에 표시됩니다. 진행할까요?")) return;
-  const { error: itemError } = await state.db.from(TABLES.items).delete().eq("user_id", id);
-  if (itemError) throw itemError;
-  const { error: dayError } = await state.db.from(TABLES.days).delete().eq("user_id", id);
-  if (dayError) throw dayError;
-  const { error: rateError } = await state.db.from(TABLES.rates).delete().eq("user_id", id);
-  if (rateError) throw rateError;
-  const { error: signatureError } = await state.db.from(TABLES.inspectionSignatures).delete().eq("user_id", id);
-  if (signatureError) throw signatureError;
-  const { error: profileError } = await state.db.from(TABLES.profiles).delete().eq("id", id);
-  if (profileError) throw profileError;
-  toast("프로필과 수동 데이터(매출·단가·저장 서명)를 삭제했습니다. 앱 자동 마감 원장은 보존됩니다.", "success");
-  renderAdminDashboard();
+  toast("가입 정보를 저장했습니다.", "success");
+  await renderAdminProfiles();
 }
 
 function makeSalesOverrideRequestId() {
@@ -5654,6 +5317,8 @@ function bindEvents() {
     applyTheme,
     applyRateUpdateOffer,
     clearProfileSignature: () => profileSignaturePad?.clear(),
+    openSignatureEditor,
+    closeSignatureEditor,
     closeSheet,
     confirmOffWithExistingCounts,
     connectDb,
@@ -5662,7 +5327,6 @@ function bindEvents() {
     currentUserId,
     defaultEntryRows,
     deleteAdminBundleCard,
-    deleteAdminProfile,
     discardRecordDraft,
     draftWorkRoutes,
     driverName,
@@ -5676,7 +5340,6 @@ function bindEvents() {
     loadFromDb,
     login,
     logout,
-    moveAdminMonth,
     moveMonth,
     moveStatsMonth,
     normalizeRoute,
@@ -5687,7 +5350,8 @@ function bindEvents() {
     parseSettlementCsv,
     previewImageFile,
     refreshTotals,
-    renderAdminDashboard,
+    renderAdminProfiles,
+    renderAdminBundles,
     renderAll,
     renderDraftCards,
     renderEntryForm,
@@ -5705,6 +5369,7 @@ function bindEvents() {
     saveInspection,
     saveInspectionSignature,
     saveProfile,
+    saveWorkPreferences,
     scheduleSave,
     selectDate,
     selectToday,
@@ -5714,8 +5379,6 @@ function bindEvents() {
     setAuthMode,
     setOcrDraft,
     setCalendarRoutesPreference,
-    showChartTooltip,
-    showChartTooltipAtIndex,
     shouldShowCalendarRoutes,
     showView,
     signup,
@@ -5740,6 +5403,7 @@ function bindEvents() {
   bindStatsEvents(shared);
   bindAdminEvents(shared);
   bindSettingsEvents(shared);
+  bindFinanceEvents();
   bindOcrEvents(shared);
   el.openSalesOverride?.addEventListener("click", () => {
     startRecordDraft(state.selectedDate);
@@ -5803,5 +5467,82 @@ async function init() {
     }
   }
 }
+
+
+let expensesController = null;
+let exportsController = null;
+let calendarSyncController = null;
+
+function requireFinanceAccount(context = captureAccountContext()) {
+  if (!context.userId || !state.db || !isAccountContextCurrent(context)) throw new Error("로그인 상태가 변경되었습니다. 다시 열어 주세요.");
+  return context;
+}
+function ownExpenseService() {
+  const context = requireFinanceAccount();
+  const service = createExpenseService(state.db);
+  return Object.fromEntries(Object.entries(service).map(([name, action]) => [name, async (...args) => {
+    requireFinanceAccount(context);
+    const result = await action(...args);
+    requireFinanceAccount(context);
+    return result;
+  }]));
+}
+function ensureExpenseController() {
+  if (!expensesController) expensesController = createExpensesController({ host: $("expensesContent"), getService: ownExpenseService, toast });
+  return expensesController;
+}
+async function currentFinanceSnapshot(from, to) {
+  const context = requireFinanceAccount();
+  await ensurePendingSavesFlushed();
+  requireFinanceAccount(context);
+  const loaded = await loadFromDb(context);
+  requireFinanceAccount(context);
+  if (!loaded) throw new Error("최신 매출 자료를 확인하지 못했습니다. 다시 시도해 주세요.");
+  return { context, days: statsDailyRecords().filter((day) => day.dateKey >= from && day.dateKey <= to) };
+}
+async function getCalendarSyncDays(from, to) {
+  const { days } = await currentFinanceSnapshot(from, to);
+  return days.map((day) => ({ date: day.dateKey, off: day.off, worked: day.worked, hasSchedule: day.planned,
+    revenue: !day.off && (day.worked || hasEnteredCounts(state.entries[day.dateKey])) ? day.revenue : null,
+    routeLabel: (state.entries[day.dateKey]?.rows || []).map((row) => row.route).filter(Boolean).join(" "),
+    workShift: state.profile?.work_shift === "night" ? "night" : "day" }));
+}
+async function getExportInput({ from, to }) {
+  const { context, days } = await currentFinanceSnapshot(from, to);
+  const sales = days.filter((day) => day.worked && !day.off).map((day) => ({
+    date: day.dateKey, revenue: day.revenue, count: day.count,
+    deliveryRevenue: day.revenue - day.freshRevenue - day.backupRevenue,
+    freshRevenue: day.freshRevenue, backupRevenue: day.backupRevenue,
+    source: state.automaticSalesOverrides?.[day.dateKey] ? "매출 수정 적용" : "내 매출 기록",
+  }));
+  const expenses = await ownExpenseService().list({ from, to, includeDrafts: true });
+  requireFinanceAccount(context);
+  return { sales, expenses, businessInfo: { name: state.profile?.display_name || "", businessName: state.profile?.business_name || "" } };
+}
+function openRecordsExport() {
+  if (!exportsController) exportsController = createExportsController({ host: $("exportsContent"), getExportInput,
+    fetchReceipt: async (receipt) => {
+      const context = requireFinanceAccount();
+      const url = await ownExpenseService().receiptUrl(receipt);
+      requireFinanceAccount(context);
+      const response = await fetch(url, { cache: "no-store", credentials: "omit" });
+      if (!response.ok) throw new Error("증빙 파일을 내려받지 못했습니다.");
+      const blob = await response.blob();
+      requireFinanceAccount(context);
+      return blob;
+    } });
+  exportsController.open();
+}
+function bindFinanceEvents() {
+  document.querySelectorAll("[data-open-export]").forEach((button) => button.addEventListener("click", openRecordsExport));
+  document.querySelectorAll("[data-open-schedule]").forEach((button) => button.addEventListener("click", () => showView("schedule")));
+  document.querySelectorAll("[data-back-settings]").forEach((button) => button.addEventListener("click", () => showView("settings")));
+  document.querySelectorAll("[data-open-inspection]").forEach((button) => button.addEventListener("click", () => openInspection()));
+  $("calendarSyncSettings").addEventListener("toggle", () => {
+    if (!$("calendarSyncSettings").open || calendarSyncController) return;
+    calendarSyncController = mountCalendarSync({ host: $("calendarSyncContent"), db: state.db, getDays: getCalendarSyncDays, toast });
+  });
+}
+
 
 init();

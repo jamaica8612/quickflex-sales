@@ -160,14 +160,14 @@ test("saved theme is applied before CSS and synchronized with browser chrome and
   const stylesheetIndex = html.indexOf('<link rel="stylesheet"');
   assert.ok(bootstrap.index < stylesheetIndex, "theme bootstrap must precede the stylesheet");
 
-  const initialThemeStyle = inlineStyleContaining("#0A0E17");
+  const initialThemeStyle = inlineStyleContaining("var(--shell-bg");
   assert.ok(initialThemeStyle.index > bootstrap.index, "initial theme paint CSS must follow the saved-theme bootstrap");
   assert.ok(initialThemeStyle.index < stylesheetIndex, "initial theme paint CSS must precede the external stylesheet");
   for (const selector of ['html[data-theme="dark"]', 'body[data-theme="dark"]', 'html[data-theme="light"]', 'body[data-theme="light"]']) {
     assert.ok(initialThemeStyle.source.includes(selector), `initial theme paint CSS is missing ${selector}`);
   }
-  assert.match(initialThemeStyle.source, /html\[data-theme="dark"\][\s\S]*background\s*:\s*#0A0E17[\s\S]*color-scheme\s*:\s*dark/i);
-  assert.match(initialThemeStyle.source, /html\[data-theme="light"\][\s\S]*background\s*:\s*#EAECEF[\s\S]*color-scheme\s*:\s*light/i);
+  assert.match(initialThemeStyle.source, /html\[data-theme="dark"\][\s\S]*background\s*:\s*var\(--shell-bg, #101010\)[\s\S]*color-scheme\s*:\s*dark/i);
+  assert.match(initialThemeStyle.source, /html\[data-theme="light"\][\s\S]*background\s*:\s*var\(--shell-bg, #ECECEC\)[\s\S]*color-scheme\s*:\s*light/i);
 
   const runBootstrap = (stored = {}) => {
     const values = new Map(Object.entries(stored));
@@ -260,7 +260,6 @@ test("blocking overlays, forms, sheets and live regions keep accessible HTML str
   }
   assertAttributes("dbStatus", { role: "status", "aria-live": "polite" });
   assertAttributes("salesOverrideStatus", { role: "status", "aria-live": "polite", "aria-atomic": "true" });
-  assertAttributes("statsChartTooltip", { role: "status", "aria-live": "polite", hidden: true });
   assertAttributes("toast", { role: "status", "aria-live": "polite" });
 });
 
@@ -296,10 +295,10 @@ test("error announcements, signatures and rate controls expose separate accessib
   assert.match(toast, /setAttribute\("aria-atomic", "true"\)/);
 
   assertAttributes("profileSignatureCanvas", { role: "img", "aria-labelledby": "profileSignatureTitle", "aria-describedby": "profileSignatureHelp" });
-  assertAttributes("profileSignatureAlternative", { name: "profileSignatureAlternative", type: "checkbox" });
+  assertAttributes("openProfileSignature", { type: "button", "aria-haspopup": "dialog" });
+  assertAttributes("profileSignatureOverlay", { "aria-hidden": "true" });
   const saveSignature = extractFunctionDeclaration(main, "saveInspectionSignature");
-  assert.match(saveSignature, /profileSignatureAlternative\?\.checked/);
-  assert.match(saveSignature, /createAccessibleSignatureData/);
+  assert.doesNotMatch(saveSignature, /profileSignatureAlternative|createAccessibleSignatureData/);
   assert.match(saveSignature, /isValidSignatureData\(signatureData\)/);
   assert.match(saveSignature, /signature_data: signatureData/);
 
@@ -312,14 +311,11 @@ test("error announcements, signatures and rate controls expose separate accessib
   assert.match(renderRates, /querySelectorAll\("\.rate-delete"\)[\s\S]*event\.stopPropagation\(\)/);
 });
 
-test("stats canvas summaries, toggle state and disabled range navigation stay synchronized", () => {
+test("stats canvas text alternatives and disabled range navigation stay synchronized", () => {
   assertAttributes("statsChart", { role: "img", "aria-describedby": "statsChartSummary" });
-  assertAttributes("statsChartTooltip", { role: "status", "aria-live": "polite", hidden: true });
   assert.match(main, /canvas\.setAttribute\("aria-label", emptySummary\)[\s\S]*statsChartSummary\.textContent = emptySummary/);
-  assert.match(main, /canvas\.setAttribute\("aria-label", chartSummary\)[\s\S]*statsChartSummary\.textContent = `\$\{chartSummary\}/);
-  const syncStatsChartToggle = extractFunctionDeclaration(main, "syncStatsChartToggle");
-  assert.match(syncStatsChartToggle, /querySelectorAll\("button\[data-metric\]"\)/);
-  assert.match(syncStatsChartToggle, /setAttribute\("aria-pressed", String\(selected\)\)/);
+  assert.match(main, /canvas\.setAttribute\("aria-label", chartSummary\)/);
+  assert.match(main, /statsChartSummary\.textContent = chartSummary/);
 
   const syncStatsRangeButtons = extractFunctionDeclaration(main, "syncStatsRangeButtons");
   assert.match(syncStatsRangeButtons, /const navDisabled = state\.statsRangeMode !== "thisMonth"/);

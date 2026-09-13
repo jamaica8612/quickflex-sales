@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="ko">
   <head>
     <meta charset="utf-8" />
@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>퀵플렉스 매출관리</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=1.0.51" />
+    <link rel="manifest" href="./manifest.webmanifest?v=1.0.52" />
     <link rel="icon" href="./favicon-32.png?v=3" type="image/png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=3" />
     <script>
@@ -32,11 +32,14 @@
       })();
     </script>
     <style id="initialThemeStyles">
-      html[data-theme="dark"], body[data-theme="dark"] { background: #0A0E17; color-scheme: dark; }
-      html[data-theme="light"], body[data-theme="light"] { background: #EAECEF; color-scheme: light; }
+      html[data-theme="dark"], body[data-theme="dark"] { background: var(--shell-bg, #101010); color-scheme: dark; }
+      html[data-theme="light"], body[data-theme="light"] { background: var(--shell-bg, #ECECEC); color-scheme: light; }
     </style>
-    <link rel="stylesheet" href="./styles.css?v=1.0.51" />
-  </head>
+    <link rel="stylesheet" href="./styles.css?v=1.0.52" />
+  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.52" />
+<link rel="stylesheet" href="./styles/exports.css?v=1.0.52" />
+<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.52" />
+</head>
   <body>
     <script>document.body.dataset.theme = document.documentElement.dataset.theme;</script>
     <div class="app" id="app" data-view="home" data-driver-type="backup">
@@ -66,18 +69,17 @@
               <div><span>일평균</span><strong id="dailyAverage">0원</strong></div>
               <div><span>근무일</span><strong id="workDaysHome">0일</strong></div>
             </div>
+            <section class="inspection-entry-card" id="inspectionEntryCard">
+              <div class="inspection-entry-copy">
+                <span id="inspectionEntryEyebrow">일상점검</span>
+                <strong id="inspectionEntryTitle">운행 전 차량 상태를 확인해주세요</strong>
+                <small id="inspectionEntryStatus">아직 점검하지 않았습니다</small>
+                <small class="inspection-duty-label">운행 전 작성 의무</small>
+              </div>
+              <button id="openInspection" class="inspection-entry-button" type="button">점검하기</button>
+            </section>
           </div>
         </header>
-
-        <section class="inspection-entry-card" id="inspectionEntryCard">
-          <div class="inspection-entry-copy">
-            <span id="inspectionEntryEyebrow">일상점검</span>
-            <strong id="inspectionEntryTitle">운행 전 차량 상태를 확인해주세요</strong>
-            <small id="inspectionEntryStatus">아직 점검하지 않았습니다</small>
-            <small class="inspection-duty-label">운행 전 작성 의무</small>
-          </div>
-          <button id="openInspection" class="inspection-entry-button" type="button">점검하기</button>
-        </section>
 
         <main class="calendar-panel">
           <div class="calendar-toolbar">
@@ -85,10 +87,10 @@
             <strong id="monthTitle" aria-live="polite">-</strong>
             <button class="round-btn" id="nextMonth" aria-label="다음 달"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
             <button class="today-btn" id="todayButton">오늘</button>
-          </div>
-          <div class="mode-toggle" role="group" aria-label="달력 표시 기준">
-            <button class="mode-btn active" data-mode="amount" type="button" aria-pressed="true">매출</button>
-            <button class="mode-btn" data-mode="count" type="button" aria-pressed="false">건수</button>
+            <div class="mode-toggle" role="group" aria-label="달력 표시 기준">
+              <button class="mode-btn active" data-mode="amount" type="button" aria-pressed="true">매출</button>
+              <button class="mode-btn" data-mode="count" type="button" aria-pressed="false">건수</button>
+            </div>
           </div>
           <div class="week-head">
             <span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span>
@@ -241,46 +243,10 @@
       </section>
 
       <section class="view view-stats">
-        <header class="sub-header stats-sub">
-          <div class="sub-title left">
-            <strong id="statsReportTitle">정산 리포트</strong>
-            <span id="statsMonthTitle">이번 정산</span>
-            <em id="statsRange">-</em>
-          </div>
-          <button class="round-btn" id="statsPrevMonth" type="button" aria-label="이전 정산월" hidden><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
-          <button class="round-btn" id="statsNextMonth" type="button" aria-label="다음 정산월" hidden><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
+        <header class="sub-header stats-sub"><div class="sub-title left"><strong id="statsReportTitle">나의 정산</strong><span id="statsMonthTitle">이번 정산</span><em id="statsRange">-</em></div>
+          <button id="statsPrevMonth" hidden aria-label="이전 정산월"></button><button id="statsNextMonth" hidden aria-label="다음 정산월"></button>
         </header>
-        <main class="settings-body stats-report-body">
-          <section class="stats-summary-card stats-report-hero" aria-labelledby="statsHeroLabel">
-            <div class="stats-hero-heading">
-              <span class="ssc-label" id="statsHeroLabel">선택 기간 누적</span>
-              <strong class="ssc-range" id="statsSummaryRange">-</strong>
-            </div>
-            <strong class="stats-report-total" id="statsSummaryTotal">0원</strong>
-            <div class="stats-compare" id="statsComparison" aria-live="polite">
-              <span id="statsCompareLabel">지난 정산 동일 근무일수 대비</span>
-              <strong id="statsCompareValue">비교할 이전 기록 부족</strong>
-              <small id="statsCompareMeta">이번 정산과 같은 근무일수로 비교합니다.</small>
-            </div>
-            <dl class="stats-hero-support">
-              <div>
-                <dt>일평균 매출</dt>
-                <dd id="statsAverage">0원</dd>
-              </div>
-              <div>
-                <dt>근무일수</dt>
-                <dd id="statsWorkDays">0일</dd>
-              </div>
-            </dl>
-            <div class="ssc-meter" id="statsGoalMeter">
-              <div class="ssc-meter-bar"><span id="statsMeterFill"></span></div>
-              <div class="ssc-meter-foot">
-                <span id="statsMeterPct">0%</span>
-                <span id="statsMeterLabel">목표 미설정</span>
-              </div>
-            </div>
-          </section>
-
+        <main class="settings-body stats-report-body stats-driver-report">
           <section class="stats-range-control" aria-labelledby="statsRangeLabel">
             <div class="stats-range-heading">
               <h2 id="statsRangeLabel">조회 기간</h2>
@@ -306,59 +272,39 @@
             </div>
           </section>
 
-          <section class="stats-chart-card stats-report-section" aria-labelledby="statsTrendTitle">
-            <div class="stats-report-section-head">
-              <div>
-                <span>흐름</span>
-                <h2 id="statsTrendTitle">매출 추이</h2>
-              </div>
-              <div class="stats-chart-toggle" id="statsChartToggle" role="group" aria-label="그래프 지표">
-                <button type="button" data-metric="revenue" class="active" aria-pressed="true">매출</button>
-                <button type="button" data-metric="count" aria-pressed="false">물량</button>
-              </div>
-            </div>
-            <canvas id="statsChart" height="200" role="img" tabindex="0" aria-describedby="statsChartSummary"></canvas>
-            <p class="stats-chart-hint" id="statsChartSummary">그래프를 터치하거나 좌우 방향키로 상세 데이터를 확인하세요 · 점선은 평균</p>
-            <div class="stats-chart-tooltip" id="statsChartTooltip" role="status" aria-live="polite" hidden></div>
-            <div class="stats-empty-state" id="statsChartEmpty" hidden>
-              <strong>기록된 매출이 없습니다</strong>
-              <p>달력에서 업무 기록을 추가하면 추이를 확인할 수 있습니다.</p>
-              <button id="statsEmptyCalendarButton" class="secondary-btn" type="button">달력에서 기록 보기</button>
-            </div>
-          </section>
 
-          <section class="stats-report-section" aria-labelledby="statsRevenueTitle">
-            <div class="stats-report-section-head">
-              <div>
-                <span>수입 내역</span>
-                <h2 id="statsRevenueTitle">매출 구성</h2>
-              </div>
-              <strong class="stats-section-total" id="statsRevenueTotal">0원</strong>
-            </div>
-            <div id="revenueList" class="revenue-list"></div>
+          <section class="stats-summary-card stats-report-hero" aria-labelledby="statsHeroLabel">
+            <div class="stats-hero-heading"><span class="ssc-label" id="statsHeroLabel">이번 정산 누적</span><strong class="ssc-range" id="statsSummaryRange">-</strong></div>
+            <strong class="stats-outlook-value" id="statsOutlookValue">-</strong>
+            <p id="statsOutlookMessage" class="stats-outlook-message"></p>
+            <div id="statsOutlookPlan" class="stats-outlook-plan"></div>
+            <div class="ssc-meter" id="statsGoalMeter"><div class="ssc-meter-bar"><span id="statsMeterFill"></span></div><div class="ssc-meter-foot"><span id="statsMeterPct">0%</span><span id="statsMeterLabel">목표 미설정</span></div></div>
+            <dl class="stats-hero-support"><div><dt>근무일당 매출</dt><dd id="statsAverage">0원</dd></div><div><dt>기록된 근무</dt><dd id="statsWorkDays">0일</dd></div></dl>
           </section>
-
-          <section class="stats-report-section" aria-labelledby="statsRoutesTitle">
-            <div class="stats-report-section-head">
-              <div>
-                <span>배송 구역</span>
-                <h2 id="statsRoutesTitle">구역별</h2>
-              </div>
-            </div>
-            <div id="routeStats" class="route-stats"></div>
+          <section class="stats-report-section" id="statsChangeSection" aria-labelledby="statsChangeTitle">
+            <div class="stats-report-section-head"><div><span>지난 정산과 비교</span><h2 id="statsChangeTitle">같은 날수 일했을 때</h2></div></div>
+            <div class="stats-compare" id="statsComparison" aria-live="polite"><span id="statsCompareLabel"></span><strong id="statsCompareValue"></strong><small id="statsCompareMeta"></small></div>
+            <details id="statsDriverDisclosure" class="stats-disclosure"><summary>물량·단가·수당 비교</summary><div id="statsDrivers" class="stats-driver-grid"></div><p id="statsDriversNote" class="stats-reading-note"></p></details>
           </section>
-
-          <section class="stats-report-section" aria-labelledby="statsDailyTitle">
-            <div class="stats-report-section-head">
-              <div>
-                <span>근무 기록</span>
-                <h2 id="statsDailyTitle">날짜별 기록</h2>
-              </div>
-            </div>
-            <div id="dailyList" class="daily-list"></div>
+          <section class="stats-sparkline-card" aria-labelledby="statsTrendTitle">
+            <div class="stats-sparkline-head"><h2 id="statsTrendTitle">매출 흐름</h2><span id="statsChartChange" class="stats-sparkline-change"></span></div>
+            <canvas id="statsChart" height="112" role="img" aria-describedby="statsChartSummary"></canvas>
+            <div class="stats-sparkline-endpoints" id="statsChartEndpoints"></div>
+            <p class="stats-sparkline-description" id="statsChartSummary">근무 기록의 매출 흐름입니다. 휴무·미기록 날짜는 제외합니다.</p>
+            <p class="stats-sparkline-empty" id="statsChartEmpty" hidden>기록이 쌓이면 흐름이 표시됩니다.</p>
           </section>
-
+          <section class="stats-report-section" aria-labelledby="statsPatternsTitle">
+            <div class="stats-report-section-head"><div><span>내 매출 패턴</span><h2 id="statsPatternsTitle">보통 하루에 얼마나 벌었나</h2></div></div>
+            <div id="statsTypical" class="stats-typical"></div>
+            <div id="statsWeekdayPattern"><h3 id="statsWeekdayTitle" class="stats-pattern-title">요일별 근무일당 매출</h3><div id="weekdayStats" class="weekday-stats"></div><p class="stats-reading-note">요일마다 근무 조건이 다릅니다. 기록 일수가 적으면 참고로만 봐주세요.</p></div>
+            <details id="statsRouteDisclosure" class="stats-disclosure" hidden><summary id="statsRoutesTitle">구역 기록 자세히 보기</summary><p class="stats-reading-note">근무일당 배송 매출 · 백업수당·프레시백 제외. 묶음으로 기록한 구역은 균등 배분한 참고값입니다.</p><div id="routeStats" class="route-stats"></div></details>
+          </section>
+          <section class="stats-report-section" aria-labelledby="statsRevenueTitle"><div class="stats-report-section-head"><div><span>기록 확인</span><h2 id="statsRevenueTitle">정산 내역</h2></div></div>
+            <div id="revenueList" class="revenue-list"></div><div id="statsReview" class="stats-review"></div>
+            <details id="statsDailyDisclosure" class="stats-disclosure"><summary id="statsDailyTitle">날짜별 기록 보기</summary><div id="dailyList" class="daily-list"></div></details>
+          </section>
           <div class="stats-legacy-fields" hidden aria-hidden="true">
+            <span id="statsSummaryTotal">0원</span>
             <span id="statsOffDays">0일</span>
             <span id="statsCount">0건</span>
             <span id="statsAvgCount">0건</span>
@@ -368,6 +314,7 @@
             <div id="yearlyStats"></div>
             <div id="totalStats"></div>
           </div>
+
         </main>
       </section>
 
@@ -377,24 +324,29 @@
           <div class="sub-title left"><strong>설정</strong><span id="syncStatus">미연결</span></div>
           <button class="secondary-btn" id="logoutBtn">로그아웃</button>
         </header>
-        <main class="settings-body">
-          <section class="settings-section profile-settings-section">
-            <h2>내 정보</h2>
+        <main class="settings-body settings-index"><details class="settings-group "><summary><span><strong>내 정보</strong><small>이름 · 상호</small></span></summary><div class="settings-group-content"><section class="settings-section profile-settings-section">
             <div class="settings-field">
-              <label>이름</label>
+              <label for="profileDisplayName">이름</label>
               <input id="profileDisplayName" type="text" placeholder="이름" />
             </div>
             <div class="settings-field">
-              <label>상호</label>
+              <label for="profileBusinessName">상호</label>
               <input id="profileBusinessName" type="text" placeholder="일상점검표에 표시할 상호" />
             </div>
-            <div class="settings-field">
-              <label>차량번호</label>
-              <input id="profileVehicleNumber" type="text" placeholder="예: 부산80바1234" />
+
+
+
+            <button id="saveProfile" class="full-btn">내 정보 저장</button>
+          </section></div></details><details class="settings-group" id="monthlyGoalSettings"><summary><span><strong>월 매출 목표</strong><small>목표 금액 설정</small></span></summary><div class="settings-group-content"><section class="settings-section">
+            <div class="goal-row">
+              <label class="goal-label" for="goalAmountInput">목표 금액</label>
+              <input id="goalAmountInput" class="goal-input" type="text" inputmode="numeric" placeholder="6,000,000" autocomplete="off" />
+              <span class="goal-unit">원</span>
+              <button id="saveAppSettings" class="goal-save-btn">저장</button>
             </div>
-            <div class="settings-field">
-              <label>근무 시간대</label>
-              <div class="freshbag-toggle">
+          </section></div></details><details class="settings-group "><summary><span><strong>근무 · 단가</strong><small>근무표 · 시간대 · 구역별 단가</small></span></summary><div class="settings-group-content"><button class="settings-row" type="button" data-open-schedule><span>근무표 가져오기</span><em>이미지 · 직접 입력</em></button><section class="settings-section"><div class="settings-field">
+              <label id="workShiftLabel">근무 시간대</label>
+              <div class="freshbag-toggle" role="radiogroup" aria-labelledby="workShiftLabel">
                 <label class="mode-option">
                   <input type="radio" name="workShift" value="day" checked />
                   <span>주간<small>당일 근무표</small></span>
@@ -404,27 +356,123 @@
                   <span>야간<small>다음 날 근무표</small></span>
                 </label>
               </div>
-            </div>
-            <div class="settings-field fixed-only">
+            </div><div class="settings-field fixed-only">
               <label>고정 라우트</label>
               <div id="fixedRoutesText" class="readonly-value">-</div>
               <input id="fixedRoutesInput" type="hidden" />
+            </div></section><section class="settings-section settings-section--slim">
+            <div class="settings-field">
+              <label id="freshbagModeLabel">프레시백 입력 방식</label>
+              <div class="freshbag-toggle" role="radiogroup" aria-labelledby="freshbagModeLabel">
+                <label class="mode-option">
+                  <input type="radio" name="freshbagMode" value="single" checked />
+                  <span>단일<small>기본 100원</small></span>
+                </label>
+                <label class="mode-option">
+                  <input type="radio" name="freshbagMode" value="dual" />
+                  <span>단독·연계<small>단독 200 / 연계 100</small></span>
+                </label>
+              </div>
             </div>
-            <button id="saveProfile" class="full-btn">내 정보 저장</button>
-          </section>
-
-          <section class="settings-section signature-settings-section" id="signatureSettingsSection">
-            <h2 id="profileSignatureTitle">일상점검 서명</h2>
-            <p class="hint" id="profileSignatureHelp">손가락으로 서명하면 매일 점검 기록과 월간 출력물에 날짜별로 표시됩니다. 손글씨 입력이 어려우면 아래 전자서명 확인을 사용할 수 있습니다.</p>
-            <canvas id="profileSignatureCanvas" width="600" height="180" role="img" aria-labelledby="profileSignatureTitle" aria-describedby="profileSignatureHelp"></canvas>
-            <label class="inspection-confirm-row"><input id="profileSignatureAlternative" name="profileSignatureAlternative" type="checkbox" /><span>키보드 또는 화면읽기 사용으로 손글씨 서명이 어렵습니다. 내 이름으로 전자서명하는 데 동의합니다.</span></label>
-            <div class="signature-actions">
-              <button id="clearProfileSignature" class="secondary-btn" type="button">다시 쓰기</button>
-              <button id="saveProfileSignature" class="full-btn" type="button">서명 저장</button>
+          </section><section class="settings-section">
+            <h2>단가 관리</h2>
+            <div class="rate-editor">
+              <input id="rateRoute" type="text" placeholder="구역 (예: 322A)" autocapitalize="characters" />
+              <input id="rateUnit" type="number" min="0" inputmode="numeric" placeholder="단가" />
+              <button id="saveRate">저장</button>
             </div>
-          </section>
+            <div id="rateUpdateOffer" class="rate-update-offer hidden">
+              <div>
+                <strong>새 단가 업데이트</strong>
+                <p id="rateUpdateHint" class="hint"></p>
+              </div>
+              <button id="applyRateUpdate" class="secondary-btn" type="button">업데이트</button>
+            </div>
+            <div id="rateList" class="rate-list"></div>
+          </section></div></details><details class="settings-group "><summary><span><strong>차량 · 일상점검</strong><small>차량번호 · 서명 · 점검표</small></span></summary><div class="settings-group-content"><section class="settings-section"><div class="settings-field">
+              <label for="profileVehicleNumber">차량번호</label>
+              <input id="profileVehicleNumber" type="text" placeholder="예: 부산80바1234" />
+            </div><button class="secondary-btn" type="button" data-save-profile>차량번호 저장</button></section><section class="settings-section signature-settings-section" id="signatureSettingsSection">
+            <div><h2>일상점검 서명</h2><p class="hint">점검표에 사용할 서명을 등록하세요.</p></div>
+            <button id="openProfileSignature" class="secondary-btn" type="button" aria-haspopup="dialog">서명 등록 / 변경</button>
+          </section><button class="settings-row" type="button" data-open-inspection><span>일상점검표 열기</span><em>기록 · 출력</em></button></div></details><details class="settings-group " id="calendarSyncSettings"><summary><span><strong>캘린더 연동</strong><small>Google · 삼성 캘린더</small></span></summary><div class="settings-group-content"><div id="calendarSyncContent"></div></div></details><button class="settings-export-row settings-group" type="button" data-open-export><span><strong>자료 내보내기</strong><small>매출 · 지출 엑셀과 영수증</small></span><span aria-hidden="true">↗</span></button><details class="settings-group "><summary><span><strong>화면</strong><small>테마 · 달력 표시</small></span></summary><div class="settings-group-content"><section class="settings-section">
+            <div class="settings-field-label" id="themeLabel">테마</div>
+            <div class="theme-toggle" role="group" aria-labelledby="themeLabel">
+              <button type="button" data-theme-set="light" class="active" aria-pressed="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>
+                <span>라이트</span>
+              </button>
+              <button type="button" data-theme-set="dark" aria-pressed="false">
+                <svg width="18" height="18" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                <span>다크</span>
+              </button>
+            </div>
+          </section><section class="settings-section settings-section--slim">
+            <div class="settings-field">
+              <label>달력 라우트 표시</label>
+              <div class="calendar-route-toggle">
+                <label class="mode-option">
+                  <input type="radio" name="calendarRoutes" value="show" />
+                  <span>표시<small>라우트 보이기</small></span>
+                </label>
+                <label class="mode-option">
+                  <input type="radio" name="calendarRoutes" value="hide" />
+                  <span>숨김<small>매출만 보기</small></span>
+                </label>
+              </div>
+            </div>
+          </section></div></details><details class="settings-group "><summary><span><strong>계정 · 데이터</strong><small>새로고침 · 초기화 · 탈퇴</small></span></summary><div class="settings-group-content"><section class="settings-section">
+            <h2>데이터</h2>
+            <button class="settings-row" id="refreshApp" type="button"><span>앱 새로고침</span><em>최신 화면 불러오기</em></button>
+            <button class="settings-row" id="openDbSettings" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="dbSheet"><span>Supabase 연결</span><em id="dbStatusBadge">미연결</em></button>
+            <details class="settings-danger-disclosure"><summary>초기화 · 탈퇴</summary><div class="settings-row-pair">
+              <button class="settings-row danger" id="resetData">내 데이터 초기화</button>
+              <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
+            </div>
+</details>          </section></div></details><details class="settings-group admin-only hidden" id="operationSettings"><summary><span><strong>운영 관리</strong><small>가입 승인 · 공통 OCR 보정</small></span></summary><div class="settings-group-content"><details class="settings-group " id="memberSettings"><summary><span><strong>가입 승인</strong><small>승인 상태와 기사 유형</small></span></summary><div class="settings-group-content"><div id="adminProfiles" class="admin-list"></div></div></details><details class="settings-group " id="bundleSettings"><summary><span><strong>OCR 보정</strong><small>공통 구역 이름 보정</small></span></summary><div class="settings-group-content">
+            <section class="settings-section">
+              <h2>OCR 보정 묶음</h2>
+              <div class="settings-field">
+                <label>묶음 이름</label>
+                <input id="adminBundleLabel" type="text" placeholder="예: 319ABCD" />
+              </div>
+              <div class="settings-field">
+                <label>구역 코드</label>
+                <input id="adminBundleRoutes" type="text" placeholder="예: 319A, 319B, 319C, 319D" />
+              </div>
+              <button id="saveAdminBundle" class="full-btn">보정 항목 추가</button>
+              <details>
+                <summary>초안 한 번에 입력</summary>
+                <textarea id="adminBundleBulk" placeholder="319ABCD = 319A, 319B, 319C, 319D&#10;405AC410B = 405A, 405C, 410B"></textarea>
+                <button id="importAdminBundles" class="secondary-btn wide">초안 저장</button>
+              </details>
+            </section>
+            <div id="adminBundleList" class="admin-list"></div>
+          </div></details><details class="settings-group "><summary><span><strong>정산표 단가 계산</strong><small>내 정산표 이미지로 단가 확인</small></span></summary><div class="settings-group-content">
+            <section class="settings-section">
+              <h2>정산표 이미지 → 단가 계산</h2>
+              <div class="upload-row">
+                <label class="upload-btn"><input id="settlementImage" type="file" accept="image/*" />이미지 선택</label>
+                <button id="runSettlementOcr" class="secondary-btn">OCR 실행</button>
+              </div>
+              <p id="settlementStatus" class="hint">정산표 이미지를 올리면 Route별 배송건수와 금액을 읽어 단가 후보를 계산합니다.</p>
+              <div id="settlementPreview" class="image-preview"></div>
+              <details>
+                <summary>텍스트 직접 입력</summary>
+                <p class="hint text-example">
+                  예시<br />
+                  302C 250 243750<br />
+                  304C 42 38850
+                </p>
+                <textarea id="csvInput" placeholder="예시처럼 Route, 배송건수, 금액을 한 줄씩 입력"></textarea>
+                <button id="parseCsv" class="full-btn">단가 자동 계산</button>
+              </details>
+            </section>
+          </div></details></div></details><p class="app-version">퀵플렉스 매출관리 v1.0.52</p></main>
+      </section>
 
-          <section class="settings-section">
+      <section class="view view-expenses"><header class="sub-header"><div class="sub-title left"><strong>지출</strong><span>영수증부터 가볍게 기록하세요</span></div><button class="secondary-btn" type="button" data-open-export>내보내기</button></header><main id="expensesContent" class="expenses-body"></main></section>
+      <section class="view view-schedule"><header class="sub-header"><button class="round-btn" type="button" data-back-settings aria-label="설정으로">‹</button><div class="sub-title left"><strong>근무표 가져오기</strong><span>내 스케줄에 반영</span></div></header><main class="settings-body"><section class="settings-section">
             <h2>스케줄 가져오기</h2>
             <div class="upload-row">
               <label class="upload-btn"><input id="scheduleImage" type="file" accept="image/*" />이미지 선택</label>
@@ -446,189 +494,22 @@
               <textarea id="scheduleCsvInput" placeholder="예시처럼 날짜별 스케줄을 붙여넣기"></textarea>
               <button id="parseScheduleCsv" class="secondary-btn wide">텍스트로 반영</button>
             </details>
-          </section>
-
-          <section class="settings-section settings-section--slim">
-            <div class="settings-field">
-              <label>달력 라우트 표시</label>
-              <div class="calendar-route-toggle">
-                <label class="mode-option">
-                  <input type="radio" name="calendarRoutes" value="show" />
-                  <span>표시<small>라우트 보이기</small></span>
-                </label>
-                <label class="mode-option">
-                  <input type="radio" name="calendarRoutes" value="hide" />
-                  <span>숨김<small>매출만 보기</small></span>
-                </label>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-section settings-section--slim">
-            <div class="settings-field">
-              <label>프레시백 입력 방식</label>
-              <div class="freshbag-toggle">
-                <label class="mode-option">
-                  <input type="radio" name="freshbagMode" value="single" checked />
-                  <span>단일<small>기본 100원</small></span>
-                </label>
-                <label class="mode-option">
-                  <input type="radio" name="freshbagMode" value="dual" />
-                  <span>단독·연계<small>단독 200 / 연계 100</small></span>
-                </label>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-section">
-            <h2>화면</h2>
-            <div class="theme-toggle">
-              <button type="button" data-theme-set="light" class="active" aria-pressed="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>
-                <span>라이트</span>
-              </button>
-              <button type="button" data-theme-set="dark" aria-pressed="false">
-                <svg width="18" height="18" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-                <span>다크</span>
-              </button>
-            </div>
-          </section>
-
-          <section class="settings-section">
-            <h2>목표 설정</h2>
-            <div class="goal-row">
-              <span class="goal-label">월 목표</span>
-              <input id="goalAmountInput" class="goal-input" type="text" inputmode="numeric" placeholder="6,000,000" autocomplete="off" />
-              <span class="goal-unit">원</span>
-              <button id="saveAppSettings" class="goal-save-btn">저장</button>
-            </div>
-          </section>
-
-          <section class="settings-section">
-            <h2>단가 관리</h2>
-            <div class="rate-editor">
-              <input id="rateRoute" type="text" placeholder="구역 (예: 322A)" autocapitalize="characters" />
-              <input id="rateUnit" type="number" min="0" inputmode="numeric" placeholder="단가" />
-              <button id="saveRate">저장</button>
-            </div>
-            <div id="rateUpdateOffer" class="rate-update-offer hidden">
-              <div>
-                <strong>새 단가 업데이트</strong>
-                <p id="rateUpdateHint" class="hint"></p>
-              </div>
-              <button id="applyRateUpdate" class="secondary-btn" type="button">업데이트</button>
-            </div>
-            <div id="rateList" class="rate-list"></div>
-          </section>
-
-          <section class="settings-section">
-            <h2>데이터</h2>
-            <button class="settings-row" id="refreshApp" type="button"><span>앱 새로고침</span><em>최신 화면 불러오기</em></button>
-            <button class="settings-row" id="openDbSettings" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="dbSheet"><span>Supabase 연결</span><em id="dbStatusBadge">미연결</em></button>
-            <div class="settings-row-pair">
-              <button class="settings-row danger" id="resetData">내 데이터 초기화</button>
-              <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
-            </div>
-          </section>
-          <p class="app-version">퀵플렉스 매출관리 v1.0.51</p>
-        </main>
-      </section>
-
-      <section class="view view-admin admin-only hidden">
-        <header class="sub-header stats-sub">
-          <div class="sub-title left">
-            <span>관리자</span>
-            <strong id="adminMonthTitle">-</strong>
-            <em id="adminRange">-</em>
-          </div>
-          <button class="round-btn" id="adminPrevMonth" type="button" aria-label="이전 정산월"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
-          <button class="round-btn" id="adminNextMonth" type="button" aria-label="다음 정산월"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
-        </header>
-        <main class="settings-body">
-          <div class="stats-tabs admin-tabs" role="tablist" aria-label="관리 상세">
-            <button class="stats-tab active" id="adminTabSummary" data-admin-tab="summary" type="button" role="tab" aria-controls="adminPanelSummary" aria-selected="true">요약</button>
-            <button class="stats-tab" id="adminTabRoutes" data-admin-tab="routes" type="button" role="tab" aria-controls="adminPanelRoutes" aria-selected="false">라우트</button>
-            <button class="stats-tab" id="adminTabUsers" data-admin-tab="users" type="button" role="tab" aria-controls="adminPanelUsers" aria-selected="false">사용자</button>
-            <button class="stats-tab" id="adminTabSettlement" data-admin-tab="settlement" type="button" role="tab" aria-controls="adminPanelSettlement" aria-selected="false">정산표</button>
-            <button class="stats-tab" id="adminTabBundles" data-admin-tab="bundles" type="button" role="tab" aria-controls="adminPanelBundles" aria-selected="false">OCR보정</button>
-          </div>
-
-          <section class="admin-panel active" id="adminPanelSummary" data-admin-panel="summary" role="tabpanel" aria-labelledby="adminTabSummary">
-            <section id="adminUsageSummary" class="admin-usage-summary" aria-label="최근 30일 통계 화면 사용 요약">
-              <div class="daily-card"><span>사용 현황을 불러오는 중입니다.</span></div>
-            </section>
-            <div id="adminRevenueList" class="admin-revenue-list"></div>
-          </section>
-
-          <section class="admin-panel" id="adminPanelRoutes" data-admin-panel="routes" role="tabpanel" aria-labelledby="adminTabRoutes" hidden>
-            <div id="adminRouteList" class="admin-route-list"></div>
-          </section>
-
-          <section class="admin-panel" id="adminPanelUsers" data-admin-panel="users" role="tabpanel" aria-labelledby="adminTabUsers" hidden>
-            <div id="adminProfiles" class="admin-list"></div>
-          </section>
-
-          <section class="admin-panel" id="adminPanelBundles" data-admin-panel="bundles" role="tabpanel" aria-labelledby="adminTabBundles" hidden>
-            <section class="settings-section">
-              <h2>OCR 보정 묶음</h2>
-              <div class="settings-field">
-                <label>묶음 이름</label>
-                <input id="adminBundleLabel" type="text" placeholder="예: 319ABCD" />
-              </div>
-              <div class="settings-field">
-                <label>구역 코드</label>
-                <input id="adminBundleRoutes" type="text" placeholder="예: 319A, 319B, 319C, 319D" />
-              </div>
-              <button id="saveAdminBundle" class="full-btn">보정 항목 추가</button>
-              <details>
-                <summary>초안 한 번에 입력</summary>
-                <textarea id="adminBundleBulk" placeholder="319ABCD = 319A, 319B, 319C, 319D&#10;405AC410B = 405A, 405C, 410B"></textarea>
-                <button id="importAdminBundles" class="secondary-btn wide">초안 저장</button>
-              </details>
-            </section>
-            <div id="adminBundleList" class="admin-list"></div>
-          </section>
-
-          <section class="admin-panel" id="adminPanelSettlement" data-admin-panel="settlement" role="tabpanel" aria-labelledby="adminTabSettlement" hidden>
-            <section class="settings-section">
-              <h2>정산표 이미지 → 단가 계산</h2>
-              <div class="upload-row">
-                <label class="upload-btn"><input id="settlementImage" type="file" accept="image/*" />이미지 선택</label>
-                <button id="runSettlementOcr" class="secondary-btn">OCR 실행</button>
-              </div>
-              <p id="settlementStatus" class="hint">정산표 이미지를 올리면 Route별 배송건수와 금액을 읽어 단가 후보를 계산합니다.</p>
-              <div id="settlementPreview" class="image-preview"></div>
-              <details>
-                <summary>텍스트 직접 입력</summary>
-                <p class="hint text-example">
-                  예시<br />
-                  302C 250 243750<br />
-                  304C 42 38850
-                </p>
-                <textarea id="csvInput" placeholder="예시처럼 Route, 배송건수, 금액을 한 줄씩 입력"></textarea>
-                <button id="parseCsv" class="full-btn">단가 자동 계산</button>
-              </details>
-            </section>
-          </section>
-        </main>
-      </section>
+          </section></main></section>
+      <div id="exportsContent"></div>
 
       <nav class="bottom-nav" aria-label="주요 화면">
         <button class="nav-tab active" data-view="home" type="button" aria-current="page">
-          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></svg>
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10.5h18"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M7.5 14.5h3"/><path d="M7.5 17.5h9"/></svg>
           <span>달력</span>
         </button>
         <button class="nav-tab" data-view="measurement" type="button">
-          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V9"/><path d="M9 19V5"/><path d="M14 19v-7"/><path d="M19 19V3"/></svg>
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.6 18a9.5 9.5 0 1 1 16.8 0"/><path d="M12 15.2l4.2-4.6"/><circle cx="12" cy="15.6" r="1.5" fill="currentColor" stroke="none"/></svg>
           <span>측정</span>
         </button>
+        <button class="nav-tab" data-view="expenses" type="button"><svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/><path d="M9 7h6M9 11h6M9 15h3"/></svg><span>지출</span></button>
         <button class="nav-tab" data-view="stats" type="button">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           <span>통계</span>
-        </button>
-        <button class="nav-tab admin-only hidden" data-view="admin" type="button">
-          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg>
-          <span>관리</span>
         </button>
         <button class="nav-tab" data-view="settings" type="button">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
@@ -713,6 +594,16 @@
         </div>
       </div>
 
+      <div class="overlay signature-overlay" id="profileSignatureOverlay" aria-hidden="true" inert>
+        <section class="modal-card signature-editor" role="dialog" aria-modal="true" aria-labelledby="profileSignatureTitle" aria-describedby="profileSignatureHelp" tabindex="-1">
+          <div class="signature-editor-heading"><h2 id="profileSignatureTitle">손글씨 서명</h2><button id="closeProfileSignature" class="secondary-btn" type="button">닫기</button></div>
+          <p class="hint" id="profileSignatureHelp">아래 흰 공간에 손가락이나 펜으로 크게 서명해 주세요. 저장하면 다음 점검부터 사용됩니다.</p>
+          <canvas id="profileSignatureCanvas" width="900" height="600" role="img" aria-labelledby="profileSignatureTitle" aria-describedby="profileSignatureHelp"></canvas>
+          <p id="profileSignatureStatus" class="hint" role="status" aria-live="polite"></p>
+          <div class="signature-actions"><button id="clearProfileSignature" class="secondary-btn" type="button">다시 쓰기</button><button id="saveProfileSignature" class="full-btn" type="button">서명 저장</button></div>
+        </section>
+      </div>
+
       <div class="sheet-overlay" id="dbOverlay" aria-hidden="true"></div>
       <div class="bottom-sheet" id="dbSheet" role="dialog" aria-modal="true" aria-labelledby="dbSheetTitle" aria-hidden="true" tabindex="-1" inert>
         <div class="sheet-handle" aria-hidden="true"></div>
@@ -746,8 +637,40 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.51"></script>
+    <script type="module" src="./src/main.js?v=1.0.52"></script>
     <script>
+      // 로컬 디자인 비교용. 배포 화면에는 비교 도구를 표시하지 않는다.
+      (function () {
+        if (!["localhost", "127.0.0.1", "::1"].includes(location.hostname)) return;
+        var params = new URLSearchParams(location.search);
+        var choices = {original: "원본", mono: "블랙·화이트", blue: "소프트 블루", mint: "페일 민트", ink: "잉크 블랙", espresso: "에스프레소", midnight: "미드나이트", plum: "딥 플럼"};
+        var pick = params.get("dark");
+        if (!(pick in choices) && !params.has("palette-preview")) return;
+        var bar = document.createElement("div");
+        bar.className = "palette-preview";
+        bar.setAttribute("role", "group");
+        bar.setAttribute("aria-label", "다크 배경 비교");
+        var label = document.createElement("span");
+        label.textContent = "배경 비교";
+        bar.append(label);
+        function select(value) {
+          [document.documentElement, document.body].forEach(function (node) {
+            if (value === "original") node.removeAttribute("data-dark");
+            else node.setAttribute("data-dark", value);
+          });
+          bar.querySelectorAll("button").forEach(function (button) { button.setAttribute("aria-pressed", String(button.dataset.palette === value)); });
+        }
+        Object.keys(choices).forEach(function (value) {
+          var button = document.createElement("button");
+          button.type = "button";
+          button.textContent = choices[value];
+          button.dataset.palette = value;
+          button.addEventListener("click", function () { select(value); });
+          bar.append(button);
+        });
+        document.getElementById("app").prepend(bar);
+        select(pick in choices ? pick : "original");
+      })();
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
       }

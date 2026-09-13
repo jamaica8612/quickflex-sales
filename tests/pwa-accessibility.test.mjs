@@ -15,7 +15,7 @@ test("blocking overlays and the DB sheet expose modal semantics and start inert"
   assert.ok((html.match(/role="dialog" aria-modal="true" aria-labelledby=/g) || []).length >= 4);
   assert.match(html, /id="dbSheet"[^>]*role="dialog"[^>]*aria-modal="true"[^>]*aria-hidden="true"[^>]*inert/);
   assert.match(main, /function bindModalAccessibility\(\)[\s\S]*event\.key !== "Tab"[\s\S]*!layer\.contains\(document\.activeElement\)/);
-  assert.match(main, /return \[el\.updateNoticeOverlay, el\.salesOverrideOverlay, el\.pendingOverlay, el\.authOverlay, el\.setupOverlay, el\.dbSheet\]/);
+  assert.match(main, /return \[el\.updateNoticeOverlay, el\.salesOverrideOverlay, el\.pendingOverlay, el\.authOverlay, el\.setupOverlay, el\.profileSignatureOverlay, el\.dbSheet\]/);
   assert.match(main, /function closeSheet\(\)[\s\S]*updateModalLayer\(el\.dbSheet, false\)/);
   assert.match(main, /showDeploymentConfigError\(\)[\s\S]*updateModalLayer\(el\.setupOverlay, true/);
 });
@@ -35,7 +35,8 @@ test("controls publish their visual selection state to assistive technology", ()
   assert.match(main, /inspection-choice[\s\S]*aria-pressed=/);
   assert.match(stats, /setAttribute\("aria-selected"/);
   assert.match(stats, /panel\.hidden = !selected/);
-  assert.match(admin, /\["ArrowLeft", "ArrowRight", "Home", "End"\]/);
+  assert.match(admin, /memberSettings[\s\S]*?renderAdminProfiles/);
+  assert.match(admin, /bundleSettings[\s\S]*?renderAdminBundles/);
   assert.match(main, /button\.disabled = navDisabled/);
   assert.match(main, /setAttribute\("aria-current", "page"\)/);
 });
@@ -46,12 +47,12 @@ test("toasts announce errors assertively for long enough to read", () => {
   assert.match(main, /isError \? 5500 : 3200/);
 });
 
-test("canvas content has text alternatives and signature has a keyboard path", () => {
+test("canvas content has text alternatives and handwritten editor has labelled controls", () => {
   assert.match(html, /id="statsChart"[^>]*role="img"[^>]*aria-describedby="statsChartSummary"/);
   assert.match(main, /canvas\.setAttribute\("aria-label", chartSummary\)/);
-  assert.match(html, /id="profileSignatureAlternative"[^>]*type="checkbox"/);
-  assert.match(main, /createAccessibleSignatureData/);
-  assert.match(main, /const signatureData = useAccessibleAlternative\s*\? createAccessibleSignatureData/);
+  assert.match(html, /id="openProfileSignature"[^>]*aria-haspopup="dialog"/);
+  assert.match(html, /id="closeProfileSignature"/);
+  assert.doesNotMatch(main, /createAccessibleSignatureData/);
   assert.match(main, /signature_data: signatureData/);
 });
 

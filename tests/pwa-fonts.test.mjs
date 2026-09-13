@@ -8,16 +8,14 @@ const intro = read("intro.html");
 const main = read("src/main.js");
 const worker = read("sw.js");
 
-test("PWA restores Pretendard UI and Wanted Sans amounts without Outfit", () => {
+test("PWA follows the documented font system and preserves legacy intro fonts", () => {
   for (const source of [css, intro, main, worker]) assert.doesNotMatch(source, /Outfit/);
-  assert.match(css, /--font-ui:\s*"Pretendard Variable", Pretendard,/);
-  assert.match(css, /--font-numeric:\s*var\(--font-ui\);/);
-  assert.match(css, /--font-amount:\s*"Wanted Sans Variable", var\(--font-ui\);/);
+  assert.match(css, /--font-ui:\s*"IBM Plex Sans KR",/);
+  assert.match(css, /--font-numeric:\s*"Archivo",/);
+  assert.match(css, /--font-amount:\s*"Archivo",/);
+  assert.match(css, /--font-code:\s*"JetBrains Mono",/);
   assert.match(intro, /--font-ui:\s*"Pretendard Variable", Pretendard,/);
   assert.match(intro, /--font-numeric:\s*"Wanted Sans Variable", "Pretendard Variable", Pretendard,/);
-  for (const size of [9, 10]) {
-    assert.ok(main.includes(`ctx.font = "${size}px 'Pretendard Variable', Pretendard, system-ui, sans-serif";`));
-  }
 });
 
 test("restored fonts remain bundled in the new offline shell", () => {
