@@ -10,6 +10,7 @@ const migration = readFileSync(
   "utf8",
 );
 const schema = readFileSync(new URL("../supabase-schema.sql", import.meta.url), "utf8");
+const privacyMigration = readFileSync(new URL("../supabase/migrations/20260913030523_expense_privacy_and_receipts.sql", import.meta.url), "utf8");
 const usageSource = readFileSync(new URL("../src/services/usage.js", import.meta.url), "utf8");
 const usage = await import(`data:text/javascript;base64,${Buffer.from(usageSource).toString("base64")}`);
 
@@ -95,6 +96,13 @@ test("only the private summary implementation elevates privileges and it checks 
     migration,
     /having count\(distinct pg_catalog\.date_trunc\([\s\S]*?'week'[\s\S]*?event\.created_at at time zone 'Asia\/Seoul'[\s\S]*?\)\) >= 2/,
   );
+});
+
+test("administrator member access uses narrow RPCs instead of raw profile or sales reads", () => {
+  assert.match(privacyMigration, /create or replace function public\.quickflex_list_admin_members\(\)[\s\S]*?security definer[\s\S]*?quickflex_is_admin\(\)/);
+  assert.match(privacyMigration, /create or replace function public\.quickflex_update_admin_member\([\s\S]*?p_fixed_routes text\[\][\s\S]*?quickflex_is_admin\(\)/);
+  assert.match(privacyMigration, /create policy "quickflex profiles select own"[\s\S]*?id = \(select auth\.uid\(\)\)/);
+  assert.doesNotMatch(privacyMigration, /create policy "quickflex work results select own or admin"/);
 });
 
 test("retention uses a stable named cron.schedule job and never modifies cron.job directly", () => {

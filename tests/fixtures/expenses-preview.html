@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>QuickFlex 지출 UI fixture</title>
+  <link rel="stylesheet" href="../../styles.css">
+  <link rel="stylesheet" href="../../styles/expenses.css">
+  <style>
+    .fixture-bar{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line);font-family:var(--font-ui)}
+    .fixture-bar button{min-height:40px;padding:0 13px;border-radius:12px;background:var(--panel2);color:var(--text);border:1px solid var(--line);font-weight:600}
+    .fixture-bar strong{margin-right:auto}.fixture-state{margin:0;padding:10px 14px;max-height:150px;overflow:auto;background:var(--panel2);color:var(--text);font:12px/1.5 var(--font-code);white-space:pre-wrap}
+    .fixture-toast{min-height:22px;margin:0;padding:5px 14px;color:var(--muted);font:12px/1.5 var(--font-ui)}
+    .fixture-shell{width:min(100%,620px);min-height:100dvh;margin:auto;background:var(--bg)}
+  </style>
+</head>
+<body>
+  <div class="fixture-shell">
+    <div class="fixture-bar" aria-label="Fixture 도구">
+      <strong>지출 UI · <span data-account>계정 A</span></strong>
+      <button type="button" data-theme="light">Light</button>
+      <button type="button" data-theme="dark">Dark</button>
+      <button type="button" data-switch>계정 전환</button>
+      <button type="button" data-empty>초기 빈 상태</button>
+    </div>
+    <p class="fixture-toast" data-toast role="status"></p>
+    <pre class="fixture-state" data-state aria-label="최근 fake service 호출"></pre>
+    <div class="app" data-view="expenses">
+      <section class="view view-expenses">
+        <header class="sub-header"><div class="sub-title left"><strong>지출</strong><span>영수증부터 가볍게 기록하세요</span></div></header>
+        <main class="expenses-body" data-expenses-host></main>
+      </section>
+    </div>
+  </div>
+  <script type="module">
+    import { createExpensesController } from "../../src/ui/expenses.js";
+
+    const accounts = new Map([["account-a", new Map()], ["account-b", new Map()]]);
+    const calls = { list: 0, save: 0, addReceipt: 0, adjust: 0, setStatus: 0, cleanupOrphan: 0, receiptUrl: 0 };
+    const previewUrls = new Set();
+    let activeAccount = "account-a";
+
+    const clone = (value) => structuredClone(value);
+    const today = () => {
+      const date = new Date();
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    };
+    const now = () => new Date().toISOString();
+    const storeFor = (account) => accounts.get(account);
+    const touch = (method, account, detail = "") => {
+      calls[method] += 1;
+      renderState(method, account, detail);
+    };
+    function renderState(method = "ready", account = activeAccount, detail = "") {
+      const rows = [...storeFor(activeAccount).values()];
+      document.querySelector("[data-state]").textContent = JSON.stringify({
+        activeAccount,
+        lastCall: { method, account, detail },
+        counts: calls,
+        rows: rows.map(({ receipts, adjustments, ...row }) => ({
+          ...row,
+          receipts: receipts.length,
+          adjustments: adjustments.map(({ kind, amount }) => ({ kind, amount })),
+        })),
+      }, null, 2);
+    }
+
+    function createMemoryExpenseService(account) {
+      const store = storeFor(account);
+      const assertAccount = () => {
+        if (account !== activeAccount) throw new Error("계정이 전환되어 요청을 중단했습니다.");
+      };
+      const get = (id) => {
+        const row = store.get(id);
+        if (!row) throw new Error("지출을 찾을 수 없습니다.");
+        return row;
+      };
+      return {
+        async list({ from, to, includeDrafts = true, includeTrashed = false } = {}) {
+          assertAccount(); touch("list", account, `${from || ""}~${to || ""}`);
+          return [...store.values()].filter((row) => {
+            if (!includeDrafts && row.status === "draft") return false;
+            if (!includeTrashed && row.status === "trashed") return false;
+            if (!row.actual_date) return row.status === "draft";
+            return (!from || row.actual_date >= from) && (!to || row.actual_date <= to);
+          }).map(clone);
+        },
+        async save(input) {
+          assertAccount(); touch("save", account, input.status);
+          const existingByRequest = [...store.values()].find((row) => row.request_id === input.request_id);
+          if (!input.id && existingByRequest) return clone(existingByRequest);
+          const prior = input.id ? get(input.id) : null;
+          const id = input.id || crypto.randomUUID();
+          const row = {
+            ...(prior || {}), ...clone(input), id, user_id: account,
+            status: input.status || "draft", actual_date: input.actual_date || null,
+            gross_amount: input.gross_amount ?? null, receipts: prior?.receipts || [],
+            adjustments: prior?.adjustments || [], created_at: prior?.created_at || now(), updated_at: now(),
+          };
+          store.set(id, row);
+          return clone(row);
+        },
+        async addReceipt(expenseId, file) {
+          assertAccount(); touch("addReceipt", account, file.name);
+          const row = get(expenseId);
+          const receipt = {
+            id: crypto.randomUUID(), expense_id: expenseId, object_path: `${account}/${expenseId}/${crypto.randomUUID()}`,
+            original_name: file.name, content_type: file.type || "image/png", byte_size: file.size,
+            created_at: now(), _file: file,
+          };
+          row.receipts.push(receipt); row.updated_at = now();
+          return clone(row);
+        },
+        async adjust(expenseId, input) {
+          assertAccount(); touch("adjust", account, `${input.kind}:${input.amount}`);
+          const row = get(expenseId);
+          row.adjustments.push({ id: crypto.randomUUID(), expense_id: expenseId, ...clone(input), created_at: now() });
+          row.updated_at = now();
+          return clone(row);
+        },
+        async setStatus(expenseId, action) {
+          assertAccount(); touch("setStatus", account, action);
+          const row = get(expenseId);
+          if (action === "trashed") { row.pre_trash_status = row.status; row.status = "trashed"; }
+          else if (action === "restore") { row.status = row.pre_trash_status || "draft"; row.pre_trash_status = null; }
+          else throw new Error("지원하지 않는 상태 변경입니다.");
+          row.updated_at = now();
+          return clone(row);
+        },
+        async cleanupOrphan(objectPath) {
+          assertAccount(); touch("cleanupOrphan", account, objectPath);
+          return true;
+        },
+        async receiptUrl(receipt) {
+          assertAccount(); touch("receiptUrl", account, receipt.original_name);
+          const url = URL.createObjectURL(receipt._file || new Blob([], { type: receipt.content_type }));
+          previewUrls.add(url);
+          return url;
+        },
+      };
+    }
+
+    const host = document.querySelector("[data-expenses-host]");
+    const controller = createExpensesController({
+      host,
+      getService: async () => createMemoryExpenseService(activeAccount),
+      toast(message) { document.querySelector("[data-toast]").textContent = message; },
+    });
+
+    document.querySelectorAll("[data-theme]").forEach((button) => button.addEventListener("click", () => {
+      document.documentElement.dataset.theme = button.dataset.theme;
+      document.body.dataset.theme = button.dataset.theme;
+    }));
+    document.querySelector("[data-switch]").addEventListener("click", async () => {
+      controller.reset();
+      activeAccount = activeAccount === "account-a" ? "account-b" : "account-a";
+      document.querySelector("[data-account]").textContent = activeAccount === "account-a" ? "계정 A" : "계정 B";
+      document.querySelector("[data-toast]").textContent = "컨트롤러를 reset하고 계정을 전환했습니다.";
+      await controller.refresh();
+    });
+    document.querySelector("[data-empty]").addEventListener("click", async () => {
+      controller.reset();
+      storeFor(activeAccount).clear();
+      renderState("fixtureReset", activeAccount, "memory cleared");
+      await controller.refresh();
+    });
+    addEventListener("beforeunload", () => {
+      controller.dispose();
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    });
+    renderState();
+    await controller.refresh();
+  </script>
+</body>
+</html>

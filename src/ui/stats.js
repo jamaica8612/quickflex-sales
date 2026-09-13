@@ -4,8 +4,6 @@ export function bindStatsEvents(ctx) {
     state,
     moveStatsMonth,
     renderStats,
-    showChartTooltip,
-    showChartTooltipAtIndex,
     statsRangeDayCount,
     maxStatsCustomRangeDays,
     syncStatsToCurrentPeriod,
@@ -15,8 +13,6 @@ export function bindStatsEvents(ctx) {
   } = ctx;
 
   const customToggle = document.getElementById("statsRangeCustomToggle");
-  const emptyCalendarButton = document.getElementById("statsEmptyCalendarButton");
-
   // Keep any extension-provided legacy tabs accessible without restoring the old tabbed UI.
   el.statsTabs?.forEach((tab) => {
     tab.setAttribute("aria-selected", String(tab.classList.contains("active")));
@@ -104,55 +100,9 @@ export function bindStatsEvents(ctx) {
     });
   }
 
-  if (el.statsChartToggle) {
-    el.statsChartToggle.querySelectorAll("button[data-metric]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const next = button.dataset.metric === "count" ? "count" : "revenue";
-        if (state.statsChartMetric === next) return;
-        state.statsChartMetric = next;
-        renderStats();
-        trackStatsControl?.("chart_metric_changed");
-      });
-    });
-  }
-
-  if (el.statsChart) {
-    const handler = (event) => {
-      const pointer = event.touches ? event.touches[0] : event;
-      showChartTooltip(pointer.clientX);
-    };
-    el.statsChart.addEventListener("click", handler);
-    el.statsChart.addEventListener("touchstart", handler, { passive: true });
-    el.statsChart.addEventListener("keydown", (event) => {
-      const pointCount = Number.parseInt(el.statsChart.dataset.pointCount || "0", 10);
-      if (!pointCount) return;
-      let index = Number.parseInt(el.statsChart.dataset.keyboardIndex || "-1", 10);
-      const hasCurrentIndex = Number.isInteger(index) && index >= 0 && index < pointCount;
-      if (event.key === "ArrowLeft") index = hasCurrentIndex ? Math.max(0, index - 1) : 0;
-      else if (event.key === "ArrowRight") index = hasCurrentIndex ? Math.min(pointCount - 1, index + 1) : 0;
-      else if (event.key === "Home") index = 0;
-      else if (event.key === "End") index = pointCount - 1;
-      else if (event.key === "Enter" || event.key === " ") index = hasCurrentIndex ? index : 0;
-      else if (event.key === "Escape") {
-        if (el.statsChartTooltip) el.statsChartTooltip.hidden = true;
-        return;
-      } else return;
-      event.preventDefault();
-      el.statsChart.dataset.keyboardIndex = String(index);
-      showChartTooltipAtIndex?.(index);
-    });
-    document.addEventListener("click", (event) => {
-      if (!el.statsChartTooltip || el.statsChartTooltip.hidden) return;
-      if (event.target === el.statsChart) return;
-      el.statsChartTooltip.hidden = true;
-    });
-  }
-
-  if (emptyCalendarButton) {
-    emptyCalendarButton.addEventListener("click", () => {
-      document.querySelector('.nav-tab[data-view="home"]')?.click();
-    });
-  }
+  window.addEventListener("resize", () => {
+    if (el.statsChart?.getClientRects().length) renderStats();
+  });
 
   syncCustomRangeDisclosure();
 }

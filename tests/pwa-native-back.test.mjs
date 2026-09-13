@@ -31,7 +31,7 @@ function extractFunction(name) {
 }
 
 function loadNativeBack(sandbox = {}) {
-  const context = vm.createContext(sandbox);
+  const context = vm.createContext({ document: { querySelector: () => null }, expensesController: null, exportsController: null, ...sandbox });
   vm.runInContext(`${extractFunction("nativeBackAction")}\n${extractFunction("quickflexHandleNativeBack")}\nglobalThis.__actual = { nativeBackAction, quickflexHandleNativeBack };`, context);
   return context.__actual;
 }
@@ -46,9 +46,10 @@ test("native back action is deterministic and only home is unhandled", () => {
   assert.equal(nativeBackAction({ salesOverrideOpen: true, blockingModalOpen: true, view: "record" }), "close-sales-override");
   assert.equal(nativeBackAction({ blockingModalOpen: true, view: "settings" }), "unhandled");
   assert.equal(nativeBackAction({ view: "record" }), "leave-record");
-  ["inspection", "measurement", "stats", "settings", "admin"].forEach((view) => {
+  ["inspection", "measurement", "stats", "settings", "expenses"].forEach((view) => {
     assert.equal(nativeBackAction({ view }), "go-home", `${view} should return home`);
   });
+  assert.equal(nativeBackAction({ view: "schedule" }), "go-settings");
   assert.equal(nativeBackAction({ view: "home" }), "unhandled");
   assert.equal(nativeBackAction({ view: "future-unknown" }), "unhandled");
 });
@@ -144,9 +145,12 @@ test("native back returns internal views home and leaves home to Android", () =>
 
   assert.equal(quickflexHandleNativeBack(), "handled");
   assert.deepEqual(navigations, ["home"]);
+  el.app.dataset.view = "schedule";
+  assert.equal(quickflexHandleNativeBack(), "handled");
+  assert.deepEqual(navigations, ["home", "settings"]);
   el.app.dataset.view = "home";
   assert.equal(quickflexHandleNativeBack(), "unhandled");
-  assert.deepEqual(navigations, ["home"]);
+  assert.deepEqual(navigations, ["home", "settings"]);
 });
 
 test("PWA exposes the synchronous native bridge contract", () => {

@@ -1,6 +1,14 @@
 {
+  "type": "module",
+  "scripts": {
+    "test:exports": "node --test tests/pwa-exports.test.mjs"
+  },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
     "supabase": "^2.95.6"
+  },
+  "dependencies": {
+    "exceljs": "4.4.0",
+    "fflate": "0.8.3"
   }
 }

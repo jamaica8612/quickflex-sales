@@ -31,13 +31,7 @@ export function bindInspectionEvents(ctx) {
   });
   el.inspectionAllGood.addEventListener("click", () => setAllInspectionResults("good"));
   el.inspectionReset.addEventListener("click", resetInspectionDraft);
-  el.openSignatureSettings.addEventListener("click", () => {
-    showView("settings");
-    setTimeout(() => {
-      el.signatureSettingsSection?.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.profileSignatureAlternative?.focus();
-    }, 50);
-  });
+  el.openSignatureSettings.addEventListener("click", () => ctx.openSignatureEditor());
   el.saveInspection.addEventListener("click", () => saveInspection().catch((error) => toast(`점검 저장 실패: ${error.message}`, "error")));
   el.markNoOperation.addEventListener("click", () => setInspectionNoOperation().catch((error) => toast(`미운행 저장 실패: ${error.message}`, "error")));
   el.printInspectionMonth.addEventListener("click", () => printInspectionMonth().catch((error) => toast(`월간 출력 실패: ${error.message}`, "error")));

@@ -6,12 +6,12 @@
     <meta name="theme-color" content="#10141F" />
     <meta
       name="description"
-      content="퀵플렉스 기사용 매출관리 PWA. 달력 기록, 근무표 가져오기, 단가 관리, 정산 통계를 제공합니다."
+      content="플렉스노트는 배송기사의 근무·매출·지출 기록과 선택한 Google 캘린더 동기화를 돕는 PWA입니다."
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>퀵플 소개</title>
-    <link rel="manifest" href="./manifest.webmanifest?v=1.0.51" />
+    <title>플렉스노트 소개</title>
+    <link rel="manifest" href="./manifest.webmanifest?v=1.0.52" />
     <link rel="icon" href="./favicon-32.png?v=3" type="image/png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=3" />
     <style>
@@ -799,13 +799,13 @@
       <nav class="topbar" aria-label="페이지 이동">
         <a class="brand" href="./intro.html">
           <span class="brand-mark">Q</span>
-          <span class="brand-name">퀵플</span>
+          <span class="brand-name">플렉스노트</span>
         </a>
         <a class="mini-link" href="./index.html">로그인하기</a>
       </nav>
 
       <section class="hero">
-        <span class="badge">QUICKFLEX SALES</span>
+        <span class="badge">FLEXNOTE</span>
         <h1>매일 기록하면, <strong>정산기간 매출이 바로 보입니다</strong></h1>
         <p>
           근무표를 가져오고 하루 배송건수를 기록하면 총매출, 목표 대비 진행률, 근무일, 일평균, 배송건수를 한 화면에서 확인할 수 있습니다.
@@ -838,7 +838,7 @@
         <div class="copy">
           <h2><span class="num">1</span>달력으로 보는 정산기간 매출</h2>
           <p>
-            퀵플은 정산기간 기준으로 매출을 모아 보여줍니다. 이번 정산기간 예상액, 배송건수, 근무일을 먼저 보고,
+            플렉스노트는 정산기간 기준으로 매출을 모아 보여줍니다. 이번 정산기간 예상액, 배송건수, 근무일을 먼저 보고,
             아래 달력에서 일별 흐름을 바로 이어서 확인할 수 있습니다.
           </p>
           <ul>
@@ -850,7 +850,7 @@
         <div class="mock">
           <div class="mock-header">
             <div class="mock-title">
-              <h3>퀵플 홈</h3>
+              <h3>플렉스노트 홈</h3>
               <span class="gear">설정</span>
             </div>
             <span class="mock-period">정산기간 2026.04.26 ~ 2026.05.25</span>
@@ -995,7 +995,7 @@
         <div class="copy">
           <h2><span class="num">4</span>단가 관리는 간단하게, 과거 기록은 그대로</h2>
           <p>
-            퀵플은 현재 사용하는 구역 단가를 관리하면서도, 이미 저장된 과거 기록은 건드리지 않도록 구성돼 있습니다.
+            플렉스노트는 현재 사용하는 구역 단가를 관리하면서도, 이미 저장된 과거 기록은 건드리지 않도록 구성돼 있습니다.
             단가가 바뀌는 시점이 있어도 이전 매출이 뒤집히지 않게 보는 데 중점을 둡니다.
           </p>
           <ul>
@@ -1044,7 +1044,7 @@
           </p>
           <ul>
             <li>총매출, 목표 대비, 근무일, 일평균, 총 배송건수를 상단에서 확인</li>
-            <li>일별 막대 그래프로 매출 흐름과 터치 상세 확인</li>
+            <li>휴무·미기록을 제외한 선 그래프로 매출 흐름 확인</li>
             <li>구역 매출, 프레시백, 백업수당을 나눠서 합계 확인</li>
           </ul>
         </div>
@@ -1072,15 +1072,16 @@
 
       <section class="feature reverse">
         <div class="copy">
-          <h2><span class="num">보안</span>운영 데이터는 계정 기준으로 저장합니다</h2>
+          <h2><span class="num">보안</span>내 기록과 선택한 캘린더만 다룹니다</h2>
           <p>
-            퀵플은 운영 데이터를 Supabase 계정 기준으로 저장하고, 외부 OCR·API 처리는 브라우저에서 키를 직접 드러내지 않는 방식으로 다룹니다.
-            소개 페이지에서는 복잡한 설정 대신, 사용자가 안심하고 기록할 수 있다는 점만 짧게 안내합니다.
+            플렉스노트는 근무·매출·지출 기록을 계정별로 분리해 저장합니다.
+            Google Calendar 연결은 선택 사항이며, 연결해도 앱이 만든 보조 캘린더만 동기화합니다.
           </p>
           <ul>
             <li>가입 요청 후 관리자 승인된 계정만 앱 사용</li>
             <li>운영 데이터는 로그인한 계정 기준으로 분리 저장</li>
-            <li>API 키를 브라우저 화면에 직접 노출하지 않는 흐름 유지</li>
+            <li>매출·구역 표시는 사용자가 켠 경우에만 Google 일정에 포함</li>
+            <li><a href="./privacy.html">개인정보처리방침 보기</a></li>
           </ul>
         </div>
         <div class="trust-box">
@@ -1097,10 +1098,10 @@
           <div class="install-copy">
             <h2>홈 화면에 추가하면 더 편하게 열 수 있습니다</h2>
             <p>
-              Chrome에서 퀵플을 열고 홈 화면에 추가하거나 앱 설치를 선택하면, 다음부터는 바로 기록 화면으로 들어가기 쉬워집니다.
+              Chrome에서 플렉스노트를 열고 홈 화면에 추가하거나 앱 설치를 선택하면, 다음부터는 바로 기록 화면으로 들어가기 쉬워집니다.
             </p>
             <div class="install-steps">
-              <div class="install-step"><b>1</b><span>Android Chrome에서 퀵플 주소로 접속</span></div>
+              <div class="install-step"><b>1</b><span>Android Chrome에서 플렉스노트 주소로 접속</span></div>
               <div class="install-step"><b>2</b><span>브라우저 메뉴 ⋮ 열기</span></div>
               <div class="install-step"><b>3</b><span>홈 화면에 추가 또는 앱 설치 선택</span></div>
               <div class="install-step"><b>4</b><span>설치 항목이 보이지 않으면 북마크로도 계속 사용할 수 있음</span></div>
@@ -1113,7 +1114,7 @@
         </div>
       </section>
 
-      <footer>QuickFlex Sales · 퀵플렉스 기사용 매출관리 앱</footer>
+      <footer>플렉스노트 · 배송 업무 기록 앱 · <a href="./privacy.html">개인정보처리방침</a></footer>
     </div>
   </body>
 </html>

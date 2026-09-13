@@ -1,2 +1,5 @@
 [functions.ocr-schedule]
 verify_jwt = true
+
+[functions.calendar-sync]
+verify_jwt = false

@@ -40,7 +40,7 @@ This file is the shared working contract for Codex, Claude Code, and future agen
 - The first created profile is bootstrapped as `admin` and `approved`.
 - Later users start as `pending`; admins approve or block them.
 - Users may edit their own display name, driver type, and fixed routes. They must not be able to approve themselves.
-- Admins may read all users' rates, records, and route item snapshots for revenue review.
+- Admins must not read another driver's rates, sales, expense receipts, inspections, signatures, or route item snapshots. Membership approval uses the narrow admin-member RPC; raw profile reads remain owner-only.
 - Admin writes should stay limited to profile approval/type changes; do not let admins edit another driver's sales records from the admin dashboard.
 - Admins can manage OCR route bundle corrections in `quickflex_route_bundles`; approved drivers can read active bundles for OCR correction.
 
