@@ -10,7 +10,7 @@
     <meta name="application-name" content="플렉스노트" />
     <meta name="apple-mobile-web-app-title" content="플렉스노트" />
     <meta name="description" content="배송의 기록부터 매출·지출까지" />
-    <link rel="manifest" href="./manifest.webmanifest?v=1.0.54" />
+    <link rel="manifest" href="./manifest.webmanifest?v=1.0.55" />
     <link rel="icon" href="./favicon-32.png?v=3" type="image/png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=3" />
     <script>
@@ -38,10 +38,10 @@
       html[data-theme="dark"], body[data-theme="dark"] { background: var(--shell-bg, #101010); color-scheme: dark; }
       html[data-theme="light"], body[data-theme="light"] { background: var(--shell-bg, #ECECEC); color-scheme: light; }
     </style>
-    <link rel="stylesheet" href="./styles.css?v=1.0.54" />
-  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.54" />
-<link rel="stylesheet" href="./styles/exports.css?v=1.0.54" />
-<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.54" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.55" />
+  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.55" />
+<link rel="stylesheet" href="./styles/exports.css?v=1.0.55" />
+<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.55" />
 </head>
   <body>
     <script>document.body.dataset.theme = document.documentElement.dataset.theme;</script>
@@ -253,7 +253,7 @@
           </section>
           <section class="settings-section">
             <h2>측정 앱에서 진행</h2>
-            <p class="hint">쿠팡플렉스 화면의 완료 가구·상품수를 읽으려면 설치된 측정 앱을 엽니다. 측정 종료는 페이스 구간만 기기에 저장하며, 매출 기록은 업무 종료 화면에서 구역별 상품수를 확인·보정한 뒤 반영합니다.</p>
+            <p class="hint">쿠팡플렉스 화면의 완료 가구·상품수를 읽으려면 설치된 측정 앱을 엽니다. 1차 배송이 끝나면 측정 종료를 눌러 페이스 구간만 기기에 저장하고, 배송이 모두 끝나면 업무 종료에서 구역별 상품수를 확인·보정한 뒤 매출에 반영합니다.</p>
             <button id="openPaceApp" class="full-btn" type="button">측정 앱 열기</button>
             <button id="openMeasurementGuide" class="measurement-guide-trigger" type="button" aria-haspopup="dialog" aria-controls="measurementGuideDialog" aria-expanded="false">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10.7v5.1"/><path d="M12 7.3h.01"/></svg>
@@ -492,7 +492,7 @@
                 <button id="parseCsv" class="full-btn">단가 자동 계산</button>
               </details>
             </section>
-          </div></details></div></details><p class="app-version">플렉스노트 · Beta 1.02</p></main>
+          </div></details></div></details><p class="app-version">플렉스노트 · Beta 1.03</p></main>
       </section>
 
       <section class="view view-expenses"><header class="sub-header"><div class="sub-title left"><strong>지출</strong><span>영수증부터 가볍게 기록하세요</span></div><button class="secondary-btn" type="button" data-open-export>내보내기</button></header><main id="expensesContent" class="expenses-body"></main></section>
@@ -622,7 +622,7 @@
         <article id="measurementGuideDialog" class="modal-card measurement-guide-card" role="dialog" aria-modal="true" aria-labelledby="measurementGuideTitle" aria-describedby="measurementGuideIntro" tabindex="-1">
           <div class="measurement-guide-heading">
             <div>
-              <span class="measurement-guide-badge">플렉스노트 · Beta 1.02</span>
+              <span class="measurement-guide-badge">플렉스노트 · Beta 1.03</span>
               <h2 id="measurementGuideTitle">설치와 사용 순서</h2>
             </div>
             <button id="closeMeasurementGuide" class="measurement-guide-close" type="button" aria-label="설치·사용 안내 닫기">
@@ -634,14 +634,14 @@
           <section class="measurement-guide-section" aria-labelledby="measurementInstallTitle">
             <h3 id="measurementInstallTitle"><span>1</span> 설치</h3>
             <ol>
-              <li><strong>Beta 1.02 APK</strong>를 내려받아 파일을 엽니다.</li>
+              <li><strong>Beta 1.03 APK</strong>를 내려받아 파일을 엽니다.</li>
               <li>설치가 차단될 때만 안내에 따라 <strong>이 출처 허용</strong>을 켭니다.</li>
               <li>업데이트는 기존 앱을 삭제하지 않고 새 APK를 그대로 설치합니다.</li>
             </ol>
-            <a class="full-btn measurement-download" href="https://github.com/jamaica8612/quickflex-sales/releases/download/android-beta-1.02/flexnote-beta-1.02.apk">Beta 1.02 APK 받기</a>
+            <a class="full-btn measurement-download" href="https://github.com/jamaica8612/quickflex-sales/releases/download/android-beta-1.03/flexnote-beta-1.03.apk">Beta 1.03 APK 받기</a>
             <a class="measurement-release-link" href="./install.html#play-protect">Play 프로텍트로 차단될 때: 해제·다시 켜기 안내</a>
             <a class="measurement-release-link" href="./install.html">전체 설치 안내 보기</a>
-            <a class="measurement-release-link" href="https://github.com/jamaica8612/quickflex-sales/releases/tag/android-beta-1.02">릴리스 정보 보기</a>
+            <a class="measurement-release-link" href="https://github.com/jamaica8612/quickflex-sales/releases/tag/android-beta-1.03">릴리스 정보 보기</a>
           </section>
 
           <section class="measurement-guide-section" aria-labelledby="measurementSetupTitle">
@@ -657,8 +657,8 @@
             <ol>
               <li>쿠팡플렉스 배송 화면을 열어 최신 완료 수량이 표시되게 합니다.</li>
               <li>이 화면에서 날짜·구역을 확인하고 <strong>측정 앱 열기</strong> → <strong>업무 시작</strong>을 누릅니다.</li>
-              <li>필요한 구간에 <strong>측정 시작</strong>을 누르면 배송 중 수량을 자동으로 읽습니다. 끝나면 <strong>측정 종료</strong>를 누릅니다.</li>
-              <li>하루가 끝나면 최신 완료 수량이 표시되게 한 뒤 <strong>업무 종료</strong>에서 구역·수량을 검토하고 저장합니다.</li>
+              <li><strong>측정 시작</strong>을 누르면 배송 중 수량을 자동으로 읽습니다. 1차 배송이 끝나면 <strong>측정 종료</strong>를 누릅니다.</li>
+              <li>배송이 모두 끝나면 최신 완료 수량이 표시되게 한 뒤 <strong>업무 종료</strong>에서 구역·수량을 검토하고 저장합니다.</li>
             </ol>
           </section>
           <button id="measurementGuideDone" class="secondary-btn wide" type="button">확인</button>
@@ -708,7 +708,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.54"></script>
+    <script type="module" src="./src/main.js?v=1.0.55"></script>
     <script>
       // 로컬 디자인 비교용. 배포 화면에는 비교 도구를 표시하지 않는다.
       (function () {

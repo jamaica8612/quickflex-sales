@@ -80,6 +80,8 @@
 | 모든 수치 | `--font-numeric` / `--font-amount` | **Archivo** → IBM Plex Sans KR 폴백 |
 | 코드·시각·기간 | `--font-code` | **JetBrains Mono** → IBM Plex Sans KR 폴백 |
 
+2026-09-14 사용자 조정: 측정 화면에서 가구 수와 나란히 비교하는 예상 완료 시각·활성시간은 **Archivo 700**으로 통일합니다. 구역코드는 JetBrains Mono **700**을 명시적으로 적용합니다. 날짜·기간·코드의 모노 역할과 고정폭 숫자는 유지합니다.
+
 셋 다 SIL OFL 1.1. 제품 화면은 Google Fonts `@import`로 불러오는 이 세 가족과 역할 토큰을 사용합니다. 기존 소개 자료의 Pretendard·Wanted Sans 번들 및 라이선스는 해당 자료를 따로 정리할 때까지 보존하며, 제품 화면의 새 글꼴 기준으로 사용하지 않습니다.
 
 ### 굵기 — 네 단계만
