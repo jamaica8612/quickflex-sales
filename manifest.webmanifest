@@ -2,7 +2,7 @@
   "name": "플렉스노트",
   "short_name": "플렉스노트",
   "description": "배송의 기록부터 매출·지출까지",
-  "version": "1.0.55",
+  "version": "1.0.56",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
