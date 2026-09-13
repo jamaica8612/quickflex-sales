@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#F5F5F5" />
+    <meta name="description" content="플렉스노트 Beta 1.02 APK 설치와 접근성 설정, 첫 업무 사용 안내" />
+    <meta name="color-scheme" content="light dark" />
+    <title>설치 안내 | 플렉스노트</title>
+    <link rel="manifest" href="./manifest.webmanifest?v=1.0.54" />
+    <link rel="icon" href="./favicon-32.png?v=3" type="image/png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=3" />
+    <script>
+      (() => {
+        let theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        try {
+          const savedTheme = localStorage.getItem("quickflex-theme");
+          if (savedTheme === "light" || savedTheme === "dark") theme = savedTheme;
+        } catch (_) {}
+        document.documentElement.dataset.theme = theme;
+        document.querySelector('meta[name="theme-color"]').content = theme === "dark" ? "#141414" : "#F5F5F5";
+      })();
+    </script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans+KR:wght@500;600;700&display=swap");
+
+      :root {
+        --font-ui: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+        --font-numeric: "Archivo", "IBM Plex Sans KR", system-ui, sans-serif;
+        --bg: #F5F5F5;
+        --panel: #FFFFFF;
+        --panel2: #F7F7F8;
+        --line: rgba(112,115,124,.18);
+        --line-strong: #DBDCDF;
+        --text: #171719;
+        --muted: #70737C;
+        --accent: #1B62D6;
+        --accent-soft: rgba(26,115,232,.10);
+        --accent-border: rgba(26,115,232,.28);
+        --on-accent: #FFFFFF;
+        --warning: #9B6100;
+        --warning-soft: rgba(202,128,0,.10);
+        --warning-border: rgba(155,97,0,.26);
+        --shadow: 0 1px 2px rgba(16,24,40,.05), 0 18px 40px -20px rgba(16,24,40,.22);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme]) {
+          --bg: #141414;
+          --panel: #1C1C1C;
+          --panel2: #242424;
+          --line: rgba(255,255,255,.075);
+          --line-strong: rgba(255,255,255,.40);
+          --text: #ECEEF2;
+          --muted: #9AA0A9;
+          --accent: #E8B85C;
+          --accent-soft: rgba(232,184,92,.13);
+          --accent-border: rgba(232,184,92,.35);
+          --on-accent: #17130B;
+          --warning: #F1C77A;
+          --warning-soft: rgba(232,184,92,.10);
+          --warning-border: rgba(232,184,92,.28);
+          --shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 18px 40px -20px rgba(0,0,0,.55);
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #141414;
+        --panel: #1C1C1C;
+        --panel2: #242424;
+        --line: rgba(255,255,255,.075);
+        --line-strong: rgba(255,255,255,.40);
+        --text: #ECEEF2;
+        --muted: #9AA0A9;
+        --accent: #E8B85C;
+        --accent-soft: rgba(232,184,92,.13);
+        --accent-border: rgba(232,184,92,.35);
+        --on-accent: #17130B;
+        --warning: #F1C77A;
+        --warning-soft: rgba(232,184,92,.10);
+        --warning-border: rgba(232,184,92,.28);
+        --shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 18px 40px -20px rgba(0,0,0,.55);
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        min-height: 100dvh;
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-ui);
+        font-size: 16px;
+        font-weight: 500;
+        line-height: 1.6;
+        word-break: keep-all;
+      }
+      a { color: inherit; }
+      a:focus-visible, summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 48%, transparent); outline-offset: 3px; border-radius: 8px; }
+      .page { width: min(100% - 32px, 760px); margin: 0 auto; padding: 24px 0 max(52px, env(safe-area-inset-bottom)); }
+      .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 38px; }
+      .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); font-size: 17px; font-weight: 700; text-decoration: none; }
+      .brand img { width: 34px; height: 34px; border-radius: 10px; }
+      .back { color: var(--muted); font-size: 13px; font-weight: 600; text-decoration: none; }
+      .back:hover { color: var(--accent); }
+
+      .hero { padding: 6px 0 34px; }
+      .eyebrow { display: inline-flex; align-items: center; min-height: 28px; padding: 0 11px; border: 1px solid var(--accent-border); border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-family: var(--font-numeric); font-size: 12px; font-weight: 700; }
+      h1 { max-width: 650px; margin: 16px 0 13px; font-size: clamp(34px, 8vw, 52px); font-weight: 700; line-height: 1.14; letter-spacing: -.04em; }
+      .lead { max-width: 650px; margin: 0; color: var(--muted); font-size: 17px; line-height: 1.65; }
+      .hero-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+      .button { min-height: 44px; padding: 0 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; font-size: 14px; font-weight: 700; text-align: center; text-decoration: none; }
+      .button.primary { background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow); }
+      .button.secondary { min-height: 40px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--text); }
+      .update-note { margin: 14px 0 0; color: var(--muted); font-size: 12px; }
+
+      .quick-check { margin: 0 0 32px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel); box-shadow: var(--shadow); }
+      .quick-check strong { display: block; margin-bottom: 7px; font-weight: 700; }
+      .quick-check ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14px; }
+      .quick-check li + li { margin-top: 5px; }
+
+      .steps { counter-reset: install-step; }
+      .step { position: relative; padding: 28px 0 30px 58px; border-top: 1px solid var(--line); }
+      .step::before { counter-increment: install-step; content: counter(install-step); position: absolute; top: 28px; left: 0; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-family: var(--font-numeric); font-size: 14px; font-weight: 700; }
+      .step h2 { margin: 0 0 9px; font-size: 22px; font-weight: 700; line-height: 1.35; letter-spacing: -.022em; }
+      .step p { margin: 7px 0; color: var(--muted); font-size: 15px; }
+      .path { margin: 12px 0; padding: 13px 15px; border-radius: 14px; background: var(--panel2); color: var(--text); font-size: 14px; font-weight: 600; line-height: 1.65; }
+      .path span { color: var(--accent); }
+      .step-list { margin: 10px 0 0; padding-left: 21px; color: var(--muted); font-size: 14px; }
+      .step-list li + li { margin-top: 7px; }
+      .step strong, .step-list strong { color: var(--text); font-weight: 600; }
+
+      details { margin-top: 15px; border: 1px solid var(--warning-border); border-radius: 16px; background: var(--warning-soft); overflow: hidden; }
+      summary { min-height: 48px; padding: 12px 44px 12px 15px; display: flex; align-items: center; position: relative; color: var(--warning); font-size: 14px; font-weight: 700; cursor: pointer; list-style: none; }
+      summary::-webkit-details-marker { display: none; }
+      summary::after { content: "+"; position: absolute; right: 16px; top: 50%; translate: 0 -50%; font-family: var(--font-numeric); font-size: 20px; font-weight: 600; }
+      details[open] summary::after { content: "−"; }
+      .detail-body { padding: 0 15px 16px; color: var(--muted); font-size: 14px; }
+      .detail-body p:first-child { margin-top: 0; }
+      .detail-body .path { background: color-mix(in srgb, var(--panel) 66%, transparent); }
+      .safety { margin-top: 12px; padding-left: 12px; border-left: 3px solid var(--warning); }
+
+      .finish { margin-top: 6px; padding: 22px; border: 1px solid var(--accent-border); border-radius: 20px; background: var(--accent-soft); }
+      .finish h2 { margin: 0 0 8px; font-size: 20px; font-weight: 700; }
+      .finish p { margin: 0; color: var(--muted); font-size: 14px; }
+      .sources { margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--line); }
+      .sources h2 { margin: 0 0 9px; font-size: 15px; font-weight: 700; }
+      .sources ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 13px; }
+      .sources a { color: var(--accent); text-underline-offset: 3px; }
+      footer { padding: 30px 0 4px; color: var(--muted); font-size: 13px; }
+
+      @media (max-width: 560px) {
+        .page { width: min(100% - 28px, 760px); padding-top: 18px; }
+        .topbar { margin-bottom: 28px; }
+        .hero { padding-bottom: 28px; }
+        .hero-actions { display: grid; }
+        .step { padding-left: 48px; }
+        .step::before { width: 32px; height: 32px; }
+      }
+      @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <nav class="topbar" aria-label="설치 안내 상단 메뉴">
+        <a class="brand" href="./intro.html"><img src="./assets/flexnote-android-icon.png" alt="" />플렉스노트</a>
+        <a class="back" href="./index.html">앱으로 돌아가기</a>
+      </nav>
+
+      <header class="hero">
+        <span class="eyebrow">Android · Beta 1.02</span>
+        <h1>설치부터 첫 측정까지</h1>
+        <p class="lead">APK를 설치하고 플렉스노트 데이터 연결을 켠 뒤, 쿠팡플렉스의 완료 가구·상품수를 자동으로 읽는 순서입니다.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="https://github.com/jamaica8612/quickflex-sales/releases/download/android-beta-1.02/flexnote-beta-1.02.apk">Beta 1.02 APK 받기</a>
+          <a class="button secondary" href="https://github.com/jamaica8612/quickflex-sales/releases/tag/android-beta-1.02">릴리스 정보</a>
+        </div>
+        <p class="update-note">기존 버전을 업데이트할 때는 앱을 삭제하지 말고 새 APK를 그대로 설치하세요.</p>
+      </header>
+
+      <aside class="quick-check">
+        <strong>시작 전 확인</strong>
+        <ul>
+          <li>이 페이지의 공식 릴리스 APK만 사용합니다.</li>
+          <li>플렉스노트 PWA에서 승인된 계정으로 로그인할 수 있어야 합니다.</li>
+          <li>메뉴 이름은 Android 버전과 제조사에 따라 조금 다를 수 있습니다.</li>
+        </ul>
+      </aside>
+
+      <main class="steps">
+        <section class="step" id="download">
+          <h2>APK를 내려받아 엽니다</h2>
+          <p>위의 <strong>Beta 1.02 APK 받기</strong>를 누릅니다. 다운로드가 끝나면 알림이나 내 파일의 다운로드 목록에서 APK를 여세요.</p>
+        </section>
+
+        <section class="step" id="source-permission">
+          <h2>요청될 때만 이 출처를 허용합니다</h2>
+          <p>Chrome이나 내 파일에서 처음 APK를 열면 설치 권한 안내가 나올 수 있습니다.</p>
+          <div class="path"><span>설정</span> → 이 출처 허용 → 뒤로 → 설치</div>
+          <p>설치가 끝난 뒤에는 같은 화면에서 이 출처 허용을 다시 꺼도 됩니다.</p>
+          <details>
+            <summary>갤럭시에서 보안 위험 자동 차단 안내가 나올 때</summary>
+            <div class="detail-body">
+              <p>일부 갤럭시·One UI 버전에서는 별도의 보안 위험 자동 차단 기능이 외부 APK 설치를 막을 수 있습니다. 이 메시지가 실제로 나타날 때만 화면에 표시된 보안 설정을 확인하세요.</p>
+              <p class="safety">메뉴 이름과 위치는 기종·One UI 버전에 따라 달라 실제 기기 화면을 우선합니다. 설치 후에는 변경한 보호 기능을 다시 켜세요.</p>
+            </div>
+          </details>
+        </section>
+
+        <section class="step" id="play-protect">
+          <h2>Play 프로텍트 검사를 확인합니다</h2>
+          <p>Google Play 외부에서 받은 앱이라 검사 권장이나 경고가 표시될 수 있습니다. <strong>앱 검사</strong>가 보이면 먼저 검사를 진행하고 결과를 확인하세요.</p>
+          <details>
+            <summary>Play 프로텍트 때문에 설치가 차단될 때</summary>
+            <div class="detail-body">
+              <p>공식 릴리스 APK가 맞는지 확인한 뒤에도 설치가 완전히 차단되는 경우에만 아래 경로를 사용합니다.</p>
+              <div class="path">Play 스토어 → 프로필 사진 → Play 프로텍트 → 설정 → <strong>Play 프로텍트로 앱 검사</strong> 끄기</div>
+              <p>APK 설치가 끝나면 같은 경로에서 <strong>Play 프로텍트로 앱 검사</strong>를 바로 다시 켜세요.</p>
+              <p class="safety">Google은 보안을 위해 Play 프로텍트를 항상 켜 둘 것을 권장합니다. 평소에는 해제하지 마세요.</p>
+            </div>
+          </details>
+        </section>
+
+        <section class="step" id="restricted-settings">
+          <h2>접근성 켜기가 막히면 제한된 설정을 허용합니다</h2>
+          <p>Android 13 이상에서는 외부에서 설치한 앱의 접근성 설정이 제한될 수 있습니다. 접근성 화면에서 제한 안내가 나올 때만 진행하세요.</p>
+          <div class="path">설정 → 앱 → 플렉스노트 → 오른쪽 위 더보기 <span>⋮</span> → 제한된 설정 허용</div>
+          <p class="safety">플렉스노트가 쿠팡플렉스 화면의 완료 수량을 읽으려면 접근성이 필요합니다. 공식 릴리스 APK가 아닌 앱에는 제한된 설정을 허용하지 마세요.</p>
+        </section>
+
+        <section class="step" id="accessibility">
+          <h2>플렉스노트 데이터 연결을 켭니다</h2>
+          <div class="path">설정 → 접근성 → 설치된 앱 또는 설치된 서비스 → <span>플렉스노트 데이터 연결</span> → 사용</div>
+          <p>확인 창이 나오면 읽기 범위를 확인하고 허용합니다. 플렉스노트는 쿠팡플렉스 화면의 접근성 정보에서 배송 진행·완료 수량을 읽습니다.</p>
+        </section>
+
+        <section class="step" id="first-use">
+          <h2>첫 업무를 시작합니다</h2>
+          <ol class="step-list">
+            <li>플렉스노트에서 PWA와 <strong>같은 승인 계정</strong>으로 로그인합니다.</li>
+            <li>쿠팡플렉스 배송 화면에서 최신 완료 가구·상품수가 표시되게 합니다.</li>
+            <li>플렉스노트의 <strong>배송 측정</strong> 메뉴에서 날짜·구역을 확인하고 <strong>측정 앱 열기</strong>를 누릅니다.</li>
+            <li>구역을 다시 확인한 뒤 <strong>업무 시작</strong>을 누릅니다.</li>
+            <li>페이스를 잴 구간에만 <strong>측정 시작</strong>을 누릅니다. 배송 중 수량은 자동으로 읽습니다.</li>
+            <li>구간이 끝나면 <strong>측정 종료</strong>, 하루가 끝나면 최신 완료 수량을 표시한 뒤 <strong>업무 종료</strong>에서 구역·수량을 검토하고 저장합니다.</li>
+          </ol>
+        </section>
+      </main>
+
+      <section class="finish" aria-labelledby="finishTitle">
+        <h2 id="finishTitle">설정이 끝났습니다</h2>
+        <p>다음부터는 플렉스노트의 배송 측정 메뉴에서 날짜와 구역을 확인한 뒤 측정 앱을 열면 됩니다.</p>
+      </section>
+
+      <section class="sources" aria-labelledby="sourcesTitle">
+        <h2 id="sourcesTitle">공식 Android 안내</h2>
+        <ul>
+          <li><a href="https://support.google.com/googleplay/answer/2812853?hl=ko">Google Play 프로텍트 사용 안내</a></li>
+          <li><a href="https://support.google.com/android/answer/12623953?hl=ko">Android 제한된 설정 허용 안내</a></li>
+        </ul>
+      </section>
+
+      <footer>© 2026 플렉스노트 · <a href="./privacy.html">개인정보처리방침</a></footer>
+    </div>
+  </body>
+</html>

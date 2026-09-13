@@ -56,7 +56,7 @@ export function formatCalendarWon(amount) {
 }
 
 /**
- * Produces the whole all-day event owned by QuickFlex. A null result means the
+ * Produces the whole all-day event owned by FlexNote. A null result means the
  * current options intentionally do not manage that date.
  */
 export function buildCalendarDesiredEvent(day, settings = DEFAULT_CALENDAR_SYNC_SETTINGS) {
@@ -72,14 +72,14 @@ export function buildCalendarDesiredEvent(day, settings = DEFAULT_CALENDAR_SYNC_
   let title = "";
   if (scheduledWork && options.includeWork) {
     kind = "work";
-    title = "퀵플렉스 근무";
+    title = "배송 근무";
     if (options.includeRoute && normalized.routeLabel) title += ` · ${normalized.routeLabel}`;
   } else if (normalized.off && options.includeOff) {
     kind = "off";
-    title = "퀵플렉스 휴무";
+    title = "휴무";
   } else if (options.includeRevenue && normalized.revenue !== null) {
     kind = "revenue";
-    title = "퀵플렉스 매출";
+    title = "매출";
   } else {
     return null;
   }

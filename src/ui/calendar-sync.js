@@ -59,7 +59,7 @@ export function calendarSyncStatusCopy(status) {
   }
   if (status.state === "needs_reconnect") return "다시 연결 필요 · Google 권한을 갱신하세요.";
   if (status.state === "disconnected") return "연결 해제됨 · 기존 Google 일정은 보존됩니다.";
-  return "연결 전 · QuickFlex가 만든 전용 Google 캘린더만 관리합니다.";
+  return "연결 전 · 플렉스노트가 만든 전용 Google 캘린더만 관리합니다.";
 }
 
 export function calendarSyncShouldPoll(status, pollUntil, now, visibilityState) {
@@ -166,7 +166,7 @@ export function mountCalendarSync({ host, db, getDays, toast }) {
     host.innerHTML = `
       <section class="settings-section calendar-sync-card" aria-labelledby="calendarSyncHeading">
         <div><h2 id="calendarSyncHeading">Google 캘린더 연동</h2><p class="calendar-sync-status" role="status" aria-live="polite">${escaped(calendarSyncStatusCopy(model.status))}</p></div>
-        <p class="hint">퀵플렉스 전용 Google 보조 캘린더에만 단방향으로 반영됩니다. 삼성 캘린더에서는 같은 Google 계정을 동기화해 확인합니다.</p>
+        <p class="hint">플렉스노트 전용 Google 보조 캘린더에만 단방향으로 반영됩니다. 삼성 캘린더에서는 같은 Google 계정을 동기화해 확인합니다.</p>
         ${setup ? '<p class="calendar-sync-warning">Google 연결을 준비 중입니다.</p>' : ""}
         <div class="calendar-sync-range">
           <label class="settings-field"><span>시작일</span><input data-calendar-start type="date" value="${escaped(model.startDate)}"></label>

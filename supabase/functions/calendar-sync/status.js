@@ -28,7 +28,7 @@ export function verifiedReconnectCalendarId(existingCalendarId, calendar) {
   const expected = String(existingCalendarId || "");
   if (!expected) return "";
   if (String(calendar?.id || "") !== expected) {
-    throw new Error("기존 QuickFlex Google 캘린더를 새 Google 연결에서 확인할 수 없습니다.");
+    throw new Error("기존 플렉스노트 Google 캘린더를 새 Google 연결에서 확인할 수 없습니다.");
   }
   return expected;
 }
