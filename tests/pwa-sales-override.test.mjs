@@ -56,13 +56,20 @@ test("PWA config names the immutable-receipt detail and date override contracts"
   assert.match(config, /automaticSalesOverrides:\s*"quickflex_automatic_sales_overrides"/);
   assert.match(config, /replaceAutomaticSalesOverride:\s*"quickflex_replace_automatic_sales_override"/);
   assert.match(config, /replaceManualDayRecord:\s*"quickflex_replace_manual_day_record"/);
-  assert.match(serviceWorker, /quickflex-shell-v1\.0\.52/);
-  assert.match(html, /src\/main\.js\?v=1\.0\.52/);
-  assert.match(html, /styles\.css\?v=1\.0\.52/);
-  assert.match(html, /퀵플렉스 매출관리 v1\.0\.52/);
+  const releaseVersion = JSON.parse(manifest).version;
+  assert.equal(releaseVersion, "1.0.53");
+  assert.ok(serviceWorker.includes(`quickflex-shell-v${releaseVersion}`));
+  assert.ok(html.includes(`src/main.js?v=${releaseVersion}`));
+  assert.ok(html.includes(`styles.css?v=${releaseVersion}`));
+  assert.match(html, /<title>플렉스노트<\/title>/);
+  assert.equal((html.match(/플렉스노트 · Beta 1\.01/g) || []).length, 2);
+  assert.match(html, /releases\/download\/android-beta-1\.01\/flexnote-beta-1\.01\.apk/);
   assert.match(serviceWorker, /\.\/src\/lib\/work-date\.js/);
   const parsedManifest = JSON.parse(manifest);
-  assert.equal(parsedManifest.version, "1.0.52");
+  assert.equal(parsedManifest.name, "플렉스노트");
+  assert.equal(parsedManifest.short_name, "플렉스노트");
+  assert.equal(parsedManifest.description, "배송의 기록부터 매출·지출까지");
+  assert.ok(serviceWorker.includes(`manifest.webmanifest?v=${parsedManifest.version}`));
   assert.deepEqual(
     parsedManifest.icons.map(({ sizes, purpose }) => [sizes, purpose]),
     [["192x192", "any"], ["512x512", "any"], ["192x192", "maskable"], ["512x512", "maskable"]],

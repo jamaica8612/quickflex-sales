@@ -1415,6 +1415,10 @@ body:not([data-theme="dark"]) .mode-option input[type="radio"]:checked + span sm
   border-radius: 12px;
 }
 .admin-route-field { display: grid; gap: 6px; }
+.admin-beta-option { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+.admin-beta-option input { width: 20px; height: 20px; min-height: 20px; flex: none; accent-color: var(--gold); }
+.admin-beta-option span { font-size: 14px; }
+.admin-beta-option small { display: block; color: var(--muted); font-size: 12px; }
 .inline-check { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; color: var(--muted); font-size: 12px; font-weight: 850; }
 .admin-revenue-list,
 .admin-route-list { display: grid; gap: 10px; }
