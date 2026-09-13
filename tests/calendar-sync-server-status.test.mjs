@@ -11,9 +11,9 @@ test("reconnect preserves only the existing calendar verified by the new Google 
   assert.equal(verifiedReconnectCalendarId("", null), "");
   assert.throws(
     () => verifiedReconnectCalendarId("old-account-calendar", { id: "different-account-calendar" }),
-    /기존 QuickFlex Google 캘린더/,
+    /기존 플렉스노트 Google 캘린더/,
   );
-  assert.throws(() => verifiedReconnectCalendarId("old-account-calendar", null), /기존 QuickFlex Google 캘린더/);
+  assert.throws(() => verifiedReconnectCalendarId("old-account-calendar", null), /기존 플렉스노트 Google 캘린더/);
 });
 
 test("status exposes only a bounded latest terminal job result", () => {

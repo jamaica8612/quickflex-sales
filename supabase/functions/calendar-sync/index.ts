@@ -5,6 +5,8 @@ import { calendarStatusPayload, verifiedReconnectCalendarId } from "./status.js"
 const FUNCTION_NAME = "calendar-sync";
 const GOOGLE_SCOPE = "https://www.googleapis.com/auth/calendar.app.created";
 const MAX_DAYS = 366;
+const CALENDAR_SUMMARY = "플렉스노트";
+const LEGACY_CALENDAR_SUMMARY = "퀵플렉스 근무";
 
 type DaySnapshot = {
   date: string;
@@ -162,14 +164,14 @@ function desiredEvent(day: DaySnapshot, settings: Settings): DesiredEvent | null
   let title: string;
   if (scheduledWork && settings.includeWork) {
     kind = "work";
-    title = "퀵플렉스 근무";
+    title = "배송 근무";
     if (settings.includeRoute && day.routeLabel) title += ` · ${day.routeLabel}`;
   } else if (day.off && settings.includeOff) {
     kind = "off";
-    title = "퀵플렉스 휴무";
+    title = "휴무";
   } else if (settings.includeRevenue && day.revenue !== null) {
     kind = "revenue";
-    title = "퀵플렉스 매출";
+    title = "매출";
   } else return null;
   if (amount) title += ` · ${amount}`;
   return { date: day.date, kind, title, start: { date: day.date }, end: { date: nextDateKey(day.date) }, workShift: day.workShift };
@@ -281,11 +283,21 @@ async function markConflict(userId: string, date: string, reason: string) {
 }
 
 async function getOrCreateCalendar(userId: string, connection: Record<string, unknown>, accessToken: string) {
-  if (connection.calendar_id) return String(connection.calendar_id);
+  if (connection.calendar_id) {
+    const calendarId = String(connection.calendar_id);
+    const calendarUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}`;
+    const calendar = await googleFetch(calendarUrl, accessToken);
+    if (String(calendar?.summary || "") === LEGACY_CALENDAR_SUMMARY) {
+      await googleFetch(calendarUrl, accessToken, {
+        method: "PATCH", body: JSON.stringify({ summary: CALENDAR_SUMMARY }),
+      });
+    }
+    return calendarId;
+  }
   const calendar = await googleFetch("https://www.googleapis.com/calendar/v3/calendars", accessToken, {
-    method: "POST", body: JSON.stringify({ summary: "퀵플렉스 근무", timeZone: "Asia/Seoul" }),
+    method: "POST", body: JSON.stringify({ summary: CALENDAR_SUMMARY, timeZone: "Asia/Seoul" }),
   });
-  if (!calendar?.id) throw new Error("QuickFlex 전용 Google 캘린더를 만들지 못했습니다.");
+  if (!calendar?.id) throw new Error("플렉스노트 전용 Google 캘린더를 만들지 못했습니다.");
   const db = privilegedDb();
   await db.from("quickflex_calendar_connections").update({ calendar_id: calendar.id, updated_at: new Date().toISOString() }).eq("user_id", userId);
   return String(calendar.id);
@@ -354,7 +366,7 @@ async function syncDay(userId: string, calendarId: string, accessToken: string, 
     created = await googleFetch(eventUrl(id), accessToken);
     const privateProps = created?.extendedProperties?.private || {};
     if (privateProps.quickflex_source !== "quickflex-calendar-v1" || privateProps.quickflex_date !== day.date) {
-      throw new Error("QuickFlex 일정 식별자가 다른 일정과 충돌했습니다.");
+      throw new Error("플렉스노트 일정 식별자가 다른 일정과 충돌했습니다.");
     }
   }
   await db.from("quickflex_calendar_event_mappings").upsert({

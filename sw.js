@@ -1,7 +1,9 @@
-const CACHE_NAME = "quickflex-shell-v1.0.53-flexnote-beta-access";
+const CACHE_NAME = "quickflex-shell-v1.0.54-flexnote-beta-1.02";
 const SHELL_FILES = [
   "./",
   "./index.html",
+  "./install.html",
+  "./assets/flexnote-android-icon.png",
   "./intro.html",
   "./privacy.html",
   "./account-deletion.html",
@@ -41,7 +43,7 @@ const SHELL_FILES = [
   "./src/lib/revenue.js",
   "./src/lib/format.js",
   "./src/lib/work-date.js",
-  "./manifest.webmanifest?v=1.0.53",
+  "./manifest.webmanifest?v=1.0.54",
   "./icon-192.png?v=3",
   "./icon-512.png?v=3",
   "./icon-maskable-192.png?v=3",
