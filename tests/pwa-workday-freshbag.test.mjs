@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 import { measurementWorkDateForClock } from "../src/lib/work-date.js";
+import { checkBetaMeasurementAccess } from "../src/services/beta-access.js";
 
 const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
 
@@ -78,6 +79,8 @@ test("native measurement bridge receives the exact manually requested work date"
     },
     window: { QuickFlexNative: { postMessage() {} }, location: {} },
     authEventEpoch: 3,
+    checkBetaMeasurementAccess,
+    TABLES: { profiles: "quickflex_profiles" },
     currentMeasurementWorkDate: () => "2026-09-08",
     getRecord: () => ({ off: false }),
     isNightShift: () => true,

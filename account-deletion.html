@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="플렉스노트 계정과 연결된 데이터 삭제 요청 방법. 로그인 없이 안내를 확인할 수 있습니다." />
+    <title>계정 및 데이터 삭제 | 플렉스노트</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@500;600;700&display=swap");
+      :root { --bg: #f5f5f5; --panel: #fff; --text: #171719; --muted: #70737c; --gold: #1b62d6; --line: rgba(112,115,124,.18); }
+      @media (prefers-color-scheme: dark) {
+        :root { --bg: #141414; --panel: #1c1c1c; --text: #eceef2; --muted: #8a9099; --gold: #e8b85c; --line: rgba(255,255,255,.075); }
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font: 500 16px/1.75 "IBM Plex Sans KR", "Malgun Gothic", sans-serif; word-break: keep-all; overflow-wrap: anywhere; }
+      .page { width: min(100% - 32px, 760px); margin: auto; padding: 24px 0 48px; }
+      nav { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-bottom: 36px; }
+      a { color: var(--gold); text-underline-offset: .18em; }
+      a:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
+      h1 { font-size: clamp(30px, 7vw, 44px); line-height: 1.25; letter-spacing: -.035em; margin: 0 0 16px; }
+      h2 { font-size: 21px; margin: 0 0 12px; }
+      p { margin: 10px 0; }
+      section { padding: 24px 0; border-bottom: 1px solid var(--line); }
+      ul, ol { padding-left: 24px; }
+      li + li { margin-top: 8px; }
+      .notice { padding: 18px; background: var(--panel); border-radius: 18px; margin: 24px 0 4px; }
+      .contact { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; }
+      footer { color: var(--muted); font-size: 13px; margin-top: 28px; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <nav aria-label="서비스 안내"><a href="./intro.html">플렉스노트 소개</a><a href="./privacy.html">개인정보처리방침</a></nav>
+      <main>
+        <h1>계정 및 데이터 삭제</h1>
+        <p>앱에 로그인하지 못하거나 앱을 지웠어도 삭제를 요청할 수 있습니다. 플렉스노트는 일부 화면과 주소에서 QuickFlex 또는 퀵플렉스라는 이름을 사용합니다.</p>
+        <aside class="notice"><strong>요청 접수와 삭제 완료는 다릅니다.</strong><p>요청만으로 기록을 먼저 지우지 않습니다. 운영자가 본인과 삭제 범위를 확인하고 최종 처리한 뒤 결과를 안내합니다. 필요한 기록은 요청 전에 내보내 주세요.</p></aside>
+        <section>
+          <h2>앱에서 요청하기</h2>
+          <ol><li>로그인 후 <strong>설정 → 계정 · 데이터 → 초기화 · 탈퇴</strong>를 엽니다.</li><li><strong>탈퇴 요청</strong>을 누르고 안내를 확인합니다.</li><li>접수 완료 안내가 나오면 서버에 요청이 등록된 상태입니다. 처리 결과는 별도로 안내합니다.</li></ol>
+          <p>접수 확인이 안 되면 아래 이메일로 문의할 수 있습니다.</p>
+        </section>
+        <section>
+          <h2>로그인 없이 요청하기</h2>
+          <p>가입한 이메일로 아래 주소에 <strong>“플렉스노트 계정 삭제 요청”</strong>이라는 제목을 보내 주세요. 전체 계정 삭제인지 일부 데이터 삭제인지 적어 주세요.</p>
+          <a class="contact" href="mailto:flexnote2026@gmail.com?subject=%ED%94%8C%EB%A0%89%EC%8A%A4%EB%85%B8%ED%8A%B8%20%EA%B3%84%EC%A0%95%20%EC%82%AD%EC%A0%9C%20%EC%9A%94%EC%B2%AD">flexnote2026@gmail.com</a>
+          <p>가입 이메일에 접근할 수 없으면 그 사실을 알려 주세요. 운영자가 본인 확인 방법을 안내합니다. <strong>비밀번호·인증번호·고객 주소·송장 정보는 보내지 마세요.</strong></p>
+        </section>
+        <section>
+          <h2>어떤 정보가 삭제되나요?</h2>
+          <ul><li>인증 계정과 프로필, 근무표·수동 기록·자동 마감 기록, 단가와 매출</li><li>지출과 휴지통 내역, 첨부 영수증, 차량 점검과 서명</li><li>서버의 Google Calendar 연결정보와 동기화 기록</li><li>해당 계정에 연결된 서버 진단 로그 — 삭제 요청 범위에 포함해 처리</li></ul>
+          <p>일부 데이터만 삭제를 원하면 종류와 기간을 적어 주세요. 삭제 범위나 별도 보관 사유가 있으면 처리 전에 안내합니다.</p>
+          <p>Google 계정에 이미 만들어진 캘린더와 일정은 계정 삭제 요청만으로 자동 삭제되지 않습니다. Google Calendar에서 삭제하고, Google 계정 보안 설정에서 앱 접근 권한을 철회할 수 있습니다.</p>
+          <p>폰이나 PC에 직접 내보낸 파일은 서버에서 지울 수 없습니다. 필요하면 기기에서 별도로 삭제해 주세요.</p>
+        </section>
+      </main>
+      <footer>운영자 김관현 · 안내 갱신 2026-09-13 · <a href="./">앱 열기</a></footer>
+    </div>
+  </body>
+</html>

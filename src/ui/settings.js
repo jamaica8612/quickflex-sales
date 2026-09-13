@@ -1,3 +1,5 @@
+import { bindAccountDeletion } from "./account-deletion.js";
+
 export function bindSettingsEvents(ctx) {
   const {
     el,
@@ -112,21 +114,7 @@ export function bindSettingsEvents(ctx) {
       toast(`초기화 실패: ${error.message}`, "error");
     }
   });
-  el.requestAccountDelete.addEventListener("click", async () => {
-    if (!window.confirm("탈퇴 요청을 남기고 내 수동 기록과 단가 데이터를 삭제할까요?\n\n앱 자동 마감 기록은 유지되며, 계정 처리는 관리자가 확인합니다.")) return;
-    const userId = currentUserId();
-    try {
-      await deleteMutableUserData(userId);
-      await state.db.from(TABLES.profiles).update({
-        display_name: `[탈퇴요청] ${driverName()}`,
-        updated_at: new Date().toISOString(),
-      }).eq("id", userId);
-      toast("탈퇴 요청을 남겼습니다.", "success");
-      await logout();
-    } catch (error) {
-      toast(`탈퇴 요청 실패: ${error.message}`, "error");
-    }
-  });
+  bindAccountDeletion({ ...ctx, button: el.requestAccountDelete });
   el.openDbSettings.addEventListener("click", openSheet);
   el.dbOverlay.addEventListener("click", closeSheet);
   el.closeDbSheet?.addEventListener("click", closeSheet);

@@ -1,9 +1,10 @@
-const CACHE_NAME = "quickflex-shell-v1.0.52-measurement-guide";
+const CACHE_NAME = "quickflex-shell-v1.0.53-flexnote-beta-access";
 const SHELL_FILES = [
   "./",
   "./index.html",
   "./intro.html",
   "./privacy.html",
+  "./account-deletion.html",
   "./styles.css",
   "./assets/fonts/PretendardVariable.woff2",
   "./assets/fonts/WantedSansVariable.woff2",
@@ -22,6 +23,7 @@ const SHELL_FILES = [
   "./src/config.js",
   "./src/state.js",
   "./src/services/auth.js",
+  "./src/services/beta-access.js",
   "./src/services/db.js",
   "./src/services/usage.js",
   "./src/ui/calendar.js",
@@ -29,6 +31,7 @@ const SHELL_FILES = [
   "./src/ui/record.js",
   "./src/ui/stats.js",
   "./src/ui/settings.js",
+  "./src/ui/account-deletion.js",
   "./src/ui/admin.js",
   "./src/ui/ocr.js",
   "./src/lib/date.js",
@@ -38,7 +41,7 @@ const SHELL_FILES = [
   "./src/lib/revenue.js",
   "./src/lib/format.js",
   "./src/lib/work-date.js",
-  "./manifest.webmanifest?v=1.0.52",
+  "./manifest.webmanifest?v=1.0.53",
   "./icon-192.png?v=3",
   "./icon-512.png?v=3",
   "./icon-maskable-192.png?v=3",
