@@ -66,7 +66,7 @@ test("PWA config names the immutable-receipt detail and date override contracts"
   assert.equal((html.match(/플렉스노트 · Beta 1\.05/g) || []).length, 2);
   assert.match(html, /releases\/download\/android-beta-1\.05\/flexnote-beta-1\.05\.apk/);
   assert.match(html, /href="\.\/install\.html#play-protect"/);
-  assert.match(installHtml, /<section class="step" id="play-protect">[\s\S]*?<details open>/);
+  assert.match(installHtml, /<section class="[^"]*\bstep\b[^"]*" id="play-protect">[\s\S]*?<details open>/);
   assert.match(installHtml, /support\.google\.com\/googleplay\/answer\/2812853\?hl=ko/);
   assert.match(serviceWorker, /\.\/src\/lib\/work-date\.js/);
   const parsedManifest = JSON.parse(manifest);

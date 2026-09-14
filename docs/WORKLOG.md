@@ -1,5 +1,14 @@
 # QuickFlex Worklog
 
+## 2026-09-14 Galaxy A34 installation guide
+
+- Rebuilt install.html with 13 reviewed Galaxy A34 / Android 16 screenshots, enlargement dialogs, and one-column layout up to 760px.
+- Captured a fresh Chrome installation of Beta 1.05 (127), Google Play Protect pause/authentication and restoration, Samsung's separate two-stage warning, restricted-settings permission, and accessibility activation.
+- A34 final state: FlexNote data connection enabled; Play Protect scan enabled again; Chrome unknown-source installation permission disabled again. Other accessibility services were preserved. Login and delivery collection were outside this guide verification.
+- Updated the service-worker cache and precached guide screenshots. APK, account gates, sales data, and other-session icon changes are outside this change.
+- Validation: 14 targeted tests passed; app.js/sw.js and inline-script syntax checked; image loading, dark/light mobile layouts, enlargement, Escape/focus return, and diff checks passed.
+
+
 Last updated: 2026-09-12 (overnight measurement entry / PWA 1.0.51)
 
 ## 2026-09-12 Overnight Measurement Entry (1.0.51)
