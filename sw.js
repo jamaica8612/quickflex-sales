@@ -1,7 +1,11 @@
-const CACHE_NAME = "quickflex-shell-v1.0.59-flexnote-beta-1.07-install-a34-1-design-2-usage-guide-1";
+const CACHE_NAME = "quickflex-shell-v1.0.59-flexnote-beta-1.07-startup-1-usage-guide-1";
 const SHELL_FILES = [
   "./",
   "./index.html",
+  "./styles/startup.css",
+  "./src/startup.js",
+  "./assets/fonts/flexnote-startup-regular.woff",
+  "./assets/fonts/flexnote-startup-semibold.woff",
   "./install.html",
   "./guide.html",
   "./assets/usage-guide/flexnote-symbol.svg",

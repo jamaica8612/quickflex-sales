@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-startup>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -38,6 +38,8 @@
       html[data-theme="dark"], body[data-theme="dark"] { background: var(--shell-bg, #101010); color-scheme: dark; }
       html[data-theme="light"], body[data-theme="light"] { background: var(--shell-bg, #ECECEC); color-scheme: light; }
     </style>
+    <style>html[data-startup] #app{visibility:hidden;pointer-events:none}</style>
+    <link rel="stylesheet" href="./styles/startup.css?v=1" />
     <link rel="stylesheet" href="./styles.css?v=1.0.59" />
   <link rel="stylesheet" href="./styles/expenses.css?v=1.0.59" />
 <link rel="stylesheet" href="./styles/exports.css?v=1.0.59" />
@@ -45,7 +47,27 @@
 </head>
   <body>
     <script>document.body.dataset.theme = document.documentElement.dataset.theme;</script>
-    <div class="app" id="app" data-view="home" data-driver-type="backup">
+    <section id="startupSplash" aria-label="플렉스노트 시작" aria-busy="true">
+      <div class="startup-brand">
+        <div class="startup-truck">
+          <span class="startup-trail" aria-hidden="true"></span>
+          <svg viewBox="0 0 320 256" fill="currentColor" aria-hidden="true">
+            <path d="M10 181L60 45Q72 10 103 10H246Q253 10 251 16Q240 57 203 57H118Q106 57 102 70L99 78H202Q190 122 159 122H99L78 152A35 35 0 0 0 38 181Z"/>
+            <path fill-rule="evenodd" d="M211 83Q211 78 217 78H243Q254 78 262 87L295 122Q302 130 302 138V167Q302 181 288 181H259A35 35 0 0 0 210 153ZM230 94Q227 94 227 98V123Q227 127 231 127H272Q278 127 274 122L252 98Q249 94 245 94Z"/>
+            <circle cx="78" cy="184" r="25"/><circle cx="224" cy="184" r="25"/>
+          </svg>
+        </div>
+        <div class="startup-copy"><p class="startup-name">플렉스노트</p><p class="startup-tagline">배송의 모든 기록</p></div>
+      </div>
+      <div class="startup-progress">
+        <span class="startup-spinner" aria-hidden="true"></span>
+        <p id="startupStatus" class="startup-status" role="status">로그인 상태를 확인하고 있습니다.</p>
+        <button id="startupRetry" class="startup-retry" type="button">다시 시도</button>
+        <noscript>앱을 사용하려면 JavaScript를 켜 주세요.</noscript>
+      </div>
+    </section>
+    <script src="./src/startup.js?v=1"></script>
+    <div class="app" id="app" data-view="home" data-driver-type="backup" inert aria-hidden="true">
       <section class="view view-home">
         <header class="home-header">
           <div class="home-top">
