@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f5f5f5">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="플렉스노트 사용법. 근무 날짜와 구역 확인, 쿠팡플렉스 배송목록 열기, 측정 시작부터 업무 종료와 매출 기록까지 순서대로 안내합니다.">
+  <title>플렉스노트 사용법</title>
+  <style>
+    @font-face{font-family:Pretendard;src:url('__FONT__') format('woff2');font-weight:45 920;font-display:swap}
+    :root{color-scheme:light;--bg:#f5f5f5;--paper:#fff;--ink:#171719;--muted:#565c66;--line:#dedfe3;--blue:#1b62d6;--blue-soft:#edf3fd;--dark:#1c1c1c;--on-dark:#eceef2;--gold:#e8b85c;--warning:#805410;--warning-bg:#fff5e3;--green:#276447;--green-bg:#eaf4ef;--radius:20px;--space:24px}
+    *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:28px}body{margin:0;background:var(--bg);color:var(--ink);font:1rem/1.7 Pretendard,"Malgun Gothic",system-ui,sans-serif;word-break:keep-all;overflow-wrap:anywhere}h1,h2,h3,p,figure{margin:0}h1,h2,h3{line-height:1.3;letter-spacing:-.035em}a{color:var(--blue);text-underline-offset:4px}button{font:inherit;cursor:pointer;touch-action:manipulation}button,a,summary{-webkit-tap-highlight-color:transparent}a:focus-visible,button:focus-visible,summary:focus-visible,[tabindex="-1"]:focus-visible{outline:3px solid var(--blue);outline-offset:4px}button:active{opacity:.78}img{max-width:100%;height:auto;display:block}[hidden]{display:none!important}.wrap{width:min(1184px,calc(100% - 64px));margin-inline:auto}.skip{position:fixed;z-index:10;left:16px;top:8px;padding:12px 18px;background:var(--paper);transform:translateY(-150%)}.skip:focus{transform:none}
+    .header{display:flex;align-items:center;justify-content:space-between;min-height:88px;border-bottom:1px solid var(--line);gap:20px}.brand{display:flex;align-items:center;gap:12px;font-size:20px;font-weight:750;color:var(--ink);text-decoration:none;min-height:48px}.brand-icon{display:grid;place-items:center;background:var(--dark);width:42px;height:42px;border-radius:12px}.brand img{width:32px;height:26px;object-fit:contain}.header-tools{display:flex;align-items:center;gap:20px}.header-tools>span{font-size:14px;color:var(--muted)}.plain-button{padding:8px 14px;background:var(--paper);border:1px solid var(--line);border-radius:10px;min-height:44px;color:var(--ink);font-weight:650;font-size:14px}.plain-button:hover{border-color:var(--blue);color:var(--blue)}
+    .layout{display:grid;grid-template-columns:216px minmax(0,1fr);gap:56px;padding-top:44px}.sidebar{align-self:start;position:sticky;top:28px;padding-bottom:28px}.toc-title{font-size:13px;font-weight:650;color:var(--muted);margin:0 0 16px 14px}.toc{display:grid;gap:4px}.toc a{display:flex;gap:12px;align-items:center;min-height:48px;padding:8px 14px;border-radius:10px;text-decoration:none;color:var(--muted);font-size:14px;font-weight:550}.toc a:hover{background:var(--paper);color:var(--ink)}.toc a[aria-current="location"]{background:var(--blue-soft);color:var(--blue);font-weight:750}.toc .n{font-variant-numeric:tabular-nums;min-width:14px}.sidebar-note{border-top:1px solid var(--line);padding:20px 14px;margin-top:24px;font-size:13px;color:var(--muted)}.sidebar-note strong{display:block;color:var(--ink);font-weight:650;margin-bottom:4px}.sidebar-note a{display:inline-flex;align-items:center;min-height:44px}
+    main{min-width:0;padding-bottom:60px}.intro{padding:4px 0 38px}.intro h1{font-size:clamp(32px,4vw,44px);font-weight:760;margin-bottom:12px;letter-spacing:-.055em}.intro .lead{font-size:18px;color:var(--muted);max-width:650px}.example-note{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--muted);margin-top:20px}.example-note svg{width:17px;height:17px;flex:none;margin-top:3px;fill:none;stroke:currentColor;stroke-width:1.7}.overview{display:flex;list-style:none;gap:0;margin:24px 0 0;padding:0;flex-wrap:wrap;align-items:center}.overview li{display:flex;align-items:center;font-size:14px;font-weight:650}.overview li+li:before{content:"›";margin:0 14px;color:var(--muted)}
+    .prep{padding:26px 28px;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:20px}.prep h2{font-size:19px;margin-bottom:18px}.prep ul{list-style:none;padding:0;margin:0;display:grid;gap:12px}.prep li{display:flex;gap:10px;align-items:flex-start;font-size:15px}.tick{flex:none;width:22px;height:22px;border:1px solid var(--line);border-radius:6px;color:var(--blue);display:grid;place-items:center;line-height:1;margin-top:2px}.prep li strong{font-weight:650}.prep .link-row{margin-top:16px}.link-row a{display:inline-flex;align-items:center;min-height:44px;font-size:14px;font-weight:650}.safety{font-size:13px;color:var(--muted);padding:0 4px 24px}
+    .step{padding:42px 0 46px;border-bottom:1px solid var(--line);scroll-margin-top:24px}.step-heading{display:flex;gap:14px;align-items:flex-start;margin-bottom:24px}.step-number{display:grid;place-items:center;flex:none;background:var(--ink);color:var(--paper);width:32px;height:32px;border-radius:50%;font-size:15px;font-weight:650}.step-heading h2{font-size:25px;line-height:1.35}.step-heading p{color:var(--muted);font-size:14px;margin-top:6px}.step-content{padding-left:46px}.instruction{font-size:17px;margin-bottom:18px;max-width:640px}.steps-list{padding-left:21px;margin:0;display:grid;gap:12px}.steps-list li{padding-left:5px;font-size:16px;max-width:600px}.steps-list li::marker{color:var(--muted);font-size:14px}.steps-list strong{font-weight:700}.sub-note{font-size:14px;color:var(--muted);margin-top:16px}.split{display:grid;grid-template-columns:minmax(0,1fr) 242px;gap:32px;align-items:start}.split-copy{min-width:0}.callout{padding:18px 20px;border-radius:12px;background:var(--blue-soft);font-size:15px;margin:22px 0}.callout strong{display:block;margin-bottom:5px}.callout.warning{background:var(--warning-bg);color:var(--warning)}.callout.neutral{background:var(--paper);border:1px solid var(--line)}.tag{display:inline-flex;align-items:center;font-size:12px;line-height:1.5;padding:4px 8px;border-radius:6px;background:var(--bg);color:var(--muted)}.button-name{font-weight:700;color:var(--ink)}
+    .schematic{margin:24px 0 0;max-width:440px}.schematic-inner{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:22px}.schematic-title{font-size:15px;font-weight:700;margin-bottom:16px}.field-row{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}.field-row>span{color:var(--muted)}.field-row strong{font-weight:650;text-align:right}.fake-button{display:flex;align-items:center;justify-content:center;min-height:46px;border-radius:12px;padding:10px 16px;font-size:14px;font-weight:700;text-align:center;background:var(--blue);color:var(--paper);margin-top:20px}.fake-button.dark{background:var(--dark);color:var(--gold)}figcaption{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6}.jump-action{padding:22px 24px;background:var(--blue-soft);border-left:3px solid var(--blue);margin-bottom:24px;border-radius:0 12px 12px 0}.jump-action strong{display:block;font-size:22px;line-height:1.5;letter-spacing:-.025em}.jump-action p{font-size:14px;color:var(--muted);margin-top:8px}.list-map{border:1px solid var(--line);border-radius:16px;background:var(--paper);overflow:hidden;max-width:490px}.list-map-title{font-size:16px;font-weight:700;padding:16px 20px;border-bottom:1px solid var(--line)}.list-map-tabs{display:grid;grid-template-columns:repeat(3,1fr);padding:16px 8px}.list-map-tabs div{text-align:center;font-size:15px;font-weight:650}.list-map-tabs small{display:block;font-size:13px;font-weight:500;color:var(--muted);margin-top:3px}.list-map-placeholder{padding:16px 20px 24px;display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px;background:var(--bg)}.list-map-nav{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));padding:12px 5px;font-size:11px;text-align:center;gap:2px}.list-map-nav span{padding:10px 0;border-radius:8px}.list-map-nav .selected{background:var(--blue-soft);color:var(--blue);font-weight:750;outline:2px solid var(--blue)}.list-map-caption{font-size:13px;color:var(--muted);margin-top:12px}.dual-button{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px}.dual-button .fake-button{margin:0}.tiny-label{display:block;margin-bottom:8px;font-size:13px;color:var(--muted)}
+    .screen{width:100%;max-width:242px;justify-self:center}.screen-button{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:var(--dark);cursor:zoom-in}.screen-button img{width:100%;height:auto}.screen-button:hover{outline:3px solid var(--blue);outline-offset:4px}.screen figcaption{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.screen figcaption span:last-child{color:var(--blue)}.comparison{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}.comparison article{padding:24px;background:var(--paper);border:1px solid var(--line);border-radius:16px}.comparison h3{font-size:20px;margin:10px 0 12px}.comparison p{font-size:15px}.comparison .context{font-size:13px;color:var(--muted)}.comparison .result{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-size:14px;font-weight:650}.comparison article:last-child{border-color:var(--blue)}.comparison article:last-child .result{color:var(--blue)}.timeline{padding:18px 20px;margin-top:20px;border-radius:12px;background:var(--paper);font-size:14px;line-height:1.9}.timeline strong{font-weight:700}.timeline span{color:var(--muted)}
+    .review-items{display:grid;gap:0;border-top:1px solid var(--line);margin-top:22px}.review-item{padding:16px 0;border-bottom:1px solid var(--line)}.review-item h3{font-size:16px;margin-bottom:5px}.review-item p{font-size:14px;color:var(--muted)}.review-item .code{font-weight:650;color:var(--ink)}.edit-example{margin-top:18px;display:inline-flex;align-items:center;gap:10px}.finish-action{padding:20px 22px;background:var(--green-bg);border-radius:14px;margin-top:28px}.finish-action strong{display:block;color:var(--green);font-size:17px;margin-bottom:6px}.finish-action p{font-size:15px}.records-row{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px}.records-row h3{font-size:17px;margin-bottom:8px}.records-row p{font-size:15px;color:var(--muted)}
+    .faq{padding-top:40px}.faq h2{font-size:25px;margin-bottom:20px}.faq details{border-bottom:1px solid var(--line)}summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:64px;padding:16px 4px;font-weight:650;line-height:1.5}summary::-webkit-details-marker{display:none}summary:after{content:"+";font-size:23px;font-weight:400;flex:none;color:var(--muted)}details[open]>summary:after{content:"−"}.faq details>div{font-size:15px;color:var(--muted);max-width:680px;padding:0 36px 22px 4px}.faq details p+p{margin-top:10px}.quick-reminder{background:var(--dark);color:var(--on-dark);padding:28px;border-radius:var(--radius);margin-top:40px}.quick-reminder h2{font-size:21px;margin-bottom:20px}.quick-reminder ol{display:grid;gap:12px;list-style:none;padding:0;margin:0;counter-reset:reminder}.quick-reminder li{display:flex;gap:12px;font-size:15px;counter-increment:reminder}.quick-reminder li:before{content:counter(reminder);color:var(--gold);font-weight:750}.footer{border-top:1px solid var(--line);padding:28px 0 max(28px,env(safe-area-inset-bottom));font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:20px}.footer a{display:inline-flex;align-items:center;min-height:44px}.footer p{padding-top:10px}
+    dialog{border:0;padding:0;border-radius:18px;width:min(94vw,600px);max-height:92dvh;background:var(--dark);color:var(--on-dark)}dialog::backdrop{background:#000b}.viewer-bar{position:sticky;top:0;background:var(--dark);display:flex;align-items:center;justify-content:space-between;padding:12px 16px;gap:16px;border-bottom:1px solid #fff3;z-index:1}.viewer-bar h2{font-size:16px}.viewer-bar button{min-width:64px;min-height:44px;border-radius:8px;background:var(--on-dark);color:var(--dark);border:0;font-weight:700}.viewer-image{width:100%;height:auto}.viewer-note{font-size:13px;padding:16px;color:var(--on-dark)}body.viewer-open{overflow:hidden}
+    @media(max-width:1000px){.layout{grid-template-columns:184px minmax(0,1fr);gap:28px}.wrap{width:calc(100% - 40px)}.split{grid-template-columns:minmax(0,1fr) 206px;gap:22px}.step-content{padding-left:0}.toc a{padding-inline:10px}}
+    @media(max-width:760px){.wrap{width:calc(100% - 40px)}.header{min-height:76px}.header-tools>span{display:none}.layout{display:block;padding-top:24px}.sidebar{position:static;padding-bottom:24px}.toc-title{margin:0 0 10px}.toc{grid-template-columns:1fr 1fr;gap:4px 8px}.toc a{font-size:13px;min-height:44px;background:var(--paper);border:1px solid var(--line)}.sidebar-note{display:none}.intro{padding:8px 0 28px}.intro h1{font-size:34px}.intro .lead{font-size:16px}.prep{padding:22px}.step{padding:32px 0}.step-heading{gap:12px;margin-bottom:22px}.step-heading h2{font-size:23px}.step-number{width:30px;height:30px}.split{grid-template-columns:1fr 220px;gap:24px}.step-content{padding-left:0}.jump-action strong{font-size:21px}.overview{margin-top:20px}.overview li{font-size:13px}.overview li+li:before{margin:0 9px}.comparison{gap:12px}.comparison article{padding:20px}.footer{flex-wrap:wrap;gap:0}}
+    @media(max-width:560px){.split{grid-template-columns:1fr}.screen{max-width:270px;margin-top:8px}.comparison,.records-row{grid-template-columns:1fr}.comparison article{padding:22px}.intro h1{font-size:32px}.step-heading h2{font-size:22px}.step-heading p{font-size:13px}.step-number{width:28px;height:28px;font-size:14px}.jump-action{padding:18px}.jump-action strong{font-size:20px}.brand{font-size:18px;gap:9px}.brand-icon{width:36px;height:36px;border-radius:10px}.header{gap:12px}.header-tools{gap:0}.plain-button{font-size:13px;padding-inline:12px}.prep{padding:20px}.instruction{font-size:16px}.steps-list li{font-size:15px}.schematic-inner{padding:18px}.quick-reminder{padding:24px 22px}.list-map-nav{font-size:10px}.overview{row-gap:6px}.safety{padding-bottom:12px}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}}
+    @media print{body{background:#fff;font-size:11pt}.wrap{width:100%}.header-tools,.sidebar,.screen-button,.edit-example,.skip,.footer a,dialog{display:none!important}.layout{display:block;padding-top:24px}.intro h1{font-size:28pt}.step{break-inside:avoid;padding:24px 0}.split{display:block}.screen{display:none}.comparison{display:grid}.step-content{padding-left:0}.quick-reminder{background:#fff;color:#000;border:1px solid #bbb}.quick-reminder li:before{color:#000}.faq details>div{display:block}.prep,.callout,.comparison article{box-shadow:none}a{color:#000}}
+    .back-link{display:inline-flex;align-items:center;min-height:44px;font-size:14px;color:var(--ink);text-decoration:none;white-space:nowrap}
+    .back-link:hover{color:var(--blue);text-decoration:underline}
+    @media(max-width:560px){.header{flex-wrap:wrap;row-gap:8px;padding-block:12px}.header-tools{gap:16px}}
+    @media print{.back-link{display:none}}
+  </style>
+</head>
+<body id="top">
+  <a class="skip" href="#guide">본문으로 건너뛰기</a>
+  <header class="wrap header">
+    <a class="brand" href="#top"><span class="brand-icon"><img src="__LOGO__" width="32" height="26" alt=""></span>플렉스노트</a>
+    <div class="header-tools"><a class="back-link" href="./">매출관리</a><button class="plain-button" id="print-guide" type="button">인쇄 / PDF</button></div>
+  </header>
+  <div class="wrap layout">
+    <aside class="sidebar" aria-label="안내 목차">
+      <p class="toc-title">필요한 단계로 바로 가기</p>
+      <nav class="toc" aria-label="사용 순서">
+        <a href="#before" aria-current="location"><span class="n">✓</span>처음 사용하기 전</a>
+        <a href="#schedule"><span class="n">1</span>날짜 · 구역 확인</a>
+        <a href="#delivery-list"><span class="n">2</span>배송목록 열기</a>
+        <a href="#start"><span class="n">3</span>업무 · 측정 시작</a>
+        <a href="#pause"><span class="n">4</span>1차 배송을 마쳤다면</a>
+        <a href="#finish"><span class="n">5</span>하루 업무 마무리</a>
+        <a href="#records"><span class="n">6</span>매출 기록 확인</a>
+        <a href="#help"><span class="n">?</span>자주 헷갈리는 점</a>
+      </nav>
+      <p class="sidebar-note"><strong>설치가 아직이라면</strong>앱 설치와 접근성 설정부터 진행해 주세요.<br><a href="./install.html" target="_blank" rel="noopener noreferrer">설치 안내 열기 (새 창)</a></p>
+    </aside>
+    <main id="guide" tabindex="-1">
+      <div class="intro">
+        <h1>플렉스노트 사용법</h1>
+        <p class="lead">배송을 시작할 때부터 매출을 기록할 때까지.<br>처음 쓰는 날에는 이 순서대로 따라 해보세요.</p>
+        <ol class="overview" aria-label="전체 사용 흐름"><li>근무 확인</li><li>배송 측정</li><li>수량 검토</li><li>매출 기록</li></ol>
+        <p class="example-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10v6m0-9v1"/></svg>구역 코드·날짜·수량은 모두 설명용 가상 데이터예요. 화면마다 보여주는 예시 상태는 다릅니다.</p>
+      </div>
+      <section class="prep" id="before" aria-labelledby="before-title">
+        <h2 id="before-title">처음 한 번, 이것부터 확인하세요</h2>
+        <ul>
+          <li><span class="tick" aria-hidden="true">✓</span><span>매출관리 웹과 Android 측정 앱에 <strong>같은 계정</strong>으로 로그인해 주세요.</span></li>
+          <li><span class="tick" aria-hidden="true">✓</span><span><strong>가입 승인 · 베타 측정 허용</strong>이 되어 있는지 확인해 주세요.</span></li>
+          <li><span class="tick" aria-hidden="true">✓</span><span>측정 앱의 <strong>접근성 권한</strong>을 켜 주세요.</span></li>
+        </ul>
+        <p class="link-row"><a href="./install.html" target="_blank" rel="noopener noreferrer">설치·권한 설정 안내 보기 (새 창)</a></p>
+      </section>
+      <p class="safety">화면 조작과 수량 확인은 안전하게 정차한 뒤 해주세요.</p>
+
+      <section class="step" id="schedule" aria-labelledby="schedule-title">
+        <div class="step-heading"><span class="step-number">1</span><div><h2 id="schedule-title">오늘 일할 날짜와 구역을 확인하세요</h2><p>플렉스노트 매출관리 웹에서</p></div></div>
+        <div class="step-content">
+          <ol class="steps-list"><li>달력에서 근무 날짜와 등록된 구역을 확인하세요.</li><li><strong>배송 측정</strong> 메뉴를 열고 <strong>근무표 날짜</strong>와 구역이 맞는지 확인하세요.</li><li><strong>측정 앱 열기</strong>를 눌러 Android 앱으로 이동하세요.</li></ol>
+          <figure class="schematic"><div class="schematic-inner"><div class="schematic-title">배송 측정 <span class="tag">화면 구성 예시</span></div><div class="field-row"><span>근무표 날짜</span><strong>2026. 9. 14.</strong></div><div class="field-row"><span>근무 · 구역</span><strong>주간 · 316C · 316D</strong></div><div class="fake-button" aria-label="실제 앱의 측정 앱 열기 버튼 위치 예시">측정 앱 열기</div></div><figcaption>설명용 요약도입니다. 이 페이지에서는 실제 업무가 시작되지 않아요.</figcaption></figure>
+          <p class="sub-note">야간 근무는 자정을 넘길 수 있어요. 달력의 근무일과 일치하는지 확인하고, 다르면 날짜를 직접 바꿔 주세요.</p>
+        </div>
+      </section>
+
+      <section class="step" id="delivery-list" aria-labelledby="delivery-list-title">
+        <div class="step-heading"><span class="step-number">2</span><div><h2 id="delivery-list-title">쿠팡플렉스에서 배송목록을 열어주세요</h2><p>업무 시작 전, 현재 배송 상태를 읽는 단계예요</p></div></div>
+        <div class="step-content">
+          <div class="jump-action"><strong>쿠팡플렉스 배송목록 화면을 열어주세요</strong><p>지도 화면이 아니라, 위쪽에 <b>진행 · 완료 · 미완</b> 수량이 함께 보이는 화면이에요.</p></div>
+          <ol class="steps-list"><li>쿠팡플렉스 앱을 열어 주세요.</li><li>아래 메뉴에서 <strong>배송목록</strong>을 눌러 주세요.</li><li>위쪽 수량이 표시된 것을 확인한 뒤 플렉스노트로 돌아오세요.</li></ol>
+          <figure class="schematic"><div class="list-map"><div class="list-map-title">배송 목록</div><div class="list-map-tabs"><div>진행<small>80가구 · 120개</small></div><div>완료<small>0가구 · 0개</small></div><div>미완<small>0가구 · 0개</small></div></div><div class="list-map-placeholder">이 아래에 배송할 집의 목록이 보여요.</div><div class="list-map-nav" aria-label="쿠팡플렉스 아래 메뉴 위치 설명"><span>지도</span><span class="selected">배송목록</span><span>업무목록</span><span>추가물량</span><span>검색</span><span>더보기</span></div></div><figcaption class="list-map-caption">배송목록 위치 안내를 위한 요약도예요. 실제 고객 정보는 넣지 않았어요.</figcaption></figure>
+          <div class="callout"><strong>이럴 때도 배송목록을 열어주세요</strong>수량을 다시 확인하라는 안내가 나올 때, 다음 차수 배송을 시작할 때, 하루 업무를 끝내기 전에 같은 화면을 열어 주세요.</div>
+        </div>
+      </section>
+
+      <section class="step" id="start" aria-labelledby="start-title">
+        <div class="step-heading"><span class="step-number">3</span><div><h2 id="start-title">업무를 시작하고, 타수 측정을 켜세요</h2><p>플렉스노트 Android 앱에서</p></div></div>
+        <div class="step-content split">
+          <div class="split-copy"><ol class="steps-list"><li>날짜와 구역을 다시 확인한 뒤 <strong>업무 시작</strong>을 눌러 주세요.</li><li>배송 페이스도 보고 싶다면 <strong>측정 시작</strong>을 눌러 주세요.</li><li>쿠팡플렉스로 돌아가 평소처럼 배송하고 완료 처리하세요.</li></ol>
+            <div class="dual-button" aria-label="앱에서 누르는 버튼 순서"><div><span class="tiny-label">먼저 하루 업무 시작</span><div class="fake-button">업무 시작</div></div><div><span class="tiny-label">이어서 페이스 측정</span><div class="fake-button dark">측정 시작</div></div></div>
+            <div class="callout neutral"><strong>큰 숫자는 ‘이 폰의 배송 페이스’예요</strong>시간당 몇 가구를 완료했는지 보여줘요. 차량 주행 속도가 아니며, 함께 일하는 다른 폰의 완료 횟수와는 다를 수 있어요.</div>
+            <p class="sub-note">측정 앱을 계속 띄워둘 필요는 없어요. 쿠팡플렉스 화면에서 배송을 진행하면 읽힌 완료 정보를 바탕으로 수량과 구역을 집계해요.</p>
+            <p class="sub-note">구역을 바로 찾지 못한 상품은 확인할 항목으로 남을 수 있어요. 하루 업무를 마칠 때 실제 구역과 수량을 확인해 주세요.</p>
+          </div>
+          <figure class="screen"><button class="screen-button" type="button" data-image="pace" aria-label="타수 측정 가상 화면 확대"><img src="__PACE__" width="1008" height="2400" loading="lazy" alt="가상 구역 316C와 316D의 타수 측정 예시. 큰 숫자 45.2 가구/시간과 구역별 집계가 표시됩니다."></button><figcaption><span>실제 앱 · 가상 데이터</span><span>눌러서 확대</span></figcaption></figure>
+        </div>
+      </section>
+
+      <section class="step" id="pause" aria-labelledby="pause-title">
+        <div class="step-heading"><span class="step-number">4</span><div><h2 id="pause-title">1차 배송만 끝났다면 ‘측정 종료’</h2><p>측정 종료와 업무 종료는 달라요</p></div></div>
+        <div class="step-content"><p class="instruction">물건을 다시 싣고 다음 차수 배송을 할 예정이라면, 하루 업무까지 끝내지 마세요.</p>
+          <div class="comparison"><article><p class="context">1차 배송을 마치고, 다음 배송이 남았을 때</p><h3>측정 종료</h3><p>이번 구간의 타수 측정을 마치고 측정 기록을 저장해요.</p><p class="result">하루 업무는 계속 이어져요</p></article><article><p class="context">오늘 예정된 배송을 모두 마쳤을 때</p><h3>업무 종료</h3><p>구역과 수량을 검토하고, 최종 기록을 매출에 반영하며 마무리해요.</p><p class="result">하루 업무를 마치는 단계예요</p></article></div>
+          <div class="timeline"><strong>다음 차수 배송을 시작할 때</strong><br><span>쿠팡플렉스 배송목록 열기 → 플렉스노트로 돌아오기 →</span> <strong>측정 시작</strong></div>
+          <p class="sub-note">너무 짧거나 변화가 없는 측정은 기록이 저장되지 않을 수 있어요. 종료 후 앱의 안내를 확인해 주세요. ‘측정 종료’만 눌렀다고 하루 매출 기록이 끝난 것은 아니에요.</p>
+        </div>
+      </section>
+
+      <section class="step" id="finish" aria-labelledby="finish-title">
+        <div class="step-heading"><span class="step-number">5</span><div><h2 id="finish-title">마지막 수량을 확인하고 업무를 종료하세요</h2><p>자동 집계한 내용도 저장 전에 한 번 확인해 주세요</p></div></div>
+        <div class="step-content">
+          <div class="jump-action"><strong>종료 전에도, 쿠팡플렉스 배송목록 화면을 열어주세요</strong><p>현재 진행·완료·미완 수량이 표시된 뒤 플렉스노트로 돌아와 <b>업무 종료</b>를 눌러 주세요.</p></div>
+          <div class="split"><div class="split-copy"><p class="instruction">저장된 배송 정보를 다시 확인한 뒤 업무 종료 화면이 열려요. 다음 내용을 차례로 살펴보세요.</p>
+              <div class="review-items"><div class="review-item"><h3>구역과 상품 수</h3><p><span class="code">316C · 316D</span>처럼 오늘 일한 구역이 모두 있는지, 각 구역의 수량이 맞는지 확인하세요. 세부 코드는 그대로 표시돼요.</p></div><div class="review-item"><h3>프레시백 · 반품 · 취소</h3><p>오늘 처리한 수량과 비교하세요. ‘취소 포함’, ‘반품 별도’ 등 화면에 적힌 구분도 함께 확인해 주세요.</p></div><div class="review-item"><h3>예상한 구역 · 못 찾은 구역</h3><p>예상은 확정이 아니에요. 확인이 필요한 상품이 있다면 실제 배송한 구역으로 맞춰 주세요.</p></div></div>
+              <div class="callout"><strong>숫자가 다르면 ‘수량 수정’</strong>수량을 고친 뒤 <b>완료</b>를 눌러 검토 화면으로 돌아오세요. 여기의 ‘완료’는 수정 마침이며, 마지막 저장은 아래 버튼으로 해요.</div>
+              <button class="plain-button edit-example" type="button" data-image="edit">수량 수정 화면 예시 보기</button>
+              <p class="sub-note">수량 차이나 필수 입력 경고가 있으면 그 안내를 먼저 확인해 주세요. 경고가 남은 상태를 정상 저장 완료로 생각하지 마세요.</p>
+            </div><figure class="screen"><button class="screen-button" type="button" data-image="finish" aria-label="업무 종료 정산서 가상 화면 확대"><img src="__FINISH__" width="1008" height="2400" loading="lazy" alt="업무 종료 가상 정산서. 316C 124개, 316D 74개와 프레시백, 반품, 취소를 확인하고 매출에 기록하고 종료 버튼을 누르는 화면입니다."></button><figcaption><span>실제 앱 · 가상 데이터</span><span>눌러서 확대</span></figcaption></figure></div>
+          <div class="finish-action"><strong>확인이 끝났다면 ‘매출에 기록하고 종료’</strong><p>최종 버튼을 누른 뒤 저장 결과 안내까지 확인해 주세요. <b>‘기록 없이 강제 종료’는 정상 저장 버튼이 아니에요.</b></p></div>
+        </div>
+      </section>
+
+      <section class="step" id="records" aria-labelledby="records-title">
+        <div class="step-heading"><span class="step-number">6</span><div><h2 id="records-title">달력에서 오늘의 매출 기록을 확인하세요</h2><p>플렉스노트 매출관리 웹으로 돌아와서</p></div></div>
+        <div class="step-content"><ol class="steps-list"><li>업무를 저장한 날짜의 기록 화면을 열어 주세요.</li><li>구역별 건수와 단가, 매출이 맞는지 확인해 주세요.</li><li>잘못 입력한 값이 있다면 수정하고 <strong>저장</strong>을 눌러 주세요.</li></ol>
+          <div class="callout warning"><strong>단가나 저장 결과를 확인해 주세요</strong>단가 입력 안내가 나오면 실제 적용할 단가를 입력하세요. 저장에 실패했다는 안내가 나왔다면, 달력의 기록 화면에서 반영 여부를 확인한 뒤 필요한 수량을 기록해 주세요.</div>
+          <div class="records-row"><div><h3>배송 건수만 확인하지 마세요</h3><p>날짜, 주간·야간 구분, 구역별 단가가 모두 맞아야 원하는 매출로 기록돼요.</p></div><div><h3>수정 후에는 저장까지</h3><p>입력창의 숫자를 바꾸는 것과 저장하는 것은 달라요. 최종 저장 결과를 확인해 주세요.</p></div></div>
+        </div>
+      </section>
+
+      <section class="faq" id="help" aria-labelledby="help-title">
+        <h2 id="help-title">자주 헷갈리는 점</h2>
+        <details><summary>‘수량을 다시 확인해 주세요’라고 나와요.</summary><div><p><strong>쿠팡플렉스 배송목록 화면을 열어주세요.</strong> 위쪽에 진행·완료·미완 숫자가 보이는지 확인한 뒤 플렉스노트로 돌아오세요.</p><p>계속 읽히지 않는다면 접근성 설정을 확인해 주세요. 종료 시점에도 수량이 다르다면 업무 종료 화면에서 실제 수량을 검토해 주세요.</p></div></details>
+        <details><summary>쿠팡플렉스 숫자와 이 폰의 숫자가 달라요.</summary><div><p>플렉스노트의 페이스는 이 폰에서 완료 처리한 기준이에요. 같은 계정으로 두 사람이 배송하거나 같은 집을 다시 방문하면, 쿠팡플렉스의 누계와 기준이 달라질 수 있어요.</p><p>숫자가 다르다는 이유만으로 누락이라고 단정하지 말고, 업무 종료 화면에서 실제 구역별 수량을 확인해 주세요.</p></div></details>
+        <details><summary>스캔 후 배송한 상품의 구역을 못 찾았어요.</summary><div><p>배송 완료를 읽어도 구역을 연결할 정보가 부족할 수 있어요. 업무 종료 때 저장된 배송 정보로 다시 확인하지만, 모든 구역을 찾는 것은 아니에요.</p><p>‘예상’이나 ‘못 찾음’으로 남은 항목은 실제 배송한 구역을 확인하고 최종 수량을 맞춰 주세요.</p></div></details>
+        <details><summary>앱이 구역을 예상했다고 하면 그대로 저장해도 되나요?</summary><div><p>실제로 배송한 구역과 맞는지 먼저 확인해 주세요. 예상 결과는 확인을 돕는 정보이지, 확정된 배송 기록과 같은 뜻은 아니에요.</p></div></details>
+        <details><summary>프레시백 회수 창을 닫으면 회수 완료인가요?</summary><div><p>아니에요. 창을 열거나 닫는 것과 회수 완료는 달라요. 쿠팡플렉스에서 실제 회수 완료까지 처리해야 해요. 미회수 처리도 회수 완료와 구분해서, 업무 종료 때 수량을 확인해 주세요.</p></div></details>
+        <details><summary>야간인데 날짜가 오늘과 달라요.</summary><div><p>야간 업무는 자정을 넘길 수 있어요. 휴대폰의 오늘 날짜만 보지 말고, 근무표에서 해당 업무가 등록된 날짜를 확인해 주세요. 배송 측정 화면에서 날짜를 직접 바꿀 수 있어요.</p></div></details>
+        <details><summary>‘완료’를 눌렀는데 매출이 안 보여요.</summary><div><p>수량 수정 화면의 ‘완료’는 수정한 내용을 검토 화면으로 가져오는 버튼이에요. 최종적으로 <strong>매출에 기록하고 종료</strong>를 눌렀는지와 저장 결과 안내를 확인해 주세요.</p><p>웹과 측정 앱이 같은 계정인지, 기록을 보고 있는 날짜가 맞는지도 확인해 주세요.</p></div></details>
+      </section>
+      <section class="quick-reminder" aria-labelledby="reminder-title"><h2 id="reminder-title">다음 업무에는 이것만 기억하세요</h2><ol><li>날짜와 구역 확인하기</li><li>쿠팡플렉스 배송목록 화면 열기</li><li>업무 시작 → 필요하면 측정 시작</li><li>차수만 끝났다면 측정 종료</li><li>하루가 끝났다면 수량 확인 → 매출에 기록하고 종료</li></ol></section>
+    </main>
+  </div>
+  <footer class="wrap footer"><p>플렉스노트 사용법 · Android Beta 1.07 기준<br>모든 화면은 설명용 예시입니다. 기기·앱 버전에 따라 배치가 달라질 수 있어요.</p><a href="#top">처음으로 돌아가기</a></footer>
+  <dialog id="viewer" aria-labelledby="viewer-title"><div class="viewer-bar"><h2 id="viewer-title">예시 화면 확대</h2><button id="viewer-close" type="button" autofocus>닫기</button></div><img id="viewer-image" class="viewer-image" alt=""><p class="viewer-note">실제 앱에 가상 데이터를 넣은 화면입니다. 이 안내 페이지에서는 수량이나 매출이 저장되지 않아요.</p></dialog>
+  <script type="application/json" id="guide-images">__IMAGE_DATA__</script>
+  <script>
+    (() => {
+      const images = JSON.parse(document.getElementById('guide-images').textContent);
+      const viewer = document.getElementById('viewer');
+      const viewerImage = document.getElementById('viewer-image');
+      let opener;
+      document.querySelectorAll('[data-image]').forEach(button => button.addEventListener('click', () => {
+        const entry = images[button.dataset.image];
+        opener = button;
+        viewerImage.src = entry.src;
+        viewerImage.alt = entry.alt;
+        document.getElementById('viewer-title').textContent = entry.title;
+        viewer.showModal();
+        viewer.scrollTop = 0;
+        document.body.classList.add('viewer-open');
+      }));
+      document.getElementById('viewer-close').addEventListener('click', () => viewer.close());
+      viewer.addEventListener('close', () => {
+        document.body.classList.remove('viewer-open');
+        opener?.focus({ preventScroll: true });
+      });
+      document.getElementById('print-guide').addEventListener('click', () => window.print());
+      const links = [...document.querySelectorAll('.toc a')];
+      const sections = links.map(link => document.querySelector(link.getAttribute('href')));
+      let scheduled = false;
+      const updateCurrent = () => {
+        const threshold = window.innerHeight * .3;
+        let current = sections[0];
+        sections.forEach(section => { if (section.getBoundingClientRect().top <= threshold) current = section; });
+        links.forEach(link => {
+          if (link.hash === '#' + current.id) link.setAttribute('aria-current', 'location');
+          else link.removeAttribute('aria-current');
+        });
+        scheduled = false;
+      };
+      window.addEventListener('scroll', () => {
+        if (!scheduled) { scheduled = true; requestAnimationFrame(updateCurrent); }
+      }, { passive: true });
+      updateCurrent();
+    })();
+  </script>
+</body>
+</html>

@@ -255,10 +255,16 @@
             <h2>측정 앱에서 진행</h2>
             <p class="hint">쿠팡플렉스 화면의 완료 가구·상품수를 읽으려면 설치된 측정 앱을 엽니다. 1차 배송이 끝나면 측정 종료를 눌러 페이스 구간만 기기에 저장하고, 배송이 모두 끝나면 업무 종료에서 구역별 상품수를 확인·보정한 뒤 매출에 반영합니다.</p>
             <button id="openPaceApp" class="full-btn" type="button">측정 앱 열기</button>
-            <button id="openMeasurementGuide" class="measurement-guide-trigger" type="button" aria-haspopup="dialog" aria-controls="measurementGuideDialog" aria-expanded="false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10.7v5.1"/><path d="M12 7.3h.01"/></svg>
-              <span>설치·사용 안내</span>
-            </button>
+            <div class="measurement-guide-actions">
+              <button id="openMeasurementGuide" class="measurement-guide-trigger" type="button" aria-haspopup="dialog" aria-controls="measurementGuideDialog" aria-expanded="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10.7v5.1"/><path d="M12 7.3h.01"/></svg>
+                <span>설치 안내</span>
+              </button>
+              <a class="measurement-guide-link" href="./guide.html" target="_blank" rel="noopener noreferrer" aria-label="사용법 보기 (새 창)">
+                <span>사용법 보기</span><small>새 창</small>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 5h5v5"/><path d="M19 5l-8 8"/><path d="M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+              </a>
+            </div>
             <p class="hint">업무 종료로 반영된 구역·건수·단가는 해당 날짜의 기록 화면에서 다시 수정할 수 있습니다.</p>
           </section>
         </main>
@@ -346,7 +352,9 @@
           <div class="sub-title left"><strong>설정</strong><span id="syncStatus">미연결</span></div>
           <button class="secondary-btn" id="logoutBtn">로그아웃</button>
         </header>
-        <main class="settings-body settings-index"><details class="settings-group "><summary><span><strong>내 정보</strong><small>이름 · 상호</small></span></summary><div class="settings-group-content"><section class="settings-section profile-settings-section">
+        <main class="settings-body settings-index">
+          <a class="settings-export-row settings-group settings-guide-row" href="./guide.html" target="_blank" rel="noopener noreferrer" aria-label="사용법 보기 (새 창)"><span><strong>사용법</strong><small>업무 시작부터 매출 기록까지</small></span><em>새 창 ↗</em></a>
+          <details class="settings-group "><summary><span><strong>내 정보</strong><small>이름 · 상호</small></span></summary><div class="settings-group-content"><section class="settings-section profile-settings-section">
             <div class="settings-field">
               <label for="profileDisplayName">이름</label>
               <input id="profileDisplayName" type="text" placeholder="이름" />
@@ -623,9 +631,9 @@
           <div class="measurement-guide-heading">
             <div>
               <span class="measurement-guide-badge">플렉스노트 · Beta 1.07</span>
-              <h2 id="measurementGuideTitle">설치와 사용 순서</h2>
+              <h2 id="measurementGuideTitle">설치 안내</h2>
             </div>
-            <button id="closeMeasurementGuide" class="measurement-guide-close" type="button" aria-label="설치·사용 안내 닫기">
+            <button id="closeMeasurementGuide" class="measurement-guide-close" type="button" aria-label="설치 안내 닫기">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
             </button>
           </div>
@@ -655,10 +663,10 @@
           <section class="measurement-guide-section" aria-labelledby="measurementUseTitle">
             <h3 id="measurementUseTitle"><span>3</span> 업무 중</h3>
             <ol>
-              <li>쿠팡플렉스 배송 화면을 열어 최신 완료 수량이 표시되게 합니다.</li>
+              <li>쿠팡플렉스 배송목록 화면을 열어주세요.</li>
               <li>이 화면에서 날짜·구역을 확인하고 <strong>측정 앱 열기</strong> → <strong>업무 시작</strong>을 누릅니다.</li>
               <li><strong>측정 시작</strong>을 누르면 배송 중 수량을 자동으로 읽습니다. 1차 배송이 끝나면 <strong>측정 종료</strong>를 누릅니다.</li>
-              <li>배송이 모두 끝나면 최신 완료 수량이 표시되게 한 뒤 <strong>업무 종료</strong>에서 구역·수량을 검토하고 저장합니다.</li>
+              <li>배송이 모두 끝나면 쿠팡플렉스 배송목록 화면을 열어주세요. 플렉스노트로 돌아와 <strong>업무 종료</strong>에서 구역·수량을 검토하고 저장합니다.</li>
             </ol>
           </section>
           <button id="measurementGuideDone" class="secondary-btn wide" type="button">확인</button>
