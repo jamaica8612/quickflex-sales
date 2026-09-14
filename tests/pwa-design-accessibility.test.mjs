@@ -231,8 +231,8 @@ test("light and dark design tokens meet text and control-boundary contrast floor
   assertContrast("dark input border", renderedInputBorder, darkPanel2, 3);
   assert.match(css, /html\[data-theme="dark"\] input[\s\S]*?border-color:\s*var\(--line-strong\)/);
 
-  assert.match(extractCssBlock(".inspection-good-button"), /background:\s*#45B95E[\s\S]*color:\s*var\(--button-success-text\)/i);
-  assertContrast("inspection all-good button", parseColor(dark["button-success-text"]), parseColor("#45B95E"), 4.5);
+  assert.match(extractCssBlock(".inspection-good-button"), /background:\s*var\(--green\)[\s\S]*color:\s*var\(--button-success-text\)/i);
+  assertContrast("inspection all-good button", parseColor(dark["button-success-text"]), parseColor(dark.green), 4.5);
 
   const activeDarkSelectors = css.slice(css.indexOf('html[data-theme="dark"] .mode-btn.active'), css.indexOf("* { box-sizing"));
   assert.match(activeDarkSelectors, /html\[data-theme="dark"\] \.stats-chart-toggle button\.active/);
