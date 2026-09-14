@@ -631,7 +631,7 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
   width: 4px;
   height: 4px;
   border-radius: 999px;
-  background: var(--green);
+  background: var(--muted);
   box-shadow: 0 0 0 2px var(--panel);
   pointer-events: none;
 }
@@ -4092,4 +4092,13 @@ body:not([data-theme="dark"]) .summary-meter span {
 html:not([data-theme="dark"]) .summary-meter span::after,
 body:not([data-theme="dark"]) .summary-meter span::after {
   display: none;
+}
+
+
+/* 달 이동 화살표: 좁은 폰(A34 = CSS 384px)에서 오른쪽 화살표가 매출/건수 토글과
+   12px 겹쳤다. 기존 보정은 372px 이하에만 걸려 있었다. 400px 이하로 넓히고
+   간격과 토글 여백을 함께 줄여 양쪽에 여유를 둔다. */
+@media (max-width: 400px) {
+  .calendar-panel .calendar-toolbar { --month-gap: 70px; }
+  .calendar-panel .calendar-toolbar .mode-btn { padding: 0 7px; }
 }
