@@ -4073,3 +4073,23 @@ html[data-theme="light"] .stats-driver-report .stats-range-tabs > button.active 
 .settings-danger-disclosure > summary { font-size: 13px; color: var(--muted); padding: 8px 0; }
 .settings-index .admin-card { background: var(--panel2); border: 0; }
 @media (prefers-reduced-motion: reduce) { .settings-group > summary::after { transition: none; } }
+
+/* ── 목표 진행바: 라이트는 평평하게 ──────────────────────────────
+   광택과 글로우는 황동을 금속처럼 보이게 하려고 만든 것이다.
+   라이트의 파란 강조색 위에서는 흰빛 혼합이 바랜 띠로, 글로우는 번짐으로
+   읽힌다. 라이트에서는 같은 색조의 2스톱만 쓰고 광택은 끈다. */
+html:not([data-theme="dark"]) .summary-meter,
+body:not([data-theme="dark"]) .summary-meter {
+  /* 흰 카드 위에서 트랙이 거의 안 보여 남은 거리가 읽히지 않았다 */
+  background: #E7E8EA;
+  box-shadow: inset 0 1px 2px rgba(16,24,40,.08);
+}
+html:not([data-theme="dark"]) .summary-meter span,
+body:not([data-theme="dark"]) .summary-meter span {
+  background: linear-gradient(90deg, var(--gold2) 0%, var(--gold) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.26);
+}
+html:not([data-theme="dark"]) .summary-meter span::after,
+body:not([data-theme="dark"]) .summary-meter span::after {
+  display: none;
+}
