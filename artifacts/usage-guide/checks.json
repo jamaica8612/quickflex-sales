@@ -1,0 +1,26 @@
+{
+  "checks": [
+    "measurement 320px light: visible, >=44px, focusable, no overflow",
+    "settings 320px light: visible, >=44px, focusable, no overflow",
+    "measurement 390px light: visible, >=44px, focusable, no overflow",
+    "settings 390px light: visible, >=44px, focusable, no overflow",
+    "measurement 768px light: visible, >=44px, focusable, no overflow",
+    "settings 768px light: visible, >=44px, focusable, no overflow",
+    "measurement 1440px light: visible, >=44px, focusable, no overflow",
+    "settings 1440px light: visible, >=44px, focusable, no overflow",
+    "measurement 320px dark: visible, >=44px, focusable, no overflow",
+    "settings 320px dark: visible, >=44px, focusable, no overflow",
+    "measurement 390px dark: visible, >=44px, focusable, no overflow",
+    "settings 390px dark: visible, >=44px, focusable, no overflow",
+    "measurement 768px dark: visible, >=44px, focusable, no overflow",
+    "settings 768px dark: visible, >=44px, focusable, no overflow",
+    "measurement 1440px dark: visible, >=44px, focusable, no overflow",
+    "settings 1440px dark: visible, >=44px, focusable, no overflow",
+    "guide 320px: offline render, all 3 zoom images, Escape/focus return",
+    "guide 390px: offline render, all 3 zoom images, Escape/focus return",
+    "guide 768px: offline render, all 3 zoom images, Escape/focus return",
+    "guide 1440px: offline render, all 3 zoom images, Escape/focus return"
+  ],
+  "errors": [],
+  "scope": "Isolated HTML/CSS app fixture; real guide/SW. No account, DB or installed-phone test."
+}
