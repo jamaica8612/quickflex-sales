@@ -1,5 +1,12 @@
 # QuickFlex Worklog
 
+## 2026-09-14 Branded startup and session restoration
+
+- Added the approved F-truck braking motion, Korean name and tagline (10px gap), light blue logo, and dark charcoal gradient. Bundled two OFL font subsets totaling 12,892 bytes. No full video or additional runtime dependency.
+- Hide/inert the app from the first HTML paint until the existing session/profile/record flow has selected login, password recovery, pending approval, or the ready home screen. Keep current account-epoch and RLS guards. Startup failures and a 15-second timeout expose retry without exposing unverified data.
+- Isolated from concurrent Android/design changes on `codex/branded-startup`, based on production `1db4d61`, then rebased onto usage-guide release `2ba044f`. This updates the hosted screen inside the Android app; it does not change the APK version.
+- Validation: 232 Node tests passed, including 10 new startup lifecycle tests; JavaScript syntax checks passed. Isolated browser fixtures verified approved dark/light transitions with zero login/body flash frames, signed-out login, module failure and retry. No real account data or financial writes used in tests. Physical-device startup verification is not included in this release check.
+
 ## 2026-09-14 Galaxy A34 installation guide
 
 - Rebuilt install.html with 13 reviewed Galaxy A34 / Android 16 screenshots, enlargement dialogs, and one-column layout up to 760px.
@@ -1222,3 +1229,5 @@ Browser checks:
 - Calendar cell tracks preserve route labels without vertical clipping. Paired panel actions share 44px height, 13px type and weight 600. Documented responsive rules and refreshed the service-worker cache name.
 - Validation: full Node suite 209/209 passed, followed by 17/17 focused accessibility/design/day-state checks. app.js, src/main.js and sw.js syntax and git diff whitespace checks passed.
 - Actual browser inspection covered dark/light landscape at 768x600, 960x720 and 1280x960, plus light portrait at 360x900 and 800x1100. Checked no horizontal overflow, route label clipping, manual/automatic/planned/off states and record-editor return without saving. No physical-device verification or financial writes were performed in this layout task. Private screenshots remain outside the release.
+
+- Integration check: latest usage-guide changes preserved. Combined suite: 234/235 passed initially; the guide cache-name suffix check was fixed without changing test expectations, then all 13 startup/usage-guide tests passed.

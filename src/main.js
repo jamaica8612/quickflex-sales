@@ -930,6 +930,7 @@ function scheduleSignedInBoot(context) {
       await bootSignedInUser(context);
     } catch (error) {
       if (!isAccountContextCurrent(context)) return;
+      if (window.FlexNoteStartup?.fail()) return;
       showPending(false);
       showAuth(true);
       toast(`로그인 정보를 불러오지 못했습니다: ${error.message}`, "error");
@@ -1915,10 +1916,12 @@ async function connectDb(url, key, persist = false) {
   if (state.session && isPasswordRecoveryUrl()) {
     showAuth(true);
     setAuthMode("reset");
+    window.FlexNoteStartup?.finish();
     return;
   }
   if (!state.session) {
     showAuth(true);
+    window.FlexNoteStartup?.finish();
     return;
   }
   await bootSignedInUser(captureAccountContext());
@@ -1934,6 +1937,7 @@ async function bootSignedInUser(context = captureAccountContext()) {
       if (!isAccountContextCurrent(context)) return false;
       showAuth(false);
       showPending(true);
+      window.FlexNoteStartup?.finish();
       return true;
     }
     showPending(false);
@@ -1942,6 +1946,7 @@ async function bootSignedInUser(context = captureAccountContext()) {
     renderAll();
     showAuth(false);
     trackApprovedSessionStart();
+    window.FlexNoteStartup?.finish();
     await maybeOfferRateUpdate(context);
     if (!isAccountContextCurrent(context)) return false;
     return isAccountContextCurrent(context);
@@ -5517,12 +5522,14 @@ async function init() {
     } else {
       showDeploymentConfigError();
     }
+    window.FlexNoteStartup?.finish();
     return;
   }
   try {
     await connectDb(cfg.url, cfg.anonKey, false);
   } catch (error) {
     console.error("[init]", error);
+    if (window.FlexNoteStartup?.fail()) return;
     if (canUseManualDbConfig()) {
       showSetup(true);
       el.setupError.textContent = error.message;
@@ -5609,4 +5616,7 @@ function bindFinanceEvents() {
 }
 
 
-init();
+init().catch((error) => {
+  console.error("[startup]", error);
+  window.FlexNoteStartup?.fail();
+});
