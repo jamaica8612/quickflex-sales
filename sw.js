@@ -1,8 +1,21 @@
-const CACHE_NAME = "quickflex-shell-v1.0.57-flexnote-beta-1.05";
+const CACHE_NAME = "quickflex-shell-v1.0.57-flexnote-beta-1.05-install-a34-1";
 const SHELL_FILES = [
   "./",
   "./index.html",
   "./install.html",
+  "./assets/install-a34/accessibility-main.png",
+  "./assets/install-a34/accessibility-permission.png",
+  "./assets/install-a34/accessibility-service.png",
+  "./assets/install-a34/app-info.png",
+  "./assets/install-a34/install-complete.png",
+  "./assets/install-a34/install-confirm.png",
+  "./assets/install-a34/play-protect-confirm.png",
+  "./assets/install-a34/play-protect-off.png",
+  "./assets/install-a34/play-protect-restored.png",
+  "./assets/install-a34/play-protect.png",
+  "./assets/install-a34/unknown-source.png",
+  "./assets/install-a34/unsafe-app-details.png",
+  "./assets/install-a34/unsafe-app.png",
   "./assets/flexnote-android-icon.png",
   "./intro.html",
   "./privacy.html",

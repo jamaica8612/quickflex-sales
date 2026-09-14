@@ -94,8 +94,8 @@
         word-break: keep-all;
       }
       a { color: inherit; }
-      a:focus-visible, summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 48%, transparent); outline-offset: 3px; border-radius: 8px; }
-      .page { width: min(100% - 32px, 760px); margin: 0 auto; padding: 24px 0 max(52px, env(safe-area-inset-bottom)); }
+      a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 48%, transparent); outline-offset: 3px; border-radius: 8px; }
+      .page { width: min(100% - 32px, 980px); margin: 0 auto; padding: 24px 0 max(52px, env(safe-area-inset-bottom)); }
       .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 38px; }
       .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); font-size: 17px; font-weight: 700; text-decoration: none; }
       .brand img { width: 34px; height: 34px; border-radius: 10px; }
@@ -113,13 +113,26 @@
       .update-note { margin: 14px 0 0; color: var(--muted); font-size: 12px; }
 
       .quick-check { margin: 0 0 32px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel); box-shadow: var(--shadow); }
-      .quick-check strong { display: block; margin-bottom: 7px; font-weight: 700; }
+      .quick-check > strong { display: block; margin-bottom: 7px; font-weight: 700; }
       .quick-check ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14px; }
       .quick-check li + li { margin-top: 5px; }
 
+      .guide-nav { position: sticky; top: 10px; z-index: 4; margin: 0 0 40px; padding: 6px; display: flex; gap: 4px; overflow-x: auto; border: 1px solid var(--line); border-radius: 999px; background: color-mix(in srgb, var(--panel) 92%, transparent); box-shadow: 0 8px 24px -18px rgba(16,24,40,.35); backdrop-filter: blur(14px); }
+      .guide-nav a { min-height: 36px; padding: 0 15px; display: inline-flex; align-items: center; flex: 0 0 auto; border-radius: 999px; color: var(--muted); font-size: 13px; font-weight: 600; text-decoration: none; }
+      .guide-nav a:hover { background: var(--panel2); color: var(--text); }
+
       .steps { counter-reset: install-step; }
-      .step { position: relative; padding: 28px 0 30px 58px; border-top: 1px solid var(--line); }
-      .step::before { counter-increment: install-step; content: counter(install-step); position: absolute; top: 28px; left: 0; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-family: var(--font-numeric); font-size: 14px; font-weight: 700; }
+      .guide-section { scroll-margin-top: 72px; margin-top: 42px; }
+      .guide-section:first-child { margin-top: 0; }
+      .section-head { margin-bottom: 15px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+      .section-head span { color: var(--accent); font-family: var(--font-numeric); font-size: 12px; font-weight: 700; }
+      .section-head h2 { margin: 3px 0 0; font-size: 24px; font-weight: 700; line-height: 1.35; letter-spacing: -.025em; }
+      .step-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .step { position: relative; min-width: 0; padding: 22px 20px 22px 66px; border-radius: 18px; background: var(--panel); box-shadow: var(--shadow); }
+      .step-wide { grid-column: 1 / -1; }
+      .step-wide-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, .72fr); gap: 22px; align-items: start; }
+      .step-wide-visuals .screen-gallery { margin-top: 0; justify-content: center; }
+      .step::before { counter-increment: install-step; content: counter(install-step); position: absolute; top: 22px; left: 18px; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-family: var(--font-numeric); font-size: 14px; font-weight: 700; }
       .step h2 { margin: 0 0 9px; font-size: 22px; font-weight: 700; line-height: 1.35; letter-spacing: -.022em; }
       .step p { margin: 7px 0; color: var(--muted); font-size: 15px; }
       .path { margin: 12px 0; padding: 13px 15px; border-radius: 14px; background: var(--panel2); color: var(--text); font-size: 14px; font-weight: 600; line-height: 1.65; }
@@ -138,6 +151,18 @@
       .detail-body .path { background: color-mix(in srgb, var(--panel) 66%, transparent); }
       .safety { margin-top: 12px; padding-left: 12px; border-left: 3px solid var(--warning); }
 
+      .screen-gallery { margin-top: 17px; display: flex; flex-wrap: wrap; gap: 10px; }
+      .screen-shot { min-width: 0; padding: 0; display: block; border: 0; border-radius: 15px; background: var(--panel2); color: inherit; cursor: zoom-in; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line); }
+      .screen-shot[hidden] { display: none; }
+      .screen-shot img { display: block; width: auto; max-width: 100%; height: clamp(160px, 20vw, 210px); object-fit: contain; background: var(--panel2); }
+      .screen-shot span { max-width: 210px; padding: 8px 10px 9px; display: block; color: var(--muted); font-size: 11px; font-weight: 600; line-height: 1.45; text-align: left; }
+      .device-note { margin-top: 12px; color: var(--muted); font-size: 12px; }
+
+      .screen-dialog { width: min(94vw, 760px); max-height: 92dvh; padding: 46px 18px 18px; border: 1px solid var(--line); border-radius: 20px; background: var(--panel); color: var(--text); box-shadow: 0 30px 80px rgba(0,0,0,.42); }
+      .screen-dialog::backdrop { background: rgba(0,0,0,.72); backdrop-filter: blur(4px); }
+      .screen-dialog img { display: block; width: auto; max-width: 100%; max-height: calc(92dvh - 92px); margin: 0 auto; border-radius: 12px; object-fit: contain; }
+      .dialog-close { position: absolute; top: 10px; right: 10px; min-width: 36px; min-height: 36px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--panel2); color: var(--text); font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer; }
+
       .finish { margin-top: 6px; padding: 22px; border: 1px solid var(--accent-border); border-radius: 20px; background: var(--accent-soft); }
       .finish h2 { margin: 0 0 8px; font-size: 20px; font-weight: 700; }
       .finish p { margin: 0; color: var(--muted); font-size: 14px; }
@@ -147,13 +172,17 @@
       .sources a { color: var(--accent); text-underline-offset: 3px; }
       footer { padding: 30px 0 4px; color: var(--muted); font-size: 13px; }
 
-      @media (max-width: 560px) {
-        .page { width: min(100% - 28px, 760px); padding-top: 18px; }
+      @media (max-width: 760px) {
+        .page { width: min(100% - 28px, 980px); padding-top: 18px; }
         .topbar { margin-bottom: 28px; }
         .hero { padding-bottom: 28px; }
         .hero-actions { display: grid; }
-        .step { padding-left: 48px; }
-        .step::before { width: 32px; height: 32px; }
+        .guide-nav { top: 8px; margin-bottom: 32px; }
+        .step-grid { grid-template-columns: 1fr; }
+        .step { padding: 20px 17px 21px 62px; }
+        .step::before { top: 20px; left: 16px; width: 32px; height: 32px; }
+        .step-wide-layout { grid-template-columns: 1fr; gap: 16px; }
+        .screen-shot img { height: 176px; }
       }
       @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
     </style>
@@ -180,70 +209,191 @@
         <strong>시작 전 확인</strong>
         <ul>
           <li>이 페이지의 공식 릴리스 APK만 사용합니다.</li>
-          <li>플렉스노트 PWA에서 승인된 계정으로 로그인할 수 있어야 합니다.</li>
-          <li>메뉴 이름은 Android 버전과 제조사에 따라 조금 다를 수 있습니다.</li>
+          <li>측정 기능은 플렉스노트 PWA에서 <strong>가입 승인과 베타 측정 허용</strong>을 모두 받은 계정에서 열립니다.</li>
+          <li>아래 화면은 <strong>Galaxy A34 · Android 16</strong>에서 확인했습니다. 메뉴 이름은 버전과 제조사에 따라 조금 다를 수 있습니다.</li>
         </ul>
       </aside>
 
+      <nav class="guide-nav" aria-label="설치 안내 바로가기">
+        <a href="#install-apk">APK 설치</a>
+        <a href="#allow-access">접근성 허용</a>
+        <a href="#start-work">첫 업무</a>
+        <a href="#official-help">공식 안내</a>
+      </nav>
+
       <main class="steps">
-        <section class="step" id="download">
-          <h2>APK를 내려받아 엽니다</h2>
-          <p>위의 <strong>Beta 1.05 APK 받기</strong>를 누릅니다. 다운로드가 끝나면 알림이나 내 파일의 다운로드 목록에서 APK를 여세요.</p>
+        <section class="guide-section" id="install-apk" aria-labelledby="installApkTitle">
+          <header class="section-head">
+            <span>설치</span>
+            <h2 id="installApkTitle">APK를 받고 설치합니다</h2>
+          </header>
+          <div class="step-grid">
+            <section class="step" id="download">
+              <h2>APK를 내려받아 엽니다</h2>
+              <p>위의 <strong>Beta 1.05 APK 받기</strong>를 누릅니다. 다운로드가 끝나면 알림이나 내 파일의 다운로드 목록에서 APK를 여세요.</p>
+              <p>처음 설치할 때는 확인 창에서 <strong>설치</strong>를 누릅니다. 기존 사용자는 앱을 삭제할 필요 없이 같은 APK를 열어 업데이트할 수 있습니다.</p>
+              <div class="screen-gallery">
+                <button class="screen-shot" type="button" data-screen-src="./assets/install-a34/install-confirm.png" data-screen-alt="Galaxy A34의 플렉스노트 신규 설치 확인 화면">
+                  <img src="./assets/install-a34/install-confirm.png" alt="Galaxy A34의 플렉스노트 신규 설치 확인 화면" />
+                  <span>플렉스노트 설치 확인</span>
+                </button>
+                <button class="screen-shot" type="button" data-screen-src="./assets/install-a34/install-complete.png" data-screen-alt="Galaxy A34에서 플렉스노트 앱 설치가 완료되어 완료 또는 열기를 선택할 수 있는 화면">
+                  <img src="./assets/install-a34/install-complete.png" alt="Galaxy A34에서 플렉스노트 앱 설치가 완료되어 완료 또는 열기를 선택할 수 있는 화면" />
+                  <span>설치 완료 확인</span>
+                </button>
+              </div>
+            </section>
+
+            <section class="step" id="source-permission">
+              <h2>요청될 때만 이 출처를 허용합니다</h2>
+              <p>Chrome이나 내 파일에서 처음 APK를 열면 설치 권한 안내가 나올 수 있습니다.</p>
+              <div class="path"><span>설정</span> → 이 출처 허용 → 뒤로 → 설치</div>
+              <p>설치가 끝난 뒤에는 같은 화면에서 이 출처 허용을 다시 꺼도 됩니다.</p>
+              <div class="screen-gallery">
+                <button class="screen-shot" type="button" data-screen-src="./assets/install-a34/unknown-source.png" data-screen-alt="Galaxy A34의 Chrome 이 출처 허용 설정 화면">
+                  <img src="./assets/install-a34/unknown-source.png" alt="Galaxy A34의 Chrome 이 출처 허용 설정 화면" />
+                  <span>Chrome에서 이 출처 허용</span>
+                </button>
+              </div>
+              <details>
+                <summary>갤럭시에서 “안전하지 않은 앱” 경고가 나올 때</summary>
+                <div class="detail-body">
+                  <p>삼성 설치 화면에서 “안전하지 않은 앱” 경고가 별도로 표시될 수 있습니다. 이 경고는 Google Play 프로텍트 화면과 다르므로 같은 안내로 보지 마세요.</p>
+                  <p>먼저 바텀시트에서 경고 내용을 확인합니다. <strong>무시하고 설치</strong>를 선택하면 인증되지 않은 출처와 개인정보 접근 위험을 설명하는 상세 화면이 한 번 더 나타납니다. 필요한 권한만 허용할지 검토한 뒤 상세 화면에서 다시 선택해야 설치가 진행됩니다.</p>
+                  <div class="screen-gallery">
+                    <button class="screen-shot" type="button" data-screen-src="./assets/install-a34/unsafe-app.png" data-screen-alt="Galaxy A34에서 안전하지 않은 앱이라고 알리며 무시하고 설치 또는 설치 안함을 선택하게 하는 삼성 설치 경고">
+                      <img src="./assets/install-a34/unsafe-app.png" alt="Galaxy A34에서 안전하지 않은 앱이라고 알리며 무시하고 설치 또는 설치 안함을 선택하게 하는 삼성 설치 경고" />
+                      <span>첫 경고에서 내용을 확인</span>
+                    </button>
+                    <button class="screen-shot" type="button" data-screen-src="./assets/install-a34/unsafe-app-details.png" data-screen-alt="Galaxy A34에서 인증되지 않은 출처와 개인정보 접근 위험을 설명하는 삼성 설치 상세 경고">
+                      <img src="./assets/install-a34/unsafe-app-details.png" alt="Galaxy A34에서 인증되지 않은 출처와 개인정보 접근 위험을 설명하는 삼성 설치 상세 경고" />
+                      <span>상세 경고와 필요한 권한 확인</span>
+                    </button>
+                  </div>
+                  <p class="safety">바로 진행하지 말고 이 페이지의 공식 릴리스 APK인지 먼저 확인한 뒤 두 경고의 내용을 모두 검토하세요. 메뉴와 경고 문구는 기종·One UI 버전에 따라 달라 실제 기기 화면을 우선합니다.</p>
+                </div>
+              </details>
+            </section>
+
+            <section class="step step-wide" id="play-protect">
+              <h2>Play 프로텍트 검사를 확인합니다</h2>
+              <div class="step-wide-layout">
+                <div class="step-wide-copy">
+                  <p>Google Play 외부에서 받은 앱이라 검사 권장이나 경고가 표시될 수 있습니다. <strong>앱 검사</strong>가 보이면 먼저 검사를 진행하고 결과를 확인하세요.</p>
+                  <details open>
+                    <summary>설치가 차단될 때: Play 프로텍트 해제 방법</summary>
+                    <div class="detail-body">
+                      <p>공식 릴리스 APK가 맞는지 확인한 뒤에도 설치가 완전히 차단되는 경우에만 Play 프로텍트 검사를 잠시 해제합니다.</p>
+                      <div class="path">Play 스토어 → 프로필 사진 → Play 프로텍트 → 오른쪽 위 <strong>설정</strong> → <strong>Play 프로텍트로 앱 검사</strong> 끄기 → <strong>일시중지</strong> → 지문 또는 PIN 인증(표시될 때)</div>
+                      <p>확인 창에는 일시중지·사용 중지·취소가 표시될 수 있습니다. <strong>일시중지</strong>를 선택하면 다음 날 검사가 자동으로 다시 켜집니다.</p>
+                      <p>APK 설치가 끝나면 다음 날까지 기다리지 말고 같은 경로에서 <strong>Play 프로텍트로 앱 검사</strong>를 즉시 다시 켜세요.</p>
+                      <p class="safety">Google은 보안을 위해 Play 프로텍트를 항상 켜 둘 것을 권장합니다. 평소에는 해제하지 마세요.</p>
+                      <p><a href="https://support.google.com/googleplay/answer/2812853?hl=ko">Google 공식 Play 프로텍트 안내 보기</a></p>
+                    </div>
+                  </details>
+                </div>
+                <div class="step-wide-visuals">
+                  <div class="screen-gallery">
+                    <button class="screen-shot" type="button" data-screen-src="./assets/install-a34/play-protect.png" data-screen-alt="Galaxy A34에서 Play 프로텍트 앱 검사가 켜진 설정 화면">
+                      <img src="./assets/install-a34/play-protect.png" alt="Galaxy A34에서 Play 프로텍트 앱 검사가 켜진 설정 화면" />
+                      <span>앱 검사 설정에서 스위치 끄기</span>
+                    </button>
+                    <button class="screen-shot" type="button" data-screen-src="./assets/install-a34/play-protect-confirm.png" data-screen-alt="Galaxy A34에서 Play 프로텍트 앱 검사를 일시중지할지 묻는 확인 창">
+                      <img src="./assets/install-a34/play-protect-confirm.png" alt="Galaxy A34에서 Play 프로텍트 앱 검사를 일시중지할지 묻는 확인 창" />
+                      <span>확인 창에서 일시중지 선택</span>
+                    </button>
+                    <button class="screen-shot" type="button" data-screen-src="./assets/install-a34/play-protect-off.png" data-screen-alt="Galaxy A34에서 Play 프로텍트 앱 검사가 꺼지고 다음 날 자동으로 다시 시작된다고 표시된 화면">
+                      <img src="./assets/install-a34/play-protect-off.png" alt="Galaxy A34에서 Play 프로텍트 앱 검사가 꺼지고 다음 날 자동으로 다시 시작된다고 표시된 화면" />
+                      <span>일시중지와 다음 날 자동 재개 확인</span>
+                    </button>
+                    <button class="screen-shot" type="button" data-screen-src="./assets/install-a34/play-protect-restored.png" data-screen-alt="Galaxy A34에서 설치 후 Play 프로텍트 앱 검사를 다시 켠 화면">
+                      <img src="./assets/install-a34/play-protect-restored.png" alt="Galaxy A34에서 설치 후 Play 프로텍트 앱 검사를 다시 켠 화면" />
+                      <span>설치 후 앱 검사 다시 켜기</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
         </section>
 
-        <section class="step" id="source-permission">
-          <h2>요청될 때만 이 출처를 허용합니다</h2>
-          <p>Chrome이나 내 파일에서 처음 APK를 열면 설치 권한 안내가 나올 수 있습니다.</p>
-          <div class="path"><span>설정</span> → 이 출처 허용 → 뒤로 → 설치</div>
-          <p>설치가 끝난 뒤에는 같은 화면에서 이 출처 허용을 다시 꺼도 됩니다.</p>
-          <details>
-            <summary>갤럭시에서 보안 위험 자동 차단 안내가 나올 때</summary>
-            <div class="detail-body">
-              <p>일부 갤럭시·One UI 버전에서는 별도의 보안 위험 자동 차단 기능이 외부 APK 설치를 막을 수 있습니다. 이 메시지가 실제로 나타날 때만 화면에 표시된 보안 설정을 확인하세요.</p>
-              <p class="safety">메뉴 이름과 위치는 기종·One UI 버전에 따라 달라 실제 기기 화면을 우선합니다. 설치 후에는 변경한 보호 기능을 다시 켜세요.</p>
-            </div>
-          </details>
+        <section class="guide-section" id="allow-access" aria-labelledby="allowAccessTitle">
+          <header class="section-head">
+            <span>연결</span>
+            <h2 id="allowAccessTitle">배송 완료 수량을 읽도록 허용합니다</h2>
+          </header>
+          <div class="step-grid">
+            <section class="step" id="restricted-settings">
+              <h2>막힐 때만 제한된 설정을 허용합니다</h2>
+              <p>Android 13 이상에서는 외부에서 설치한 앱의 접근성 설정이 제한될 수 있습니다. 접근성 화면에서 제한 안내가 나올 때만 진행하세요.</p>
+              <div class="path">설정 → 앱 → 플렉스노트 → 오른쪽 위 더보기 <span>⋮</span> → 제한된 설정 허용</div>
+              <p class="safety">플렉스노트가 쿠팡플렉스 화면의 완료 수량을 읽으려면 접근성이 필요합니다. 공식 릴리스 APK가 아닌 앱에는 제한된 설정을 허용하지 마세요.</p>
+              <div class="screen-gallery">
+                <button class="screen-shot" type="button" data-screen-src="./assets/install-a34/app-info.png" data-screen-alt="Galaxy A34의 플렉스노트 앱 정보 화면과 제한된 설정 메뉴">
+                  <img src="./assets/install-a34/app-info.png" alt="Galaxy A34의 플렉스노트 앱 정보 화면과 제한된 설정 메뉴" />
+                  <span>앱 정보의 오른쪽 위 메뉴</span>
+                </button>
+              </div>
+              <details>
+                <summary>앱 정보에 오른쪽 위 메뉴가 없을 때</summary>
+                <div class="detail-body">
+                  <p>Galaxy A34에서는 접근성 사용을 한 번 시도한 뒤에 <strong>제한된 설정 허용</strong> 메뉴가 나타났습니다.</p>
+                  <div class="path">설정 → 접근성 → <strong>설치된 앱</strong> → 회색으로 표시된 <strong>플렉스노트 데이터 연결</strong> → “앱의 액세스가 거부됨” 확인 → 설정의 앱 정보에서 <strong>플렉스노트</strong>를 다시 열기 → 오른쪽 위 더보기 <span>⋮</span></div>
+                  <p><strong>제한된 설정 허용</strong>을 누른 뒤 지문 또는 PIN 인증이 표시되면 기기 인증을 완료하세요.</p>
+                  <div class="screen-gallery">
+                    <button class="screen-shot" type="button" data-screen-src="./assets/install-a34/accessibility-main.png" data-screen-alt="Galaxy A34 접근성 설정에서 설치된 앱 메뉴가 보이는 화면">
+                      <img src="./assets/install-a34/accessibility-main.png" alt="Galaxy A34 접근성 설정에서 설치된 앱 메뉴가 보이는 화면" />
+                      <span>접근성에서 설치된 앱 열기</span>
+                    </button>
+                  </div>
+                </div>
+              </details>
+            </section>
+
+            <section class="step" id="accessibility">
+              <h2>플렉스노트 데이터 연결을 켭니다</h2>
+              <div class="path">설정 → 접근성 → 설치된 앱 또는 설치된 서비스 → <span>플렉스노트 데이터 연결</span> → 사용</div>
+              <p>확인 창이 나오면 읽기 범위를 확인하고 허용합니다. 플렉스노트는 쿠팡플렉스 화면의 접근성 정보에서 배송 진행·완료 수량을 읽습니다.</p>
+              <div class="screen-gallery">
+                <button class="screen-shot" type="button" data-screen-src="./assets/install-a34/accessibility-permission.png" data-screen-alt="Galaxy A34에서 플렉스노트 데이터 연결의 접근성 권한을 확인하는 화면">
+                  <img src="./assets/install-a34/accessibility-permission.png" alt="Galaxy A34에서 플렉스노트 데이터 연결의 접근성 권한을 확인하는 화면" />
+                  <span>권한 내용 확인 후 허용</span>
+                </button>
+                <button class="screen-shot" type="button" data-screen-src="./assets/install-a34/accessibility-service.png" data-screen-alt="Galaxy A34에서 플렉스노트 데이터 연결 서비스를 사용 중으로 켠 화면">
+                  <img src="./assets/install-a34/accessibility-service.png" alt="Galaxy A34에서 플렉스노트 데이터 연결 서비스를 사용 중으로 켠 화면" />
+                  <span>플렉스노트 데이터 연결 사용</span>
+                </button>
+              </div>
+            </section>
+          </div>
+          <p class="device-note">화면 예시는 Galaxy A34 · Android 16 기준입니다. 기기와 Android 버전에 따라 메뉴 이름과 순서가 달라질 수 있습니다.</p>
         </section>
 
-        <section class="step" id="play-protect">
-          <h2>Play 프로텍트 검사를 확인합니다</h2>
-          <p>Google Play 외부에서 받은 앱이라 검사 권장이나 경고가 표시될 수 있습니다. <strong>앱 검사</strong>가 보이면 먼저 검사를 진행하고 결과를 확인하세요.</p>
-          <details open>
-            <summary>설치가 차단될 때: Play 프로텍트 해제 방법</summary>
-            <div class="detail-body">
-              <p>공식 릴리스 APK가 맞는지 확인한 뒤에도 설치가 완전히 차단되는 경우에만 Play 프로텍트 검사를 잠시 해제합니다.</p>
-              <div class="path">Play 스토어 → 프로필 사진 → Play 프로텍트 → 설정 → <strong>Play 프로텍트로 앱 검사</strong> 끄기</div>
-              <p>APK 설치가 끝나면 같은 경로에서 <strong>Play 프로텍트로 앱 검사</strong>를 바로 다시 켜세요.</p>
-              <p class="safety">Google은 보안을 위해 Play 프로텍트를 항상 켜 둘 것을 권장합니다. 평소에는 해제하지 마세요.</p>
-              <p><a href="https://support.google.com/googleplay/answer/2812853?hl=ko">Google 공식 Play 프로텍트 안내 보기</a></p>
-            </div>
-          </details>
-        </section>
-
-        <section class="step" id="restricted-settings">
-          <h2>접근성 켜기가 막히면 제한된 설정을 허용합니다</h2>
-          <p>Android 13 이상에서는 외부에서 설치한 앱의 접근성 설정이 제한될 수 있습니다. 접근성 화면에서 제한 안내가 나올 때만 진행하세요.</p>
-          <div class="path">설정 → 앱 → 플렉스노트 → 오른쪽 위 더보기 <span>⋮</span> → 제한된 설정 허용</div>
-          <p class="safety">플렉스노트가 쿠팡플렉스 화면의 완료 수량을 읽으려면 접근성이 필요합니다. 공식 릴리스 APK가 아닌 앱에는 제한된 설정을 허용하지 마세요.</p>
-        </section>
-
-        <section class="step" id="accessibility">
-          <h2>플렉스노트 데이터 연결을 켭니다</h2>
-          <div class="path">설정 → 접근성 → 설치된 앱 또는 설치된 서비스 → <span>플렉스노트 데이터 연결</span> → 사용</div>
-          <p>확인 창이 나오면 읽기 범위를 확인하고 허용합니다. 플렉스노트는 쿠팡플렉스 화면의 접근성 정보에서 배송 진행·완료 수량을 읽습니다.</p>
-        </section>
-
-        <section class="step" id="first-use">
-          <h2>첫 업무를 시작합니다</h2>
-          <ol class="step-list">
-            <li>플렉스노트에서 PWA와 <strong>같은 승인 계정</strong>으로 로그인합니다.</li>
-            <li>쿠팡플렉스 배송 화면에서 최신 완료 가구·상품수가 표시되게 합니다.</li>
-            <li>플렉스노트의 <strong>배송 측정</strong> 메뉴에서 날짜·구역을 확인하고 <strong>측정 앱 열기</strong>를 누릅니다.</li>
-            <li>구역을 다시 확인한 뒤 <strong>업무 시작</strong>을 누릅니다.</li>
-            <li>페이스를 잴 구간에만 <strong>측정 시작</strong>을 누릅니다. 배송 중 수량은 자동으로 읽습니다.</li>
-            <li>1차 배송이 끝나면 <strong>측정 종료</strong>를 누릅니다.</li>
-            <li>배송이 모두 끝나면 최신 완료 수량을 표시한 뒤 <strong>업무 종료</strong>에서 구역·수량을 검토하고 저장합니다.</li>
-          </ol>
+        <section class="guide-section" id="start-work" aria-labelledby="startWorkTitle">
+          <header class="section-head">
+            <span>사용</span>
+            <h2 id="startWorkTitle">승인된 계정으로 첫 업무를 시작합니다</h2>
+          </header>
+          <div class="step-grid">
+            <section class="step" id="first-use">
+              <h2>계정과 업무를 확인합니다</h2>
+              <p>설치와 접근성 설정만으로 측정 기능이 열리지는 않습니다. 같은 계정에 <strong>가입 승인</strong>과 <strong>베타 측정 허용</strong>이 모두 필요합니다.</p>
+              <ol class="step-list">
+                <li>플렉스노트에서 PWA와 <strong>같은 승인 계정</strong>으로 로그인합니다.</li>
+                <li>쿠팡플렉스 배송 화면에서 최신 완료 가구·상품수가 표시되게 합니다.</li>
+                <li>플렉스노트의 <strong>배송 측정</strong> 메뉴에서 날짜·구역을 확인하고 <strong>측정 앱 열기</strong>를 누릅니다.</li>
+                <li>구역을 다시 확인한 뒤 <strong>업무 시작</strong>을 누릅니다.</li>
+              </ol>
+            </section>
+            <section class="step" id="measure-work">
+              <h2>측정 구간과 하루 업무를 구분합니다</h2>
+              <ol class="step-list">
+                <li>페이스를 잴 구간에만 <strong>측정 시작</strong>을 누릅니다. 배송 중 수량은 자동으로 읽습니다.</li>
+                <li>1차 배송 같은 측정 구간이 끝나면 <strong>측정 종료</strong>를 누릅니다. 이때는 페이스 구간만 기기에 저장됩니다.</li>
+                <li>하루 배송이 모두 끝나면 최신 완료 수량을 표시한 뒤 <strong>업무 종료</strong>에서 구역·수량을 검토하고 저장합니다.</li>
+              </ol>
+            </section>
+          </div>
         </section>
       </main>
 
@@ -252,7 +402,7 @@
         <p>다음부터는 플렉스노트의 배송 측정 메뉴에서 날짜와 구역을 확인한 뒤 측정 앱을 열면 됩니다.</p>
       </section>
 
-      <section class="sources" aria-labelledby="sourcesTitle">
+      <section class="sources" id="official-help" aria-labelledby="sourcesTitle">
         <h2 id="sourcesTitle">공식 Android 안내</h2>
         <ul>
           <li><a href="https://support.google.com/googleplay/answer/2812853?hl=ko">Google Play 프로텍트 사용 안내</a></li>
@@ -262,5 +412,49 @@
 
       <footer>© 2026 플렉스노트 · <a href="./privacy.html">개인정보처리방침</a></footer>
     </div>
+    <dialog class="screen-dialog" id="screenDialog" aria-label="설정 화면 확대 보기">
+      <button class="dialog-close" type="button" aria-label="확대 화면 닫기">닫기</button>
+      <img src="" alt="" />
+    </dialog>
+    <script>
+      (() => {
+        const dialog = document.getElementById("screenDialog");
+        const dialogImage = dialog.querySelector("img");
+        const closeButton = dialog.querySelector(".dialog-close");
+        let opener = null;
+
+        document.querySelectorAll(".screen-shot").forEach((button) => {
+          const image = button.querySelector("img");
+          const hideMissingScreen = () => {
+            button.hidden = true;
+            const gallery = button.closest(".screen-gallery");
+            if (!gallery.querySelector(".screen-shot:not([hidden])")) gallery.hidden = true;
+          };
+          image.addEventListener("error", hideMissingScreen);
+          if (image.complete && image.naturalWidth === 0) hideMissingScreen();
+          button.addEventListener("click", () => {
+            opener = button;
+            dialogImage.src = button.dataset.screenSrc;
+            dialogImage.alt = button.dataset.screenAlt;
+            dialog.showModal();
+            closeButton.focus();
+          });
+        });
+
+        const closeDialog = () => {
+          dialog.close();
+          if (opener && !opener.hidden) opener.focus();
+        };
+        closeButton.addEventListener("click", closeDialog);
+        dialog.addEventListener("click", (event) => {
+          if (event.target === dialog) closeDialog();
+        });
+        dialog.addEventListener("close", () => {
+          dialogImage.src = "";
+          dialogImage.alt = "";
+          if (opener && !opener.hidden) opener.focus();
+        });
+      })();
+    </script>
   </body>
 </html>
