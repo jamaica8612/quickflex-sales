@@ -1,4 +1,4 @@
-const CACHE_NAME = "quickflex-shell-v1.0.57-flexnote-beta-1.05-install-a34-1";
+const CACHE_NAME = "quickflex-shell-v1.0.58-flexnote-beta-1.06-install-a34-1";
 const SHELL_FILES = [
   "./",
   "./index.html",
@@ -56,7 +56,7 @@ const SHELL_FILES = [
   "./src/lib/revenue.js",
   "./src/lib/format.js",
   "./src/lib/work-date.js",
-  "./manifest.webmanifest?v=1.0.57",
+  "./manifest.webmanifest?v=1.0.58",
   "./icon-192.png?v=3",
   "./icon-512.png?v=3",
   "./icon-maskable-192.png?v=3",
