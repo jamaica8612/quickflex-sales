@@ -39,6 +39,7 @@ This file is the shared working contract for Codex, Claude Code, and future agen
 - RLS must remain enabled on profile, rate, day, and item tables.
 - The first created profile is bootstrapped as `admin` and `approved`.
 - Later users start as `pending`; admins approve or block them.
+- Membership approval also enables native measurement. `beta_enabled` is a derived compatibility flag for installed APKs, not a separate toggle or diagnostic-upload consent. Pending/blocked accounts remain denied.
 - Users may edit their own display name, driver type, and fixed routes. They must not be able to approve themselves.
 - Admins must not read another driver's rates, sales, expense receipts, inspections, signatures, or route item snapshots. Membership approval uses the narrow admin-member RPC; raw profile reads remain owner-only.
 - Admin writes should stay limited to profile approval/type changes; do not let admins edit another driver's sales records from the admin dashboard.

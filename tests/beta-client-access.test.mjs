@@ -6,7 +6,7 @@ import { bindAccountDeletion } from "../src/ui/account-deletion.js";
 
 const deferred = () => { let resolve; const promise = new Promise((r) => { resolve = r; }); return { promise, resolve }; };
 
-test("measurement checks fresh server approval and enrollment, not a stale profile", async () => {
+test("measurement checks fresh server approval and ignores the legacy beta flag", async () => {
   let result = { data: { id: "a", status: "approved", beta_enabled: true } };
   const query = { select: () => query, eq: (key, value) => { assert.equal(key, "id"); assert.equal(value, "a"); return query; }, single: async () => result };
   const options = { session: { user: { id: "a", email: "beta@example.test" } }, db: { from: () => query }, isCurrent: () => true };
@@ -17,7 +17,7 @@ test("measurement checks fresh server approval and enrollment, not a stale profi
   }
   for (const flag of [false, undefined, "true", 1]) {
     result = { data: { id: "a", status: "approved", beta_enabled: flag } };
-    assert.equal(await checkBetaMeasurementAccess(options), "not_enrolled");
+    assert.equal(await checkBetaMeasurementAccess(options), "allowed");
   }
   result = { error: { message: "network unavailable" } };
   assert.equal(await checkBetaMeasurementAccess(options), "unavailable");
@@ -71,7 +71,9 @@ test("deletion flush/account-switch and duplicate clicks cannot affect a replace
 test("beta entry/admin/deletion modules are wired and the public help page is cached", () => {
   const main = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
   assert.match(main, /await checkBetaMeasurementAccess/);
-  assert.match(main, /p_beta_enabled: card.querySelector/);
+  assert.match(main, /p_beta_enabled: card\.querySelector\('\[data-field="status"\]'\)\.value === "approved"/);
+  assert.match(main, /가입 승인 시 측정앱도 함께 사용할 수 있습니다\./);
+  assert.doesNotMatch(main, /data-field="beta_enabled"/);
   assert.match(main, /captureAccountContext,\s+isAccountContextCurrent,/);
   const settings = readFileSync(new URL("../src/ui/settings.js", import.meta.url), "utf8");
   assert.match(settings, /bindAccountDeletion\(\{ \.\.\.ctx, button: el.requestAccountDelete/);

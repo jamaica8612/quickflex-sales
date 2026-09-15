@@ -7,10 +7,10 @@ export async function checkBetaMeasurementAccess({ session, db, profilesTable, i
   if (!db) return "unavailable";
   try {
     const { data, error } = await db.from(profilesTable)
-      .select("id,status,beta_enabled").eq("id", userId).single();
+      .select("id,status").eq("id", userId).single();
     if (!isCurrent()) return "account_changed";
     if (error || !data || data.id !== userId) return "unavailable";
-    return data.status === "approved" && data.beta_enabled === true ? "allowed" : "not_enrolled";
+    return data.status === "approved" ? "allowed" : "not_enrolled";
   } catch {
     return isCurrent() ? "unavailable" : "account_changed";
   }

@@ -3443,7 +3443,7 @@ async function openPaceMeasurementApp() {
   if (!isAccountContextCurrent(measurementContext)) return;
   if (access !== "allowed") {
     return toast(access === "not_enrolled"
-      ? "측정 베타 참여 승인이 필요합니다. 운영자에게 문의해 주세요."
+      ? "측정앱은 가입 승인이 필요합니다. 운영자에게 문의해 주세요."
       : "측정 권한을 확인하지 못했습니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.", "info");
   }
   const workDate = currentMeasurementWorkDate();
@@ -5089,7 +5089,7 @@ async function renderAdminProfiles() {
     <div class="admin-profile-head"><strong>${escapeAttr(profileNameForDisplay(profile))}</strong><span class="admin-status-pill">${profile.deletion_requested_at ? "탈퇴 요청" : statusLabel(profile.status)}</span></div>
     <div class="admin-card-row"><select data-field="status" aria-label="가입 승인 상태"><option value="pending"${profile.status === "pending" ? " selected" : ""}>대기</option><option value="approved"${profile.status === "approved" ? " selected" : ""}>승인</option><option value="blocked"${profile.status === "blocked" ? " selected" : ""}>차단</option></select><select data-field="driver_type" aria-label="기사 유형"><option value="backup"${profile.driver_type === "backup" ? " selected" : ""}>백업</option><option value="fixed"${profile.driver_type === "fixed" ? " selected" : ""}>고정</option></select><button class="secondary-btn" data-action="save-admin" type="button">저장</button></div>
     <label class="admin-route-field"><span>고정 구역</span><input data-field="fixed_routes" value="${escapeAttr((profile.fixed_routes || []).join(", "))}" placeholder="예: 322A, 322B" /></label>
-    <label class="admin-beta-option"><input type="checkbox" data-field="beta_enabled"${profile.beta_enabled === true ? " checked" : ""} /><span>베타 측정 허용<small>가입 승인 상태에서만 사용할 수 있습니다.</small></span></label>
+    <p class="admin-beta-option" role="note">가입 승인 시 측정앱도 함께 사용할 수 있습니다.</p>
   </div>`).join("") || '<p class="hint">표시할 가입 요청이 없습니다.</p>';
 }
 async function saveAdminProfile(card) {
@@ -5098,7 +5098,7 @@ async function saveAdminProfile(card) {
   const driverType = card.querySelector('[data-field="driver_type"]').value;
   const { error } = await state.db.rpc("quickflex_update_admin_member", {
     p_member_id: card.dataset.id,
-    p_beta_enabled: card.querySelector('[data-field="beta_enabled"]').checked,
+    p_beta_enabled: card.querySelector('[data-field="status"]').value === "approved",
     p_status: card.querySelector('[data-field="status"]').value,
     p_driver_type: driverType,
     p_fixed_routes: driverType === "fixed" ? expandRouteText(card.querySelector('[data-field="fixed_routes"]').value) : [],
