@@ -1,5 +1,13 @@
 # QuickFlex Worklog
 
+## 2026-09-15 Measurement access follows PWA approval (1.0.62)
+
+- All approved members may use measurement; no separate beta enrollment checkbox. The PWA validates the fresh matching profile's approved status and retains account-change/error guards. The administrator UI explains that approval also opens measurement.
+- Migration `20260915114110_quickflex_measurement_for_all_approved` derives the existing `beta_enabled` compatibility field AFTER bootstrap/self-update guards. Installed Beta 1.09 APKs remain compatible without a new APK. The existing RPC shape remains valid for old PWA clients.
+- Production verification at 20:41 KST: 30 approved profiles enabled, 6 pending profiles disabled, zero inconsistent flags; all three profile triggers and RLS enabled. No status, role, sales, or work result changes. Diagnostic consent, client logging and Oracle allowlists remain unchanged.
+- Focused verification: 30 tests passed (5 PostgreSQL security/lifecycle cases, 6 client/access cases, 19 PWA/guide/font cases); JavaScript syntax and diff checks passed. Independent review found no blocker; database security advisors added no findings compared with the existing baseline.
+- The CLI-generated migration was renamed to the actual production migration version after applying it through the Supabase connector. No physical phone install/restart.
+
 ## 2026-09-14 Branded startup and session restoration
 
 - Added the approved F-truck braking motion, Korean name and tagline (10px gap), light blue logo, and dark charcoal gradient. Bundled two OFL font subsets totaling 12,892 bytes. No full video or additional runtime dependency.

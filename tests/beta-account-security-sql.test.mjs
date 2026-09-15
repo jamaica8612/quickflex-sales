@@ -7,6 +7,10 @@ const migration = readFileSync(
   new URL("../supabase/migrations/20260913114410_quickflex_beta_enrollment_and_deletion_request_security.sql", import.meta.url),
   "utf8",
 );
+const approvalMigration = readFileSync(
+  new URL("../supabase/migrations/20260915114110_quickflex_measurement_for_all_approved.sql", import.meta.url),
+  "utf8",
+);
 
 const admin = "11111111-1111-4111-8111-111111111111";
 const accountA = "22222222-2222-4222-8222-222222222222";
@@ -288,4 +292,53 @@ test("an empty database bootstraps exactly one non-beta administrator", async ()
     { id: accountA, role: "driver", status: "pending", beta_enabled: false },
   );
   await db.close();
+});
+
+test("membership approval enables installed APKs without weakening account guards", async () => {
+  const db = await createBaseline();
+  try {
+    await db.query("insert into auth.users(id,email) values($1,'a@example.test'),($2,'b@example.test')", [accountA, accountB]);
+    await setActor(db, "authenticated", admin);
+    await db.query("select * from public.quickflex_update_admin_member($1,'approved',null,null,false)", [accountA]);
+    await db.query("select * from public.quickflex_update_admin_member($1,'blocked',null,null,true)", [accountB]);
+    await setActor(db, "postgres");
+    const before = (await db.query("select to_jsonb(p)-'beta_enabled' as data from public.quickflex_profiles p order by id")).rows;
+    await db.exec(approvalMigration);
+    assert.deepEqual((await db.query("select to_jsonb(p)-'beta_enabled' as data from public.quickflex_profiles p order by id")).rows, before, "backfill changes only the compatibility flag");
+    assert.deepEqual((await db.query("select status,beta_enabled from public.quickflex_profiles where id=$1", [accountA])).rows[0], { status: "approved", beta_enabled: true });
+    assert.deepEqual((await db.query("select status,beta_enabled from public.quickflex_profiles where id=$1", [accountB])).rows[0], { status: "blocked", beta_enabled: false });
+    assert.equal((await db.query("select tgenabled from pg_trigger where tgname='quickflex_guard_profile_update_trigger'")).rows[0].tgenabled, "O");
+    assert.equal((await db.query("select relrowsecurity from pg_class where oid='public.quickflex_profiles'::regclass")).rows[0].relrowsecurity, true);
+
+    await setActor(db, "authenticated", accountB);
+    await db.query("update public.quickflex_profiles set status='approved',role='admin',beta_enabled=true where id=$1", [accountB]);
+    assert.deepEqual((await db.query("select status,role,beta_enabled from public.quickflex_profiles where id=$1", [accountB])).rows[0], { status: "blocked", role: "driver", beta_enabled: false });
+    await denied(() => db.query("select * from public.quickflex_update_admin_member($1,'approved')", [accountB]));
+
+    await setActor(db, "authenticated", admin);
+    assert.equal((await db.query("select * from public.quickflex_update_admin_member($1,'approved',null,null,false)", [accountB])).rows[0].beta_enabled, true, "legacy clients cannot keep an approved user out with a stale false flag");
+    assert.equal((await db.query("select * from public.quickflex_update_admin_member($1,'pending',null,null,true)", [accountB])).rows[0].beta_enabled, false);
+    assert.equal((await db.query("select * from public.quickflex_update_admin_member($1,'approved',null,null)", [accountB])).rows[0].beta_enabled, true, "ordinary approval also enables measurement");
+    assert.equal((await db.query("select * from public.quickflex_update_admin_member($1,'blocked',null,null,true)", [accountB])).rows[0].beta_enabled, false);
+    await setActor(db, "authenticated", accountA);
+    await db.query("update public.quickflex_profiles set display_name='A updated',beta_enabled=false where id=$1", [accountA]);
+    assert.equal((await db.query("select beta_enabled from public.quickflex_profiles where id=$1", [accountA])).rows[0].beta_enabled, true);
+    await setActor(db, "postgres");
+    const laterSignup = "77777777-7777-4777-8777-777777777777";
+    await db.query("insert into auth.users(id,email,raw_user_meta_data) values($1,'new@example.test',$2::jsonb)", [laterSignup, { status: "approved", beta_enabled: true }]);
+    assert.deepEqual((await db.query("select status,beta_enabled from public.quickflex_profiles where id=$1", [laterSignup])).rows[0], { status: "pending", beta_enabled: false });
+    await db.exec(approvalMigration);
+    assert.equal((await db.query("select count(*)::int as n from public.quickflex_profiles where beta_enabled is distinct from (status='approved')")).rows[0].n, 0, "migration is idempotent");
+  } finally { await db.close(); }
+});
+
+test("first administrator remains unique and receives measurement access", async () => {
+  const db = await createBaseline({ withAdmin: false });
+  try {
+    await db.exec(approvalMigration);
+    await db.query("insert into auth.users(id,email) values($1,'first@example.test'),($2,'second@example.test')", [admin, accountA]);
+    const profiles = (await db.query("select role,status,beta_enabled from public.quickflex_profiles order by created_at,id")).rows;
+    assert.equal(profiles.filter((p) => p.role === "admin" && p.status === "approved" && p.beta_enabled).length, 1);
+    assert.equal(profiles.filter((p) => p.role === "driver" && p.status === "pending" && !p.beta_enabled).length, 1);
+  } finally { await db.close(); }
 });
