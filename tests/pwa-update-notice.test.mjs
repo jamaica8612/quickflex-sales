@@ -8,19 +8,17 @@ const config = readFileSync(new URL("../src/config.js", import.meta.url), "utf8"
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 
 function extractFunction(name) {
-  const markers = [`async function ${name}(`, `function ${name}(`];
-  const start = markers.reduce((found, marker) => found >= 0 ? found : main.indexOf(marker), -1);
-  assert.notEqual(start, -1, `missing ${name}()`);
-  const paramsStart = main.indexOf("(", start);
-  let paramsDepth = 0;
-  let paramsEnd = -1;
+  const plainStart = main.indexOf("function " + name + "(");
+  const asyncStart = main.indexOf("async function " + name + "(");
+  const start = asyncStart >= 0 && (plainStart < 0 || asyncStart < plainStart) ? asyncStart : plainStart;
+  assert.ok(start >= 0, `missing ${name}()`);
+  const paramsStart = main.indexOf("(", start); let paramsDepth = 0; let paramsEnd = -1;
   for (let index = paramsStart; index < main.length; index += 1) {
     if (main[index] === "(") paramsDepth += 1;
     if (main[index] === ")") paramsDepth -= 1;
     if (paramsDepth === 0) { paramsEnd = index; break; }
   }
-  const bodyStart = main.indexOf("{", paramsEnd);
-  let depth = 0;
+  const bodyStart = main.indexOf("{", paramsEnd); let depth = 0;
   for (let index = bodyStart; index < main.length; index += 1) {
     if (main[index] === "{") depth += 1;
     if (main[index] === "}") depth -= 1;
@@ -29,79 +27,76 @@ function extractFunction(name) {
   assert.fail(`unterminated ${name}()`);
 }
 
-test("update notice uses an in-app accessible modal instead of browser dialogs", () => {
-  assert.match(config, /id:\s*"2026-08-27-device-notice-detail-cleanup-v4"/);
+test("measurement-open notice has the new version and accessible actions", () => {
+  assert.match(config, /id:\s*["']2026-09-15-measurement-open-v1["']/);
   assert.match(html, /id="updateNoticeOverlay"[^>]*aria-hidden="true"[^>]*inert/);
   assert.match(html, /id="updateNoticeDialog"[^>]*role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="updateNoticeTitle"/);
+  assert.match(html, /id="openMeasurementNotice"/);
   assert.match(html, /id="acknowledgeUpdateNotice"/);
-  const offer = extractFunction("maybeOfferRateUpdate");
-  assert.match(offer, /appNoticeSeenLocally\(context\.userId, noticeVersion\)/);
-  assert.match(offer, /showAppUpdateNotice\(\)/);
-  assert.doesNotMatch(offer, /window\.(alert|confirm)/);
-  assert.doesNotMatch(offer, /app_notice_version/);
+  assert.match(main, /function mayShowAppUpdateNotice\(context = captureAccountContext\(\)\)[\s\S]*?state\.profile\?\.status === "approved"/);
+  assert.match(main, /openMeasurementNotice\?\.addEventListener\("click", openMeasurementFromNotice\)/);
+  assert.match(main, /acknowledgeUpdateNotice\?\.addEventListener\("click", acknowledgeAppUpdateNotice\)/);
 });
 
-test("update notice is limited to the Android app bridge", () => {
-  const runtime = extractFunction("isNativeAppRuntime");
-  const show = extractFunction("showAppUpdateNotice");
-  const offer = extractFunction("maybeOfferRateUpdate");
-
-  assert.match(runtime, /window\.QuickFlexNative/);
-  assert.match(runtime, /typeof window\.QuickFlexNative\.postMessage === ["']function["']/);
-  assert.match(show, /if \(!isNativeAppRuntime\(\)\) return false;/);
-  assert.match(offer, /if \(!isNativeAppRuntime\(\)\) return false;/);
-
-  const evaluateRuntime = (window) => {
-    const context = vm.createContext({ window });
-    vm.runInContext(`${runtime}\nglobalThis.actual = isNativeAppRuntime();`, context);
-    return context.actual;
+test("only the current approved account can receive the notice", () => {
+  const helperStart = main.indexOf("function mayShowAppUpdateNotice(context = captureAccountContext()");
+  assert.ok(helperStart >= 0, "missing mayShowAppUpdateNotice()");
+  const source = main.slice(helperStart, main.indexOf("function showAppUpdateNotice", helperStart));
+  assert.match(source, /state\.profile\?\.id\s*===\s*context\.userId/);
+  assert.match(source, /state\.profile\?\.status\s*===\s*["']approved["']/);
+  assert.match(source, /isAccountContextCurrent\(context\)/);
+  assert.doesNotMatch(source, /isNativeAppRuntime/);
+  const evaluate = (profile, current = true, userId = "u1") => {
+    const context = vm.createContext({ state: { profile }, captureAccountContext: () => ({ userId }), isAccountContextCurrent: () => current });
+    vm.runInContext(`${source}\nglobalThis.result = mayShowAppUpdateNotice({ userId: "${userId}" });`, context);
+    return context.result;
   };
-  assert.equal(evaluateRuntime({}), false, "regular browsers must not receive the notice");
-  assert.equal(evaluateRuntime({ matchMedia: () => ({ matches: true }) }), false,
-    "installed standalone PWAs must not receive the notice");
-  assert.equal(evaluateRuntime({ QuickFlexNative: { postMessage() {} } }), true,
-    "the Android WebView bridge enables the notice");
+  assert.equal(evaluate({ id: "u1", status: "approved" }), true);
+  for (const status of ["pending", "blocked", undefined]) assert.equal(evaluate({ id: "u1", status }), false);
+  assert.equal(evaluate(null), false, "signed-out profile is rejected");
+  assert.equal(evaluate({ id: "u1", status: "approved" }, false), false, "stale account context is rejected");
+  assert.equal(evaluate({ id: "u2", status: "approved" }), false, "mismatched identity is rejected");
 });
 
-test("notice acknowledgement is isolated by user on each device", () => {
+test("ordinary browsers and installed PWAs are not filtered by native runtime", () => {
+  assert.doesNotMatch(extractFunction("showAppUpdateNotice"), /if \(!isNativeAppRuntime\(\)\) return false/);
+  assert.doesNotMatch(extractFunction("maybeOfferRateUpdate"), /if \(!isNativeAppRuntime\(\)\) return false/);
+});
+
+test("acknowledgement is once per user/device and version changes re-offer", () => {
   const values = new Map();
-  const sandbox = {
-    APP_NOTICE_LOCAL_KEY_PREFIX: "quickflex-app-notice:",
-    APP_UPDATE_NOTICE: { id: "notice-v4" },
-    localStorage: {
-      getItem: (key) => values.get(key) ?? null,
-      setItem: (key, value) => values.set(key, value),
-    },
-  };
-  const context = vm.createContext(sandbox);
+  const context = vm.createContext({ APP_NOTICE_LOCAL_KEY_PREFIX: "quickflex-app-notice:", APP_UPDATE_NOTICE: { id: "2026-09-15-measurement-open-v1" }, localStorage: { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) } });
   vm.runInContext(`${extractFunction("appNoticeStorageKey")}\n${extractFunction("appNoticeSeenLocally")}\n${extractFunction("rememberAppNoticeLocally")}\nglobalThis.actual = { appNoticeSeenLocally, rememberAppNoticeLocally };`, context);
   const { appNoticeSeenLocally, rememberAppNoticeLocally } = context.actual;
-  assert.equal(appNoticeSeenLocally("user-a"), false);
-  assert.equal(rememberAppNoticeLocally("user-a"), true);
-  assert.equal(appNoticeSeenLocally("user-a"), true);
-  assert.equal(appNoticeSeenLocally("user-b"), false);
+  assert.equal(appNoticeSeenLocally("user-a"), false); assert.equal(rememberAppNoticeLocally("user-a"), true);
+  assert.equal(appNoticeSeenLocally("user-a"), true); assert.equal(appNoticeSeenLocally("user-b"), false);
+  assert.equal(appNoticeSeenLocally("user-a", "2026-09-16-measurement-open-v2"), false);
 });
 
-test("storage and remote audit failures cannot block the visible notice flow", () => {
-  const seen = extractFunction("appNoticeSeenLocally");
-  const remember = extractFunction("rememberAppNoticeLocally");
-  const persist = extractFunction("persistAppNoticeAudit");
-  const acknowledge = extractFunction("acknowledgeAppUpdateNotice");
-  assert.match(seen, /catch \(_\) \{ return false; \}/);
-  assert.match(remember, /catch \(_\) \{[\s\S]*return false;/);
-  assert.match(persist, /catch \(_\) \{[\s\S]*return false;/);
-  assert.match(persist, /isProductionSiteRuntime\(\)/);
-  assert.match(acknowledge, /rememberAppNoticeLocally[\s\S]*closeAppUpdateNotice[\s\S]*void persistAppNoticeAudit/);
+test("positive action acknowledges and navigates only to measurement", () => {
+  const source = extractFunction("openMeasurementFromNotice");
+  assert.match(source, /acknowledgeAppUpdateNotice\(\)/); assert.match(source, /showView\(["']measurement["']\)/); assert.doesNotMatch(source, /openPaceMeasurementApp/);
+  const calls = []; const context = vm.createContext({ window: { requestAnimationFrame: () => {} }, acknowledgeAppUpdateNotice: () => { calls.push("ack"); return true; }, showView: (view) => calls.push(view), captureAccountContext: () => ({ userId: "u1" }), isAccountContextCurrent: () => true, state: { profile: { id: "u1", status: "approved" } }, el: { app: { dataset: { view: "measurement" } } }, mayShowAppUpdateNotice: () => true });
+  vm.runInContext(`${source}\nglobalThis.result = openMeasurementFromNotice();`, context);
+  assert.equal(context.result, true); assert.deepEqual(calls, ["ack", "measurement"]);
 
-  const context = vm.createContext({
-    APP_NOTICE_LOCAL_KEY_PREFIX: "quickflex-app-notice:",
-    APP_UPDATE_NOTICE: { id: "notice-v4" },
-    localStorage: {
-      getItem() { throw new Error("storage unavailable"); },
-      setItem() { throw new Error("storage unavailable"); },
-    },
-  });
-  vm.runInContext(`${extractFunction("appNoticeStorageKey")}\n${seen}\n${remember}\nglobalThis.actual = { appNoticeSeenLocally, rememberAppNoticeLocally };`, context);
-  assert.equal(context.actual.appNoticeSeenLocally("user-a"), false);
-  assert.equal(context.actual.rememberAppNoticeLocally("user-a"), false);
+  const denied = vm.createContext({ window: { requestAnimationFrame: () => {} }, mayShowAppUpdateNotice: () => false, acknowledgeAppUpdateNotice: () => { calls.push("unexpected-ack"); return true; }, showView: (view) => calls.push(`unexpected-${view}`), el: { app: { dataset: { view: "home" } } } });
+  vm.runInContext(`${source}\nglobalThis.result = openMeasurementFromNotice();`, denied);
+  assert.equal(denied.result, false);
+  assert.deepEqual(calls, ["ack", "measurement"], "denied notice must not acknowledge or navigate");
+
+  const acknowledgeFailed = vm.createContext({ window: { requestAnimationFrame: () => {} }, mayShowAppUpdateNotice: () => true, acknowledgeAppUpdateNotice: () => false, showView: (view) => calls.push(`unexpected-${view}`), el: { app: { dataset: { view: "home" } } } });
+  vm.runInContext(`${source}\nglobalThis.result = openMeasurementFromNotice();`, acknowledgeFailed);
+  assert.equal(acknowledgeFailed.result, false);
+  assert.deepEqual(calls, ["ack", "measurement"], "failed acknowledgement must not navigate");
+});
+
+test("storage, audit, and account swaps cannot block or cross-contaminate handling", async () => {
+  const seen = extractFunction("appNoticeSeenLocally"); const remember = extractFunction("rememberAppNoticeLocally"); const persist = extractFunction("persistAppNoticeAudit");
+  assert.match(seen, /catch \(_\) \{ return false; \}/); assert.match(remember, /catch \(_\) \{[\s\S]*return false;/); assert.match(persist, /isAccountContextCurrent\(context\)/);
+  const calls = []; const context = vm.createContext({ APP_NOTICE_LOCAL_KEY_PREFIX: "quickflex-app-notice:", APP_UPDATE_NOTICE: { id: "v1" }, localStorage: { getItem() { throw new Error("storage unavailable"); }, setItem() { throw new Error("storage unavailable"); } }, isProductionSiteRuntime: () => true, state: { db: { from: () => { calls.push("db"); return {}; } } }, isAccountContextCurrent: () => false });
+  vm.runInContext(`${seen}\n${remember}\nglobalThis.actual = { appNoticeSeenLocally, rememberAppNoticeLocally };`, context);
+  assert.equal(context.actual.appNoticeSeenLocally("u1"), false); assert.equal(context.actual.rememberAppNoticeLocally("u1"), false);
+  vm.runInContext(`(async () => { ${persist} globalThis.audit = persistAppNoticeAudit("v1", { userId: "old", epoch: 1 }); })();`, context);
+  assert.equal(await context.audit, false); assert.deepEqual(calls, []);
 });

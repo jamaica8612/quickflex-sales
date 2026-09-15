@@ -10,7 +10,7 @@
     <meta name="application-name" content="플렉스노트" />
     <meta name="apple-mobile-web-app-title" content="플렉스노트" />
     <meta name="description" content="배송의 기록부터 매출·지출까지" />
-    <link rel="manifest" href="./manifest.webmanifest?v=1.0.62" />
+    <link rel="manifest" href="./manifest.webmanifest?v=1.0.63" />
     <link rel="icon" href="./favicon-32.png?v=3" type="image/png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=3" />
     <script>
@@ -40,10 +40,10 @@
     </style>
     <style>html[data-startup] #app{visibility:hidden;pointer-events:none}</style>
     <link rel="stylesheet" href="./styles/startup.css?v=1" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.62" />
-  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.62" />
-<link rel="stylesheet" href="./styles/exports.css?v=1.0.62" />
-<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.62" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.63" />
+  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.63" />
+<link rel="stylesheet" href="./styles/exports.css?v=1.0.63" />
+<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.63" />
 </head>
   <body>
     <script>document.body.dataset.theme = document.documentElement.dataset.theme;</script>
@@ -625,11 +625,14 @@
 
       <div class="overlay" id="updateNoticeOverlay" aria-hidden="true" inert>
         <div id="updateNoticeDialog" class="modal-card update-notice-card" role="dialog" aria-modal="true" aria-labelledby="updateNoticeTitle" aria-describedby="updateNoticeIntro" tabindex="-1">
-          <span class="update-notice-badge">새 버전</span>
-          <h2 id="updateNoticeTitle">앱이 업데이트됐습니다</h2>
-          <p id="updateNoticeIntro" class="hint">이번에 달라진 내용을 확인해 주세요.</p>
+          <span class="update-notice-badge">새 기능 · 베타</span>
+          <h2 id="updateNoticeTitle">배송 측정 메뉴가 열렸어요</h2>
+          <p id="updateNoticeIntro" class="hint">승인된 회원이라면 누구나 이용할 수 있어요.</p>
           <ul id="updateNoticeItems" class="update-notice-items"></ul>
-          <button id="acknowledgeUpdateNotice" class="full-btn wide" type="button">확인하고 시작</button>
+          <div class="update-notice-actions">
+            <button id="openMeasurementNotice" class="full-btn wide" type="button">배송 측정 보기</button>
+            <button id="acknowledgeUpdateNotice" class="secondary-btn wide" type="button">나중에</button>
+          </div>
         </div>
       </div>
 
@@ -738,7 +741,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.62"></script>
+    <script type="module" src="./src/main.js?v=1.0.63"></script>
     <script>
       // 로컬 디자인 비교용. 배포 화면에는 비교 도구를 표시하지 않는다.
       (function () {
