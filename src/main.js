@@ -398,6 +398,7 @@ const el = {
   updateNoticeDialog: $("updateNoticeDialog"),
   updateNoticeItems: $("updateNoticeItems"),
   acknowledgeUpdateNotice: $("acknowledgeUpdateNotice"),
+  openMeasurementNotice: $("openMeasurementNotice"),
   salesOverrideOverlay: $("salesOverrideOverlay"),
   salesOverrideDialog: $("salesOverrideDialog"),
   salesOverrideTitle: $("salesOverrideTitle"),
@@ -689,6 +690,11 @@ function bindModalAccessibility() {
   document.addEventListener("keydown", (event) => {
     const layer = activeModalLayer();
     if (!layer) return;
+    if (event.key === "Escape" && layer === el.updateNoticeOverlay) {
+      event.preventDefault();
+      acknowledgeAppUpdateNotice();
+      return;
+    }
     if (event.key === "Escape" && layer === el.profileSignatureOverlay) {
       event.preventDefault();
       closeSignatureEditor();
@@ -2788,14 +2794,19 @@ function isNativeAppRuntime() {
     && typeof window.QuickFlexNative.postMessage === "function"
   );
 }
+function mayShowAppUpdateNotice(context = captureAccountContext()) {
+  return isAccountContextCurrent(context)
+    && state.profile?.id === context.userId
+    && state.profile?.status === "approved";
+}
 function showAppUpdateNotice() {
-  if (!isNativeAppRuntime()) return false;
+  if (!mayShowAppUpdateNotice()) return false;
   if (!el.updateNoticeOverlay || !el.updateNoticeItems) return false;
   el.updateNoticeItems.innerHTML = APP_UPDATE_NOTICE.items
     .map((item) => `<li>${escapeAttr(item)}</li>`)
     .join("");
   el.updateNoticeOverlay.classList.add("visible");
-  updateModalLayer(el.updateNoticeOverlay, true, el.acknowledgeUpdateNotice || el.updateNoticeDialog);
+  updateModalLayer(el.updateNoticeOverlay, true, el.openMeasurementNotice || el.updateNoticeDialog);
   return true;
 }
 function closeAppUpdateNotice() {
@@ -2820,15 +2831,24 @@ async function persistAppNoticeAudit(noticeVersion, context) {
 }
 function acknowledgeAppUpdateNotice() {
   const context = captureAccountContext();
+  if (!mayShowAppUpdateNotice(context)) { closeAppUpdateNotice(); return false; }
   const noticeVersion = APP_UPDATE_NOTICE.id;
   rememberAppNoticeLocally(context.userId, noticeVersion);
   closeAppUpdateNotice();
   void persistAppNoticeAudit(noticeVersion, context);
   return true;
 }
+function openMeasurementFromNotice() {
+  if (!mayShowAppUpdateNotice()) return false;
+  if (!acknowledgeAppUpdateNotice()) return false;
+  showView("measurement");
+  window.requestAnimationFrame(() => {
+    if (el.app.dataset.view === "measurement" && !activeModalLayer()) el.openPaceApp?.focus();
+  });
+  return true;
+}
 async function maybeOfferRateUpdate(context = captureAccountContext()) {
-  if (!isNativeAppRuntime()) return false;
-  if (!isAccountContextCurrent(context)) return false;
+  if (!mayShowAppUpdateNotice(context)) return false;
   const noticeVersion = APP_UPDATE_NOTICE.id;
   if (appNoticeSeenLocally(context.userId, noticeVersion) || state.rateOfferPrompted) return false;
   state.rateOfferPrompted = true;
@@ -5488,6 +5508,7 @@ function bindEvents() {
   el.salesOverrideSave?.addEventListener("click", saveSalesOverride);
   el.salesOverrideClose?.addEventListener("click", () => closeSalesOverride());
   el.acknowledgeUpdateNotice?.addEventListener("click", acknowledgeAppUpdateNotice);
+  el.openMeasurementNotice?.addEventListener("click", openMeasurementFromNotice);
   bindModalAccessibility();
   el.measurementWorkDate?.addEventListener("change", () => {
     if (!el.measurementWorkDate.value) return;

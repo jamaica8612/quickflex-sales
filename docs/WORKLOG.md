@@ -1239,3 +1239,10 @@ Browser checks:
 - Actual browser inspection covered dark/light landscape at 768x600, 960x720 and 1280x960, plus light portrait at 360x900 and 800x1100. Checked no horizontal overflow, route label clipping, manual/automatic/planned/off states and record-editor return without saving. No physical-device verification or financial writes were performed in this layout task. Private screenshots remain outside the release.
 
 - Integration check: latest usage-guide changes preserved. Combined suite: 234/235 passed initially; the guide cache-name suffix check was fixed without changing test expectations, then all 13 startup/usage-guide tests passed.
+
+## 2026-09-15 - Measurement menu opening notice (PWA 1.0.63)
+
+- Reused the accessible update dialog for a new approved-member announcement in browsers, installed PWAs and the native wrapper. Pending, blocked, signed-out and mismatched accounts cannot receive it.
+- Added measurement-menu navigation and dismissal actions. Both acknowledge this notice per account/device; navigation never launches or starts measurement. The existing nonblocking own-profile audit remains unchanged.
+- Added concise Android installation, final-count review and beta-accuracy guidance. Preserved existing themes, focus trapping and return focus; added Escape dismissal and short-landscape scrolling.
+- Validation: 56 focused notice, approval, startup, native-back, accessibility, cache, font and guide tests passed; JavaScript syntax and diff whitespace checks passed. Local previews verified dark/light 375px portrait and 812x375 landscape. No APK, counting, financial-data or database-schema changes.
