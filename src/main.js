@@ -67,6 +67,8 @@ function applyTheme(theme) {
   if (document.body) document.body.dataset.theme = t;
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#10141F" : "#F7F7F8");
   try { localStorage.setItem(THEME_KEY, t); } catch (_) {}
+  // The trusted Android wrapper uses the same choice for its measurement UI.
+  postNativeMessage({ type: "sync_theme", theme: t });
   document.querySelectorAll("[data-theme-set]").forEach((b) => {
     const selected = b.dataset.themeSet === t;
     b.classList.toggle("active", selected);
@@ -3439,7 +3441,9 @@ function renderMeasurementBridge() {
   const workDate = currentMeasurementWorkDate();
   el.measurementWorkDate.value = workDate;
   const record = getRecord(workDate, false);
-  const routes = record.off ? [] : record.rows.flatMap((row) => splitStoredRoutes(row.route));
+  // Rows can repeat a route after separate manual/automatic entries; keep the bridge display
+  // truthful without changing the underlying sales rows or their quantities.
+  const routes = record.off ? [] : routeListFromText(record.rows.flatMap((row) => splitStoredRoutes(row.route)));
   el.measurementRouteText.textContent = record.off ? "휴무" : routes.length ? routes.join(" · ") : "등록된 구역 없음";
   const households = record.rows.reduce((sum, row) => sum + toNum(row.households), 0);
   const automatic = hasAutomaticEntries(record);
@@ -3493,6 +3497,7 @@ async function openPaceMeasurementApp() {
       type: "open_measurement",
       workDate,
       workShift: shift,
+      theme: document.documentElement.dataset.theme === "light" ? "light" : "dark",
       accessToken: session.access_token,
       refreshToken: session.refresh_token,
       expiresAt: session.expires_at || 0,
