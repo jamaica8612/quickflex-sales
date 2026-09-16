@@ -1266,3 +1266,9 @@ Browser checks:
 - This frontend release only changes release metadata. The refined standby/home layout ships in the Android APK; counting, financial records, authentication and database behavior are unchanged.
 - Validation: all 243 Node tests passed, 39 first-party JavaScript files passed syntax checks, and diff whitespace checks passed. Version assertions now check the new published version and APK path without weakening the tests.
 - Prepared locally; publish the APK before pushing the Pages update. No physical-device installation or new browser-flow test was performed for this metadata-only update.
+## 2026-09-16 - Measurement route layout release (PWA 1.0.68 / Android Beta 1.12)
+
+- Preserved the already-published PWA 1.0.67 expense layout changes from main. Updated installation links and labels to Android Beta 1.12, with PWA 1.0.68 manifest, asset queries and service-worker cache.
+- This change only updates release metadata. The measurement route layout ships in the Android APK; counting, settlement, authentication and backend behavior remain unchanged.
+- Validation: 243 Node tests passed, 41 first-party JavaScript files passed syntax checks, and diff whitespace checks passed. Release version and APK path assertions were advanced without weakening their checks.
+- Prepared locally; publish the APK before pushing the Pages update. No physical-device installation was performed by this frontend task.
