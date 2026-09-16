@@ -1259,3 +1259,10 @@ Browser checks:
 - `renderMeasurementBridge()` normalizes and deduplicates the displayed route list using the existing route helper. Repeated 303A entries display once; stored rows and quantities stay intact.
 - Syntax checks passed for src/main.js, app.js and sw.js; three focused route assertions and diff checks passed. Browser/device checks and unrelated export tests were not run.
 - No version change, push or deployment. Details: docs/measurement-route-display-20260916.md.
+
+## 2026-09-16 - Refined measurement standby release (PWA 1.0.66 / Android Beta 1.11)
+
+- Updated the current installation links and release labels to Android Beta 1.11; bumped the manifest, asset queries and service-worker cache to PWA 1.0.66.
+- This frontend release only changes release metadata. The refined standby/home layout ships in the Android APK; counting, financial records, authentication and database behavior are unchanged.
+- Validation: all 243 Node tests passed, 39 first-party JavaScript files passed syntax checks, and diff whitespace checks passed. Version assertions now check the new published version and APK path without weakening the tests.
+- Prepared locally; publish the APK before pushing the Pages update. No physical-device installation or new browser-flow test was performed for this metadata-only update.

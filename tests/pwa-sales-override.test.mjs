@@ -58,13 +58,13 @@ test("PWA config names the immutable-receipt detail and date override contracts"
   assert.match(config, /replaceAutomaticSalesOverride:\s*"quickflex_replace_automatic_sales_override"/);
   assert.match(config, /replaceManualDayRecord:\s*"quickflex_replace_manual_day_record"/);
   const releaseVersion = JSON.parse(manifest).version;
-  assert.equal(releaseVersion, "1.0.65");
+  assert.equal(releaseVersion, "1.0.66");
   assert.ok(serviceWorker.includes(`quickflex-shell-v${releaseVersion}`));
   assert.ok(html.includes(`src/main.js?v=${releaseVersion}`));
   assert.ok(html.includes(`styles.css?v=${releaseVersion}`));
   assert.match(html, /<title>플렉스노트<\/title>/);
-  assert.equal((html.match(/플렉스노트 · Beta 1\.10/g) || []).length, 2);
-  assert.match(html, /releases\/download\/android-beta-1\.10\/flexnote-beta-1\.10\.apk/);
+  assert.equal((html.match(/플렉스노트 · Beta 1\.11/g) || []).length, 2);
+  assert.match(html, /releases\/download\/android-beta-1\.11\/flexnote-beta-1\.11\.apk/);
   assert.match(html, /href="\.\/install\.html#play-protect"/);
   assert.match(installHtml, /<section class="[^"]*\bstep\b[^"]*" id="play-protect">[\s\S]*?<details open>/);
   assert.match(installHtml, /support\.google\.com\/googleplay\/answer\/2812853\?hl=ko/);
