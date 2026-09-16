@@ -89,7 +89,9 @@
 .exports-preview dl div { min-width: 0; }
 .exports-preview dt { color: var(--muted); font-size: 12px; font-weight: 500; }
 .exports-preview dd { margin: 3px 0 0; font: 700 16px var(--font-numeric); font-variant-numeric: tabular-nums; }
-.exports-preview dd small { color: var(--muted); font: 500 11px var(--font-ui); }
+.exports-preview dd small { margin-left: 4px; color: var(--muted); font: 500 11px var(--font-ui); }
+/* 확인 필요는 0이 아닐 때만 색을 쓴다. 내보내기 전에 손봐야 할 것이 그것이다. */
+.exports-preview dl div.needs-review dd { color: var(--red); }
 .exports-preview p { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .exports-status { min-height: 20px; margin: -4px 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .exports-status[data-tone="error"] { color: var(--red); }
