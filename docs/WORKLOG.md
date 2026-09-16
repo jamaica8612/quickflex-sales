@@ -1272,3 +1272,19 @@ Browser checks:
 - This change only updates release metadata. The measurement route layout ships in the Android APK; counting, settlement, authentication and backend behavior remain unchanged.
 - Validation: 243 Node tests passed, 41 first-party JavaScript files passed syntax checks, and diff whitespace checks passed. Release version and APK path assertions were advanced without weakening their checks.
 - Prepared locally; publish the APK before pushing the Pages update. No physical-device installation was performed by this frontend task.
+
+## 2026-09-16 - Registered schedule correction takes priority (local)
+
+- Exclude a built-in completion pattern when it shares two or more routes with an active registered pattern. These are the same two-route completion anchors; differing trailing routes no longer cause both patterns to apply.
+- Reproduction: registered 316A/316B/313C plus observed 316A/316B now yields 316AB 313C, without the legacy fallback adding 313A.
+- Keep unrelated defaults, inactive-pattern behavior, trusted multi-route completion and explicitly observed routes. No database writes or historical schedule changes.
+- Six regression cases and full Node suite 249/249 passed; src/main.js syntax and diff checks passed. Not deployed.
+
+## 2026-09-16 - Schedule input safeguards (PWA 1.0.69)
+
+- Registered correction patterns override built-in patterns with the same two-route anchors. Covers 316AB313C versus old 316AB313A and 405AC versus old 405AC410B.
+- Completion uses only original observed routes, so an inferred route cannot trigger another pattern. Compact registered patterns normalize before comparison; admin save/bulk input expands compact route groups.
+- Shared schedule parser preserves all suffixes in CSV/JSON and adjacent text such as 316AB313C. Valid unlisted four-character routes are retained instead of fuzzy replacement/deletion.
+- Nonempty failed OCR input stays unresolved rather than becoming fixed routes. Empty fixed-driver workdays retain their existing configured-route behavior. Empty unresolved workdays block the entire apply operation before any record writes and show a correction hint.
+- Manual OCR additions reject invalid input and deduplicate routes. Historical schedules, financial records and server schema are unchanged; no database migration or Edge Function deployment.
+- Validation: all 261 Node tests passed; 39 first-party JavaScript syntax checks and diff check passed. Regression tests cover both known conflicts, cascading/order behavior, CSV/JSON/admin parsing, unknown valid routes, fixed-driver behavior and blocked partial writes. No production financial or schedule test rows were written.

@@ -53,7 +53,8 @@ export function bindOcrEvents(ctx) {
       }
       if (route) {
         const corrected = correctRouteList(route);
-        ocrDraftMap[dateKey] = [...(ocrDraftMap[dateKey] || []), ...(corrected.length ? corrected : routeListFromText(route))];
+        if (!corrected.length) return toast("구역을 확인해 주세요. 예: 316AB 313C", "error");
+        ocrDraftMap[dateKey] = [...new Set([...(ocrDraftMap[dateKey] || []), ...corrected])];
         if (input) input.value = "";
       }
     }

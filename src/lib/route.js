@@ -28,6 +28,15 @@ export function expandRouteText(text) {
     .filter((route) => route && !seen.has(route) && seen.add(route));
 }
 
+// Schedule/admin input accepts compact groups, including adjacent prefixes.
+// Do not use fuzzy correction here: explicit imported routes must be preserved.
+export function parseScheduleRoutes(value) {
+  const text = (Array.isArray(value) ? value.join(" ") : String(value ?? "")).toUpperCase();
+  const groups = text.match(/(?<![0-9A-Z])(?:\d{3}[A-Z]+)+(?![0-9A-Z])/g) || [];
+  return [...new Set(groups.flatMap((group) =>
+    (group.match(/\d{3}[A-Z]+/g) || []).flatMap(expandRouteText)))];
+}
+
 export function compactRouteList(routes) {
   const groups = new Map();
   routeListFromText(routes).forEach((route) => {
