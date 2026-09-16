@@ -25,21 +25,59 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
     revoke(); dialog?.close(); dialog?.remove(); dialog=null; draft=null; pendingFiles=[];
     return true;
   }
-  function showFrame(content) {
-    host.innerHTML=`<section class="expense-summary"><span class="expense-eyebrow">지출 기록</span><div class="expense-month-control"><button type="button" class="round-btn" data-month="-1" aria-label="이전 지출 월">‹</button><label><span class="sr-only">지출 월</span><input type="month" data-month-input value="${month}" /></label><button type="button" class="round-btn" data-month="1" aria-label="다음 지출 월">›</button></div><div data-summary></div></section><div class="expense-actions"><button class="full-btn" type="button" data-new>지출 기록</button><button class="secondary-btn" type="button" data-inbox>영수증만 보관</button></div><div class="expense-filter"><label for="expenseFilter">기록 보기</label><select id="expenseFilter" data-filter>${options([['all','저장한 지출'],['draft','작성 중'],['missing','증빙 미첨부'],['trashed','휴지통']],filter)}</select></div><section class="expense-list" aria-label="지출 내역" aria-live="polite">${content}</section>`;
+  /** 칩은 건수를 함께 말한다. 몇 건인지 보이지 않으면 열어볼 이유를 알 수 없다. */
+  function filterChips(counts) {
+    return [['all','저장',counts.all],['draft','작성 중',counts.draft],['missing','증빙 없음',counts.missing],['trashed','휴지통',null]]
+      .map(([key,text,count])=>`<button type="button" class="expense-chip${key===filter?' is-on':''}${key==='missing'&&count?' is-warn':''}" data-filter-chip="${key}" aria-pressed="${key===filter}">${esc(text)}${count==null?'':`<b>${count}</b>`}</button>`)
+      .join('');
+  }
+  function showFrame(content, counts={all:0,draft:0,missing:0}) {
+    host.innerHTML=`<section class="expense-summary"><div class="expense-month-control"><button type="button" class="round-btn" data-month="-1" aria-label="이전 지출 월">‹</button><label><span class="sr-only">지출 월</span><input type="month" data-month-input value="${month}" /></label><button type="button" class="round-btn" data-month="1" aria-label="다음 지출 월">›</button></div><div data-summary></div></section><div class="expense-actions"><button class="secondary-btn" type="button" data-new>지출 기록</button><button class="full-btn" type="button" data-inbox>영수증 남기기</button></div><div class="expense-filter" role="group" aria-label="기록 보기">${filterChips(counts)}</div><section class="expense-list" aria-label="지출 내역" aria-live="polite">${content}</section>`;
+  }
+  /** 분류가 여덟 개인데 합계가 어디에도 없었다. 상위 셋과 나머지를 막대로 말한다. */
+  function categoryBreakdown(confirmed) {
+    const totals=new Map();
+    for (const row of confirmed) {
+      const amount=Number(row.gross_amount||0)-adjustmentSum(row,'refund');
+      if (amount<=0) continue;
+      totals.set(row.category,(totals.get(row.category)||0)+amount);
+    }
+    const ranked=[...totals.entries()].sort((a,b)=>b[1]-a[1]);
+    if (!ranked.length) return '';
+    const top=ranked.slice(0,3);
+    const rest=ranked.slice(3);
+    const peak=top[0][1];
+    const bar=(name,amount,lead)=>`<div class="expense-category"><span class="expense-category-name">${esc(name)}</span><span class="expense-category-track"><span class="expense-category-fill${lead?'':' is-dim'}" style="width:${Math.max(4,Math.round(amount/peak*100))}%"></span></span><span class="expense-category-amount">${money(amount)}</span></div>`;
+    const restTotal=rest.reduce((n,[,amount])=>n+amount,0);
+    return `<div class="expense-categories">${top.map(([code,amount],index)=>bar(label(code),amount,index===0)).join('')}${rest.length?bar(`그 외 ${rest.length}`,restTotal,false):''}</div>`;
   }
   function render() {
     const confirmed=rows.filter((r)=>r.status==='confirmed'&&r.actual_date>=bounds().from&&r.actual_date<=bounds().to);
     const gross=confirmed.reduce((n,r)=>n+Number(r.gross_amount||0),0);
     const refunds=confirmed.reduce((n,r)=>n+adjustmentSum(r,'refund'),0);
     const reimbursements=confirmed.reduce((n,r)=>n+adjustmentSum(r,'reimbursement'),0);
+    const counts={all:confirmed.length,draft:rows.filter((r)=>r.status==='draft').length,missing:confirmed.filter((r)=>!r.receipts?.length).length};
     const visible=rows.filter((r)=> filter==='trashed' ? r.status==='trashed' : filter==='draft' ? r.status==='draft' : filter==='missing' ? r.status==='confirmed'&&!r.receipts?.length : r.status==='confirmed');
-    showFrame(visible.length ? visible.map((r)=>`<button class="expense-row" type="button" data-expense="${esc(r.id)}"><span class="expense-row-copy"><strong>${esc(r.merchant||label(r.category))}</strong><small>${esc(r.actual_date?.slice(5).replace('-','.')||'날짜 미입력')} · ${esc(label(r.category))}${r.status==='draft'?' · 작성 중':''}</small><span class="expense-evidence">${r.receipts?.length ? `증빙 ${r.receipts.length}개` : '증빙 미첨부'}${adjustmentSum(r,'refund')?' · 환불 있음':''}${adjustmentSum(r,'reimbursement')?' · 보전 있음':''}</span></span><span class="expense-row-amount">${r.gross_amount==null?'금액 미입력':money(r.gross_amount)+'<small>원</small>'}<span aria-hidden="true">›</span></span></button>`).join('') : `<div class="expense-empty"><span class="expense-empty-icon" aria-hidden="true">＋</span><strong>${filter==='all'?'이번 달 지출을 기록해 보세요':filter==='draft'?'작성 중인 기록이 없습니다':filter==='trashed'?'휴지통이 비어 있습니다':'증빙 미첨부 기록이 없습니다'}</strong><p>영수증을 먼저 보관하고<br>날짜와 금액은 나중에 채워도 됩니다.</p></div>`);
-    host.querySelector('[data-summary]').innerHTML=`<p class="expense-total">${money(gross-refunds)}<small>원</small></p><p class="expense-summary-note">${confirmed.length}건 · 환불 반영 지출</p>${refunds||reimbursements?`<p class="expense-summary-note">환불 ${money(refunds)}원 · 비용 보전 ${money(reimbursements)}원</p>`:''}<p class="expense-summary-note">작성 중 ${rows.filter((r)=>r.status==='draft').length}건은 합계에서 제외</p>`;
+    const emptyTitle=filter==='all'?'이번 달 지출을 기록해 보세요':filter==='draft'?'작성 중인 기록이 없습니다':filter==='trashed'?'휴지통이 비어 있습니다':'증빙 미첨부 기록이 없습니다';
+    const row=(r)=>{
+      const meta=[r.actual_date?.slice(5).replace('-','.')||'날짜 미입력',label(r.category)];
+      if (r.status==='draft') meta.push('작성 중');
+      meta.push(r.receipts?.length ? `증빙 ${r.receipts.length}` : '<em class="expense-missing">증빙 없음</em>');
+      if (adjustmentSum(r,'refund')) meta.push('환불');
+      if (adjustmentSum(r,'reimbursement')) meta.push('보전');
+      const amount=r.gross_amount==null?'<span class="expense-row-blank">금액 미입력</span>':`${money(r.gross_amount)}<small>원</small>`;
+      return `<button class="expense-row" type="button" data-expense="${esc(r.id)}"><span class="expense-row-copy"><strong>${esc(r.merchant||label(r.category))}</strong><small>${meta.join(' · ')}</small></span><span class="expense-row-amount">${amount}</span><span class="expense-row-chevron" aria-hidden="true">›</span></button>`;
+    };
+    showFrame(visible.length ? visible.map(row).join('') : `<div class="expense-empty"><span class="expense-empty-icon" aria-hidden="true">＋</span><strong>${emptyTitle}</strong><p>영수증을 먼저 남기면<br>날짜와 금액은 나중에 채워도 됩니다.</p><button class="expense-empty-action" type="button" data-inbox>영수증 남기기</button></div>`, counts);
+    const footnote=[`지출 ${confirmed.length}건`];
+    if (refunds) footnote.push(`환불 ${money(refunds)}원 차감`);
+    if (reimbursements) footnote.push(`비용 보전 ${money(reimbursements)}원`);
+    host.querySelector('[data-summary]').innerHTML=`<p class="expense-total">${money(gross-refunds)}<small>원</small></p><p class="expense-summary-note">${footnote.join(' · ')}</p>${categoryBreakdown(confirmed)}`;
   }
   async function refresh() {
     const token=++generation;
     showFrame('<p class="expense-empty" role="status">지출을 불러오고 있습니다.</p>');
+    host.querySelector('[data-summary]').innerHTML='<p class="expense-total is-waiting" aria-hidden="true">—</p><p class="expense-summary-note">합계를 불러오는 중</p>';
     try {
       const service=await getService();
       const result=await service.list({...bounds(),includeDrafts:true,includeTrashed:true});
@@ -47,7 +85,8 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
       rows=result; render();
     } catch(error) {
       if(!alive(token))return;
-      showFrame(`<div class="expense-empty"><strong>지출 연결 확인이 필요합니다</strong><p>${esc(errorText(error))}</p><button type="button" class="secondary-btn" data-retry>다시 불러오기</button></div>`);
+      showFrame(`<div class="expense-empty"><strong>지출을 불러오지 못했습니다</strong><p>${esc(errorText(error))}</p><button type="button" class="secondary-btn" data-retry>다시 불러오기</button></div>`);
+      host.querySelector('[data-summary]').innerHTML='<p class="expense-total is-waiting">—</p><p class="expense-summary-note">합계를 불러오지 못했습니다</p>';
     }
   }
   function setBusy(value) {
@@ -59,7 +98,7 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
   function renderFiles() {
     const target=dialog?.querySelector('[data-files]');
     if(!target)return;
-    target.innerHTML=(draft.receipts||[]).map((r,i)=>`<button type="button" class="expense-file" data-preview="${i}"><span>증빙 ${i+1}</span><small>보기 ↗</small></button>`).join('')+pendingFiles.map((entry,i)=>`<div class="expense-file"><span>${esc(entry.file.name)}</span><button type="button" data-remove-file="${i}" aria-label="${esc(entry.file.name)} 첨부 취소">×</button></div>`).join('');
+    target.innerHTML=(draft.receipts||[]).map((r,i)=>`<button type="button" class="expense-file" data-preview="${i}"><span>증빙 ${i+1}</span><small>보기 ↗</small></button>`).join('')+pendingFiles.map((entry,i)=>`<div class="expense-file is-pending"><span>${esc(entry.file.name)}</span><button type="button" class="expense-file-remove" data-remove-file="${i}" aria-label="${esc(entry.file.name)} 첨부 취소">×</button></div>`).join('');
   }
   function open(row=null,inbox=false) {
     close();
@@ -67,7 +106,7 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
     pendingFiles=[];saveOperation=null;creationInput=null;cleanupPath=null;
     dialog=document.createElement('dialog');dialog.className='expense-dialog';dialog.setAttribute('aria-labelledby','expenseEditorTitle');
     const trashed=draft.status==='trashed';
-    dialog.innerHTML=`<form data-editor novalidate><header class="expense-dialog-head"><div><span class="expense-eyebrow">${inbox?'영수증 보관':row?'지출 기록':'새 지출'}</span><h2 id="expenseEditorTitle">${inbox?'사진부터 남겨두세요':row?'지출 수정':'얼마를 쓰셨나요?'}</h2></div><button type="button" class="round-btn" data-close aria-label="지출 창 닫기">×</button></header><div class="expense-dialog-body"><div class="expense-file-actions"><button type="button" class="secondary-btn" data-camera>사진 촬영</button><button type="button" class="secondary-btn" data-upload>사진 · PDF 선택</button><input data-camera-input type="file" accept="image/*" capture="environment" hidden /><input data-upload-input type="file" accept="image/*,application/pdf" multiple hidden /></div><div data-files class="expense-files"></div><div class="expense-fields"><label class="expense-amount-field">총 금액 <span>원</span><input name="gross_amount" type="number" inputmode="numeric" min="0" step="1" value="${esc(draft.gross_amount)}" placeholder="금액 입력" /></label><label>지출 날짜<input name="actual_date" type="date" value="${esc(draft.actual_date)}" /></label><label>분류<select name="category">${options(CATEGORIES,draft.category)}</select></label><label class="expense-field-full">사용처<input name="merchant" maxlength="100" value="${esc(draft.merchant)}" placeholder="예: 주유소, 정비소" /></label></div><details class="expense-more"><summary>결제 · 세금 참고 정보</summary><div class="expense-fields"><label>결제수단<select name="payment_method">${options([['unknown','미입력'],['card','카드'],['cash','현금'],['transfer','계좌이체'],['other','기타']],draft.payment_method||'unknown')}</select></label><label>증빙 종류<select name="evidence_type">${options([['unknown','미확인'],['card','카드 영수증'],['cash_receipt','현금영수증'],['tax_invoice','세금계산서'],['receipt','일반 영수증'],['other','기타']],draft.evidence_type||'unknown')}</select></label><label>공급가액<input name="supply_amount" type="number" inputmode="numeric" min="0" step="1" value="${esc(draft.supply_amount)}" placeholder="확인한 경우 입력" /></label><label>부가세<input name="vat_amount" type="number" inputmode="numeric" min="0" step="1" value="${esc(draft.vat_amount)}" placeholder="확인한 경우 입력" /></label><label>사용 구분<select name="usage_type">${options([['business','업무용'],['personal','개인용'],['mixed','업무 · 개인 혼합']],draft.usage_type||'business')}</select></label><label>업무 사용 금액<input name="business_amount" type="number" inputmode="numeric" min="0" step="1" value="${esc(draft.business_amount)}" placeholder="확인한 경우 입력" /></label></div><p class="expense-help">공제 여부는 확정하지 않습니다. 확인하지 않은 세액은 비워두세요.</p></details><label class="expense-memo">메모<textarea name="memo" maxlength="1000" rows="2" placeholder="지출에 대해 남길 내용">${esc(draft.memo)}</textarea></label>${row&&!trashed?`<details class="expense-more"><summary>환불 · 비용 보전 기록</summary><div data-adjustments>${(draft.adjustments||[]).map((a)=>`<p>${a.kind==='refund'?'환불':'비용 보전'} · ${esc(a.actual_date)} · ${money(a.amount)}원</p>`).join('')||'<p class="expense-help">환불이나 회사에서 돌려받은 금액을 따로 기록합니다.</p>'}</div><div class="expense-fields"><label>구분<select data-adjust-kind><option value="refund">환불</option><option value="reimbursement">비용 보전</option></select></label><label>금액<input data-adjust-amount type="number" inputmode="numeric" min="1" step="1" /></label><label>받은 날짜<input data-adjust-date type="date" value="${localDate()}" /></label><label>메모<input data-adjust-memo maxlength="500" /></label></div><button type="button" class="secondary-btn" data-adjust>추가</button></details>`:''}<p data-status class="expense-form-status" role="status" aria-live="polite"></p></div><footer class="expense-dialog-footer">${trashed?'<button type="button" class="full-btn" data-restore>지출 복원</button>':'<button type="button" class="secondary-btn" data-draft>임시 저장</button><button type="submit" class="full-btn">지출 저장</button>'}</footer>${row&&!trashed?'<button type="button" class="expense-trash" data-trash>휴지통으로 이동</button>':''}</form>`;
+    dialog.innerHTML=`<form data-editor novalidate><header class="expense-dialog-head"><h2 id="expenseEditorTitle">${trashed?'휴지통 기록':inbox?'영수증 보관':row?'지출 수정':'새 지출'}</h2><button type="button" class="round-btn" data-close aria-label="지출 창 닫기">×</button></header><div class="expense-dialog-body">${trashed?'<p class="expense-trash-note">휴지통에 있는 기록입니다. 복원하기 전에는 고칠 수 없고 합계에도 들어가지 않습니다.</p>':''}${inbox?'<p class="expense-help">사진만 남기고 날짜와 금액은 나중에 채워도 됩니다.</p>':''}<div class="expense-file-actions"><button type="button" class="secondary-btn" data-camera>사진 촬영</button><button type="button" class="secondary-btn" data-upload>사진 · PDF 선택</button><input data-camera-input type="file" accept="image/*" capture="environment" hidden /><input data-upload-input type="file" accept="image/*,application/pdf" multiple hidden /></div><div data-files class="expense-files"></div><div class="expense-fields"><label class="expense-amount-field">총 금액 <span>원</span><input name="gross_amount" type="number" inputmode="numeric" min="0" step="1" value="${esc(draft.gross_amount)}" placeholder="금액 입력" /></label><label>지출 날짜<input name="actual_date" type="date" value="${esc(draft.actual_date)}" /></label><label>분류<select name="category">${options(CATEGORIES,draft.category)}</select></label><label class="expense-field-full">사용처<input name="merchant" maxlength="100" value="${esc(draft.merchant)}" placeholder="예: 주유소, 정비소" /></label></div><details class="expense-more"><summary>결제 · 세금 참고 정보</summary><div class="expense-fields"><label>결제수단<select name="payment_method">${options([['unknown','미입력'],['card','카드'],['cash','현금'],['transfer','계좌이체'],['other','기타']],draft.payment_method||'unknown')}</select></label><label>증빙 종류<select name="evidence_type">${options([['unknown','미확인'],['card','카드 영수증'],['cash_receipt','현금영수증'],['tax_invoice','세금계산서'],['receipt','일반 영수증'],['other','기타']],draft.evidence_type||'unknown')}</select></label><label>공급가액<input name="supply_amount" type="number" inputmode="numeric" min="0" step="1" value="${esc(draft.supply_amount)}" placeholder="확인한 경우 입력" /></label><label>부가세<input name="vat_amount" type="number" inputmode="numeric" min="0" step="1" value="${esc(draft.vat_amount)}" placeholder="확인한 경우 입력" /></label><label>사용 구분<select name="usage_type">${options([['business','업무용'],['personal','개인용'],['mixed','업무 · 개인 혼합']],draft.usage_type||'business')}</select></label><label>업무 사용 금액<input name="business_amount" type="number" inputmode="numeric" min="0" step="1" value="${esc(draft.business_amount)}" placeholder="확인한 경우 입력" /></label></div><p class="expense-help">공제 여부는 확정하지 않습니다. 확인하지 않은 세액은 비워두세요.</p></details><label class="expense-memo">메모<textarea name="memo" maxlength="1000" rows="2" placeholder="지출에 대해 남길 내용">${esc(draft.memo)}</textarea></label>${row&&!trashed?`<details class="expense-more"><summary>환불 · 비용 보전 기록</summary><div data-adjustments>${(draft.adjustments||[]).map((a)=>`<p>${a.kind==='refund'?'환불':'비용 보전'} · ${esc(a.actual_date)} · ${money(a.amount)}원</p>`).join('')||'<p class="expense-help">환불이나 회사에서 돌려받은 금액을 따로 기록합니다.</p>'}</div><div class="expense-fields"><label>구분<select data-adjust-kind><option value="refund">환불</option><option value="reimbursement">비용 보전</option></select></label><label>금액<input data-adjust-amount type="number" inputmode="numeric" min="1" step="1" /></label><label>받은 날짜<input data-adjust-date type="date" value="${localDate()}" /></label><label>메모<input data-adjust-memo maxlength="500" /></label></div><button type="button" class="secondary-btn" data-adjust>추가</button></details>`:''}</div><p data-status class="expense-form-status" role="status" aria-live="polite"></p><footer class="expense-dialog-footer">${trashed?'<button type="button" class="full-btn" data-restore>지출 복원</button>':'<button type="button" class="secondary-btn" data-draft>임시 저장</button><button type="submit" class="full-btn">지출 저장</button>'}</footer>${row&&!trashed?'<button type="button" class="expense-trash" data-trash>휴지통으로 이동</button>':''}</form>`;
     document.body.append(dialog);
     if(trashed)dialog.querySelectorAll('.expense-dialog-body input,.expense-dialog-body select,.expense-dialog-body textarea,.expense-file-actions button').forEach((node)=>node.disabled=true);
     dialog.addEventListener('cancel',(event)=>{event.preventDefault();close();});
@@ -162,11 +201,12 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
     if(button.hasAttribute('data-inbox'))open(null,true);
     if(button.hasAttribute('data-retry'))refresh();
     if(button.hasAttribute('data-expense'))open(rows.find((r)=>r.id===button.dataset.expense));
+    if(button.hasAttribute('data-filter-chip')){filter=button.dataset.filterChip;render();}
     if(button.hasAttribute('data-month')){const [year,mm]=month.split('-').map(Number);const d=new Date(year,mm-1+Number(button.dataset.month),1);month=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;refresh();}
   });
   host.addEventListener('change',(event)=>{
     if(event.target.matches('[data-month-input]')&&/^\d{4}-\d{2}$/.test(event.target.value)){month=event.target.value;refresh();}
-    if(event.target.matches('[data-filter]')){filter=event.target.value;render();}
+
   });
   return {refresh,open,handleBack:()=>dialog?close():false,reset(){generation++;rows=[];close(true);host.innerHTML='';},dispose(){disposed=true;generation++;close(true);host.innerHTML='';}};
 }

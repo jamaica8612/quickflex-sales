@@ -151,10 +151,10 @@ export function createExportsController({ host, getExportInput, fetchReceipt, on
       const data = summarize(input, currentRange.from, currentRange.to);
       previewPanel.innerHTML = `
         <dl>
-          <div><dt>기록 매출</dt><dd>${formatWon(data.salesTotal)} <small>${data.salesCount}일</small></dd></div>
-          <div><dt>확정 지출</dt><dd>${formatWon(data.expenseTotal)} <small>${data.expenseCount}건</small></dd></div>
-          <div><dt>증빙</dt><dd>${data.receiptCount}개</dd></div>
-          <div><dt>확인 필요</dt><dd>${data.reviewCount}건</dd></div>
+          <div><dt>기록 매출</dt><dd>${formatWon(data.salesTotal)}<small>${data.salesCount}일</small></dd></div>
+          <div><dt>확정 지출</dt><dd>${formatWon(data.expenseTotal)}<small>${data.expenseCount}건</small></dd></div>
+          <div><dt>증빙</dt><dd>${data.receiptCount}<small>개</small></dd></div>
+          <div${data.reviewCount ? ' class="needs-review"' : ''}><dt>확인 필요</dt><dd>${data.reviewCount}<small>건</small></dd></div>
         </dl>
         <p>초안과 미확정 금액은 합계에서 제외됩니다.</p>`;
       previewPanel.hidden = false;
