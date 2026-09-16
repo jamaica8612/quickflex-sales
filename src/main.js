@@ -75,6 +75,9 @@ function applyTheme(theme) {
   if (typeof renderStats === "function") {
     try { renderStats(); } catch (_) {}
   }
+  if (typeof renderSettingsSummary === "function") {
+    try { renderSettingsSummary(); } catch (_) {}
+  }
 }
 function getInitialTheme() {
   try {
@@ -2125,6 +2128,7 @@ async function saveGoalAmount() {
   applyProfileUi();
   renderSummary();
   renderStats();
+  renderSettingsSummary();
   toast("목표를 저장했습니다.", "success");
   return true;
 }
@@ -3514,6 +3518,38 @@ async function refreshAfterNativeMeasurement() {
   renderAll();
   if (el.app.dataset.view === "measurement") renderMeasurementBridge();
 }
+/** 설정 목록의 각 행은 카테고리 이름이 아니라 지금 설정된 값을 말한다. */
+function renderSettingsSummary() {
+  const profile = state.profile || {};
+  const escapeText = (value) => String(value).replace(/[&<>"]/g, (ch) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;",
+  }[ch]));
+  const code = (value) => `<code>${escapeText(value)}</code>`;
+  const set = (key, html) => {
+    const slot = document.querySelector(`[data-settings-value="${key}"]`);
+    if (slot) slot.innerHTML = html;
+  };
+
+  const name = (profile.display_name || "").trim();
+  const vehicle = (profile.vehicle_number || "").trim();
+  set("profile", [name ? escapeText(name) : "이름 미입력", vehicle ? code(vehicle) : null].filter(Boolean).join(" · "));
+
+  const shift = profile.work_shift === "night" ? "야간" : "주간";
+  const routes = (profile.fixed_routes || []).join(" · ");
+  set("work", `${shift} · ${routes ? code(routes) : "고정 라우트 없음"}`);
+
+  const goal = getGoal();
+  const revenue = summarizePeriod().revenue;
+  const percent = goal > 0 ? Math.min(100, Math.round(revenue / goal * 100)) : null;
+  const rateCount = (state.rates || []).length;
+  set("settlement", [
+    rateCount ? `단가 <b>${rateCount}</b>구역` : "단가 미등록",
+    percent === null ? null : `목표 <span class="value-accent">${percent}</span>%`,
+  ].filter(Boolean).join(" · "));
+
+  const theme = document.documentElement.dataset.theme === "dark" ? "다크" : "라이트";
+  set("display", `${theme} · 라우트 ${shouldShowCalendarRoutes() ? "표시" : "숨김"}`);
+}
 function renderAll() {
   applyProfileUi();
   renderSummary();
@@ -3523,6 +3559,7 @@ function renderAll() {
   renderMeasurementBridge();
   renderRates();
   renderStats();
+  renderSettingsSummary();
 
 }
 function renderSummary() {
