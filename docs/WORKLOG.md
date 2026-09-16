@@ -1,5 +1,12 @@
 # QuickFlex Worklog
 
+## 2026-09-16 Measurement route display and native theme (1.0.65)
+
+- Deduplicate repeated route names in the measurement bridge while preserving saved sales rows, quantities and exact work date.
+- Send the displayed light/dark choice to the trusted Android bridge on theme changes and measurement entry; normal browsers retain the existing visible theme when native or storage is unavailable.
+- Integrated production settings-panel commit 327bb7e before preparing this release. Bumped shell cache, manifest and asset queries to 1.0.65 and prepared Beta 1.10 installation links.
+- Verification: all 243 Node tests passed (zero failures/skips), including native theme, manual work-date and deduplicated route display with saved rows/totals preserved. Syntax checks passed for 39 browser JavaScript files and changed test sources; diff whitespace checks passed. Browser/device checks remain outside this preparation. No commit, push, publication or database changes performed during preparation.
+
 ## 2026-09-15 Measurement access follows PWA approval (1.0.62)
 
 - All approved members may use measurement; no separate beta enrollment checkbox. The PWA validates the fresh matching profile's approved status and retains account-change/error guards. The administrator UI explains that approval also opens measurement.
@@ -1246,3 +1253,9 @@ Browser checks:
 - Added measurement-menu navigation and dismissal actions. Both acknowledge this notice per account/device; navigation never launches or starts measurement. The existing nonblocking own-profile audit remains unchanged.
 - Added concise Android installation, final-count review and beta-accuracy guidance. Preserved existing themes, focus trapping and return focus; added Escape dismissal and short-landscape scrolling.
 - Validation: 56 focused notice, approval, startup, native-back, accessibility, cache, font and guide tests passed; JavaScript syntax and diff whitespace checks passed. Local previews verified dark/light 375px portrait and 812x375 landscape. No APK, counting, financial-data or database-schema changes.
+
+## 2026-09-16 - Measurement route display deduplication (local only)
+
+- `renderMeasurementBridge()` normalizes and deduplicates the displayed route list using the existing route helper. Repeated 303A entries display once; stored rows and quantities stay intact.
+- Syntax checks passed for src/main.js, app.js and sw.js; three focused route assertions and diff checks passed. Browser/device checks and unrelated export tests were not run.
+- No version change, push or deployment. Details: docs/measurement-route-display-20260916.md.

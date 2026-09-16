@@ -4,6 +4,7 @@ import test from "node:test";
 import vm from "node:vm";
 import { measurementWorkDateForClock } from "../src/lib/work-date.js";
 import { checkBetaMeasurementAccess } from "../src/services/beta-access.js";
+import { routeListFromText, splitStoredRoutes } from "../src/lib/route.js";
 
 const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
 
@@ -47,6 +48,8 @@ test("automatic measurement date ignores calendar selection while a manual measu
     todayKey: () => "2026-09-09",
     el: { measurementWorkDate: {}, measurementRouteText: {}, measurementRouteHint: {}, measurementScheduleMeta: {}, openPaceApp: {} },
     getRecord: () => ({ off: false, rows: [] }),
+    routeListFromText,
+    splitStoredRoutes,
     hasAutomaticEntries: () => false,
     formatMonthDay: (key) => key,
   });
@@ -78,6 +81,7 @@ test("native measurement bridge receives the exact manually requested work date"
       db: { auth: { getSession: async () => ({ data: { session }, error: null }) } },
     },
     window: { QuickFlexNative: { postMessage() {} }, location: {} },
+    document: { documentElement: { dataset: { theme: "dark" } } },
     authEventEpoch: 3,
     checkBetaMeasurementAccess,
     TABLES: { profiles: "quickflex_profiles" },
@@ -101,6 +105,31 @@ test("native measurement bridge receives the exact manually requested work date"
   assert.equal(messages[0].type, "open_measurement");
   assert.equal(messages[0].workDate, "2026-09-08");
   assert.equal(messages[0].workShift, "night");
+  assert.equal(messages[0].theme, "dark");
+});
+
+test("measurement bridge displays each route once and preserves saved rows and totals", () => {
+  const rows = [
+    { route: "303A", households: 2 },
+    { route: "303A|303C", households: 3 },
+    { route: "303C", households: 4 },
+  ];
+  const before = JSON.stringify(rows);
+  const context = vm.createContext({
+    state: { measurementDateAuto: false },
+    el: { measurementWorkDate: {}, measurementRouteText: {}, measurementRouteHint: {}, measurementScheduleMeta: {}, openPaceApp: {} },
+    currentMeasurementWorkDate: () => "2026-09-16",
+    getRecord: () => ({ off: false, rows }),
+    routeListFromText, splitStoredRoutes,
+    toNum: Number,
+    hasAutomaticEntries: () => false,
+    formatMonthDay: (key) => key,
+  });
+  vm.runInContext(extractFunction("renderMeasurementBridge"), context);
+  context.renderMeasurementBridge();
+  assert.equal(context.el.measurementRouteText.textContent, "303A · 303C");
+  assert.match(context.el.measurementRouteHint.textContent, /9/);
+  assert.equal(JSON.stringify(rows), before);
 });
 
 test("fresh-bag revenue follows the saved day mode instead of the current profile mode", () => {
