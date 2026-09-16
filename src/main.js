@@ -37,6 +37,7 @@ import {
   formatRouteLabel,
   joinStoredRoutes,
   normalizeRoute,
+  parseScheduleRoutes,
   routeListFromText,
   splitStoredRoutes,
 } from "./lib/route.js";
@@ -823,6 +824,7 @@ function correctRoute(route, candidates = routeCandidateSet()) {
     .slice(0, 3).replace(/[OIL]/g, "0").replace(/S/g, "5").replace(/B/g, "8")
     + raw.slice(3).replace(/0/g, "O").replace(/1/g, "I").replace(/5/g, "S").replace(/8/g, "B");
   if (candidates.has(normalized)) return normalized;
+  if (/^\d{3}[A-Z]$/.test(raw)) return raw;
   let best = "";
   let bestScore = 99;
   for (const candidate of candidates) {
@@ -841,6 +843,10 @@ function correctRouteList(routes) {
   const candidates = routeCandidateSet();
   const seen = new Set();
   const corrected = routeListFromText(routes)
+    .flatMap((token) => {
+      const parsed = parseScheduleRoutes(token);
+      return parsed.length ? parsed : [token];
+    })
     .flatMap(expandRouteText)
     .map((route) => correctRoute(route, candidates))
     .filter((route) => route && !seen.has(route) && seen.add(route));
@@ -849,19 +855,22 @@ function correctRouteList(routes) {
 function activeRouteBundles() {
   const dbBundles = (state.routeBundles || [])
     .filter((bundle) => bundle.active !== false && Array.isArray(bundle.routes) && bundle.routes.length >= 1)
-    .map((bundle) => ({ routes: routeListFromText(bundle.routes), trusted: true }));
-  const seen = new Set(dbBundles.map((bundle) => joinStoredRoutes(bundle.routes)));
+    .map((bundle) => ({ routes: parseScheduleRoutes(bundle.routes), trusted: true }));
   const fallback = DEFAULT_ROUTE_BUNDLES
-    .filter((bundle) => !seen.has(joinStoredRoutes(bundle)))
+    // Two matching routes are the completion trigger. An administrator's
+    // pattern owns that trigger, even when its remaining route differs.
+    .filter((bundle) => !dbBundles.some(({ routes }) =>
+      bundle.filter((route) => routes.includes(route)).length >= 2))
     .map((bundle) => ({ routes: bundle, trusted: false }));
   return [...dbBundles, ...fallback];
 }
 function completeRouteBundles(routes) {
   const result = [...routes];
   const seen = new Set(result);
+  const observedInput = new Set(routes);
   activeRouteBundles().forEach(({ routes: bundle, trusted }) => {
-    const observed = bundle.filter((route) => seen.has(route));
-    const missing = bundle.filter((route) => !seen.has(route));
+    const observed = bundle.filter((route) => observedInput.has(route));
+    const missing = bundle.filter((route) => !observedInput.has(route));
     const shouldComplete = trusted
       ? observed.length >= 2 && missing.length >= 1
       : observed.length >= 2 && missing.length === 1;
@@ -4726,7 +4735,7 @@ function normalizeBundleRows(rows) {
     .map((row) => ({
       ...row,
       label: String(row.label || "").trim(),
-      routes: routeListFromText(row.routes),
+      routes: parseScheduleRoutes(row.routes),
       active: row.active !== false,
       sort_order: toNum(row.sort_order),
     }))
@@ -4751,14 +4760,14 @@ function parseBundleDraft(text) {
     .map((line, index) => {
       const parts = line.split("=");
       const routeText = parts.length > 1 ? parts.slice(1).join("=") : line;
-      const routes = routeListFromText(routeText);
+      const routes = parseScheduleRoutes(routeText);
       const label = (parts.length > 1 ? parts[0] : compactRouteList(routes)).trim();
       return { label, routes, sort_order: index };
     })
     .filter((row) => row.label && row.routes.length >= 1);
 }
 async function saveRouteBundle({ id = null, label, routes, active = true, sort_order = 0 }) {
-  const cleanRoutes = routeListFromText(routes);
+  const cleanRoutes = parseScheduleRoutes(routes);
   const cleanLabel = String(label || compactRouteList(cleanRoutes)).trim();
   if (!cleanLabel || cleanRoutes.length < 1) throw new Error("묶음 이름과 1개 이상의 구역이 필요합니다.");
   const payload = {
@@ -4858,7 +4867,7 @@ function moveStatsMonth(amount) {
 function routesFromCell(value) {
   const clean = String(value || "").toUpperCase();
   if (/휴무|OFF/.test(clean)) return null;
-  return clean.match(/\d{3}[A-D]/g) || [];
+  return parseScheduleRoutes(clean);
 }
 function parseHeaderDate(value) {
   const match = String(value || "").match(/(\d{1,2})\s*[./-]\s*(\d{1,2})/);
@@ -4869,6 +4878,12 @@ function parseHeaderDate(value) {
   return toDateKey(new Date(year, month - 1, day));
 }
 async function applySchedule(map) {
+  const unresolved = Object.entries(map || {}).filter(([dateKey, routes]) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(dateKey) && routes !== null && !routeListFromText(routes).length);
+  if (unresolved.length) {
+    toast(`구역이 확인되지 않은 ${unresolved.length}일의 근무 구역을 입력하거나 휴무로 선택해 주세요.`, "error");
+    return false;
+  }
   const changed = [];
   const offKeysWithCounts = Object.entries(map || {})
     .filter(([dateKey, routes]) => /^\d{4}-\d{2}-\d{2}$/.test(dateKey) && routes === null && hasEnteredCounts(getRecord(dateKey, false)))
@@ -4906,7 +4921,9 @@ function extractScheduleJson(text) {
     const parsed = JSON.parse(source);
     const map = {};
     Object.entries(parsed || {}).forEach(([dateKey, routes]) => {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) map[dateKey] = Array.isArray(routes) ? routes.map(normalizeRoute).filter(Boolean) : null;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey) && (routes === null || Array.isArray(routes) || typeof routes === "string")) {
+        map[dateKey] = routes === null ? null : parseScheduleRoutes(routes);
+      }
     });
     return Object.keys(map).length ? map : null;
   } catch {
@@ -4944,7 +4961,10 @@ function setOcrDraft(map) {
         ocrDraftMap[dateKey] = null;
       } else {
         const corrected = correctRouteList(routes);
-        ocrDraftMap[dateKey] = corrected.length ? corrected : draftWorkRoutes();
+        // Fixed drivers intentionally use their configured routes for a blank
+        // workday; failed nonempty recognition must not silently become one.
+        ocrDraftMap[dateKey] = corrected.length ? corrected
+          : routeListFromText(routes).length ? [] : draftWorkRoutes();
       }
     });
   }
@@ -4965,7 +4985,8 @@ function renderDraftCards() {
     }).join("");
     const addControl = `<span class="draft-add-row"><input class="draft-add-input" data-date="${dateKey}" type="text" placeholder="구역" autocapitalize="characters" /><button class="draft-add-btn" type="button" data-action="add" data-date="${dateKey}">추가</button></span>`;
     const off = routes === null;
-    return `<div class="draft-card"><div class="draft-card-header"><strong>${readableDate}</strong><button class="draft-off-btn${off ? " active" : ""}" type="button" data-action="off" data-date="${dateKey}" aria-pressed="${off}" aria-label="${readableDate} ${off ? "휴무" : "근무"}">${off ? "휴무" : "근무"}</button></div><div>${off ? "휴무" : `${chips}${addControl}`}</div></div>`;
+    const missingHint = !off && !routes?.length ? '<p class="hint">구역 확인이 필요합니다. 근무 구역을 추가해 주세요.</p>' : "";
+    return `<div class="draft-card"><div class="draft-card-header"><strong>${readableDate}</strong><button class="draft-off-btn${off ? " active" : ""}" type="button" data-action="off" data-date="${dateKey}" aria-pressed="${off}" aria-label="${readableDate} ${off ? "휴무" : "근무"}">${off ? "휴무" : "근무"}</button></div><div>${off ? "휴무" : `${missingHint}${chips}${addControl}`}</div></div>`;
   }).join("");
 }
 function draftWorkRoutes() {
