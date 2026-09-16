@@ -10,7 +10,7 @@
     <meta name="application-name" content="플렉스노트" />
     <meta name="apple-mobile-web-app-title" content="플렉스노트" />
     <meta name="description" content="배송의 기록부터 매출·지출까지" />
-    <link rel="manifest" href="./manifest.webmanifest?v=1.0.63" />
+    <link rel="manifest" href="./manifest.webmanifest?v=1.0.64" />
     <link rel="icon" href="./favicon-32.png?v=3" type="image/png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=3" />
     <script>
@@ -40,10 +40,10 @@
     </style>
     <style>html[data-startup] #app{visibility:hidden;pointer-events:none}</style>
     <link rel="stylesheet" href="./styles/startup.css?v=1" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.63" />
-  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.63" />
-<link rel="stylesheet" href="./styles/exports.css?v=1.0.63" />
-<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.63" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.64" />
+  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.64" />
+<link rel="stylesheet" href="./styles/exports.css?v=1.0.64" />
+<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.64" />
 </head>
   <body>
     <script>document.body.dataset.theme = document.documentElement.dataset.theme;</script>
@@ -371,12 +371,16 @@
       <section class="view view-settings">
         <header class="sub-header">
           <button class="round-btn" id="backFromSettings" type="button" aria-label="달력으로"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
-          <div class="sub-title left"><strong>설정</strong><span id="syncStatus">미연결</span></div>
+          <div class="sub-title left"><strong>설정</strong></div>
           <button class="secondary-btn" id="logoutBtn">로그아웃</button>
         </header>
         <main class="settings-body settings-index">
-          <a class="settings-export-row settings-group settings-guide-row" href="./guide.html" target="_blank" rel="noopener noreferrer" aria-label="사용법 보기 (새 창)"><span><strong>사용법</strong><small>업무 시작부터 매출 기록까지</small></span><em>새 창 ↗</em></a>
-          <details class="settings-group "><summary><span><strong>내 정보</strong><small>이름 · 상호</small></span></summary><div class="settings-group-content"><section class="settings-section profile-settings-section">
+          <div class="settings-status" id="settingsStatus">
+            <span class="settings-status-dot" aria-hidden="true"></span>
+            <span id="syncStatus">미연결</span>
+          </div>
+          <div class="settings-panel">
+          <a class="settings-export-row settings-guide-row" href="./guide.html" target="_blank" rel="noopener noreferrer" aria-label="사용법 보기 (새 창)"><span class="settings-row-name">사용법</span><em class="settings-row-value">업무 시작부터 매출 기록까지 · 새 창 ↗</em></a><details class="settings-group"><summary><span class="settings-row-name">내 정보</span><em class="settings-row-value" data-settings-value="profile">—</em></summary><div class="settings-group-content"><section class="settings-section profile-settings-section">
             <div class="settings-field">
               <label for="profileDisplayName">이름</label>
               <input id="profileDisplayName" type="text" placeholder="이름" />
@@ -385,18 +389,14 @@
               <label for="profileBusinessName">상호</label>
               <input id="profileBusinessName" type="text" placeholder="일상점검표에 표시할 상호" />
             </div>
-
-
-
             <button id="saveProfile" class="full-btn">내 정보 저장</button>
-          </section></div></details><details class="settings-group" id="monthlyGoalSettings"><summary><span><strong>월 매출 목표</strong><small>목표 금액 설정</small></span></summary><div class="settings-group-content"><section class="settings-section">
-            <div class="goal-row">
-              <label class="goal-label" for="goalAmountInput">목표 금액</label>
-              <input id="goalAmountInput" class="goal-input" type="text" inputmode="numeric" placeholder="6,000,000" autocomplete="off" />
-              <span class="goal-unit">원</span>
-              <button id="saveAppSettings" class="goal-save-btn">저장</button>
-            </div>
-          </section></div></details><details class="settings-group "><summary><span><strong>근무 · 단가</strong><small>근무표 · 시간대 · 구역별 단가</small></span></summary><div class="settings-group-content"><button class="settings-row" type="button" data-open-schedule><span>근무표 가져오기</span><em>이미지 · 직접 입력</em></button><section class="settings-section"><div class="settings-field">
+          </section><section class="settings-section"><div class="settings-field">
+              <label for="profileVehicleNumber">차량번호</label>
+              <input id="profileVehicleNumber" type="text" placeholder="예: 부산80바1234" />
+            </div><button class="secondary-btn" type="button" data-save-profile>차량번호 저장</button></section><section class="settings-section signature-settings-section" id="signatureSettingsSection">
+            <div><h2>일상점검 서명</h2><p class="hint">점검표에 사용할 서명을 등록하세요.</p></div>
+            <button id="openProfileSignature" class="secondary-btn" type="button" aria-haspopup="dialog">서명 등록 / 변경</button>
+          </section></div></details><details class="settings-group"><summary><span class="settings-row-name">근무</span><em class="settings-row-value" data-settings-value="work">—</em></summary><div class="settings-group-content"><button class="settings-row" type="button" data-open-schedule><span>근무표 가져오기</span><em>이미지 · 직접 입력</em></button><section class="settings-section"><div class="settings-field">
               <label id="workShiftLabel">근무 시간대</label>
               <div class="freshbag-toggle" role="radiogroup" aria-labelledby="workShiftLabel">
                 <label class="mode-option">
@@ -412,7 +412,14 @@
               <label>고정 라우트</label>
               <div id="fixedRoutesText" class="readonly-value">-</div>
               <input id="fixedRoutesInput" type="hidden" />
-            </div></section><section class="settings-section settings-section--slim">
+            </div></section></div></details><details class="settings-group"><summary><span class="settings-row-name">정산</span><em class="settings-row-value" data-settings-value="settlement">—</em></summary><div class="settings-group-content"><section class="settings-section">
+            <div class="goal-row">
+              <label class="goal-label" for="goalAmountInput">월 매출 목표</label>
+              <input id="goalAmountInput" class="goal-input" type="text" inputmode="numeric" placeholder="6,000,000" autocomplete="off" />
+              <span class="goal-unit">원</span>
+              <button id="saveAppSettings" class="goal-save-btn">저장</button>
+            </div>
+          </section><section class="settings-section settings-section--slim">
             <div class="settings-field">
               <label id="freshbagModeLabel">프레시백 입력 방식</label>
               <div class="freshbag-toggle" role="radiogroup" aria-labelledby="freshbagModeLabel">
@@ -427,7 +434,7 @@
               </div>
             </div>
           </section><section class="settings-section">
-            <h2>단가 관리</h2>
+            <h2>구역 단가</h2>
             <div class="rate-editor">
               <input id="rateRoute" type="text" placeholder="구역 (예: 322A)" autocapitalize="characters" />
               <input id="rateUnit" type="number" min="0" inputmode="numeric" placeholder="단가" />
@@ -441,13 +448,7 @@
               <button id="applyRateUpdate" class="secondary-btn" type="button">업데이트</button>
             </div>
             <div id="rateList" class="rate-list"></div>
-          </section></div></details><details class="settings-group "><summary><span><strong>차량 · 일상점검</strong><small>차량번호 · 서명 · 점검표</small></span></summary><div class="settings-group-content"><section class="settings-section"><div class="settings-field">
-              <label for="profileVehicleNumber">차량번호</label>
-              <input id="profileVehicleNumber" type="text" placeholder="예: 부산80바1234" />
-            </div><button class="secondary-btn" type="button" data-save-profile>차량번호 저장</button></section><section class="settings-section signature-settings-section" id="signatureSettingsSection">
-            <div><h2>일상점검 서명</h2><p class="hint">점검표에 사용할 서명을 등록하세요.</p></div>
-            <button id="openProfileSignature" class="secondary-btn" type="button" aria-haspopup="dialog">서명 등록 / 변경</button>
-          </section><button class="settings-row" type="button" data-open-inspection><span>일상점검표 열기</span><em>기록 · 출력</em></button></div></details><details class="settings-group " id="calendarSyncSettings"><summary><span><strong>캘린더 연동</strong><small>Google · 삼성 캘린더</small></span></summary><div class="settings-group-content"><div id="calendarSyncContent"></div></div></details><button class="settings-export-row settings-group" type="button" data-open-export><span><strong>자료 내보내기</strong><small>매출 · 지출 엑셀과 영수증</small></span><span aria-hidden="true">↗</span></button><details class="settings-group "><summary><span><strong>화면</strong><small>테마 · 달력 표시</small></span></summary><div class="settings-group-content"><section class="settings-section">
+          </section></div></details><details class="settings-group"><summary><span class="settings-row-name">화면</span><em class="settings-row-value" data-settings-value="display">—</em></summary><div class="settings-group-content"><section class="settings-section">
             <div class="settings-field-label" id="themeLabel">테마</div>
             <div class="theme-toggle" role="group" aria-labelledby="themeLabel">
               <button type="button" data-theme-set="light" class="active" aria-pressed="true">
@@ -473,17 +474,17 @@
                 </label>
               </div>
             </div>
-          </section></div></details><details class="settings-group "><summary><span><strong>계정 · 데이터</strong><small>새로고침 · 초기화 · 탈퇴</small></span></summary><div class="settings-group-content"><section class="settings-section">
-            <h2>데이터</h2>
-            <a class="settings-row" href="./account-deletion.html">계정 삭제 안내</a>
-            <a class="settings-row" href="./privacy.html">개인정보처리방침</a>
+          </section></div></details><details class="settings-group" id="calendarSyncSettings"><summary><span class="settings-row-name">연동과 도구</span><em class="settings-row-value" data-settings-value="tools">캘린더 · 내보내기 · 점검표</em></summary><div class="settings-group-content"><div id="calendarSyncContent"></div><button class="settings-row" type="button" data-open-export><span>자료 내보내기</span><em>매출 · 지출 엑셀과 영수증</em></button><button class="settings-row" type="button" data-open-inspection><span>일상점검표 열기</span><em>기록 · 출력</em></button></div></details><details class="settings-group"><summary><span class="settings-row-name">계정</span><em class="settings-row-value" data-settings-value="account">새로고침 · 약관 · 초기화</em></summary><div class="settings-group-content"><section class="settings-section">
             <button class="settings-row" id="refreshApp" type="button"><span>앱 새로고침</span><em>최신 화면 불러오기</em></button>
             <button class="settings-row" id="openDbSettings" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="dbSheet"><span>Supabase 연결</span><em id="dbStatusBadge">미연결</em></button>
-            <details class="settings-danger-disclosure"><summary>초기화 · 탈퇴</summary><div class="settings-row-pair">
-              <button class="settings-row danger" id="resetData">내 데이터 초기화</button>
-              <button class="settings-row danger subtle-danger" id="requestAccountDelete">탈퇴 요청</button>
+            <a class="settings-row" href="./privacy.html">개인정보처리방침</a>
+            <a class="settings-row" href="./account-deletion.html">계정 삭제 안내</a>
+            <div class="settings-danger" role="group" aria-labelledby="settingsDangerTitle">
+              <p class="settings-danger-title" id="settingsDangerTitle">되돌릴 수 없는 작업</p>
+              <button class="settings-row danger" id="resetData" type="button"><span>내 데이터 초기화</span><em>앱 자동 기록은 유지</em></button>
+              <button class="settings-row danger subtle-danger" id="requestAccountDelete" type="button"><span>탈퇴 요청</span><em>계정 삭제</em></button>
             </div>
-</details>          </section></div></details><details class="settings-group admin-only hidden" id="operationSettings"><summary><span><strong>운영 관리</strong><small>가입 승인 · 공통 OCR 보정</small></span></summary><div class="settings-group-content"><details class="settings-group " id="memberSettings"><summary><span><strong>가입 승인</strong><small>승인 상태와 기사 유형</small></span></summary><div class="settings-group-content"><div id="adminProfiles" class="admin-list"></div></div></details><details class="settings-group " id="bundleSettings"><summary><span><strong>OCR 보정</strong><small>공통 구역 이름 보정</small></span></summary><div class="settings-group-content">
+          </section></div></details><details class="settings-group admin-only hidden" id="operationSettings"><summary><span class="settings-row-name">운영 관리</span><em class="settings-row-value" data-settings-value="admin">가입 승인 · OCR 보정</em></summary><div class="settings-group-content"><details class="settings-group " id="memberSettings"><summary><span><strong>가입 승인</strong><small>승인 상태와 기사 유형</small></span></summary><div class="settings-group-content"><div id="adminProfiles" class="admin-list"></div></div></details><details class="settings-group " id="bundleSettings"><summary><span><strong>OCR 보정</strong><small>공통 구역 이름 보정</small></span></summary><div class="settings-group-content">
             <section class="settings-section">
               <h2>OCR 보정 묶음</h2>
               <div class="settings-field">
@@ -522,7 +523,8 @@
                 <button id="parseCsv" class="full-btn">단가 자동 계산</button>
               </details>
             </section>
-          </div></details></div></details><p class="app-version">플렉스노트 · Beta 1.09</p></main>
+          </div></details></div></details>
+          </div><p class="app-version">플렉스노트 · Beta 1.09</p></main>
       </section>
 
       <section class="view view-expenses"><header class="sub-header"><div class="sub-title left"><strong>지출</strong><span>영수증부터 가볍게 기록하세요</span></div><button class="secondary-btn" type="button" data-open-export>내보내기</button></header><main id="expensesContent" class="expenses-body"></main></section>
@@ -741,7 +743,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.63"></script>
+    <script type="module" src="./src/main.js?v=1.0.64"></script>
     <script>
       // 로컬 디자인 비교용. 배포 화면에는 비교 도구를 표시하지 않는다.
       (function () {
