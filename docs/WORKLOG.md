@@ -1295,3 +1295,9 @@ Browser checks:
 - Updated only installation labels, APK/release links, manifest version, asset queries and shell cache for Android Beta 1.13 (versionCode 135). No PWA feature, data or backend changes.
 - Validation: 14 release/record contract tests passed; app.js and sw.js syntax checks and diff whitespace check passed. No browser behavior changed or device installation performed by this metadata task.
 - Publish and verify the APK before pushing this Pages update. This entry describes local preparation, not completed deployment.
+
+
+## 2026-09-18 - Android Beta 1.14 release links (PWA 1.0.71)
+
+- Updated installation labels and APK/release links for Android Beta 1.14 (versionCode 136); bumped manifest, asset queries and service-worker shell cache to PWA 1.0.71.
+- Metadata-only PWA preparation. Android APK publication and Pages deployment are handled separately; verify the APK is published before deploying these links.
