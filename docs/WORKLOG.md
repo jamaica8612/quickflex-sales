@@ -1288,3 +1288,10 @@ Browser checks:
 - Nonempty failed OCR input stays unresolved rather than becoming fixed routes. Empty fixed-driver workdays retain their existing configured-route behavior. Empty unresolved workdays block the entire apply operation before any record writes and show a correction hint.
 - Manual OCR additions reject invalid input and deduplicate routes. Historical schedules, financial records and server schema are unchanged; no database migration or Edge Function deployment.
 - Validation: all 261 Node tests passed; 39 first-party JavaScript syntax checks and diff check passed. Regression tests cover both known conflicts, cascading/order behavior, CSV/JSON/admin parsing, unknown valid routes, fixed-driver behavior and blocked partial writes. No production financial or schedule test rows were written.
+
+## 2026-09-17 - Android logging release links (PWA 1.0.70 / Android Beta 1.13)
+
+- Prepared from published main in an isolated worktree, preserving the uncommitted measurement feedback feature in its original workspace.
+- Updated only installation labels, APK/release links, manifest version, asset queries and shell cache for Android Beta 1.13 (versionCode 135). No PWA feature, data or backend changes.
+- Validation: 14 release/record contract tests passed; app.js and sw.js syntax checks and diff whitespace check passed. No browser behavior changed or device installation performed by this metadata task.
+- Publish and verify the APK before pushing this Pages update. This entry describes local preparation, not completed deployment.
