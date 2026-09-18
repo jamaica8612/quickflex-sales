@@ -162,6 +162,7 @@ function shouldShowCalendarRoutes() {
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
 import { measurementWorkDateForClock } from "./lib/work-date.js";
+import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
 const LEGACY_USER_NAMES = new Map([["kim-gwanhyun", "김관현"]]);
@@ -501,6 +502,8 @@ const el = {
   measurementRouteText: $("measurementRouteText"),
   measurementRouteHint: $("measurementRouteHint"),
   openPaceApp: $("openPaceApp"),
+  openPaceAppFallback: $("openPaceAppFallback"),
+  measurementAppHint: $("measurementAppHint"),
   openMeasurementGuide: $("openMeasurementGuide"),
   measurementGuideOverlay: $("measurementGuideOverlay"),
   measurementGuideDialog: $("measurementGuideDialog"),
@@ -3366,6 +3369,7 @@ function showView(view) {
   if (view === "measurement") {
     currentMeasurementWorkDate();
     renderMeasurementBridge();
+    refreshMeasurementAppAvailability();
   }
   if (view === "inspection") renderInspection(state.inspectionDate);
   if (view === "stats") {
@@ -3469,9 +3473,62 @@ function renderMeasurementBridge() {
       : isNightShift()
         ? "야간은 이 날짜의 근무표를 사용하며, 매출은 업무 종료 때 반영합니다."
         : "주간은 선택한 날짜의 근무표를 사용하며, 매출은 업무 종료 때 반영합니다.";
-  el.openPaceApp.disabled = record.off;
+  applyMeasurementLaunchControls(record.off);
 }
-async function openPaceMeasurementApp() {
+let measurementDetectionSequence = 0;
+let measurementDetectionPromise = null;
+function applyMeasurementLaunchControls(isOff = Boolean(getRecord(currentMeasurementWorkDate(), false).off)) {
+  const mode = el.openPaceApp?.dataset.launchMode || "checking";
+  const pending = Boolean(measurementDetectionPromise) || mode === "checking";
+  if (el.openPaceApp) {
+    el.openPaceApp.disabled = Boolean(isOff) || pending;
+    if (pending) el.openPaceApp.setAttribute("aria-busy", "true");
+    else el.openPaceApp.removeAttribute("aria-busy");
+  }
+  if (el.openPaceAppFallback) {
+    el.openPaceAppFallback.hidden = Boolean(isOff) || mode === "native" || mode === "installed"
+      || !/Android/i.test(navigator.userAgent || "");
+  }
+}
+async function refreshMeasurementAppAvailability() {
+  if (measurementDetectionPromise) return measurementDetectionPromise;
+  const sequence = ++measurementDetectionSequence;
+  const native = typeof window.QuickFlexNative?.postMessage === "function";
+  if (native) {
+    setMeasurementLaunchMode("native");
+    return "installed";
+  }
+  const request = detectMeasurementApp({ timeoutMs: 1500 });
+  measurementDetectionPromise = request;
+  applyMeasurementLaunchControls();
+  try {
+    const result = await request;
+    if (sequence !== measurementDetectionSequence || el.app?.dataset.view !== "measurement") return;
+    setMeasurementLaunchMode(result === "installed" ? "installed" : "download");
+  } finally {
+    if (measurementDetectionPromise === request) measurementDetectionPromise = null;
+    applyMeasurementLaunchControls();
+  }
+}
+function setMeasurementLaunchMode(mode) {
+  el.openPaceApp.dataset.launchMode = mode;
+  el.openPaceApp.textContent = mode === "native" || mode === "installed" ? "측정 앱 열기" : "측정 앱 다운로드";
+  applyMeasurementLaunchControls();
+  if (el.measurementAppHint) {
+    el.measurementAppHint.textContent = mode === "native" || mode === "installed"
+      ? "측정 앱을 열어 배송 업무를 시작하세요."
+      : /Android/i.test(navigator.userAgent || "")
+        ? "처음 이용하면 앱을 설치해 주세요. 이미 설치했다면 아래에서 앱 열기를 눌러 보세요."
+        : "측정 앱은 Android에서 사용할 수 있습니다. 설치 안내에서 APK를 내려받아 주세요.";
+  }
+}
+async function openPaceMeasurementApp({ forceOpen = false } = {}) {
+  const requestedWorkDate = currentMeasurementWorkDate();
+  if (getRecord(requestedWorkDate, false).off) return toast("휴무일은 측정을 시작할 수 없습니다.", "error");
+  if (!forceOpen && el.openPaceApp.dataset.launchMode === "download") {
+    window.location.href = MEASUREMENT_APP_INSTALL_URL;
+    return;
+  }
   const measurementContext = captureAccountContext();
   const access = await checkBetaMeasurementAccess({
     session: state.session, db: state.db, profilesTable: TABLES.profiles,
@@ -3514,7 +3571,28 @@ async function openPaceMeasurementApp() {
     });
     return;
   }
-  window.location.href = `quickflexpace://measure?date=${encodeURIComponent(workDate)}&shift=${shift}`;
+  if (!forceOpen && el.openPaceApp.dataset.launchMode !== "installed") {
+    window.location.href = MEASUREMENT_APP_INSTALL_URL;
+    return;
+  }
+  if (!/Android/i.test(navigator.userAgent || "")) {
+    el.measurementAppHint.textContent = "측정 앱은 Android에서 사용할 수 있습니다. 설치 안내에서 APK를 내려받아 주세요.";
+    window.location.href = MEASUREMENT_APP_INSTALL_URL;
+    return;
+  }
+  if (navigator.userActivation && !navigator.userActivation.isActive) {
+    el.measurementAppHint.textContent = "앱을 열 수 있는 시간이 지났습니다. 아래 앱 열기 버튼을 다시 누르거나 설치 안내를 이용하세요.";
+    window.location.href = MEASUREMENT_APP_INSTALL_URL;
+    return;
+  }
+  el.measurementAppHint.textContent = "측정 앱을 여는 중입니다. 열리지 않으면 아래 설치 안내를 이용하세요.";
+  const openUrl = measurementAppIntentUrl({ workDate, shift });
+  try {
+    window.location.href = openUrl;
+  } catch {
+    el.measurementAppHint.textContent = "측정 앱을 열지 못했습니다. 앱을 설치했는지 확인하거나 설치 안내를 이용하세요.";
+    window.location.href = MEASUREMENT_APP_INSTALL_URL;
+  }
 }
 function openMeasurementGuide() {
   if (!el.measurementGuideOverlay) return;
@@ -5580,6 +5658,10 @@ function bindEvents() {
     renderMeasurementBridge();
   });
   el.openPaceApp?.addEventListener("click", openPaceMeasurementApp);
+  el.openPaceAppFallback?.addEventListener("click", (event) => {
+    event.preventDefault();
+    openPaceMeasurementApp({ forceOpen: true });
+  });
   el.openMeasurementGuide?.addEventListener("click", openMeasurementGuide);
   el.closeMeasurementGuide?.addEventListener("click", closeMeasurementGuide);
   el.measurementGuideDone?.addEventListener("click", closeMeasurementGuide);
@@ -5588,6 +5670,7 @@ function bindEvents() {
   });
   document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState !== "visible" || el.app.dataset.view !== "measurement" || !currentUserId()) return;
+    refreshMeasurementAppAvailability();
     await refreshAfterNativeMeasurement();
   });
   window.addEventListener("quickflex-native-resume", refreshAfterNativeMeasurement);

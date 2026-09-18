@@ -58,13 +58,13 @@ test("PWA config names the immutable-receipt detail and date override contracts"
   assert.match(config, /replaceAutomaticSalesOverride:\s*"quickflex_replace_automatic_sales_override"/);
   assert.match(config, /replaceManualDayRecord:\s*"quickflex_replace_manual_day_record"/);
   const releaseVersion = JSON.parse(manifest).version;
-  assert.equal(releaseVersion, "1.0.71");
+  assert.equal(releaseVersion, "1.0.72");
   assert.ok(serviceWorker.includes(`quickflex-shell-v${releaseVersion}`));
   assert.ok(html.includes(`src/main.js?v=${releaseVersion}`));
   assert.ok(html.includes(`styles.css?v=${releaseVersion}`));
   assert.match(html, /<title>플렉스노트<\/title>/);
-  assert.equal((html.match(/플렉스노트 · Beta 1\.14/g) || []).length, 2);
-  assert.match(html, /releases\/download\/android-beta-1\.14\/flexnote-beta-1\.14\.apk/);
+  assert.equal((html.match(/플렉스노트 · Beta 1\.15/g) || []).length, 2);
+  assert.match(html, /releases\/download\/android-beta-1\.15\/flexnote-beta-1\.15\.apk/);
   assert.match(html, /href="\.\/install\.html#play-protect"/);
   assert.match(installHtml, /<section class="[^"]*\bstep\b[^"]*" id="play-protect">[\s\S]*?<details open>/);
   assert.match(installHtml, /support\.google\.com\/googleplay\/answer\/2812853\?hl=ko/);
@@ -81,10 +81,10 @@ test("PWA config names the immutable-receipt detail and date override contracts"
   parsedManifest.icons.forEach(({ src }) => {
     assert.ok(existsSync(new URL(`../${src.replace(/^\.\//, "").split("?")[0]}`, import.meta.url)), `missing ${src}`);
   });
-  assert.match(serviceWorker, /icon-maskable-512\.png\?v=3/);
-  assert.match(html, /favicon-32\.png\?v=3/);
-  assert.match(html, /apple-touch-icon\.png\?v=3/);
-  assert.match(introHtml, /icon-512\.png\?v=3/);
+  assert.match(serviceWorker, /icon-maskable-512\.png\?v=4/);
+  assert.match(html, /favicon-32\.png\?v=4/);
+  assert.match(html, /apple-touch-icon\.png\?v=4/);
+  assert.match(introHtml, /icon-512\.png\?v=4/);
 });
 
 test("override payload is a 1..100 row A/B-only full snapshot without household fields", () => {

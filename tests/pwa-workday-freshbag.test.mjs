@@ -46,14 +46,16 @@ test("automatic measurement date ignores calendar selection while a manual measu
     isNightShift: () => true,
     measurementWorkDateForClock,
     todayKey: () => "2026-09-09",
-    el: { measurementWorkDate: {}, measurementRouteText: {}, measurementRouteHint: {}, measurementScheduleMeta: {}, openPaceApp: {} },
-    getRecord: () => ({ off: false, rows: [] }),
+    el: { measurementWorkDate: {}, measurementRouteText: {}, measurementRouteHint: {}, measurementScheduleMeta: {}, openPaceApp: { dataset: { launchMode: "native" }, setAttribute() {}, removeAttribute() {} }, openPaceAppFallback: { hidden: false } },
+    getRecord: (date) => ({ off: date === "2026-09-08", rows: [] }),
     routeListFromText,
     splitStoredRoutes,
     hasAutomaticEntries: () => false,
     formatMonthDay: (key) => key,
+    navigator: { userAgent: "Android" },
+    measurementDetectionPromise: null,
   });
-  vm.runInContext(["defaultMeasurementWorkDate", "currentMeasurementWorkDate", "renderMeasurementBridge"].map(extractFunction).join("\n"), context);
+  vm.runInContext(["defaultMeasurementWorkDate", "currentMeasurementWorkDate", "applyMeasurementLaunchControls", "renderMeasurementBridge"].map(extractFunction).join("\n"), context);
   assert.equal(context.currentMeasurementWorkDate(new Date(2026, 8, 9, 11, 59)), "2026-09-09");
   assert.equal(context.currentMeasurementWorkDate(new Date(2026, 8, 9, 12, 0)), "2026-09-10");
 
@@ -62,6 +64,8 @@ test("automatic measurement date ignores calendar selection while a manual measu
   context.renderMeasurementBridge();
   assert.equal(context.el.measurementWorkDate.value, "2026-09-08");
   assert.equal(context.state.measurementDate, "2026-09-08");
+  assert.equal(context.el.openPaceApp.disabled, true, "holiday selection disables native launch after render");
+  assert.equal(context.el.openPaceAppFallback.hidden, true, "holiday selection hides retry after render");
 });
 
 test("native measurement bridge receives the exact manually requested work date", async () => {
@@ -73,6 +77,7 @@ test("native measurement bridge receives the exact manually requested work date"
     expires_at: 123,
   };
   const context = vm.createContext({
+    el: { openPaceApp: { dataset: { launchMode: "native" } } },
     state: {
       measurementDate: "2026-09-08",
       measurementDateAuto: false,
@@ -117,19 +122,23 @@ test("measurement bridge displays each route once and preserves saved rows and t
   const before = JSON.stringify(rows);
   const context = vm.createContext({
     state: { measurementDateAuto: false },
-    el: { measurementWorkDate: {}, measurementRouteText: {}, measurementRouteHint: {}, measurementScheduleMeta: {}, openPaceApp: {} },
+    el: { measurementWorkDate: {}, measurementRouteText: {}, measurementRouteHint: {}, measurementScheduleMeta: {}, openPaceApp: { dataset: { launchMode: "installed" }, disabled: true, setAttribute() {}, removeAttribute() {} }, openPaceAppFallback: { hidden: false } },
     currentMeasurementWorkDate: () => "2026-09-16",
     getRecord: () => ({ off: false, rows }),
     routeListFromText, splitStoredRoutes,
     toNum: Number,
     hasAutomaticEntries: () => false,
     formatMonthDay: (key) => key,
+    navigator: { userAgent: "Desktop" },
+    measurementDetectionPromise: null,
   });
-  vm.runInContext(extractFunction("renderMeasurementBridge"), context);
+  vm.runInContext(`${extractFunction("applyMeasurementLaunchControls")}\n${extractFunction("renderMeasurementBridge")}`, context);
   context.renderMeasurementBridge();
   assert.equal(context.el.measurementRouteText.textContent, "303A · 303C");
   assert.match(context.el.measurementRouteHint.textContent, /9/);
   assert.equal(JSON.stringify(rows), before);
+  assert.equal(context.el.openPaceApp.disabled, false, "installed app remains enabled after rerender");
+  assert.equal(context.el.openPaceAppFallback.hidden, true, "desktop does not expose Android-only retry after rerender");
 });
 
 test("fresh-bag revenue follows the saved day mode instead of the current profile mode", () => {

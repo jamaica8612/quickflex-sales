@@ -1301,3 +1301,12 @@ Browser checks:
 
 - Updated installation labels and APK/release links for Android Beta 1.14 (versionCode 136); bumped manifest, asset queries and service-worker shell cache to PWA 1.0.71.
 - Metadata-only PWA preparation. Android APK publication and Pages deployment are handled separately; verify the APK is published before deploying these links.
+
+## 2026-09-19 - Ocean icon assets and Android Beta 1.15 links (PWA 1.0.72)
+
+- Prepared on `codex/beta115-ocean-icon-release` from main `5014e3836c5f4b71ca7d35dd0abb31b2c074e59e`. Preserved the approved ocean icon PNG/SVG files and advanced icon cache queries to `v=4`.
+- Updated the manifest, asset queries, shell cache and installation links to PWA 1.0.72 / Android Beta 1.15 (versionCode 137).
+- Measurement entry now opens the app when the exact Android package is confirmed or the trusted native bridge is present. If detection is unavailable or inconclusive, the primary button opens installation guidance; Android users also have an explicit "already installed" app-open action. The intent contains only work date and shift, with an absolute installation-page fallback. Old APKs and unsupported browsers can return inconclusive results even when installed.
+- Kept approval/account checks for app launch and the existing native payload. Date changes, off days, pending detection, native mode and desktop rendering share the same button-state rules. No database, historical business data, auth policy or backend changes.
+- Validation: all 270 Node tests passed, including real launch-function and rerender-state tests; JavaScript syntax and diff whitespace checks passed. Isolated Edge/Playwright checks using actual measurement markup, styles and state functions passed at 375px in light/dark and 1280px desktop: no overflow, 44px targets, keyboard focus, installed/download/native/pending/off states. This does not claim an end-to-end real browser installation-detection test. The signed APK was installed over Beta 1.14 on the connected S23+; version 137, accessibility service and deep-link resolution were verified. Evidence is retained in the release audit.
+- Publish and verify `android-beta-1.15/flexnote-beta-1.15.apk` before updating Pages. Target: `https://jamaica8612.github.io/quickflex-sales/`. Unrelated `artifacts/measurement-open-notice/` stays untracked.
