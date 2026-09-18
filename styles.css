@@ -2383,6 +2383,10 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
 .measurement-route-summary > span,
 .measurement-route-summary > small { color: var(--muted); font-size: 12px; }
 .measurement-route-summary > strong { color: var(--gold); font-family: var(--font-code); font-size: 24px; font-weight: 700; letter-spacing: -.3px; }
+.measurement-app-hint { min-height: 18px; margin: -7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.measurement-app-fallback { display: grid; min-height: 44px; place-items: center; font-size: 14px; font-weight: 600; text-decoration: none; }
+.measurement-app-fallback[hidden] { display: none; }
+.measurement-app-fallback:active { background: var(--button-secondary); }
 .measurement-guide-trigger {
   width: 100%;
   min-height: 44px;

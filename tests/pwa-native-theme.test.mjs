@@ -53,6 +53,7 @@ test("measurement entry sends the currently displayed choice with its existing a
   const messages = [];
   const session = { access_token: "test-access", refresh_token: "test-refresh", user: { id: "owner" } };
   const context = vm.createContext({
+    el: { openPaceApp: { dataset: { launchMode: "native" } } },
     document: { documentElement: { dataset: { theme: "light" } } },
     window: { QuickFlexNative: { postMessage: (raw) => messages.push(JSON.parse(raw)) } },
     state: { session, db: { auth: { getSession: async () => ({ data: { session } }) } } },
