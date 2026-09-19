@@ -10,7 +10,7 @@
 .calendar-sync-status,
 .calendar-sync-preview {
   color: var(--muted, #697386);
-  font-size: 13px;
+  font-size: var(--fs-body);
 }
 
 .calendar-sync-controls,
@@ -24,7 +24,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 13px;
+  font-size: var(--fs-body);
   min-width: 0;
   min-height: 36px;
   margin: 0;
@@ -54,6 +54,6 @@
 
 .calendar-sync-warning {
   color: #a65f00;
-  font-size: 13px;
+  font-size: var(--fs-body);
   margin: 0;
 }
