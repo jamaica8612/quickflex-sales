@@ -1317,3 +1317,10 @@ Browser checks:
 - Kept the existing 760ms drive-in, overshoot, brake tilt, rebound and stop animation, trail, text and reduced-motion behavior. Startup authentication/retry behavior is unchanged.
 - Advanced the shell cache and PWA asset references to 1.0.73. Android remains Beta 1.15; no native or business-data changes. Approved icon asset files remain unchanged.
 - Validation: all 24 relevant startup/release tests passed; JavaScript syntax and whitespace checks passed. Inline path geometry and cutout rules match the approved symbol exactly, with existing theme color handling. The animation CSS and startup lifecycle script are unchanged.
+
+## 2026-09-19 - Flowing loading dots (PWA 1.0.74)
+
+- Applied the selected third loading design: three small dots move and brighten in sequence, using the existing theme's muted color. Kept the one-second reveal delay, startup layout, truck brake animation, text and login lifecycle.
+- Errors hide the dots and expose the existing retry message; reduced-motion mode shows three stationary dots. No new icons, fonts or dependencies.
+- Advanced the PWA shell/assets to 1.0.74 and startup CSS query to `v=2`, including its precache entry. Android remains Beta 1.15.
+- Validation: all 24 relevant startup/release tests, bootstrap/service-worker syntax checks and diff whitespace checks passed.
