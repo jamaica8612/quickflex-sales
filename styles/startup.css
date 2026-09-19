@@ -17,7 +17,10 @@ html[data-startup],html[data-startup] body{overflow:hidden}
 #startupSplash .startup-name{margin:0;font-family:inherit;font-size:clamp(28px,8.5vw,34px);font-weight:600;letter-spacing:-.055em;line-height:1.1}
 #startupSplash .startup-tagline{margin:10px 0 0;font-size:14px;font-weight:400;letter-spacing:.01em;line-height:1.6;color:var(--startup-muted)}
 .startup-progress{position:absolute;bottom:max(13%,calc(env(safe-area-inset-bottom) + 28px));left:24px;right:24px;display:grid;justify-items:center;gap:14px}
-.startup-spinner{width:18px;height:18px;box-sizing:border-box;border:1.5px solid var(--startup-muted);border-right-color:transparent;border-radius:50%;opacity:0;animation:startup-spin 1s linear infinite,startup-wait .1s 1s forwards}
+.startup-spinner{display:flex;align-items:center;gap:8px;height:18px;padding:0 4px;color:var(--startup-muted);opacity:0;animation:startup-wait .1s 1s forwards}
+.startup-spinner>span{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.3;animation:startup-dot-flow 1.5s 1s ease-in-out infinite}
+.startup-spinner>span:nth-child(2){animation-delay:1.16s}
+.startup-spinner>span:nth-child(3){animation-delay:1.32s}
 #startupSplash .startup-status{margin:0;color:var(--startup-muted);font-family:inherit;font-size:13px;line-height:1.7;max-width:310px}
 .startup-status:not([data-error]){position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 #startupSplash .startup-retry{border:1px solid var(--startup-muted);border-radius:20px;background:transparent;color:var(--startup-ink);font-family:inherit;font-size:13px;font-weight:600;line-height:20px;padding:8px 18px;cursor:pointer}
@@ -27,7 +30,7 @@ html[data-startup],html[data-startup] body{overflow:hidden}
 @keyframes startup-brake{0%{opacity:0;transform:translateX(-135%) rotate(0)}14%{opacity:1}48%{transform:translateX(9%) rotate(0);animation-timing-function:ease-out}64%{transform:translateX(2%) rotate(5deg);animation-timing-function:ease-in-out}83%{transform:translateX(-1%) rotate(-1.2deg);animation-timing-function:ease-out}100%{opacity:1;transform:translateX(0) rotate(0)}}
 @keyframes startup-trail{0%,12%{opacity:0}35%{opacity:.45}75%{opacity:.25}100%{opacity:0;transform:translateX(-12px)}}
 @keyframes startup-copy{from{opacity:0}to{opacity:1}}
-@keyframes startup-spin{to{transform:rotate(360deg)}}
-@keyframes startup-wait{to{opacity:.45}}
+@keyframes startup-dot-flow{0%,65%,100%{opacity:.3;transform:translateX(-2px) scaleX(1)}28%{opacity:1;transform:translateX(2px) scaleX(1.4)}45%{opacity:.6;transform:translateX(3px) scaleX(1)}}
+@keyframes startup-wait{to{opacity:1}}
 @media(max-height:450px){.startup-brand{width:210px;transform:translateY(-12px)}.startup-truck{width:85px;margin-bottom:6px}#startupSplash .startup-name{font-size:26px}.startup-progress{bottom:16px;gap:8px}}
-@media(prefers-reduced-motion:reduce){#startupSplash,.startup-truck,.startup-trail,.startup-copy,.startup-spinner{animation:none;transition:none}.startup-spinner{opacity:.45}}
+@media(prefers-reduced-motion:reduce){#startupSplash,.startup-truck,.startup-trail,.startup-copy,.startup-spinner,.startup-spinner>span{animation:none;transition:none}.startup-spinner{opacity:1}.startup-spinner>span{opacity:.6}}
