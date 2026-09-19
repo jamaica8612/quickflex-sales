@@ -1310,3 +1310,10 @@ Browser checks:
 - Kept approval/account checks for app launch and the existing native payload. Date changes, off days, pending detection, native mode and desktop rendering share the same button-state rules. No database, historical business data, auth policy or backend changes.
 - Validation: all 270 Node tests passed, including real launch-function and rerender-state tests; JavaScript syntax and diff whitespace checks passed. Isolated Edge/Playwright checks using actual measurement markup, styles and state functions passed at 375px in light/dark and 1280px desktop: no overflow, 44px targets, keyboard focus, installed/download/native/pending/off states. This does not claim an end-to-end real browser installation-detection test. The signed APK was installed over Beta 1.14 on the connected S23+; version 137, accessibility service and deep-link resolution were verified. Evidence is retained in the release audit.
 - Publish and verify `android-beta-1.15/flexnote-beta-1.15.apk` before updating Pages. Target: `https://jamaica8612.github.io/quickflex-sales/`. Unrelated `artifacts/measurement-open-notice/` stays untracked.
+
+## 2026-09-19 - Ocean icon on the startup screen (PWA 1.0.73)
+
+- Updated the startup screen's inline truck to the exact approved F-truck symbol paths, including the upright tail, chassis, wheel-hub cutouts and 62% body opacity. Retained the existing blue/light and white/dark theme colors and original SVG frame.
+- Kept the existing 760ms drive-in, overshoot, brake tilt, rebound and stop animation, trail, text and reduced-motion behavior. Startup authentication/retry behavior is unchanged.
+- Advanced the shell cache and PWA asset references to 1.0.73. Android remains Beta 1.15; no native or business-data changes. Approved icon asset files remain unchanged.
+- Validation: all 24 relevant startup/release tests passed; JavaScript syntax and whitespace checks passed. Inline path geometry and cutout rules match the approved symbol exactly, with existing theme color handling. The animation CSS and startup lifecycle script are unchanged.
