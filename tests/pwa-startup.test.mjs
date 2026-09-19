@@ -10,17 +10,30 @@ function node() {
   return { attrs, hidden:false, textContent:'', setAttribute:(k,v)=>attrs.set(k,v), removeAttribute:k=>attrs.delete(k),
     addEventListener(k,fn){this[k]=fn;}, querySelector:()=>null };
 }
-function harness(reduced=false) {
+function harness(reduced=false, localStorage) {
   let now=0, id=0, reloads=0; const timers=new Map();
   const nodes=Object.fromEntries(['startupSplash','startupStatus','startupRetry','app'].map(k=>[k,node()]));
   const root=node(); root.attrs.set('data-startup',''); nodes.app.attrs.set('inert',''); nodes.app.attrs.set('aria-hidden','true');
   const sandbox={document:{documentElement:root,getElementById:id=>nodes[id]},performance:{now:()=>now},
     setTimeout(fn,ms){timers.set(++id,{fn,at:now+ms});return id;},clearTimeout(id){timers.delete(id);},
-    window:{matchMedia:()=>({matches:reduced}),requestAnimationFrame:fn=>fn(),location:{reload(){reloads++;}}}};
+    window:{matchMedia:()=>({matches:reduced}),requestAnimationFrame:fn=>fn(),location:{reload(){reloads++;}},localStorage}};
   vm.runInNewContext(startup,sandbox);
   function tick(ms) {const end=now+ms;while(true){const next=[...timers.entries()].filter(([,t])=>t.at<=end).sort((a,b)=>a[1].at-b[1].at)[0];if(!next)break;now=next[1].at;timers.delete(next[0]);next[1].fn();}now=end;}
   return {root,nodes,tick,api:sandbox.window.FlexNoteStartup,reloads:()=>reloads};
 }
+test('each launch picks one of four entrances and never repeats the previous one',()=>{
+  const motions=['brake','arrive','build','sheen'];const store=new Map();
+  const storage={getItem:k=>store.has(k)?store.get(k):null,setItem:(k,v)=>store.set(k,String(v))};
+  const seen=new Set();let previous=null;
+  for(let i=0;i<60;i++){const motion=harness(false,storage).nodes.startupSplash.attrs.get('data-motion');
+    assert.ok(motions.includes(motion));assert.notEqual(motion,previous);seen.add(motion);previous=motion;}
+  assert.equal(seen.size,4);
+});
+test('entrance still chosen when storage is blocked',()=>{
+  const blocked={getItem(){throw new Error('blocked');},setItem(){throw new Error('blocked');}};
+  assert.ok(['brake','arrive','build','sheen'].includes(harness(false,blocked).nodes.startupSplash.attrs.get('data-motion')));
+  assert.ok(harness().nodes.startupSplash.attrs.has('data-motion'));
+});
 test('unresolved session never exposes app; timeout gives retry without unlocking it',()=>{
   const h=harness(); h.tick(14999);assert.equal(h.nodes.startupRetry.hidden,true);assert.ok(h.nodes.app.attrs.has('inert'));
   h.tick(1);assert.equal(h.nodes.startupRetry.hidden,false);assert.ok(h.root.attrs.has('data-startup'));

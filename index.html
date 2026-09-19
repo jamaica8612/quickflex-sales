@@ -10,7 +10,7 @@
     <meta name="application-name" content="플렉스노트" />
     <meta name="apple-mobile-web-app-title" content="플렉스노트" />
     <meta name="description" content="배송의 기록부터 매출·지출까지" />
-    <link rel="manifest" href="./manifest.webmanifest?v=1.0.74" />
+    <link rel="manifest" href="./manifest.webmanifest?v=1.0.75" />
     <link rel="icon" href="./favicon-32.png?v=4" type="image/png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=4" />
     <script>
@@ -39,31 +39,38 @@
       html[data-theme="light"], body[data-theme="light"] { background: var(--shell-bg, #ECECEC); color-scheme: light; }
     </style>
     <style>html[data-startup] #app{visibility:hidden;pointer-events:none}</style>
-    <link rel="stylesheet" href="./styles/startup.css?v=2" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.74" />
-  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.74" />
-<link rel="stylesheet" href="./styles/exports.css?v=1.0.74" />
-<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.74" />
+    <link rel="stylesheet" href="./styles/startup.css?v=3" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.75" />
+  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.75" />
+<link rel="stylesheet" href="./styles/exports.css?v=1.0.75" />
+<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.75" />
 </head>
   <body>
     <script>document.body.dataset.theme = document.documentElement.dataset.theme;</script>
     <section id="startupSplash" aria-label="플렉스노트 시작" aria-busy="true">
       <div class="startup-brand">
         <div class="startup-truck">
-          <span class="startup-trail" aria-hidden="true"></span>
-          <svg viewBox="0 0 320 256" fill="currentColor" aria-hidden="true">
-            <defs>
-              <clipPath id="startup-truck-top"><rect x="0" y="0" width="320" height="59"/></clipPath>
-              <clipPath id="startup-truck-body"><rect x="0" y="59" width="320" height="260"/></clipPath>
-            </defs>
-            <path fill-rule="evenodd" d="M211 83Q211 78 217 78H243Q254 78 262 87L295 122Q302 130 302 138V167Q302 181 288 181H259A35 35 0 0 0 210 153ZM230 94Q227 94 227 98V123Q227 127 231 127H272Q278 127 274 122L252 98Q249 94 245 94Z"/>
-            <path fill-rule="evenodd" d="M53 184a25 25 0 1 0 50 0a25 25 0 1 0 -50 0ZM70 184a8 8 0 1 0 16 0a8 8 0 1 0 -16 0ZM199 184a25 25 0 1 0 50 0a25 25 0 1 0 -50 0ZM216 184a8 8 0 1 0 16 0a8 8 0 1 0 -16 0Z"/>
-            <path d="M24 181L67 19Q69 10 78 10H246Q253 10 251 16Q240 57 203 57H118Q106 57 102 70L99 78H202Q190 122 159 122H99L78 152A35 35 0 0 0 38 181Z" clip-path="url(#startup-truck-top)"/>
-            <g fill-opacity="0.62">
-              <path d="M24 181L67 19Q69 10 78 10H246Q253 10 251 16Q240 57 203 57H118Q106 57 102 70L99 78H202Q190 122 159 122H99L78 152A35 35 0 0 0 38 181Z" clip-path="url(#startup-truck-body)"/>
-              <path d="M117 165H185Q190 165 190 170V176Q190 181 185 181H117Q112 181 112 176V170Q112 165 117 165Z"/>
-            </g>
-          </svg>
+          <span class="startup-lane" aria-hidden="true"></span>
+          <div class="startup-vehicle">
+            <span class="startup-trail" aria-hidden="true"></span>
+            <svg viewBox="0 0 320 256" fill="currentColor" aria-hidden="true">
+              <defs>
+                <clipPath id="startup-truck-top"><rect x="0" y="0" width="320" height="59"/></clipPath>
+                <clipPath id="startup-truck-body"><rect x="0" y="59" width="320" height="260"/></clipPath>
+                <clipPath id="startup-truck-shape"><path d="M24 181L67 19Q69 10 78 10H246Q253 10 251 16Q240 57 203 57H118Q106 57 102 70L99 78H202Q190 122 159 122H99L78 152A35 35 0 0 0 38 181Z"/><path clip-rule="evenodd" d="M211 83Q211 78 217 78H243Q254 78 262 87L295 122Q302 130 302 138V167Q302 181 288 181H259A35 35 0 0 0 210 153ZM230 94Q227 94 227 98V123Q227 127 231 127H272Q278 127 274 122L252 98Q249 94 245 94Z"/><path clip-rule="evenodd" d="M53 184a25 25 0 1 0 50 0a25 25 0 1 0 -50 0ZM70 184a8 8 0 1 0 16 0a8 8 0 1 0 -16 0Z"/><path clip-rule="evenodd" d="M199 184a25 25 0 1 0 50 0a25 25 0 1 0 -50 0ZM216 184a8 8 0 1 0 16 0a8 8 0 1 0 -16 0Z"/><path d="M117 165H185Q190 165 190 170V176Q190 181 185 181H117Q112 181 112 176V170Q112 165 117 165Z"/></clipPath>
+                <linearGradient id="startup-sheen-fill" x1="0" x2="1"><stop offset="0" style="stop-color:var(--startup-sheen);stop-opacity:0"/><stop offset=".5" style="stop-color:var(--startup-sheen);stop-opacity:.9"/><stop offset="1" style="stop-color:var(--startup-sheen);stop-opacity:0"/></linearGradient>
+              </defs>
+              <path class="startup-part-top" d="M24 181L67 19Q69 10 78 10H246Q253 10 251 16Q240 57 203 57H118Q106 57 102 70L99 78H202Q190 122 159 122H99L78 152A35 35 0 0 0 38 181Z" clip-path="url(#startup-truck-top)"/>
+              <g class="startup-part-body" fill-opacity="0.62">
+                <path d="M24 181L67 19Q69 10 78 10H246Q253 10 251 16Q240 57 203 57H118Q106 57 102 70L99 78H202Q190 122 159 122H99L78 152A35 35 0 0 0 38 181Z" clip-path="url(#startup-truck-body)"/>
+                <path d="M117 165H185Q190 165 190 170V176Q190 181 185 181H117Q112 181 112 176V170Q112 165 117 165Z"/>
+              </g>
+              <path class="startup-part-cab" fill-rule="evenodd" d="M211 83Q211 78 217 78H243Q254 78 262 87L295 122Q302 130 302 138V167Q302 181 288 181H259A35 35 0 0 0 210 153ZM230 94Q227 94 227 98V123Q227 127 231 127H272Q278 127 274 122L252 98Q249 94 245 94Z"/>
+              <path class="startup-part-wheel" fill-rule="evenodd" d="M53 184a25 25 0 1 0 50 0a25 25 0 1 0 -50 0ZM70 184a8 8 0 1 0 16 0a8 8 0 1 0 -16 0Z"/>
+              <path class="startup-part-wheel" fill-rule="evenodd" d="M199 184a25 25 0 1 0 50 0a25 25 0 1 0 -50 0ZM216 184a8 8 0 1 0 16 0a8 8 0 1 0 -16 0Z"/>
+              <g clip-path="url(#startup-truck-shape)"><rect class="startup-sheen" x="0" y="0" width="90" height="256" fill="url(#startup-sheen-fill)"/></g>
+            </svg>
+          </div>
         </div>
         <div class="startup-copy"><p class="startup-name">플렉스노트</p><p class="startup-tagline">배송의 모든 기록</p></div>
       </div>
@@ -74,7 +81,7 @@
         <noscript>앱을 사용하려면 JavaScript를 켜 주세요.</noscript>
       </div>
     </section>
-    <script src="./src/startup.js?v=1"></script>
+    <script src="./src/startup.js?v=2"></script>
     <div class="app" id="app" data-view="home" data-driver-type="backup" inert aria-hidden="true">
       <section class="view view-home">
         <header class="home-header">
@@ -753,7 +760,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.74"></script>
+    <script type="module" src="./src/main.js?v=1.0.75"></script>
     <script>
       // 로컬 디자인 비교용. 배포 화면에는 비교 도구를 표시하지 않는다.
       (function () {

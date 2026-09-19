@@ -1,5 +1,12 @@
 # QuickFlex Worklog
 
+## 2026-09-19 Startup entrances rotate (1.0.75)
+
+- The startup splash keeps one look (same background, truck colour, name and loading dots per theme) and now picks one of four entrances per launch: brake (existing), arrive (road draws, truck leans in and straightens), build (logo layers slide in, wheels pop) and sheen (truck lifts, one light sweep). The previous entrance is never repeated; blocked storage still picks one.
+- The faint two-line trail runs with every entrance. All entrances finish inside the existing 760 ms minimum; reduced motion shows the finished splash with no movement.
+- Truck SVG split into named layers (top, body, cab, two wheels) with a clipped sheen band; animation moved to an inner `.startup-vehicle` so the arrive road stays still. Bumped startup.css/js queries and the release to 1.0.75.
+- Verification: 272 Node tests passed, including two new startup rotation tests. Browser check against a local mock confirmed each entrance mid-frame and end state in light and dark.
+
 ## 2026-09-16 Measurement route display and native theme (1.0.65)
 
 - Deduplicate repeated route names in the measurement bridge while preserving saved sales rows, quantities and exact work date.

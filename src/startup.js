@@ -4,6 +4,15 @@
   const splash = document.getElementById("startupSplash");
   const status = document.getElementById("startupStatus");
   const retry = document.getElementById("startupRetry");
+  // One entrance per launch, never the same one twice in a row. Storage may be unavailable; any choice is fine then.
+  const motions = ["brake", "arrive", "build", "sheen"];
+  const motionKey = "flexnote-startup-motion";
+  let lastMotion = null;
+  try { lastMotion = window.localStorage.getItem(motionKey); } catch (_) {}
+  const motionPool = motions.filter((name) => name !== lastMotion);
+  const motion = motionPool[Math.floor(Math.random() * motionPool.length)];
+  splash.setAttribute("data-motion", motion);
+  try { window.localStorage.setItem(motionKey, motion); } catch (_) {}
   const started = performance.now();
   let settled = false;
   let timeout;

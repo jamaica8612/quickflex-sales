@@ -1,19 +1,36 @@
 /* Approved FlexNote startup identity; deliberately isolated from the app theme. */
 @font-face{font-family:"FlexNote Startup";src:url("../assets/fonts/flexnote-startup-regular.woff") format("woff");font-weight:400;font-display:swap}
 @font-face{font-family:"FlexNote Startup";src:url("../assets/fonts/flexnote-startup-semibold.woff") format("woff");font-weight:600;font-display:swap}
-:root{--startup-bg:#F5F5F5;--startup-center:#F5F5F5;--startup-edge:#F5F5F5;--startup-ink:#202226;--startup-muted:#71747B;--startup-logo:#2563EB}
-:root[data-theme="dark"]{--startup-bg:#242528;--startup-center:#333437;--startup-edge:#191A1C;--startup-ink:#F2F3F5;--startup-muted:#A4A8AF;--startup-logo:#FFFFFF}
+:root{--startup-bg:#F5F5F5;--startup-center:#F5F5F5;--startup-edge:#F5F5F5;--startup-ink:#202226;--startup-muted:#71747B;--startup-logo:#2563EB;--startup-line:#D5D7DC;--startup-sheen:#FFFFFF}
+:root[data-theme="dark"]{--startup-bg:#242528;--startup-center:#333437;--startup-edge:#191A1C;--startup-ink:#F2F3F5;--startup-muted:#A4A8AF;--startup-logo:#FFFFFF;--startup-line:#3A3C40;--startup-sheen:#27D4FF}
 html[data-startup] #app{visibility:hidden;pointer-events:none}
 html[data-startup],html[data-startup] body{overflow:hidden}
 #startupSplash{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;margin:0;background:radial-gradient(ellipse at 50% 40%,var(--startup-center),var(--startup-bg) 54%,var(--startup-edge));color:var(--startup-ink);font-family:"FlexNote Startup",sans-serif;text-align:center;transition:opacity .16s ease;isolation:isolate}
 #startupSplash[hidden]{display:none}
 #startupSplash[data-leaving]{opacity:0;pointer-events:none}
 .startup-brand{width:min(74vw,280px);transform:translateY(-3vh)}
-.startup-truck{position:relative;width:55%;margin:0 auto 14px;transform-origin:80% 76%;color:var(--startup-logo);animation:startup-brake .76s both}
+.startup-truck{position:relative;width:55%;margin:0 auto 14px;color:var(--startup-logo)}
+.startup-vehicle{position:relative;transform-origin:80% 76%;animation:startup-brake .76s both}
 .startup-truck svg{display:block;width:100%;height:auto;overflow:visible}
+.startup-truck svg *{transform-box:fill-box}
 .startup-trail{position:absolute;left:-12%;top:35%;width:24%;height:2px;border-radius:2px;background:currentColor;opacity:0;animation:startup-trail .45s both}
 .startup-trail:after{content:"";position:absolute;left:25%;top:9px;width:65%;height:2px;background:currentColor}
 .startup-copy{animation:startup-copy .5s .3s both}
+/* One splash, four entrances. startup.js picks data-motion; without it the brake plays. Every entrance ends inside the 760ms minimum. */
+.startup-lane{position:absolute;left:50%;top:calc(81.64% + 3px);width:100vw;height:2px;margin-left:-50vw;background:var(--startup-line);transform-origin:left;display:none}
+.startup-sheen{opacity:0}
+#startupSplash[data-motion="arrive"] .startup-lane{display:block;animation:startup-draw .36s cubic-bezier(.3,.8,.3,1) both}
+#startupSplash[data-motion="arrive"] .startup-vehicle{transform-origin:50% 82%;animation:startup-arrive .72s .04s both}
+#startupSplash[data-motion="arrive"] .startup-trail{animation:startup-trail .55s .04s both}
+#startupSplash[data-motion="build"] .startup-vehicle{animation:none}
+#startupSplash[data-motion="build"] .startup-part-top{animation:startup-from-left .34s cubic-bezier(.2,.8,.3,1) both}
+#startupSplash[data-motion="build"] .startup-part-body{animation:startup-from-left .34s .06s cubic-bezier(.2,.8,.3,1) both}
+#startupSplash[data-motion="build"] .startup-part-cab{animation:startup-from-right .34s .12s cubic-bezier(.2,.8,.3,1) both}
+#startupSplash[data-motion="build"] .startup-part-wheel{transform-origin:center;animation:startup-pop .3s .32s cubic-bezier(.3,1.6,.5,1) both}
+#startupSplash[data-motion="build"] .startup-part-wheel+.startup-part-wheel{animation-delay:.38s}
+#startupSplash[data-motion="sheen"] .startup-vehicle{transform-origin:50% 60%;animation:startup-lift .44s cubic-bezier(.2,.8,.3,1) both}
+#startupSplash[data-motion="sheen"] .startup-trail{animation:startup-trail .45s .04s both}
+#startupSplash[data-motion="sheen"] .startup-sheen{animation:startup-sweep .5s .24s ease-in-out both}
 #startupSplash .startup-name{margin:0;font-family:inherit;font-size:clamp(28px,8.5vw,34px);font-weight:600;letter-spacing:-.055em;line-height:1.1}
 #startupSplash .startup-tagline{margin:10px 0 0;font-size:14px;font-weight:400;letter-spacing:.01em;line-height:1.6;color:var(--startup-muted)}
 .startup-progress{position:absolute;bottom:max(13%,calc(env(safe-area-inset-bottom) + 28px));left:24px;right:24px;display:grid;justify-items:center;gap:14px}
@@ -28,9 +45,16 @@ html[data-startup],html[data-startup] body{overflow:hidden}
 #startupSplash .startup-retry:focus-visible{outline:2px solid var(--startup-logo);outline-offset:4px}
 #startupSplash[data-error] .startup-spinner{display:none}
 @keyframes startup-brake{0%{opacity:0;transform:translateX(-135%) rotate(0)}14%{opacity:1}48%{transform:translateX(9%) rotate(0);animation-timing-function:ease-out}64%{transform:translateX(2%) rotate(5deg);animation-timing-function:ease-in-out}83%{transform:translateX(-1%) rotate(-1.2deg);animation-timing-function:ease-out}100%{opacity:1;transform:translateX(0) rotate(0)}}
+@keyframes startup-arrive{0%{opacity:0;transform:translateX(-260%) skewX(-14deg);animation-timing-function:cubic-bezier(.2,.75,.3,1)}10%{opacity:1}62%{transform:translateX(3%) skewX(-10deg);animation-timing-function:ease-out}80%{transform:translateX(0) skewX(5deg)}92%{transform:skewX(-1.5deg)}100%{opacity:1;transform:none}}
+@keyframes startup-draw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes startup-from-left{from{opacity:0;transform:translateX(-60%)}to{opacity:1;transform:none}}
+@keyframes startup-from-right{from{opacity:0;transform:translateX(40%)}to{opacity:1;transform:none}}
+@keyframes startup-pop{from{opacity:0;transform:scale(0)}to{opacity:1;transform:scale(1)}}
+@keyframes startup-lift{from{opacity:0;transform:translateY(14px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes startup-sweep{0%{opacity:0;transform:translateX(-120%) skewX(-20deg)}20%{opacity:.85}80%{opacity:.85}100%{opacity:0;transform:translateX(420%) skewX(-20deg)}}
 @keyframes startup-trail{0%,12%{opacity:0}35%{opacity:.45}75%{opacity:.25}100%{opacity:0;transform:translateX(-12px)}}
 @keyframes startup-copy{from{opacity:0}to{opacity:1}}
 @keyframes startup-dot-flow{0%,65%,100%{opacity:.3;transform:translateX(-2px) scaleX(1)}28%{opacity:1;transform:translateX(2px) scaleX(1.4)}45%{opacity:.6;transform:translateX(3px) scaleX(1)}}
 @keyframes startup-wait{to{opacity:1}}
 @media(max-height:450px){.startup-brand{width:210px;transform:translateY(-12px)}.startup-truck{width:85px;margin-bottom:6px}#startupSplash .startup-name{font-size:26px}.startup-progress{bottom:16px;gap:8px}}
-@media(prefers-reduced-motion:reduce){#startupSplash,.startup-truck,.startup-trail,.startup-copy,.startup-spinner,.startup-spinner>span{animation:none;transition:none}.startup-spinner{opacity:1}.startup-spinner>span{opacity:.6}}
+@media(prefers-reduced-motion:reduce){#startupSplash,#startupSplash *,.startup-truck,.startup-vehicle,.startup-trail,.startup-copy,.startup-spinner,.startup-spinner>span{animation:none!important;transition:none}.startup-spinner{opacity:1}.startup-spinner>span{opacity:.6}}

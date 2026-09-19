@@ -1,8 +1,8 @@
-const CACHE_NAME = "quickflex-shell-v1.0.74-flexnote-beta-1.15-approved-measurement-1-notice-1-usage-guide-1";
+const CACHE_NAME = "quickflex-shell-v1.0.75-flexnote-beta-1.15-approved-measurement-1-notice-1-usage-guide-1";
 const SHELL_FILES = [
   "./",
   "./index.html",
-  "./styles/startup.css?v=2",
+  "./styles/startup.css?v=3",
   "./src/startup.js",
   "./assets/fonts/flexnote-startup-regular.woff",
   "./assets/fonts/flexnote-startup-semibold.woff",
@@ -66,7 +66,7 @@ const SHELL_FILES = [
   "./src/lib/format.js",
   "./src/lib/work-date.js",
   "./src/lib/measurement-app-launch.js",
-  "./manifest.webmanifest?v=1.0.74",
+  "./manifest.webmanifest?v=1.0.75",
   "./icon-192.png?v=4",
   "./icon-512.png?v=4",
   "./icon-maskable-192.png?v=4",
