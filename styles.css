@@ -205,7 +205,7 @@ label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: var(-
 }
 .save-feedback { padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .save-feedback[hidden] { display: none; }
-.save-feedback p { margin: 0 0 8px; font-size: 14px; line-height: 1.5; }
+.save-feedback p { margin: 0 0 8px; font-size: var(--fs-body-l); line-height: 1.5; }
 .save-feedback button { min-height: 44px; margin: 0 8px 8px 0; }
 .save-feedback textarea { width: 100%; min-height: 120px; margin-top: 8px; }
 .app[data-view="home"] .view-home,
@@ -2979,7 +2979,7 @@ body[data-theme="dark"] .day-cell.today-cell .day-number { color: #1A1405; }
 .selected-breakdown-head strong { margin-top: 3px; font-size: var(--fs-title); letter-spacing: -.012em; }
 /* '기록 수정'은 보조 동작이다. 알약 버튼을 없애고 글자 링크로 낮춘다. */
 .selected-breakdown-head .secondary-btn {
-  min-height: 0;
+  min-height: 44px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -3916,13 +3916,11 @@ body:not([data-theme="dark"]) .summary-meter span::after {
 .mode-btn,
 .summary-card .inspection-entry-button,
 .entry-actions .secondary-btn,
-.selected-breakdown-head .secondary-btn,
 .signature-settings-section .secondary-btn,
 #openProfileSignature { position: relative; }
 .calendar-toolbar .round-btn::after { content: ""; position: absolute; inset: -6px; }
 .today-btn::after { content: ""; position: absolute; inset: -7px -1px; }
 .entry-actions .secondary-btn::after,
-.selected-breakdown-head .secondary-btn::after,
 .signature-settings-section .secondary-btn::after,
 #openProfileSignature::after { content: ""; position: absolute; inset: -4px 0; }
 .summary-card .inspection-entry-button::after { content: ""; position: absolute; inset: -5px 0; }

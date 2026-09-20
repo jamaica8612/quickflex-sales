@@ -47,7 +47,7 @@ This file is the shared working contract for Codex, Claude Code, and future agen
 
 ## Route Grouping
 
-When multiple routes share the same three-digit prefix and the same unit price, show them as one input row.
+Group only empty schedule placeholders that share the same three-digit prefix and unit price. Preserve separately entered route quantities and historical unit snapshots; never redistribute 100/60 into an inferred 80/80.
 
 Examples:
 - `322A`, `322B`, `322C` with the same unit price should become one row.
@@ -59,7 +59,7 @@ Examples:
 Schedule OCR runs as **server-side Google Cloud Vision on the full image**. The browser sends one authenticated request to the Edge Function (`supabase/functions/ocr-schedule`) with `mode: "vision-schedule"` and the full schedule image.
 
 - `mode: "vision-schedule"` (default browser path) — body carries `{ imageBase64, mimeType, ownerName, year, month }`. Server calls Cloud Vision `DOCUMENT_TEXT_DETECTION` once, uses word bounding boxes to find the date row and the matching driver row, and returns `{ schedule, rawText, provider, model }`.
-- `mode: "cells"` (legacy fallback) — body carries `cells: [{ id, base64, mimeType }]`. Server calls Cloud Vision `images:annotate` (`TEXT_DETECTION`) in batches of up to 16 with `Promise.all`, returns `{ provider, results: [{ id, text, confidence }] }`.
+- `mode: "cells"` (legacy fallback) — body carries `cells: [{ id, base64, mimeType }]`. Server calls Cloud Vision `images:annotate` (`TEXT_DETECTION`) in batches of up to 16 with at most two batches in flight, returns `{ provider, results: [{ id, text, confidence }] }`.
 - Default (no `mode`) — legacy full-image flow that calls the provider harness (Gemini, etc.).
 
 Client rules:
@@ -67,7 +67,7 @@ Client rules:
 - Send the original image once; do not require OpenCV for the default schedule OCR path.
 - Keep the OCR status focused on server analysis, not client-side table segmentation.
 - Use server-returned OCR row/column coordinates to sample the original image for pink off-day cells; this is simple canvas color sampling, not OpenCV table segmentation.
-- Fixed drivers use OCR only for off/work-day detection; work days are filled from that user's `fixed_routes`.
+- Fixed-driver manual blank workdays may use configured `fixed_routes`. OCR empty/unread cells must remain unresolved (`[]`) until confirmed, and only explicit off days become `null`. Never silently fill an unread OCR result with fixed routes.
 - Backup drivers keep OCR route extraction, correct each single route code against route candidates, then complete DB-managed route bundles when at least two routes from that bundle are observed. Built-in bundles are fallback only and stay conservative: they complete only one missing route.
 
 Server rules:
@@ -138,3 +138,10 @@ git diff --check
 
 Before deployment, make sure GitHub Pages and Supabase Edge Functions are treated separately. Pushing frontend code does not redeploy the OCR function.
 
+
+## Diagnosis safeguards (2026-09-20)
+
+- New manual saves use `quickflex_replace_manual_day_record_checked` with `p_expected_updated_at`; keep the legacy RPC for older clients. A conflict keeps local input available for comparison. Do not bypass conflicts by removing revision checks.
+- Do not reload server records over queued saves or an open record draft. Conflict copies are session-only and must be clearly labelled as such.
+- OCR checks a real approved user before provider calls, applies request/image/cell limits, and consumes per-user KST daily quota through a restricted RPC. No browser-controlled limits or service-role key.
+- Expense edits and refunds lock the same original row. Original gross may not fall below accumulated refunds.

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 const schema=readFileSync(new URL('../supabase-schema.sql',import.meta.url),'utf8').replaceAll('\r\n','\n');
-const migration=readFileSync(new URL('../supabase/migrations/20260919083335_ocr_quota_and_expense_refund_guard.sql',import.meta.url),'utf8').replaceAll('\r\n','\n');
+const migration=readFileSync(new URL('../supabase/migrations/20260920012920_ocr_quota_and_expense_refund_guard.sql',import.meta.url),'utf8').replaceAll('\r\n','\n');
 const owner='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
 function declaration(name,last=false){const search=`create or replace function public.${name}(`;const start=last?schema.lastIndexOf(search):schema.indexOf(search);return schema.slice(start,schema.indexOf('$$;',start)+3);}
 function table(name){const start=schema.indexOf(`create table if not exists public.${name} (`);return schema.slice(start,schema.indexOf('\n);',start)+3);}

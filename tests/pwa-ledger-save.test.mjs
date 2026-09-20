@@ -697,3 +697,94 @@ test("a new automatic-ledger conflict preserves both dates until explicit compar
   assert.equal(harness.toasts.length, 1);
   assert.equal(harness.state.flushPromise, null);
 });
+
+function manualDeletionHarness() {
+  const dateKey = "2026-09-20";
+  const request = deferred();
+  const calls = [];
+  const record = {
+    off: false, automaticWorks: [], rows: [], freshCount: 0, freshUnit: 100,
+    freshSoloCount: 0, freshLinkedCount: 0, freshbagMode: "single", backupUnit: 30,
+    driverType: "backup", manualDayUpdatedAt: "2026-09-19T09:00:00Z",
+  };
+  let accountCurrent = true;
+  const state = { entries: { [dateKey]: record }, recordDraftDate: dateKey, recordDraft: { ...record, rows: [] } };
+  state.db = {
+    rpc(name, payload) {
+      calls.push({ name, payload });
+      return calls.length === 1 ? request.promise : Promise.resolve({ data: {
+        user_id: "user-a", work_date: dateKey, updated_at: "2026-09-20T01:00:00Z",
+      }, error: null });
+    },
+  };
+  const { persistDay } = loadActualFunctions(["persistDay"], {
+    state,
+    RPC: { replaceManualDayRecordChecked: "quickflex_replace_manual_day_record_checked" },
+    captureAccountContext: () => ({ userId: "user-a" }),
+    isAccountContextCurrent: () => accountCurrent,
+    normalizeRecordShape: (value) => ({ ...value, rows: (value.rows || []).map((row) => ({ ...row })), automaticWorks: [...(value.automaticWorks || [])] }),
+    getRecord: () => state.entries[dateKey] || { ...record, rows: [] },
+    hasAutomaticEntries: () => false,
+    manualRows: (value) => value.rows,
+    hasMeaningfulRecord: (value) => value.off || value.rows.length > 0 || Number(value.freshCount) > 0,
+    defaultFreshUnit: (value) => value ?? 100,
+    defaultBackupUnit: (value) => value ?? 30,
+    toNum: (value) => Number(value) || 0,
+    joinStoredRoutes: (value) => value,
+    effectiveUnit: (row) => Number(row.unit) || 0,
+    freshbagModeForRecord: (value) => value.freshbagMode,
+  });
+  return { state, dateKey, request, calls, persistDay, switchAccount: () => { accountCurrent = false; } };
+}
+
+for (const edit of ["replace", "mutate"]) {
+  test(`manual deletion preserves ${edit} edits received during the request and saves them against absence`, async () => {
+    const harness = manualDeletionHarness();
+    const { state, dateKey, request, calls, persistDay } = harness;
+    const deleting = persistDay(dateKey);
+    assert.equal(calls[0].payload.p_delete_day, true);
+    if (edit === "replace") state.entries[dateKey] = { ...state.entries[dateKey], rows: [{ route: "310A", count: 7, households: 5, unit: 1030 }] };
+    else state.entries[dateKey].freshCount = 7;
+    state.recordDraft = { ...state.entries[dateKey], freshCount: 9 };
+    const newerEntry = state.entries[dateKey];
+    const newerDraft = state.recordDraft;
+    request.resolve({ data: null, error: null });
+    assert.equal(await deleting, true);
+    assert.equal(state.entries[dateKey], newerEntry, "the completed deletion must not remove newer input");
+    assert.equal(newerEntry.manualDayUpdatedAt, null);
+    assert.equal(state.recordDraft, newerDraft);
+    assert.equal(newerDraft.freshCount, 9);
+    assert.equal(newerDraft.manualDayUpdatedAt, null);
+    assert.equal(await persistDay(dateKey), true);
+    assert.equal(calls[1].payload.p_expected_updated_at, null, "the confirmed deletion leaves no server day to compare");
+    assert.equal(calls[1].payload.p_delete_day, false);
+    if (edit === "replace") assert.equal(calls[1].payload.p_items[0].delivery_count, 7);
+    else assert.equal(calls[1].payload.p_fresh_count, 7);
+    assert.equal(newerEntry.manualDayUpdatedAt, "2026-09-20T01:00:00Z");
+  });
+}
+
+test("manual deletion removes an unchanged entry while retaining a new unsaved draft", async () => {
+  const { state, dateKey, request, persistDay } = manualDeletionHarness();
+  const deleting = persistDay(dateKey);
+  state.recordDraft.freshCount = 9;
+  request.resolve({ data: null, error: null });
+  assert.equal(await deleting, true);
+  assert.equal(Object.hasOwn(state.entries, dateKey), false);
+  assert.equal(state.recordDraft.freshCount, 9);
+  assert.equal(state.recordDraft.manualDayUpdatedAt, null);
+});
+
+test("manual deletion response cannot change the next account's entry or draft basis", async () => {
+  const harness = manualDeletionHarness();
+  const { state, dateKey, request, persistDay } = harness;
+  const deleting = persistDay(dateKey);
+  harness.switchAccount();
+  const other = { ...state.entries[dateKey], freshCount: 20, manualDayUpdatedAt: "other-account-basis" };
+  state.entries[dateKey] = other;
+  state.recordDraft = { ...other };
+  request.resolve({ data: null, error: null });
+  assert.equal(await deleting, false);
+  assert.equal(state.entries[dateKey], other);
+  assert.equal(state.recordDraft.manualDayUpdatedAt, "other-account-basis");
+});
