@@ -1354,3 +1354,12 @@ Browser checks:
 - Recovered absent detailed-route quantities only from a work's complete, unambiguous evidence. Supplied detail values and source receipts remain authoritative.
 - Applied migrations `20260920021710` and `20260920021733` to the linked production project. Verified the reported 2026-09-19 calendar row shows 316C01 137 with cancellation 1 and 316C02 59; financial and source fingerprints stayed unchanged.
 - Relevant tests: 45 passed; JS syntax and diff checks passed. Deployment details: [team-progress-deployment-20260920.md](team-progress-deployment-20260920.md).
+
+## 2026-09-20 - Native session recovery (PWA 1.0.78 prepared, unpublished)
+
+- Retain a native session request in memory until the DB and bridge are ready, and request current-session sync on visibility/native resume. Coalesce concurrent reads through the existing promise and serialize token imports with auth-epoch and credential guards.
+- Discard pending intent on logout/account changes; ignore late session/refresh responses for another account. Best-effort event requests handle rejected promises without an unhandled rejection.
+- Prepare the 1.0.78 asset/cache version. Official Android download links remain Beta 1.16; do not switch them before the revised Beta 1.17 APK is published.
+- The paired Android worktree `C:\work\quickflex-team-live-android-20260920` rechecks existing work identity and requests session recovery in place. New APK: `artifacts/beta-1.17/QuickFlex-Beta-1.17-session-fix.apk`, versionCode 139, SHA-256 `cda0e322acbdc4dfde40941a40cafaf586a4d99e1fdb752817bbab73f5c81bd2`.
+- Validation: all 326 Node tests passed with `node --test --test-concurrency=1 tests/*.test.mjs`; serial execution avoids the SQL test processes' parallel memory exhaustion. Auth tests execute the actual session-sync functions for concurrency and late-result isolation. JS syntax and diff checks passed. Android: 1,338 passed / 9 existing log-dependent skips / 0 failures; debug, lint and signed release build passed.
+- This fixes confirmed synchronization gaps in the source. The user's specific device incident has not been reproduced on a phone.

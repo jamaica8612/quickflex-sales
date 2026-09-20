@@ -250,6 +250,7 @@ let nativeAuthSubscription = null;
 let nativeLogoutInProgress = false;
 let nativeSessionSyncPromise = null;
 let nativeSessionSyncTail = Promise.resolve();
+let nativeSessionSyncRequested = false;
 let accountBootTask = null;
 let workPreferencesSaveTask = null;
 let accountEpoch = 0;
@@ -974,6 +975,7 @@ function applyAuthSession(session, { event = "", scheduleBoot = true } = {}) {
   const signedOut = event === "SIGNED_OUT" || !nextUserId;
   authEventEpoch += 1;
   if (accountChanged || signedOut) {
+    nativeSessionSyncRequested = false;
     accountEpoch += 1;
     clearUserScopedState();
   }
@@ -1770,6 +1772,16 @@ function syncNativeSession(session, expectedAuthEpoch = authEventEpoch) {
   nativeSessionSyncTail = queuedSync.catch(() => false);
   return queuedSync;
 }
+function flushNativeSessionSyncRequest() {
+  if (!nativeSessionSyncRequested || !state.db || !window.QuickFlexNative?.postMessage) {
+    return Promise.resolve(false);
+  }
+  return syncCurrentSessionToNative();
+}
+function requestNativeSessionSync() {
+  nativeSessionSyncRequested = true;
+  return flushNativeSessionSyncRequest().catch(() => false);
+}
 function bindNativeAuthSync(client) {
   nativeAuthSubscription?.unsubscribe?.();
   const { data } = client.auth.onAuthStateChange((event, session) => {
@@ -1789,7 +1801,7 @@ function bindNativeAuthSync(client) {
   nativeAuthSubscription = data?.subscription || null;
 }
 async function syncCurrentSessionToNative() {
-  if (!state.db || !window.QuickFlexNative?.postMessage) return;
+  if (!state.db || !window.QuickFlexNative?.postMessage) return false;
   if (nativeSessionSyncPromise) return nativeSessionSyncPromise;
   const expectedAuthEpoch = authEventEpoch;
   const expectedUserId = currentUserId();
@@ -1799,6 +1811,7 @@ async function syncCurrentSessionToNative() {
     let session = data?.session || null;
     if (!isAuthOperationCurrent(expectedAuthEpoch, authEventEpoch, expectedUserId, state.session)) return false;
     if (!session) {
+      nativeSessionSyncRequested = false;
       applyAuthSession(null, { event: "SIGNED_OUT", scheduleBoot: false });
       return false;
     }
@@ -1813,10 +1826,12 @@ async function syncCurrentSessionToNative() {
     if (!session || sessionUserId(session) !== expectedUserId) return false;
     if (!isAuthOperationCurrent(expectedAuthEpoch, authEventEpoch, expectedUserId, state.session)) return false;
     const transition = applyAuthSession(session, { event: "SESSION_OBSERVED", scheduleBoot: false });
-    return syncNativeSession(session, transition.authEpoch);
+    const sent = await syncNativeSession(session, transition.authEpoch);
+    if (sent) nativeSessionSyncRequested = false;
+    return sent;
   })();
   try {
-    await nativeSessionSyncPromise;
+    return await nativeSessionSyncPromise;
   } finally {
     nativeSessionSyncPromise = null;
   }
@@ -2037,7 +2052,8 @@ async function connectDb(url, key, persist = false) {
   const { data, error } = await client.auth.getSession();
   if (error) throw error;
   applyAuthSession(data.session, { event: "SESSION_OBSERVED" });
-  await syncCurrentSessionToNative();
+  nativeSessionSyncRequested = true;
+  await flushNativeSessionSyncRequest();
   if (state.session && (state.passwordRecovery || isPasswordRecoveryUrl())) {
     showAuth(true);
     setAuthMode("reset");
@@ -5846,13 +5862,20 @@ function bindEvents() {
     if (event.target === el.measurementGuideOverlay) closeMeasurementGuide();
   });
   document.addEventListener("visibilitychange", async () => {
-    if (document.visibilityState !== "visible" || el.app.dataset.view !== "measurement" || !currentUserId()) return;
+    if (document.visibilityState !== "visible") return;
+    void requestNativeSessionSync();
+    if (el.app.dataset.view !== "measurement" || !currentUserId()) return;
     refreshMeasurementAppAvailability();
     await refreshAfterNativeMeasurement();
   });
-  window.addEventListener("quickflex-native-resume", refreshAfterNativeMeasurement);
+  window.addEventListener("quickflex-native-resume", () => {
+    void requestNativeSessionSync();
+    void refreshAfterNativeMeasurement();
+  });
   window.addEventListener("quickflex-native-synced", refreshAfterNativeMeasurement);
-  window.addEventListener("quickflex-native-session-request", syncCurrentSessionToNative);
+  window.addEventListener("quickflex-native-session-request", () => {
+    void requestNativeSessionSync();
+  });
 }
 
 async function init() {
