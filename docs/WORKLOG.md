@@ -1363,3 +1363,10 @@ Browser checks:
 - The paired Android worktree `C:\work\quickflex-team-live-android-20260920` rechecks existing work identity and requests session recovery in place. New APK: `artifacts/beta-1.17/QuickFlex-Beta-1.17-session-fix.apk`, versionCode 139, SHA-256 `cda0e322acbdc4dfde40941a40cafaf586a4d99e1fdb752817bbab73f5c81bd2`.
 - Validation: all 326 Node tests passed with `node --test --test-concurrency=1 tests/*.test.mjs`; serial execution avoids the SQL test processes' parallel memory exhaustion. Auth tests execute the actual session-sync functions for concurrency and late-result isolation. JS syntax and diff checks passed. Android: 1,338 passed / 9 existing log-dependent skips / 0 failures; debug, lint and signed release build passed.
 - This fixes confirmed synchronization gaps in the source. The user's specific device incident has not been reproduced on a phone.
+
+## 2026-09-20 - Authorized Beta 1.17 / PWA 1.0.78 publication
+
+- User authorized publication after the revised APK and tests were complete. Advance visible Android labels and download/release links to `android-beta-1.17/flexnote-beta-1.17.apk`.
+- Publish exactly one APK asset before advancing Pages main. The automatic updater reads the non-draft GitHub Releases list, selects Beta 1.17, and validates the downloaded package/version/signature before installation.
+- Release artifact is byte-identical to the verified session-fix APK above: 15,007,252 bytes, versionCode 139, SHA-256 `cda0e322acbdc4dfde40941a40cafaf586a4d99e1fdb752817bbab73f5c81bd2`; signer matches Beta 1.16. Android source commit: `17ccffb`.
+- Rechecked production migration history: both `20260920021710` and `20260920021733` are present. This publication does not reapply migrations or redeploy unrelated server functions.
