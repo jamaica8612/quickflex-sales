@@ -1347,3 +1347,10 @@ Browser checks:
 - Keep record-edit actions at 44px and retain their arrow; use the common status typography. Android preserves stable route identities while aligning component styling and integrating recovery/pending/finish fixes.
 - Applied only the intended migration, aligned local version with remote 20260920012920, and deployed OCR v35 / Calendar v6. Verified RPC restrictions, private-table RLS, unauthenticated denial and no new security warnings.
 - Release sequence publishes APK before frontend download links. See docs/diagnosis-design-release-20260920.md for checks, deployment evidence and remaining scope.
+
+## 2026-09-20 - Phone progress and cancellation-bearing detail recovery
+
+- Added owner-only, opt-in multi-phone live progress RPCs without connecting them to sales or finance. Android Beta 1.17 is prepared in `C:\work\quickflex-team-live-android-20260920`; official APK/update links remain unchanged.
+- Recovered absent detailed-route quantities only from a work's complete, unambiguous evidence. Supplied detail values and source receipts remain authoritative.
+- Applied migrations `20260920021710` and `20260920021733` to the linked production project. Verified the reported 2026-09-19 calendar row shows 316C01 137 with cancellation 1 and 316C02 59; financial and source fingerprints stayed unchanged.
+- Relevant tests: 45 passed; JS syntax and diff checks passed. Deployment details: [team-progress-deployment-20260920.md](team-progress-deployment-20260920.md).
