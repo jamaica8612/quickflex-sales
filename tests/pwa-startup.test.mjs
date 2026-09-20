@@ -83,6 +83,7 @@ test('stale account result cannot dismiss splash',async()=>{
 test('initial HTML hides and inerts app before any auth script executes',()=>{
   assert.match(html,/<html[^>]*data-startup/);assert.match(html,/<div class="app"[^>]*inert aria-hidden="true"/);
   assert.ok(html.indexOf('id="startupSplash"')<html.indexOf('id="app"'));
-  assert.ok(html.indexOf('src/startup.js')<html.indexOf('supabase-js'));
+  const sdk = html.indexOf('src/vendor/supabase-2.116.0.js');
+  assert.ok(sdk >= 0 && html.indexOf('src/startup.js') < sdk);
   assert.match(html,/startup-tagline">배송의 모든 기록/);
 });

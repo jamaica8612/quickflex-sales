@@ -25,6 +25,7 @@ export const TABLES = {
 
 export const RPC = {
   replaceManualDayRecord: "quickflex_replace_manual_day_record",
+  replaceManualDayRecordChecked: "quickflex_replace_manual_day_record_checked",
   replaceAutomaticSalesOverride: "quickflex_replace_automatic_sales_override",
   replaceTeamSalesOverride: "quickflex_replace_team_sales_override",
   updateSalesDay: "quickflex_update_sales_day",

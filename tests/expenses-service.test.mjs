@@ -51,3 +51,47 @@ test("orphan cleanup reports Storage remove response errors", async () => {
     return true;
   });
 });
+
+test("monthly lists include undated trashed drafts when the trash view requests them", async () => {
+  const userId = "11111111-1111-4111-8111-111111111111";
+  const queries = [];
+  const db = {
+    auth: { getUser: async () => ({ data: { user: { id: userId } }, error: null }) },
+    rpc() {}, storage: {},
+    from: () => {
+      const query = { filters: [] };
+      for (const method of ["select", "eq", "order", "not", "gte", "lte", "neq", "is"]) {
+        query[method] = (...args) => { query.filters.push([method, ...args]); return query; };
+      }
+      query.range = async () => { queries.push(query.filters); return { data: [], error: null }; };
+      return query;
+    },
+  };
+  const service = createExpenseService(db);
+  await service.list({ from: "2026-09-01", to: "2026-09-30", includeDrafts: true, includeTrashed: true });
+  assert.ok(queries.some((filters) => filters.some(([method, field, value]) => method === "eq" && field === "status" && value === "trashed")
+    && filters.some(([method, field, value]) => method === "is" && field === "actual_date" && value === null)));
+});
+
+test("monthly lists load an original expense referenced by an in-period adjustment", async () => {
+  const userId = "11111111-1111-4111-8111-111111111111";
+  const expenseId = "22222222-2222-4222-8222-222222222222";
+  const seen = [];
+  const db = {
+    auth: { getUser: async () => ({ data: { user: { id: userId } }, error: null }) }, rpc() {}, storage: {},
+    from: (table) => {
+      const query = { filters: [] };
+      for (const method of ["select", "eq", "order", "not", "gte", "lte", "neq", "is", "in"]) {
+        query[method] = (...args) => { query.filters.push([method, ...args]); return query; };
+      }
+      query.range = async () => {
+        seen.push([table, query.filters]);
+        if (table === "quickflex_expense_adjustments") return { data: [{ expense_id: expenseId }], error: null };
+        return { data: [], error: null };
+      };
+      return query;
+    },
+  };
+  await createExpenseService(db).list({ from: "2026-09-01", to: "2026-09-30" });
+  assert.ok(seen.some(([table, filters]) => table === "quickflex_expenses" && filters.some(([method, field, ids]) => method === "in" && field === "id" && ids.includes(expenseId))));
+});

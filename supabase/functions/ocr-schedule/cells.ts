@@ -6,7 +6,7 @@
 //   GOOGLE_CLOUD_VISION_API_KEY (1순위) 또는 CLOUD_VISION_API_KEY (호환)
 //
 // Cloud Vision은 단일 images:annotate 호출에 여러 image request를 배열로 받을 수 있다 (권장 최대 16개).
-// 16개씩 청크로 잘라 Promise.all 로 병렬 호출한다.
+// 16개씩 청크로 나누고 동시에 최대 2개 배치만 처리한다.
 
 import type { CellOcrInput, CellOcrResult, CellOcrResponse } from "./types.ts";
 
@@ -78,6 +78,15 @@ export async function handleCellsOcr(cells: CellOcrInput[]): Promise<CellOcrResp
   if (!valid.length) return { provider: "cloud-vision", results: [] };
 
   const groups = chunk(valid, BATCH_SIZE);
-  const settled = await Promise.all(groups.map((g) => callVisionBatch(apiKey, g)));
+  const settled: CellOcrResult[][] = new Array(groups.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(2, groups.length) }, async () => {
+    for (;;) {
+      const index = next++;
+      if (index >= groups.length) break;
+      try { settled[index] = await callVisionBatch(apiKey, groups[index]); }
+      catch { settled[index] = groups[index].map((cell) => ({ id: cell.id, text: "", confidence: -1 })); }
+    }
+  }));
   return { provider: "cloud-vision", results: settled.flat() };
 }

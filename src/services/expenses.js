@@ -70,6 +70,19 @@ export function createExpenseService(db, options = {}) {
     }
   }
 
+  async function collectAdjustmentExpenseIds(userId, from, to) {
+    const ids = [];
+    for (let offset = 0; ; offset += 1000) {
+      let query = db.from("quickflex_expense_adjustments").select("expense_id").eq("user_id", userId);
+      if (from) query = query.gte("actual_date", from);
+      if (to) query = query.lte("actual_date", to);
+      const { data, error } = await query.range(offset, offset + 999);
+      if (error) throw new Error(errorMessage(error, "Expense adjustments could not be loaded"));
+      ids.push(...(data || []).map((row) => row.expense_id).filter(isExpenseUuid));
+      if ((data || []).length < 1000) return [...new Set(ids)];
+    }
+  }
+
   return {
     async list({ from, to, includeDrafts = true, includeTrashed = false } = {}) {
       const userId = await requireUserId(db);
@@ -94,6 +107,16 @@ export function createExpenseService(db, options = {}) {
         });
       if (includeDrafts && (from || to)) {
         rows.push(...await collectRows(() => base().eq("status", "draft").is("actual_date", null)));
+      }
+      if (includeTrashed && (from || to)) {
+        rows.push(...await collectRows(() => base().eq("status", "trashed").is("actual_date", null)));
+      }
+      if (from || to) {
+        const adjustmentExpenseIds = await collectAdjustmentExpenseIds(userId, from, to);
+        for (let offset = 0; offset < adjustmentExpenseIds.length; offset += 100) {
+          const ids = adjustmentExpenseIds.slice(offset, offset + 100);
+          rows.push(...await collectRows(() => base().in("id", ids)));
+        }
       }
       if (await requireUserId(db) !== userId) throw new Error("Account changed while loading expenses");
       return [...new Map(rows.map((row) => [row.id, normalizeExpenseRow(row)])).values()]

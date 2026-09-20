@@ -4,6 +4,7 @@ export function bindCalendarEvents(ctx) {
     state,
     addDays,
     confirmOffWithExistingCounts,
+    confirmLeaveRecordDraft,
     defaultEntryRows,
     discardRecordDraft,
     getRecord,
@@ -35,7 +36,7 @@ export function bindCalendarEvents(ctx) {
     renderAll();
   });
   el.openRecord.addEventListener("click", () => { startRecordDraft(); showView("record"); });
-  el.backToCalendar.addEventListener("click", () => { discardRecordDraft(); renderAll(); showView("home"); });
-  el.prevDay.addEventListener("click", () => { discardRecordDraft(); selectDate(addDays(state.selectedDate, -1)); renderEntryForm(); });
-  el.nextDay.addEventListener("click", () => { discardRecordDraft(); selectDate(addDays(state.selectedDate, 1)); renderEntryForm(); });
+  el.backToCalendar.addEventListener("click", () => { if (!confirmLeaveRecordDraft()) return; discardRecordDraft(); renderAll(); showView("home"); });
+  el.prevDay.addEventListener("click", () => { if (!confirmLeaveRecordDraft()) return; discardRecordDraft(); selectDate(addDays(state.selectedDate, -1)); renderEntryForm(); });
+  el.nextDay.addEventListener("click", () => { if (!confirmLeaveRecordDraft()) return; discardRecordDraft(); selectDate(addDays(state.selectedDate, 1)); renderEntryForm(); });
 }

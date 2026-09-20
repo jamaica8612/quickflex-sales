@@ -79,6 +79,7 @@ function createSaveHarness() {
     persistRates: (...args) => hooks.persistRates(...args),
     loadFromDb: (...args) => hooks.loadFromDb(...args),
     setDbBadge: (...args) => badges.push(args),
+    setSaveFeedback: (status) => { state.saveStatus = status; },
     cloneRecord: (record) => JSON.parse(JSON.stringify(record)),
     getRecord: (dateKey) => state.entries[dateKey] || { off: false, rows: [], automaticWorks: [] },
     hasAutomaticEntries: (record) => Boolean(
@@ -117,6 +118,7 @@ test("persist failure keeps the date dirty and never reports a saved badge", asy
   assert.equal(harness.state.pendingDates.size, 1);
   assert.equal(harness.badges.length, 0, "a failed write must not show a saved badge");
   assert.equal(harness.state.flushPromise, null, "the failed promise must be released for retry");
+  assert.equal(harness.state.saveStatus, "failed");
 });
 
 test("an empty flush followed by a same-tick dirty date is not lost", async () => {
@@ -601,7 +603,7 @@ test("manual dates are replaced through one atomic RPC without direct route dele
   const db = {
     rpc(name, payload) {
       calls.push({ op: "rpc", name, payload });
-      return Promise.resolve({ data: true, error: null });
+      return Promise.resolve({ data: { user_id: "user-a", work_date: "2026-09-01", updated_at: "2026-09-19T09:00:00Z" }, error: null });
     },
     from(table) {
       calls.push({ op: "from", table });
@@ -611,7 +613,7 @@ test("manual dates are replaced through one atomic RPC without direct route dele
   const state = { db, entries: { "2026-09-01": record } };
   const { persistDay } = loadActualFunctions(["persistDay"], {
     state,
-    RPC: { replaceManualDayRecord: "quickflex_replace_manual_day_record" },
+    RPC: { replaceManualDayRecordChecked: "quickflex_replace_manual_day_record_checked" },
     TABLES: { workResults: "work-results", items: "day-items", days: "days" },
     captureAccountContext: () => ({ userId: "user-a" }),
     isAccountContextCurrent: () => true,
@@ -631,7 +633,9 @@ test("manual dates are replaced through one atomic RPC without direct route dele
 
   assert.equal(await persistDay("2026-09-01", { userId: "user-a" }), true);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].name, "quickflex_replace_manual_day_record");
+  assert.equal(calls[0].name, "quickflex_replace_manual_day_record_checked");
+  assert.equal(calls[0].payload.p_expected_updated_at, null);
+  assert.equal(record.manualDayUpdatedAt, "2026-09-19T09:00:00Z");
   assert.equal(calls[0].payload.p_delete_day, false);
   assert.equal(calls[0].payload.p_freshbag_mode, "dual");
   assert.equal(JSON.stringify(calls[0].payload.p_items), JSON.stringify([{
@@ -643,7 +647,7 @@ test("manual dates are replaced through one atomic RPC without direct route dele
   }]));
 });
 
-test("a 55000 automatic-ledger lock reloads that date but preserves unrelated dirty input", async () => {
+test("a new automatic-ledger conflict preserves both dates until explicit comparison", async () => {
   const harness = createSaveHarness();
   const lockedDate = "2026-08-28";
   const unrelatedDate = "2026-08-29";
@@ -682,10 +686,12 @@ test("a 55000 automatic-ledger lock reloads that date but preserves unrelated di
 
   assert.equal(caught?.code, "55000");
   assert.equal(caught?.quickflexHandled, true);
-  assert.equal(harness.state.pendingDates.has(lockedDate), false);
+  assert.equal(harness.state.pendingDates.has(lockedDate), true);
   assert.equal(harness.state.pendingDates.has(unrelatedDate), true);
-  assert.equal(harness.state.pendingDates.size, 1);
-  assert.equal(harness.state.entries[lockedDate].automaticWorks[0].workId, "android-work");
+  assert.equal(harness.state.pendingDates.size, 2);
+  assert.equal(harness.state.entries[lockedDate].rows[0].count, "7");
+  assert.equal(harness.state.saveConflict, true);
+  assert.equal(harness.state.saveStatus, "conflict");
   assert.equal(harness.state.entries[unrelatedDate].rows[0].count, "9", "the unsaved local edit survives reload");
   assert.equal(harness.badges.length, 0);
   assert.equal(harness.toasts.length, 1);

@@ -12,8 +12,13 @@ export function extractJsonObject(text: string) {
   }
 }
 
-function normalizeRouteCode(value: unknown): string {
-  return String(value ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+// Aligned with src/lib/route.js; keep Edge deployment independent of browser files.
+export function parseScheduleRoutes(value: unknown): string[] {
+  const text = (Array.isArray(value) ? value.join(" ") : String(value ?? "")).toUpperCase();
+  const groups = text.match(/(?<![0-9A-Z])(?:\d{3}[A-Z]+)+(?![0-9A-Z])/g) || [];
+  return [...new Set(groups.flatMap((group) =>
+    (group.match(/\d{3}[A-Z]+/g) || []).flatMap((route) =>
+      route.slice(3).split("").map((suffix) => route.slice(0, 3) + suffix))))];
 }
 
 export function normalizeScheduleMap(parsed: unknown): ScheduleMap {
@@ -29,10 +34,9 @@ export function normalizeScheduleMap(parsed: unknown): ScheduleMap {
       const dateKey = String(day.date ?? "").trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
       if (Array.isArray(day.routes)) {
-        const list = day.routes.map(normalizeRouteCode).filter((route) => /^\d{3}[A-Z]$/.test(route));
-        schedule[dateKey] = list.length ? list : null;
+        schedule[dateKey] = parseScheduleRoutes(day.routes);
       } else {
-        schedule[dateKey] = null;
+        schedule[dateKey] = day.routes === null ? null : parseScheduleRoutes(day.routes);
       }
     });
     return schedule;
@@ -42,10 +46,9 @@ export function normalizeScheduleMap(parsed: unknown): ScheduleMap {
   Object.entries(parsed as Record<string, unknown>).forEach(([dateKey, routes]) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
     if (Array.isArray(routes)) {
-      const list = routes.map(normalizeRouteCode).filter((route) => /^\d{3}[A-Z]$/.test(route));
-      schedule[dateKey] = list.length ? list : null;
+      schedule[dateKey] = parseScheduleRoutes(routes);
     } else {
-      schedule[dateKey] = null;
+      schedule[dateKey] = routes === null ? null : parseScheduleRoutes(routes);
     }
   });
 

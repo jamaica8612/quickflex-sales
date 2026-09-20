@@ -389,7 +389,14 @@ async function processJob(job: Record<string, unknown>) {
   }).eq("user_id", userId).eq("connection_status", "connected")
     .or(`sync_lease_until.is.null,sync_lease_until.lt.${now.toISOString()}`).select("*").maybeSingle();
   if (error) throw error;
-  if (!connection) return { disabled: false, deferred: true, conflicts: 0 };
+  if (!connection) {
+    const { data: current, error: currentError } = await db.from("quickflex_calendar_connections")
+      .select("connection_status").eq("user_id", userId).maybeSingle();
+    if (currentError) throw currentError;
+    // Only a connected account with an occupied lease should retry indefinitely.
+    if (current?.connection_status === "connected") return { disabled: false, deferred: true, conflicts: 0 };
+    return { disabled: true, deferred: false, conflicts: 0, reason: "Google 캘린더 연결이 끊겨 동기화를 중단했습니다. 다시 연결한 뒤 동기화해 주세요." };
+  }
   try {
     const payload = job.payload as { days: DaySnapshot[]; settings: Settings; force?: boolean };
     const token = await refreshAccessToken(userId, connection);
@@ -434,7 +441,7 @@ async function runQueuedJobs(request: Request) {
       if (result.disabled) {
         await db.from("quickflex_calendar_sync_jobs").update({
           status: "failed", active_key: null, finished_at: new Date().toISOString(),
-          error_message: "계정이 승인 상태가 아니어서 캘린더 동기화를 중단했습니다.", updated_at: new Date().toISOString(),
+          error_message: result.reason || "계정이 승인 상태가 아니어서 캘린더 동기화를 중단했습니다.", updated_at: new Date().toISOString(),
         }).eq("id", job.id);
         continue;
       }
