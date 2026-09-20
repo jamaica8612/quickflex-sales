@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   calendarSyncShouldPoll,
   calendarSyncStatusCopy,
+  consumeCalendarOauthResult,
   mountCalendarSync,
 } from "../src/ui/calendar-sync.js";
 
@@ -11,6 +12,14 @@ test("connected calendar status prioritizes pending server work", () => {
     state: "connected", pendingJobs: 2, lastJobStatus: "failed", lastJobError: "old failure",
     lastSuccessfulAt: "2026-09-13T06:00:00.000Z",
   }), "동기화 중 · 서버 처리 대기 2건");
+});
+
+test("OAuth result is consumed once without dropping unrelated URL fields", () => {
+  const calls = [];
+  const history = { state: { view: "settings" }, replaceState(...args) { calls.push(args); } };
+  assert.equal(consumeCalendarOauthResult({ href: "https://example.test/app?view=settings&calendar=connected#calendar" }, history), "connected");
+  assert.deepEqual(calls, [[history.state, "", "/app?view=settings#calendar"]]);
+  assert.equal(consumeCalendarOauthResult({ href: "https://example.test/app?view=settings" }, history), null);
 });
 
 test("completed calendar status reports the latest failure or conflict before an older success", () => {

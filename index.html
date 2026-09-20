@@ -83,6 +83,13 @@
     </section>
     <script src="./src/startup.js?v=2"></script>
     <div class="app" id="app" data-view="home" data-driver-type="backup" inert aria-hidden="true">
+      <section class="save-feedback" id="saveFeedback" hidden aria-label="기록 저장 상태">
+        <p id="saveFeedbackText" role="status" aria-live="polite"></p>
+        <button class="secondary-btn" id="retryPendingSave" type="button" hidden>다시 저장</button>
+        <button class="secondary-btn" id="useServerRecord" type="button" hidden>서버 기록 보기</button>
+        <button class="secondary-btn" id="showRetainedEdits" type="button" hidden>보관 입력 보기</button>
+        <textarea id="retainedEditsText" aria-label="보관된 입력 — 복사해서 보관하세요" readonly hidden></textarea>
+      </section>
       <section class="view view-home">
         <header class="home-header">
           <div class="home-top">
@@ -637,7 +644,8 @@
       <div class="overlay" id="pendingOverlay" aria-hidden="true" inert>
         <div class="modal-card pending-card" role="dialog" aria-modal="true" aria-labelledby="pendingTitle" tabindex="-1">
           <h2 id="pendingTitle">승인 대기 중</h2>
-          <p class="hint">관리자가 계정을 승인하면 사용할 수 있습니다.</p>
+          <p class="hint" id="pendingDescription">관리자가 계정을 승인하면 사용할 수 있습니다.</p>
+          <button id="pendingRefresh" class="secondary-btn wide" type="button">다시 확인</button>
           <button id="pendingLogout" class="secondary-btn wide">로그아웃</button>
         </div>
       </div>
@@ -757,7 +765,7 @@
       </div>
     </template>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./src/vendor/supabase-2.116.0.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
     <script type="module" src="./src/main.js?v=1.0.75"></script>

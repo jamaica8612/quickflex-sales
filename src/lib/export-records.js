@@ -11,6 +11,9 @@ const EVIDENCE_LABELS = {
   unknown: "미확인", card: "카드 영수증", cash_receipt: "현금영수증",
   tax_invoice: "세금계산서", receipt: "일반 영수증", other: "기타",
 };
+const USAGE_LABELS = { business: "업무용", personal: "개인용", mixed: "업무 · 개인 혼합" };
+const STATUS_LABELS = { draft: "작성 중", confirmed: "확정", trashed: "휴지통" };
+const ADJUSTMENT_LABELS = { refund: "환불", reimbursement: "비용 보전" };
 
 export class ExportSizeLimitError extends Error {
   constructor({ estimatedBytes, maxBytes, suggestedRanges }) {
@@ -71,7 +74,7 @@ function excelDate(value) {
   const text = dateText(value);
   if (!text) return null;
   const [year, month, day] = text.split("-").map(Number);
-  return new Date(year, month - 1, day);
+  return new Date(Date.UTC(year, month - 1, day));
 }
 
 function inRange(value, from, to) {
@@ -143,7 +146,7 @@ async function loadExcelJS() {
     const module = await import("exceljs");
     return module.default || module;
   }
-  await loadBrowserScript(new URL("../../vendor/exceljs.min.js", import.meta.url));
+  await loadBrowserScript(new URL("../vendor/exceljs.min.js", import.meta.url));
   if (!globalThis.ExcelJS) throw new Error("엑셀 생성 라이브러리를 불러오지 못했습니다.");
   return globalThis.ExcelJS;
 }
@@ -151,7 +154,7 @@ async function loadExcelJS() {
 async function loadFflate() {
   if (globalThis.fflate) return globalThis.fflate;
   if (typeof process !== "undefined" && process.versions?.node) return import("fflate");
-  await loadBrowserScript(new URL("../../vendor/fflate.min.js", import.meta.url));
+  await loadBrowserScript(new URL("../vendor/fflate.min.js", import.meta.url));
   if (!globalThis.fflate) throw new Error("압축 라이브러리를 불러오지 못했습니다.");
   return globalThis.fflate;
 }
@@ -200,19 +203,20 @@ function formatSheet(sheet, { dateColumns = [], moneyColumns = [] } = {}) {
   });
 }
 
-function reviewReasons(expense) {
-  const reasons = [];
-  if (expense.status === "draft") reasons.push("초안");
-  if (!dateText(expense.actual_date)) reasons.push("거래일 미확정");
-  if (numberOrNull(expense.gross_amount) == null) reasons.push("총액 미확정");
-  if (!expense.category) reasons.push("분류 미확인");
-  if (expense.usage_type !== "personal" && numberOrNull(expense.business_amount) == null) reasons.push("업무 금액 미확정");
-  if (!Array.isArray(expense.receipts) || expense.receipts.length === 0) reasons.push("증빙 미첨부");
-  if (!expense.evidence_type || expense.evidence_type === "unknown") reasons.push("증빙 종류 미확인");
-  return reasons;
+export function expenseReview(expense) {
+  const required = [];
+  const advisory = [];
+  if (expense.status === "draft") required.push("초안");
+  if (!dateText(expense.actual_date)) required.push("거래일 미확정");
+  if (numberOrNull(expense.gross_amount) == null) required.push("총액 미확정");
+  if (!expense.category) advisory.push("분류 확인 권장");
+  if (expense.usage_type !== "personal" && numberOrNull(expense.business_amount) == null) advisory.push("업무 사용 금액 미입력");
+  if (!Array.isArray(expense.receipts) || expense.receipts.length === 0) advisory.push("증빙 미첨부");
+  if (!expense.evidence_type || expense.evidence_type === "unknown") advisory.push("증빙 종류 미입력");
+  return { required, advisory };
 }
 
-function buildRows({ sales, expenses, includeReceipts }) {
+function buildRows({ sales, expenses, includeReceipts, from, to }) {
   const salesRows = sales.map((sale) => ({
     date: excelDate(sale.date),
     deliveryRevenue: numberOrNull(sale.deliveryRevenue),
@@ -226,13 +230,14 @@ function buildRows({ sales, expenses, includeReceipts }) {
       : "",
   }));
 
-  const expenseRows = expenses.map((expense) => ({
+  const inPeriodExpenses = expenses.filter((expense) => inRange(expenseDate(expense), from, to));
+  const expenseRows = inPeriodExpenses.map((expense) => ({
     id: safeText(expense.id), date: excelDate(expense.actual_date), merchant: safeText(expense.merchant),
     category: labeled(expense.category, CATEGORY_LABELS), gross: numberOrNull(expense.gross_amount),
     supply: numberOrNull(expense.supply_amount), vat: numberOrNull(expense.vat_amount),
-    business: numberOrNull(expense.business_amount), usage: safeText(expense.usage_type),
+    business: numberOrNull(expense.business_amount), usage: labeled(expense.usage_type, USAGE_LABELS), _usageType: expense.usage_type,
     payment: labeled(expense.payment_method, PAYMENT_LABELS), evidence: labeled(expense.evidence_type, EVIDENCE_LABELS),
-    status: safeText(expense.status), memo: safeText(expense.memo),
+    status: labeled(expense.status, STATUS_LABELS), memo: safeText(expense.memo),
   }));
 
   const adjustmentRows = [];
@@ -240,12 +245,14 @@ function buildRows({ sales, expenses, includeReceipts }) {
   const needsReviewRows = [];
   expenses.forEach((expense) => {
     for (const adjustment of expense.adjustments || []) {
+      if (!inRange(adjustment.actual_date, from, to)) continue;
       adjustmentRows.push({
-        expenseId: safeText(expense.id), id: safeText(adjustment.id), kind: safeText(adjustment.kind),
+        expenseId: safeText(expense.id), id: safeText(adjustment.id), kind: labeled(adjustment.kind, ADJUSTMENT_LABELS),
         date: excelDate(adjustment.actual_date), amount: numberOrNull(adjustment.amount), memo: safeText(adjustment.memo),
         _expenseStatus: expense.status,
       });
     }
+    if (!inRange(expenseDate(expense), from, to)) return;
     (expense.receipts || []).forEach((receipt, index) => {
       evidenceRows.push({
         expenseId: safeText(expense.id), receiptId: safeText(receipt.id), fileName: safeText(receipt.original_name),
@@ -255,17 +262,18 @@ function buildRows({ sales, expenses, includeReceipts }) {
         failureReason: "", _expense: expense, _receipt: receipt,
       });
     });
-    const reasons = reviewReasons(expense);
-    if (reasons.length) {
+    const review = expenseReview(expense);
+    if (review.required.length || review.advisory.length) {
       needsReviewRows.push({
         type: "지출", id: safeText(expense.id), referenceDate: excelDate(expense.actual_date || expense.created_at),
-        reasons: safeText(reasons.join(", ")), amount: numberOrNull(expense.gross_amount), memo: safeText(expense.memo),
+        level: review.required.length ? "확인 필요" : "참고",
+        reasons: safeText([...review.required, ...review.advisory].join(", ")), amount: numberOrNull(expense.gross_amount), memo: safeText(expense.memo),
       });
     }
   });
   sales.forEach((sale) => {
     if (numberOrNull(sale.revenue) == null) {
-      needsReviewRows.push({ type: "매출", id: safeText(sale.id || sale.date), referenceDate: excelDate(sale.date), reasons: "총매출 미확정", amount: null, memo: "" });
+      needsReviewRows.push({ type: "매출", id: safeText(sale.id || sale.date), referenceDate: excelDate(sale.date), level: "확인 필요", reasons: "총매출 미확정", amount: null, memo: "" });
     }
   });
   return { salesRows, expenseRows, adjustmentRows, evidenceRows, needsReviewRows };
@@ -284,15 +292,15 @@ async function receiptBytes(value) {
 
 function totals(rows) {
   const knownSales = rows.salesRows.filter((row) => row.revenue != null);
-  const confirmed = rows.expenseRows.filter((row) => row.status === "confirmed");
+  const confirmed = rows.expenseRows.filter((row) => row.status === STATUS_LABELS.confirmed);
   const confirmedAdjustments = rows.adjustmentRows.filter((row) => row._expenseStatus === "confirmed");
   return {
     sales: knownSales.reduce((sum, row) => sum + row.revenue, 0),
     confirmedGross: confirmed.filter((row) => row.gross != null).reduce((sum, row) => sum + row.gross, 0),
     confirmedBusiness: confirmed.filter((row) => row.business != null).reduce((sum, row) => sum + row.business, 0),
-    unknownBusinessCount: confirmed.filter((row) => row.usage !== "personal" && row.business == null).length,
-    refunds: confirmedAdjustments.filter((row) => row.kind === "refund" && row.amount != null).reduce((sum, row) => sum + row.amount, 0),
-    reimbursements: confirmedAdjustments.filter((row) => row.kind === "reimbursement" && row.amount != null).reduce((sum, row) => sum + row.amount, 0),
+    unknownBusinessCount: confirmed.filter((row) => row._usageType !== "personal" && row.business == null).length,
+    refunds: confirmedAdjustments.filter((row) => row.kind === ADJUSTMENT_LABELS.refund && row.amount != null).reduce((sum, row) => sum + row.amount, 0),
+    reimbursements: confirmedAdjustments.filter((row) => row.kind === ADJUSTMENT_LABELS.reimbursement && row.amount != null).reduce((sum, row) => sum + row.amount, 0),
   };
 }
 
@@ -305,13 +313,13 @@ function addWorkbookSheets(workbook, { rows, businessInfo, from, to, generatedAt
     ["상호/표시명", safeText(businessInfo.displayName || businessInfo.name)],
     ["사업자등록번호", safeText(businessInfo.registrationNumber)],
     ["기간 시작", excelDate(from)], ["기간 종료", excelDate(to)], ["생성 시각", generatedAt],
-    ["기록 매출", amounts.sales], ["확정 지출 총액(금액 확인분)", amounts.confirmedGross],
-    ["확정 업무 금액(금액 확인분)", amounts.confirmedBusiness], ["업무 금액 미확정 건수", amounts.unknownBusinessCount],
-    ["환불", amounts.refunds],
-    ["보전금", amounts.reimbursements], ["확인 필요 건수", rows.needsReviewRows.length],
-    ["집계 기준", "매출은 일별 정본의 총매출만 사용. 초안과 미확정 금액은 합계에서 제외."],
+    ["기록 매출", amounts.sales], ["확정 지출 원총액", amounts.confirmedGross],
+    ["확정 업무 사용 금액(입력분)", amounts.confirmedBusiness], ["업무 사용 금액 미입력 건수", amounts.unknownBusinessCount],
+    ["기간 내 환불", amounts.refunds],
+    ["기간 내 비용 보전", amounts.reimbursements], ["확인 필요 건수", rows.needsReviewRows.filter((row) => row.level === "확인 필요").length],
+    ["집계 기준", "매출은 일별 정본의 총매출만 사용합니다. 초안과 미확정 금액은 합계에서 제외하며, 환불·비용 보전은 처리일이 선택 기간 안인 경우만 별도 표시합니다."],
   ].forEach(([label, value]) => summary.addRow({ label, value }));
-  summary.getColumn(2).numFmt = '#,##0"원"';
+  [7, 8, 9, 11, 12].forEach((row) => { summary.getCell(`B${row}`).numFmt = '#,##0"원"'; });
   summary.getCell("B4").numFmt = "yyyy-mm-dd";
   summary.getCell("B5").numFmt = "yyyy-mm-dd";
   summary.getCell("B6").numFmt = "yyyy-mm-dd hh:mm";
@@ -355,11 +363,11 @@ function addWorkbookSheets(workbook, { rows, businessInfo, from, to, generatedAt
 
   const reviewSheet = worksheet(workbook, "needs_review", [
     { header: "자료 종류", key: "type", width: 12 }, { header: "기록 ID", key: "id", width: 28 },
-    { header: "기준일", key: "referenceDate", width: 13 }, { header: "확인 항목", key: "reasons", width: 40 },
+    { header: "구분", key: "level", width: 12 }, { header: "기준일", key: "referenceDate", width: 13 }, { header: "확인 항목", key: "reasons", width: 40 },
     { header: "기록 금액", key: "amount", width: 16 }, { header: "메모", key: "memo", width: 30 },
   ]);
   reviewSheet.addRows(rows.needsReviewRows);
-  formatSheet(reviewSheet, { dateColumns: [3], moneyColumns: [5] });
+  formatSheet(reviewSheet, { dateColumns: [4], moneyColumns: [6] });
 }
 
 export async function buildRecordsExport({
@@ -372,9 +380,11 @@ export async function buildRecordsExport({
   if (!Number.isFinite(maxArchiveBytes) || maxArchiveBytes <= 0) throw new TypeError("내보내기 크기 한도가 올바르지 않습니다.");
 
   const snapshotSales = snapshot(sales).filter((row) => inRange(row.date, from, to));
-  const snapshotExpenses = snapshot(expenses).filter((row) => inRange(expenseDate(row), from, to) && row.status !== "trashed");
+  const snapshotExpenses = snapshot(expenses).filter((row) => row.status !== "trashed" && (
+    inRange(expenseDate(row), from, to) || (row.adjustments || []).some((adjustment) => inRange(adjustment.actual_date, from, to))
+  ));
   const snapshotBusinessInfo = snapshot(businessInfo || {});
-  const rows = buildRows({ sales: snapshotSales, expenses: snapshotExpenses, includeReceipts });
+  const rows = buildRows({ sales: snapshotSales, expenses: snapshotExpenses, includeReceipts, from, to });
   const warnings = [];
   const evidenceFiles = {};
 
@@ -472,4 +482,4 @@ export async function downloadRecordsExport(options = {}) {
   return { fileName, blob, kind, manifest: built.manifest, warnings: built.warnings };
 }
 
-export const exportInternals = { safeText, numberOrNull, monthRanges, evidencePath };
+export const exportInternals = { safeText, numberOrNull, monthRanges, evidencePath, excelDate };

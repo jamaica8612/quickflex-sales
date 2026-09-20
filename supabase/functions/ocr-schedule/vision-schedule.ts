@@ -1,8 +1,8 @@
 import type { OcrHarnessInput, OcrHarnessResult, ScheduleMap } from "./types.ts";
 
 const VISION_ENDPOINT = "https://vision.googleapis.com/v1/images:annotate";
-const ROUTE_PATTERN = /\d{3}[A-Z]/g;
-const OFF_PATTERN = /휴무|OFF|^[\-X·]+$/i;
+import { parseScheduleRoutes } from "./utils.ts";
+const OFF_PATTERN = /^(?:휴무|OFF|[\-X·]+)$/i;
 
 type Vertex = { x?: number; y?: number };
 type BoundingBox = { vertices?: Vertex[]; normalizedVertices?: Vertex[] };
@@ -41,6 +41,7 @@ type HeaderDate = {
   day: number;
   x: number;
   month?: number;
+  year?: number;
   explicit: boolean;
 };
 
@@ -56,26 +57,20 @@ function dateKey(year: number, month: number, day: number): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-function dateKeyForHeader(year: number, inputMonth: number, headerDate: HeaderDate): string {
-  const month = headerDate.month || inputMonth;
-  let resolvedYear = year;
-  if (inputMonth === 1 && month === 12) resolvedYear -= 1;
-  if (inputMonth === 12 && month === 1) resolvedYear += 1;
+function dateKeyForHeader(year: number, inputMonth: number, headerDate: HeaderDate, fullCalendar: boolean): string {
+  const month = headerDate.month || (!fullCalendar && headerDate.day >= 26 ? (inputMonth === 1 ? 12 : inputMonth - 1) : inputMonth);
+  let resolvedYear = headerDate.year || year;
+  if (!headerDate.year && inputMonth === 1 && month === 12) resolvedYear -= 1;
+  if (!headerDate.year && inputMonth === 12 && month === 1) resolvedYear += 1;
+  const date = new Date(Date.UTC(resolvedYear, month - 1, headerDate.day));
+  if (resolvedYear < 2000 || resolvedYear > 2100 || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== headerDate.day) {
+    throw new Error("스케줄 헤더 날짜가 올바르지 않습니다. 날짜와 정산 월을 확인해 주세요.");
+  }
   return dateKey(resolvedYear, month, headerDate.day);
 }
 
 function normalizeText(value: string): string {
   return String(value || "").replace(/[\s\u00a0]/g, "").toUpperCase();
-}
-
-function normalizeRouteText(value: string): string {
-  return normalizeText(value).replace(/[^0-9A-Z]/g, "");
-}
-
-function uniqueRoutes(text: string): string[] {
-  const matches = normalizeRouteText(text).match(ROUTE_PATTERN) || [];
-  const seen = new Set<string>();
-  return matches.filter((route) => (seen.has(route) ? false : (seen.add(route), true)));
 }
 
 function boxFromVertices(box?: BoundingBox): { x: number; y: number; w: number; h: number } | null {
@@ -194,7 +189,15 @@ function buildRows(words: OcrWord[]): OcrRow[] {
 function parseHeaderDate(text: string): HeaderDate | null {
   const clean = normalizeText(text);
   if (/\d{3}[A-Z]/.test(clean)) return null;
-  const full = clean.match(/(\d{1,2})[./-](\d{1,2})/);
+  const dated = clean.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})(?:\(?[월화수목금토일]\)?)?$/);
+  if (dated) {
+    const year = Number(dated[1]), month = Number(dated[2]), day = Number(dated[3]);
+    if (year < 2000 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) {
+      throw new Error("스케줄 헤더 날짜가 올바르지 않습니다.");
+    }
+    return { year, month, day, x: 0, explicit: true };
+  }
+  const full = clean.match(/^(\d{1,2})[./-](\d{1,2})(?:\(?[월화수목금토일]\)?)?$/);
   if (full) {
     const month = Number(full[1]);
     const day = Number(full[2]);
@@ -278,19 +281,22 @@ function buildSchedule(
 ): { schedule: ScheduleMap; columns: Array<{ date: string; left: number; right: number }> } {
   const schedule: ScheduleMap = {};
   const columns: Array<{ date: string; left: number; right: number }> = [];
+  // Ascending headers beginning at 1 and extending past 25 describe a calendar month.
+  const fullCalendar = dates[0]?.day === 1 && dates.some((date) => date.day >= 26)
+    && dates.every((date, index) => index === 0 || date.day > dates[index - 1].day);
   dates.forEach((date, index) => {
     const { left, right } = columnBounds(dates, index);
     const text = ownerRow.words
       .filter((word) => word.cx >= left && word.cx < right)
       .map((word) => word.text)
       .join(" ");
-    const key = dateKeyForHeader(year, month, date);
+    const key = dateKeyForHeader(year, month, date, fullCalendar);
     columns.push({ date: key, left, right });
-    if (!text.trim() || OFF_PATTERN.test(normalizeText(text))) {
+    if (OFF_PATTERN.test(normalizeText(text))) {
       schedule[key] = null;
       return;
     }
-    const routes = uniqueRoutes(text);
+    const routes = parseScheduleRoutes(text);
     schedule[key] = routes;
   });
   return { schedule, columns };

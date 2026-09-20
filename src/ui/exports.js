@@ -1,24 +1,27 @@
-import { downloadRecordsExport, ExportCancelledError, ExportSizeLimitError } from "../lib/export-records.js";
+import { downloadRecordsExport, expenseReview, ExportCancelledError, ExportSizeLimitError } from "../lib/export-records.js";
 
 function formatWon(value) {
   return `${new Intl.NumberFormat("ko-KR").format(value)}원`;
 }
 
-function summarize({ sales = [], expenses = [] }, from, to) {
+export function summarize({ sales = [], expenses = [] }, from, to) {
   const inRange = (value) => typeof value === "string" && value.slice(0, 10) >= from && value.slice(0, 10) <= to;
   const periodSales = sales.filter((item) => inRange(item.date));
-  const periodExpenses = expenses.filter((item) => item.status !== "trashed" && inRange(item.actual_date || item.created_at));
+  const activeExpenses = expenses.filter((item) => item.status !== "trashed");
+  const periodExpenses = activeExpenses.filter((item) => inRange(item.actual_date || item.created_at));
+  const periodAdjustments = activeExpenses.flatMap((item) => item.adjustments || []).filter((item) => inRange(item.actual_date));
   const knownSales = periodSales.filter((item) => item.revenue != null && item.revenue !== "");
   const confirmed = periodExpenses.filter((item) => item.status === "confirmed" && item.gross_amount != null && item.gross_amount !== "");
   const receiptCount = periodExpenses.reduce((sum, item) => sum + (item.receipts?.length || 0), 0);
-  const reviewCount = periodExpenses.filter((item) => (
-    item.status === "draft" || !item.actual_date || item.gross_amount == null || !item.category ||
-    (item.usage_type !== "personal" && item.business_amount == null) || !item.receipts?.length
-  )).length + periodSales.filter((item) => item.revenue == null || item.revenue === "").length;
+  const reviewCount = periodExpenses.filter((item) => expenseReview(item).required.length > 0).length
+    + periodSales.filter((item) => item.revenue == null || item.revenue === "").length;
   return {
     salesCount: periodSales.length,
     expenseCount: periodExpenses.length,
     receiptCount,
+    adjustmentCount: periodAdjustments.length,
+    refundTotal: periodAdjustments.filter((item) => item.kind === "refund").reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    reimbursementTotal: periodAdjustments.filter((item) => item.kind === "reimbursement").reduce((sum, item) => sum + Number(item.amount || 0), 0),
     reviewCount,
     salesTotal: knownSales.reduce((sum, item) => sum + Number(item.revenue), 0),
     expenseTotal: confirmed.reduce((sum, item) => sum + Number(item.gross_amount), 0),
@@ -152,11 +155,12 @@ export function createExportsController({ host, getExportInput, fetchReceipt, on
       previewPanel.innerHTML = `
         <dl>
           <div><dt>기록 매출</dt><dd>${formatWon(data.salesTotal)}<small>${data.salesCount}일</small></dd></div>
-          <div><dt>확정 지출</dt><dd>${formatWon(data.expenseTotal)}<small>${data.expenseCount}건</small></dd></div>
+          <div><dt>확정 지출 원총액</dt><dd>${formatWon(data.expenseTotal)}<small>${data.expenseCount}건</small></dd></div>
+          <div><dt>기간 내 조정</dt><dd>${data.adjustmentCount}<small>건</small></dd></div>
           <div><dt>증빙</dt><dd>${data.receiptCount}<small>개</small></dd></div>
           <div${data.reviewCount ? ' class="needs-review"' : ''}><dt>확인 필요</dt><dd>${data.reviewCount}<small>건</small></dd></div>
         </dl>
-        <p>초안과 미확정 금액은 합계에서 제외됩니다.</p>`;
+        <p>초안과 미확정 금액은 합계에서 제외됩니다. 기간 내 환불 ${formatWon(data.refundTotal)}, 비용 보전 ${formatWon(data.reimbursementTotal)}은 처리일 기준으로 XLSX에 별도 표시됩니다.</p>`;
       previewPanel.hidden = false;
       setStatus("미리보기를 갱신했습니다.");
     }

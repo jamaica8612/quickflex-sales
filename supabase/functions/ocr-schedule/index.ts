@@ -1,7 +1,8 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { authorizeOcr, consumeOcrQuota, readOcrRequest, validateOcrRequest, OcrHttpError } from "./request.ts";
 import { createOcrProvider } from "./harness.ts";
 import { handleCellsOcr } from "./cells.ts";
 import { extractVisionSchedule } from "./vision-schedule.ts";
-import type { OcrRequest } from "./types.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +30,13 @@ Deno.serve(async (request) => {
   }
 
   try {
-    const body = await request.json() as OcrRequest;
+    const client = await authorizeOcr(request, (token) => createClient(
+      Deno.env.get("SUPABASE_URL") || "", Deno.env.get("SUPABASE_ANON_KEY") || "",
+      { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false } },
+    ));
+    const body = await readOcrRequest(request);
+    const units = validateOcrRequest(body);
+    await consumeOcrQuota(client, units);
 
     // 셀 배치 OCR 모드: 브라우저에서 분할한 셀 이미지를 Cloud Vision text_detection으로 일괄 처리.
     if (body.mode === "cells") {
@@ -42,7 +49,7 @@ Deno.serve(async (request) => {
 
     const imageBase64 = String(body.imageBase64 || "").trim();
     const mimeType = String(body.mimeType || "image/jpeg").trim();
-    const ownerName = String(body.ownerName || "김관현").trim();
+    const ownerName = String(body.ownerName || "").trim();
     const year = Number(body.year) || new Date().getFullYear();
     const month = Number(body.month) || new Date().getMonth() + 1;
     const kind = body.kind === "settlement" ? "settlement" : "schedule";
@@ -75,7 +82,7 @@ Deno.serve(async (request) => {
       {
         error: error instanceof Error ? error.message : "알 수 없는 OCR 서버 오류입니다.",
       },
-      500,
+      error instanceof OcrHttpError ? error.status : 500,
     );
   }
 });

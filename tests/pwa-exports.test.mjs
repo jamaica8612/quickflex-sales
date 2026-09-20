@@ -9,6 +9,7 @@ import {
   ExportSizeLimitError,
   exportInternals,
 } from "../src/lib/export-records.js";
+import { summarize } from "../src/ui/exports.js";
 
 const sales = [{
   date: "2026-09-03",
@@ -86,15 +87,53 @@ test("creates a real typed workbook from canonical daily sales without re-aggreg
   assert.equal(roundTrip.getWorksheet("summary").getCell("B10").value, 1);
   assert.equal(roundTrip.getWorksheet("sales_daily").getCell("E2").value, 100);
   assert.ok(roundTrip.getWorksheet("sales_daily").getCell("A2").value instanceof Date);
+  assert.equal(roundTrip.getWorksheet("sales_daily").getCell("A2").value.toISOString(), "2026-09-03T00:00:00.000Z");
+  assert.equal(roundTrip.getWorksheet("expenses").getCell("B2").value.toISOString(), "2026-09-04T00:00:00.000Z");
   assert.equal(roundTrip.getWorksheet("expenses").getCell("C2").value, "'=SUM(1,2)");
   assert.equal(roundTrip.getWorksheet("expenses").getCell("D2").value, "주유 · 충전");
   assert.equal(roundTrip.getWorksheet("expenses").getCell("J2").value, "카드");
   assert.equal(roundTrip.getWorksheet("expenses").getCell("K2").value, "카드 영수증");
+  assert.equal(roundTrip.getWorksheet("expenses").getCell("I2").value, "업무용");
+  assert.equal(roundTrip.getWorksheet("expenses").getCell("L2").value, "확정");
+  assert.equal(roundTrip.getWorksheet("refunds").getCell("C2").value, "환불");
   assert.equal(roundTrip.getWorksheet("expenses").getCell("M2").value, "'+private formula");
   assert.equal(roundTrip.getWorksheet("expenses").getCell("E3").value, 999);
   assert.equal(roundTrip.getWorksheet("expenses").getCell("H3").value, null);
   assert.equal(roundTrip.getWorksheet("sales_daily").views[0].state, "frozen");
   assert.ok(roundTrip.getWorksheet("expenses").autoFilter);
+  assert.notEqual(roundTrip.getWorksheet("summary").getCell("B10").numFmt, '#,##0"원"');
+});
+
+test("limits adjustment rows and totals to their own selected-period date", async () => {
+  const expenses = expenseFixture();
+  expenses[0].adjustments.push({ id: "later-refund", kind: "refund", amount: "900", actual_date: "2026-10-01", memo: "다음 달 취소" });
+  const result = await buildRecordsExport({ sales, expenses, from: "2026-09-01", to: "2026-09-30" });
+  const refunds = result.workbook.getWorksheet("refunds");
+  assert.equal(refunds.rowCount, 3, "the October refund is not presented as a September adjustment");
+  assert.equal(result.workbook.getWorksheet("summary").getCell("B11").value, 100);
+});
+
+test("includes a period refund for an older expense without counting its original gross", async () => {
+  const expenses = [{
+    id: "older-expense", actual_date: "2026-08-31", gross_amount: "2000", category: "fuel", usage_type: "business", status: "confirmed",
+    receipts: [], adjustments: [{ id: "september-refund", kind: "refund", amount: "100", actual_date: "2026-09-01", memo: "9월 환불" }],
+  }];
+  const result = await buildRecordsExport({ sales: [], expenses, from: "2026-09-01", to: "2026-09-30" });
+  assert.equal(result.workbook.getWorksheet("expenses").rowCount, 1);
+  assert.equal(result.workbook.getWorksheet("refunds").rowCount, 2);
+  assert.equal(result.workbook.getWorksheet("summary").getCell("B8").value, 0);
+  assert.equal(result.workbook.getWorksheet("summary").getCell("B11").value, 100);
+});
+
+test("preview counts an in-period adjustment reference without counting its older gross", () => {
+  const preview = summarize({ expenses: [{
+    actual_date: "2026-08-31", gross_amount: 2000, status: "confirmed",
+    adjustments: [{ kind: "refund", amount: 100, actual_date: "2026-09-01" }],
+  }] }, "2026-09-01", "2026-09-30");
+  assert.equal(preview.expenseCount, 0);
+  assert.equal(preview.expenseTotal, 0);
+  assert.equal(preview.adjustmentCount, 1);
+  assert.equal(preview.refundTotal, 100);
 });
 
 test("ZIP contains the XLSX and only successfully fetched private receipt bytes", async () => {

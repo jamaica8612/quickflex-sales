@@ -197,6 +197,11 @@ label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: 13px;
   background: var(--bg);
   padding-bottom: calc(var(--nav-h) + var(--safe-b));
 }
+.save-feedback { padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.save-feedback[hidden] { display: none; }
+.save-feedback p { margin: 0 0 8px; font-size: 14px; line-height: 1.5; }
+.save-feedback button { min-height: 44px; margin: 0 8px 8px 0; }
+.save-feedback textarea { width: 100%; min-height: 120px; margin-top: 8px; }
 .app[data-view="home"] .view-home,
 .app[data-view="record"] .view-record,
 .app[data-view="inspection"] .view-inspection,

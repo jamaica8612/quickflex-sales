@@ -10,6 +10,7 @@ import {
 const styleId = "quickflex-calendar-sync-style";
 const statusPollIntervalMs = 10_000;
 const statusPollMaxDurationMs = 6 * 60_000;
+const calendarSettingsByAccount = new Map();
 
 function addStyles() {
   if (document.getElementById(styleId)) return;
@@ -43,6 +44,18 @@ function monthRange() {
 function escaped(value) {
   return String(value || "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[character]));
 }
+
+export function consumeCalendarOauthResult(location = globalThis.location, history = globalThis.history) {
+  if (!location?.href) return null;
+  const url = new URL(location.href);
+  const result = url.searchParams.get("calendar");
+  if (result !== "connected" && result !== "failed") return null;
+  url.searchParams.delete("calendar");
+  history?.replaceState?.(history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  return result;
+}
+
+let pendingCalendarOauthResult = consumeCalendarOauthResult();
 
 export function calendarSyncStatusCopy(status) {
   if (!status) return "연결 상태를 확인하고 있습니다.";
@@ -90,7 +103,22 @@ export function mountCalendarSync({ host, db, getDays, toast }) {
     queueing: false,
     pollTimer: null,
     pollUntil: 0,
+    accountId: null,
   };
+
+  async function syncAccountSettings() {
+    if (typeof db?.auth?.getUser !== "function") return;
+    const { data, error } = await db.auth.getUser();
+    const accountId = error ? null : String(data?.user?.id || "").toLowerCase();
+    if (!accountId || model.disposed || accountId === model.accountId) return;
+    model.accountId = accountId;
+    const saved = calendarSettingsByAccount.get(accountId);
+    model.settings = saved ? { ...saved } : { ...DEFAULT_CALENDAR_SYNC_SETTINGS };
+  }
+
+  function rememberSettings() {
+    if (model.accountId) calendarSettingsByAccount.set(model.accountId, { ...normalizeCalendarSyncSettings(model.settings) });
+  }
 
   function isCurrent(lifecycle) {
     return !model.disposed && lifecycle === model.lifecycle;
@@ -210,6 +238,7 @@ export function mountCalendarSync({ host, db, getDays, toast }) {
     host.querySelector("[data-calendar-end]")?.addEventListener("change", (event) => { model.endDate = event.target.value; renderPreview(); });
     host.querySelectorAll("[data-calendar-option]").forEach((input) => input.addEventListener("change", () => {
       model.settings[input.dataset.calendarOption] = input.checked;
+      rememberSettings();
       renderPreview();
     }));
     host.querySelector("[data-calendar-connect]")?.addEventListener("click", async () => {
@@ -273,6 +302,8 @@ export function mountCalendarSync({ host, db, getDays, toast }) {
   async function refresh() {
     const lifecycle = model.lifecycle;
     const request = ++model.refreshRequest;
+    await syncAccountSettings();
+    if (!isCurrent(lifecycle) || request !== model.refreshRequest) return model.status;
     const previousState = model.status?.state;
     let nextStatus;
     try { nextStatus = await invoke("status"); }
@@ -286,6 +317,10 @@ export function mountCalendarSync({ host, db, getDays, toast }) {
     return model.status;
   }
 
+  const oauthResult = pendingCalendarOauthResult;
+  pendingCalendarOauthResult = null;
+  if (oauthResult === "connected") toast("Google 캘린더 연결이 완료되었습니다. 동기화 항목을 확인해 주세요.", "success");
+  if (oauthResult === "failed") toast("Google 캘린더 연결을 완료하지 못했습니다. 다시 연결해 주세요.", "error");
   refresh();
   return {
     refresh,
@@ -295,7 +330,6 @@ export function mountCalendarSync({ host, db, getDays, toast }) {
       model.previewRequest += 1;
       clearStatusPoll(true);
       model.status = null;
-      model.settings = { ...DEFAULT_CALENDAR_SYNC_SETTINGS };
       model.queueing = false;
       render();
     },

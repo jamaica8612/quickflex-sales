@@ -1,5 +1,6 @@
 const CACHE_NAME = "quickflex-shell-v1.0.75-flexnote-beta-1.15-approved-measurement-1-notice-1-usage-guide-1";
 const SHELL_FILES = [
+  "./src/vendor/supabase-2.116.0.js",
   "./",
   "./index.html",
   "./styles/startup.css?v=3",
@@ -93,8 +94,10 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        if (response.ok) {
+          const copy = response.clone();
+          event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)));
+        }
         return response;
       })
       .catch(() => caches.match(event.request, { ignoreSearch: true })),

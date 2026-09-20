@@ -906,6 +906,12 @@ function clearUserScopedState() {
   state.flushPromise = null;
   state.pendingDates.clear();
   state.pendingRates = false;
+  state.passwordRecovery = false;
+  state.saveConflict = false;
+  state.saveConflictDate = "";
+  state.retainedEdits = null;
+  if ($("retainedEditsText")) { $("retainedEditsText").value = ""; $("retainedEditsText").hidden = true; }
+  setSaveFeedback("saved");
   state.profile = null;
   state.rates = [];
   state.defaultRates = [];
@@ -1166,6 +1172,7 @@ function normalizeRecordShape(record) {
     salesBasisCounts: record?.salesBasisCounts ? { ...record.salesBasisCounts } : null,
     salesDayBasis: record?.salesDayBasis ? { ...record.salesDayBasis } : null,
     salesDayRevision: record?.salesDayRevision ?? 0,
+    manualDayUpdatedAt: record?.manualDayUpdatedAt || null,
     freshCount: record?.freshCount ?? "",
     returnCount: record?.returnCount ?? "",
     cancellationCount: record?.cancellationCount ?? "",
@@ -1263,7 +1270,14 @@ function startRecordDraft(dateKey = state.selectedDate) {
   }
   state.recordDraftSalesRequestId = "";
   state.recordDraftSalesPayload = "";
+  state.recordDraftBaseline = JSON.stringify(state.recordDraft);
   return state.recordDraft;
+}
+function confirmLeaveRecordDraft() {
+  if (!state.recordDraft) return true;
+  if (el.app.dataset.view === "record") syncFormToRecord();
+  if (state.recordDraftBaseline === JSON.stringify(state.recordDraft)) return true;
+  return window.confirm("아직 저장하지 않은 입력이 있습니다. 입력을 버리고 이동할까요?");
 }
 function currentRecordDraft() {
   if (state.recordDraftDate !== state.selectedDate || !state.recordDraft) return startRecordDraft();
@@ -1335,9 +1349,14 @@ function mergeGroupedRows(rows) {
     }
     const unit = toNum(row.unit) || sharedRateForRoutes(routes) || 0;
     const prefix = routes[0].slice(0, 3);
-    const canGroup = unit > 0 && routes.every((route) => route.slice(0, 3) === prefix);
+    // Group empty schedule placeholders only. Combining entered quantities loses
+    // their route provenance and later turns 100/60 into an invented 80/80 split.
+    const entered = (value) => value !== "" && value != null;
+    const canGroup = !entered(row.count) && !entered(row.households)
+      && unit > 0 && routes.every((route) => route.slice(0, 3) === prefix);
     const existing = canGroup ? merged.find((item) => {
       if (isAutomaticRow(item)) return false;
+      if (entered(item.count) || entered(item.households)) return false;
       const itemRoutes = splitStoredRoutes(item.route);
       return itemRoutes.length && itemRoutes.every((route) => route.slice(0, 3) === prefix) && toNum(item.unit) === unit;
     }) : null;
@@ -1366,17 +1385,14 @@ function defaultEntryRows() {
 }
 function mergeScheduleRowsWithExisting(existingRows, scheduleRoutes) {
   const automatic = (existingRows || []).filter(isAutomaticRow);
-  const existingByRoute = new Map();
-  (existingRows || []).filter((row) => !isAutomaticRow(row)).forEach((row) => {
-    splitStoredRoutes(row.route).forEach((route) => existingByRoute.set(route, row));
-  });
-  const scheduledManualRows = buildGroupedRows(scheduleRoutes).map((row) => {
-    const matched = splitStoredRoutes(row.route).map((route) => existingByRoute.get(route)).find(Boolean);
-    return matched
-      ? { ...row, count: matched.count ?? "", households: matched.households ?? "", unit: toNum(matched.unit) || row.unit || 0, draft: false }
-      : row;
-  });
-  return [...automatic, ...scheduledManualRows];
+  const scheduled = new Set(expandRouteText(scheduleRoutes));
+  const manual = (existingRows || []).filter((row) => !isAutomaticRow(row));
+  const retained = manual.filter((row) =>
+    (row.count !== "" && row.count != null) || (row.households !== "" && row.households != null)
+    || splitStoredRoutes(row.route).some((route) => scheduled.has(route)));
+  const covered = new Set(retained.flatMap((row) => splitStoredRoutes(row.route)));
+  const added = buildGroupedRows([...scheduled].filter((route) => !covered.has(route)));
+  return [...automatic, ...retained.map((row) => ({ ...row })), ...added];
 }
 function ensureFixedRecordRows(record) {
   if (isBackupDriver()) return record;
@@ -1758,6 +1774,14 @@ function bindNativeAuthSync(client) {
   nativeAuthSubscription?.unsubscribe?.();
   const { data } = client.auth.onAuthStateChange((event, session) => {
     const transition = applyAuthSession(session, { event });
+    if (event === "PASSWORD_RECOVERY" && session) {
+      state.passwordRecovery = true;
+      showPending(false);
+      showAuth(true);
+      setAuthMode("reset");
+      window.FlexNoteStartup?.finish();
+      return;
+    }
     if (session && !nativeLogoutInProgress) void syncNativeSession(session, transition.authEpoch);
     // 세션 만료나 외부 로그아웃은 진행 업무의 네이티브 세션을 지우지 않는다.
     // 사용자가 누른 명시적 로그아웃은 logout()에서 네이티브 확인을 먼저 거친다.
@@ -1847,6 +1871,12 @@ function showAuth(show) {
   updateModalLayer(el.authOverlay, Boolean(show), el.authEmail);
 }
 function showPending(show) {
+  if (show) {
+    const blocked = state.profile?.status === "blocked";
+    $("pendingTitle").textContent = blocked ? "계정 이용이 제한되었습니다" : "승인 대기 중";
+    $("pendingDescription").textContent = blocked
+      ? "운영자에게 계정 상태를 문의해 주세요." : "관리자가 계정을 승인하면 사용할 수 있습니다.";
+  }
   el.pendingOverlay.classList.toggle("visible", show);
   updateModalLayer(el.pendingOverlay, Boolean(show), el.pendingLogout);
 }
@@ -1883,6 +1913,78 @@ function setDbBadge(connected, text = "") {
   el.dbStatus.textContent = connected ? "DB에 연결되어 있습니다." : "DB 연결이 필요합니다.";
   el.syncStatus.textContent = connected ? (text || "DB 연결됨") : "미연결";
   el.syncStatus.classList.toggle("sync-ok", connected);
+}
+function setSaveFeedback(status) {
+  state.saveStatus = status;
+  const host = $("saveFeedback");
+  if (!host) return;
+  const messages = {
+    pending: "변경 사항을 저장할 예정입니다.", saving: "저장 중…",
+    failed: "저장하지 못했습니다. 입력은 현재 화면에 남아 있습니다.",
+    conflict: "서버 기록이 달라 저장을 멈췄습니다. 입력을 비교해 주세요.",
+    saved: state.retainedEdits ? "충돌 당시 입력을 이 화면에서 보관 중입니다." : "",
+  };
+  host.hidden = status === "saved" && !state.retainedEdits;
+  $("saveFeedbackText").textContent = messages[status] || "";
+  $("retryPendingSave").hidden = !["failed", "conflict"].includes(status);
+  $("retryPendingSave").textContent = status === "conflict" ? "입력 비교" : "다시 저장";
+  $("useServerRecord").hidden = status !== "conflict";
+  $("showRetainedEdits").hidden = !state.retainedEdits;
+}
+function recordInputSummary(dateKey, record) {
+  const rows = (record?.rows || []).map((row) =>
+    `${splitStoredRoutes(row.route).join(" · ")}: ${toNum(row.count)}개 × ${toNum(row.unit)}원`);
+  return `${dateKey}${record?.off ? " · 휴무" : ""}\n${rows.join("\n")}\n프레시백 ${toNum(record?.freshCount)}개`;
+}
+async function reviewPendingSave(useServer = false) {
+  if (!state.saveConflict) return ensurePendingSavesFlushed();
+  const context = captureAccountContext();
+  const dateKey = state.saveConflictDate;
+  if (!dateKey || !isAccountContextCurrent(context)) return;
+  const entryBefore = JSON.stringify(getRecord(dateKey, false));
+  const draftBefore = JSON.stringify(state.recordDraft);
+  const visibleDraft = state.recordDraftDate === dateKey && state.recordDraft;
+  const draft = cloneRecord(visibleDraft || getRecord(dateKey, false));
+  const [day, items, ledger, overrides] = await Promise.all([
+    state.db.from(TABLES.days).select("*").eq("user_id", context.userId).eq("work_date", dateKey).maybeSingle(),
+    state.db.from(TABLES.items).select("*").eq("user_id", context.userId).eq("work_date", dateKey).order("sort_order"),
+    loadVerifiedWorkLedger({ userId: context.userId }),
+    fetchAutomaticSalesOverrides({ userId: context.userId }),
+  ]);
+  if (!isAccountContextCurrent(context)) return;
+  if (day.error || items.error) throw day.error || items.error;
+  const receipt = entriesFromDb(day.data ? [day.data] : [], items.data,
+    ledger.workResults.filter((work) => work.work_date === dateKey),
+    ledger.workRoutes.filter((route) => ledger.workResults.some((work) => work.work_date === dateKey && work.work_id === route.work_id)))[dateKey] || emptyRecord();
+  const snapshots = automaticSalesOverridesByDate(overrides.rows);
+  const latest = applyAutomaticSalesOverrideToRecord(receipt, snapshots[dateKey]);
+  const summary = `내 입력\n${recordInputSummary(dateKey, draft)}\n\n서버 기록\n${recordInputSummary(dateKey, latest)}`;
+  if (!useServer && hasAutomaticEntries(latest)) {
+    window.alert(`${summary}\n\n새 자동 기록이 있습니다. 같은 업무인지 확인하고 '서버 기록 보기'를 선택하세요. 내 입력은 별도로 보관됩니다.`);
+    return;
+  }
+  if (!window.confirm(`${summary}\n\n${useServer ? "내 입력을 이 화면에 별도로 보관하고 서버 기록을 표시할까요? 보관 입력은 새로고침하면 사라지므로 필요한 내용은 복사해 주세요." : "서버 기록을 확인했습니다. 내 입력으로 다시 저장할까요?"}`)) return;
+  if (!isAccountContextCurrent(context)) return;
+  // Do not apply confirmation to edits made while the server was being read.
+  if (JSON.stringify(getRecord(dateKey, false)) !== entryBefore || JSON.stringify(state.recordDraft) !== draftBefore) return;
+  if (useServer) {
+    state.retainedEdits = [...(state.retainedEdits || []), { dateKey, record: draft }];
+    state.receiptEntries[dateKey] = receipt;
+    if (snapshots[dateKey]) state.automaticSalesOverrides[dateKey] = snapshots[dateKey];
+    else delete state.automaticSalesOverrides[dateKey];
+    setRecord(dateKey, latest);
+    state.pendingDates.delete(dateKey);
+    if (state.recordDraftDate === dateKey) discardRecordDraft();
+    state.saveConflict = false;
+    state.saveConflictDate = "";
+    setSaveFeedback(state.pendingDates.size || state.pendingRates ? "pending" : "saved");
+    renderAll();
+    return;
+  }
+  getRecord(dateKey, false).manualDayUpdatedAt = latest.manualDayUpdatedAt;
+  state.saveConflict = false;
+  state.saveConflictDate = "";
+  return ensurePendingSavesFlushed();
 }
 function applyWorkPreferencesUi(profile = state.profile, disabled = false) {
   const pendingTask = workPreferencesSaveTask && isAccountContextCurrent(workPreferencesSaveTask.context)
@@ -1936,7 +2038,7 @@ async function connectDb(url, key, persist = false) {
   if (error) throw error;
   applyAuthSession(data.session, { event: "SESSION_OBSERVED" });
   await syncCurrentSessionToNative();
-  if (state.session && isPasswordRecoveryUrl()) {
+  if (state.session && (state.passwordRecovery || isPasswordRecoveryUrl())) {
     showAuth(true);
     setAuthMode("reset");
     window.FlexNoteStartup?.finish();
@@ -2011,6 +2113,8 @@ async function loadProfile(context = captureAccountContext()) {
 }
 async function saveProfile() {
   const context = captureAccountContext();
+  if (!isAccountContextCurrent(context)) return false;
+  if (workPreferencesSaveTask?.promise) await workPreferencesSaveTask.promise;
   if (!isAccountContextCurrent(context)) return false;
   const selectedMode = document.querySelector('input[name="freshbagMode"]:checked')?.value || "single";
   const selectedWorkShift = document.querySelector('input[name="workShift"]:checked')?.value === "night" ? "night" : "day";
@@ -2574,6 +2678,7 @@ function entriesFromDb(dayRows, itemRows, workResultRows = [], workRouteRows = [
       freshbagMode: row.freshbag_mode || "single",
       salesDayBasis: salesDayEditableValues(row),
       salesDayRevision: row.sales_edit_revision ?? 0,
+      manualDayUpdatedAt: row.updated_at || null,
       backupUnit: row.backup_unit ?? DEFAULT_BACKUP_UNIT,
       driverType: row.driver_type || "backup",
     });
@@ -2656,6 +2761,8 @@ async function migrateLegacyGoalAmount(legacyGoal, context = captureAccountConte
 }
 async function loadFromDb(context = captureAccountContext()) {
   if (!state.db || !isAccountContextCurrent(context)) return false;
+  // A refresh must never replace edits, including edits made while it is in flight.
+  if (state.pendingDates.size || state.pendingRates || state.flushPromise || state.recordDraft) return false;
   const userId = context.userId;
   const defaultRatesQuery = Promise.resolve({ data: [], error: null });
   let loaded;
@@ -2677,6 +2784,7 @@ async function loadFromDb(context = captureAccountContext()) {
   }
   const [ratesResult, defaultRatesResult, daysResult, itemsResult, ledger, overridesResult, bundlesResult, inspectionsResult, signatureResult] = loaded;
   if (!isAccountContextCurrent(context)) return false;
+  if (state.pendingDates.size || state.pendingRates || state.flushPromise || state.recordDraft) return false;
   if (ratesResult.error) throw ratesResult.error;
   if (defaultRatesResult.error) throw defaultRatesResult.error;
   if (daysResult.error) throw daysResult.error;
@@ -2687,6 +2795,7 @@ async function loadFromDb(context = captureAccountContext()) {
   const goalRate = (ratesResult.data || []).find((row) => normalizeRoute(row.route) === GOAL_SETTING_ROUTE);
   if (!await migrateLegacyGoalAmount(toNum(goalRate?.current_unit), context)) return false;
   if (!isAccountContextCurrent(context)) return false;
+  if (state.pendingDates.size || state.pendingRates || state.flushPromise || state.recordDraft) return false;
   state.rates = ratesFromDb(ratesResult.data);
   state.defaultRates = ratesFromDb(defaultRatesResult.data);
   state.routeBundles = bundlesResult.data || [];
@@ -2901,8 +3010,8 @@ async function persistDay(dateKey, context = captureAccountContext()) {
     fresh_solo_count: editableRec.off ? 0 : toNum(editableRec.freshSoloCount),
     fresh_linked_count: editableRec.off ? 0 : toNum(editableRec.freshLinkedCount),
     freshbag_mode: freshbagModeForRecord(editableRec),
-    backup_unit: isBackupDriver() ? toNum(defaultBackupUnit(editableRec.backupUnit)) : 0,
-    driver_type: isBackupDriver() ? "backup" : "fixed",
+    backup_unit: editableRec.driverType === "backup" ? toNum(defaultBackupUnit(editableRec.backupUnit)) : 0,
+    driver_type: editableRec.driverType === "fixed" ? "fixed" : "backup",
     updated_at: new Date().toISOString(),
   };
   const itemPayload = editableRec.off ? [] : editableRec.rows
@@ -2926,7 +3035,8 @@ async function persistDay(dateKey, context = captureAccountContext()) {
       unit_snapshot,
       sort_order,
     }));
-    const { error: replaceError } = await state.db.rpc(RPC.replaceManualDayRecord, {
+    const { data: savedManualDay, error: replaceError } = await state.db.rpc(RPC.replaceManualDayRecordChecked, {
+      p_expected_updated_at: rec.manualDayUpdatedAt || null,
       p_work_date: dateKey,
       p_delete_day: deleteManualDay,
       p_is_off: dayPayload.is_off,
@@ -2942,6 +3052,14 @@ async function persistDay(dateKey, context = captureAccountContext()) {
     if (!isAccountContextCurrent(context)) return false;
     if (replaceError) throw replaceError;
     if (deleteManualDay) delete state.entries[dateKey];
+    else {
+      const saved = Array.isArray(savedManualDay) ? savedManualDay[0] : savedManualDay;
+      if (!saved || saved.user_id !== userId || saved.work_date !== dateKey || !saved.updated_at) {
+        throw new Error("저장 결과를 확인하지 못했습니다. 입력을 보관하고 있습니다.");
+      }
+      getRecord(dateKey, false).manualDayUpdatedAt = saved.updated_at;
+      if (state.recordDraftDate === dateKey && state.recordDraft) state.recordDraft.manualDayUpdatedAt = saved.updated_at;
+    }
     return true;
   }
 
@@ -2972,6 +3090,7 @@ function scheduleSave({ dateKeys = [], rates = false, immediate = false } = {}) 
   dateKeys.forEach((key) => state.pendingDates.add(key));
   if (rates) state.pendingRates = true;
   if (!state.db || !currentUserId()) return;
+  setSaveFeedback("pending");
   clearTimeout(state.saveTimer);
   state.saveTimer = setTimeout(() => {
     state.saveTimer = null;
@@ -3002,34 +3121,18 @@ function staleAccountSaveError() {
   return error;
 }
 async function recoverAutomaticLedgerLock(error) {
-  const dateKey = error?.quickflexDateKey || "";
-  const preservedDirtyRecords = new Map([...state.pendingDates]
-    .filter((dirtyDate) => dirtyDate && dirtyDate !== dateKey)
-    .map((dirtyDate) => [dirtyDate, cloneRecord(getRecord(dirtyDate, false))]));
-  try {
-    await loadFromDb();
-    if (dateKey) state.pendingDates.delete(dateKey);
-    preservedDirtyRecords.forEach((record, dirtyDate) => {
-      if (hasAutomaticEntries(getRecord(dirtyDate, false))) {
-        state.pendingDates.delete(dirtyDate);
-        return;
-      }
-      setRecord(dirtyDate, record);
-    });
-    discardRecordDraft();
-    renderAll();
-    error.quickflexHandled = true;
-    error.quickflexReported = true;
-    toast(`${dateKey ? `${formatLongShort(dateKey)} ` : ""}업무 종료 기록을 최신 상태로 다시 불러왔습니다. 기록 화면에서 수정할 수 있습니다.`, "error");
-  } catch (reloadError) {
-    error.quickflexHandled = true;
-    error.quickflexReported = true;
-    error.quickflexReloadError = reloadError;
-    toast(`업무 종료 기록을 최신 상태로 다시 불러오지 못했습니다: ${reloadError.message}`, "error");
-  }
+  // Keep the conflicting date too: a fresh automatic receipt must not silently
+  // discard the manual quantities the driver is trying to save.
+  error.quickflexHandled = true;
+  error.quickflexReported = true;
+  state.saveConflict = true;
+  state.saveConflictDate = error.quickflexDateKey || "";
+  setSaveFeedback("conflict");
+  toast("서버 기록이 변경되었습니다. 현재 입력을 보관했습니다. 저장 상태에서 충돌을 확인해 주세요.", "error");
 }
 async function flushSaves() {
   if (!state.db || !currentUserId()) return;
+  if (state.saveConflict) throw new Error("서버 기록과 보관된 입력을 먼저 비교해 주세요.");
   if (state.flushPromise) {
     await state.flushPromise;
     if (state.pendingRates || state.pendingDates.size) return flushSaves();
@@ -3037,6 +3140,7 @@ async function flushSaves() {
   }
   if (!state.pendingRates && !state.pendingDates.size) return;
   const flushContext = captureAccountContext();
+  setSaveFeedback("saving");
   const currentFlush = (async () => {
     try {
       while (state.pendingRates || state.pendingDates.size) {
@@ -3066,11 +3170,13 @@ async function flushSaves() {
       }
       if (!isAccountContextCurrent(flushContext)) throw staleAccountSaveError();
       setDbBadge(true, `${new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 저장됨`);
+      setSaveFeedback("saved");
       return true;
     } catch (error) {
       if (error?.quickflexStaleAccount) return false;
       console.error("[DB save]", error);
-      if (isAutomaticLedgerLockError(error)) await recoverAutomaticLedgerLock(error);
+      setSaveFeedback("failed");
+      if (isAutomaticLedgerLockError(error) || String(error?.code || "") === "40001") await recoverAutomaticLedgerLock(error);
       throw error;
     }
   })();
@@ -3101,7 +3207,17 @@ function inspectionDraftFromRecord(record) {
 }
 function inspectionSignatureForRecord(record) {
   if (isValidSignatureData(record?.signature_data)) return record.signature_data;
+  if (record) return "";
   return isValidSignatureData(state.inspectionSignature) ? state.inspectionSignature : "";
+}
+function inspectionSignatureForSave(record) {
+  const stored = inspectionSignatureForRecord(record);
+  if (stored || !record) return stored;
+  if (!isValidSignatureData(state.inspectionSignature)) return "";
+  if (!window.confirm("이 과거 기록에는 저장된 서명이 없습니다. 현재 등록된 서명과 오늘 시각으로 새로 서명해 저장할까요?")) {
+    throw new Error("재서명을 취소했습니다. 기존 기록을 유지합니다.");
+  }
+  return state.inspectionSignature;
 }
 function renderInspectionEntry() {
   const dateKey = state.selectedDate;
@@ -3205,7 +3321,7 @@ async function saveInspection() {
   const defectNotes = el.inspectionDefectNotes.value.trim();
   const actionNotes = el.inspectionActionNotes.value.trim();
   if (hasBad && (!defectNotes || !actionNotes)) throw new Error("이상 내용과 조치 내용을 모두 적어 주세요.");
-  const signatureData = inspectionSignatureForRecord(state.inspections[dateKey]);
+  const signatureData = inspectionSignatureForSave(state.inspections[dateKey]);
   if (!signatureData) throw new Error("설정에서 점검자 서명을 먼저 등록해 주세요.");
   const payload = {
     user_id: context.userId,
@@ -3214,8 +3330,8 @@ async function saveInspection() {
     results,
     defect_notes: defectNotes,
     action_notes: actionNotes,
-    signed_name: driverName(),
-    signed_at: new Date().toISOString(),
+    signed_name: isValidSignatureData(state.inspections[dateKey]?.signature_data) ? state.inspections[dateKey].signed_name : driverName(),
+    signed_at: isValidSignatureData(state.inspections[dateKey]?.signature_data) ? state.inspections[dateKey].signed_at : new Date().toISOString(),
     signature_data: signatureData,
     source: "app",
     updated_at: new Date().toISOString(),
@@ -3235,7 +3351,7 @@ async function saveInspection() {
 async function setInspectionNoOperation() {
   const context = captureAccountContext();
   if (!isAccountContextCurrent(context)) return false;
-  const signatureData = inspectionSignatureForRecord(state.inspections[state.inspectionDate]);
+  const signatureData = inspectionSignatureForSave(state.inspections[state.inspectionDate]);
   if (!signatureData) throw new Error("설정에서 점검자 서명을 먼저 등록해 주세요.");
   if (!window.confirm(`${formatLong(state.inspectionDate)}을 미운행으로 기록할까요?`)) return;
   const payload = {
@@ -3245,8 +3361,8 @@ async function setInspectionNoOperation() {
     results: Object.fromEntries(INSPECTION_ITEMS.map((_, index) => [`item_${index + 1}`, "no_operation"])),
     defect_notes: "",
     action_notes: "",
-    signed_name: driverName(),
-    signed_at: new Date().toISOString(),
+    signed_name: isValidSignatureData(state.inspections[state.inspectionDate]?.signature_data) ? state.inspections[state.inspectionDate].signed_name : driverName(),
+    signed_at: isValidSignatureData(state.inspections[state.inspectionDate]?.signature_data) ? state.inspections[state.inspectionDate].signed_at : new Date().toISOString(),
     signature_data: signatureData,
     source: "app",
     updated_at: new Date().toISOString(),
@@ -3358,6 +3474,10 @@ function showView(view) {
   if (view === "admin") view = "settings";
   if (!["home", "record", "measurement", "inspection", "stats", "settings", "expenses", "schedule"].includes(view)) view = "home";
   const previousView = el.app.dataset.view || "home";
+  if (previousView === "record" && view !== "record" && state.recordDraft) {
+    if (!confirmLeaveRecordDraft()) return;
+    discardRecordDraft();
+  }
   el.app.dataset.view = view;
   el.navTabs.forEach((tab) => {
     const selected = tab.dataset.view === (view === "schedule" ? "settings" : view);
@@ -3606,7 +3726,11 @@ function closeMeasurementGuide() {
 }
 async function refreshAfterNativeMeasurement() {
   if (!currentUserId()) return;
-  await loadFromDb().catch(() => {});
+  const context = captureAccountContext();
+  try { await ensurePendingSavesFlushed(); }
+  catch { return; }
+  if (!isAccountContextCurrent(context) || state.recordDraft) return;
+  if (!await loadFromDb(context).catch(() => false)) return;
   renderAll();
   if (el.app.dataset.view === "measurement") renderMeasurementBridge();
 }
@@ -3873,6 +3997,10 @@ function renderHomeDayOverview(record, calc, automatic) {
   el.homeOffWideLabel.textContent = record.off ? "근무로 변경" : "휴무로 설정";
 }
 function selectDate(dateKey) {
+  if (dateKey !== state.selectedDate && state.recordDraft) {
+    if (!confirmLeaveRecordDraft()) return;
+    discardRecordDraft();
+  }
   state.selectedDate = dateKey;
   renderMonth();
   renderHomeSelection();
@@ -4055,6 +4183,10 @@ function refreshTotals() {
 }
 async function saveCurrentRecordAndGoHome() {
   const draft = syncFormToRecord();
+  if (draft.rows.some((row) => toNum(row.count) > 0 && effectiveUnit(row) <= 0)) {
+    toast("건수를 입력한 구역의 단가를 확인해 주세요. 0원으로 저장하지 않았습니다.", "error");
+    return false;
+  }
   const dateKey = state.selectedDate;
   const automatic = hasAutomaticEntries(draft);
   if (automatic) {
@@ -4952,8 +5084,11 @@ function parseHeaderDate(value) {
   if (!match) return "";
   const month = Number(match[1]);
   const day = Number(match[2]);
-  const year = month === 12 && state.month === 1 ? state.year - 1 : state.year;
-  return toDateKey(new Date(year, month - 1, day));
+  const year = month === 12 && state.month === 1 ? state.year - 1
+    : month === 1 && state.month === 12 ? state.year + 1 : state.year;
+  const parsed = new Date(year, month - 1, day);
+  if (parsed.getMonth() + 1 !== month || parsed.getDate() !== day) return "";
+  return toDateKey(parsed);
 }
 async function applySchedule(map) {
   const unresolved = Object.entries(map || {}).filter(([dateKey, routes]) =>
@@ -4967,6 +5102,13 @@ async function applySchedule(map) {
     .filter(([dateKey, routes]) => /^\d{4}-\d{2}-\d{2}$/.test(dateKey) && routes === null && hasEnteredCounts(getRecord(dateKey, false)))
     .map(([dateKey]) => dateKey);
   if (offKeysWithCounts.length && !confirmOffWithExistingCounts(offKeysWithCounts)) return;
+  const changedEnteredDays = Object.entries(map || {}).filter(([dateKey, routes]) => {
+    if (routes === null) return false;
+    const record = getRecord(dateKey, false);
+    return hasEnteredCounts(record)
+      && joinStoredRoutes(record.rows.flatMap((row) => splitStoredRoutes(row.route))) !== joinStoredRoutes(routeListFromText(routes));
+  });
+  if (changedEnteredDays.length && !window.confirm(`입력한 실적이 있는 ${changedEnteredDays.length}일의 근무표가 바뀝니다.\n${changedEnteredDays.slice(0, 10).map(([dateKey, routes]) => `${dateKey}: ${routeListFromText(routes).join(" · ")}`).join("\n")}\n기존 입력 행과 단가는 보존하고 새 구역을 추가할까요?`)) return false;
   Object.entries(map || {}).forEach(([dateKey, routes]) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
     const record = getRecord(dateKey, true);
@@ -5029,7 +5171,7 @@ function shiftDateMap(dateMap, days) {
   Object.entries(dateMap || {}).forEach(([dateKey, routes]) => { shifted[addDays(dateKey, days)] = routes; });
   return shifted;
 }
-function setOcrDraft(map) {
+function setOcrDraft(map, { preserveUnresolved = false } = {}) {
   if (!map) {
     ocrDraftMap = null;
   } else {
@@ -5039,10 +5181,9 @@ function setOcrDraft(map) {
         ocrDraftMap[dateKey] = null;
       } else {
         const corrected = correctRouteList(routes);
-        // Fixed drivers intentionally use their configured routes for a blank
-        // workday; failed nonempty recognition must not silently become one.
+        // OCR blanks require confirmation; manual blank workdays may use fixed routes.
         ocrDraftMap[dateKey] = corrected.length ? corrected
-          : routeListFromText(routes).length ? [] : draftWorkRoutes();
+          : preserveUnresolved || routeListFromText(routes).length ? [] : draftWorkRoutes();
       }
     });
   }
@@ -5191,11 +5332,11 @@ async function runOcr() {
     const map = {};
     Object.entries(schedule || {}).forEach(([dateKey, routes]) => {
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
-        map[dateKey] = pinkOffDates.has(dateKey) ? null : Array.isArray(routes) ? routes : null;
+        map[dateKey] = pinkOffDates.has(dateKey) || routes === null ? null : Array.isArray(routes) ? routes : [];
       }
     });
     if (!Object.keys(map).length) throw new Error("유효한 스케줄이 없습니다.");
-    setOcrDraft(map);
+    setOcrDraft(map, { preserveUnresolved: true });
     el.ocrStatus.textContent = `${Object.keys(map).length}일 인식 완료`;
     toast("OCR 초안이 준비됐습니다.", "success");
   } catch (error) {
@@ -5528,6 +5669,29 @@ function closeSheet() {
 }
 
 function bindEvents() {
+  $("retryPendingSave")?.addEventListener("click", () => reviewPendingSave().catch((error) => toast(error.message, "error")));
+  $("useServerRecord")?.addEventListener("click", () => reviewPendingSave(true).catch((error) => toast(error.message, "error")));
+  $("showRetainedEdits")?.addEventListener("click", () => {
+    if (!state.retainedEdits) return;
+    $("retainedEditsText").value = state.retainedEdits.map((item) => recordInputSummary(item.dateKey, item.record)).join("\n\n────────\n\n");
+    $("retainedEditsText").hidden = false;
+    $("retainedEditsText").focus();
+    $("retainedEditsText").select();
+  });
+  $("pendingRefresh")?.addEventListener("click", async () => {
+    const button = $("pendingRefresh");
+    button.disabled = true;
+    try { await bootSignedInUser(); } catch (error) { toast(error.message, "error"); }
+    finally { button.disabled = false; }
+  });
+  window.addEventListener("online", () => {
+    if (state.pendingDates.size || state.pendingRates) void flushSaves().catch(() => {});
+  });
+  window.addEventListener("beforeunload", (event) => {
+    if (!state.pendingDates.size && !state.pendingRates && !state.flushPromise && !state.retainedEdits && !state.recordDraft) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
   const shared = {
     el,
     state,
@@ -5543,6 +5707,7 @@ function bindEvents() {
     closeSignatureEditor,
     closeSheet,
     confirmOffWithExistingCounts,
+    confirmLeaveRecordDraft,
     connectDb,
     correctRouteList,
     currentRecordDraft,

@@ -306,7 +306,7 @@ test("account reset clears every new sales surface and force-closes an open edit
     adminRevenueList: emptyNode(), adminRouteList: emptyNode(), adminBundleList: emptyNode(), adminProfiles: emptyNode(),
   };
   const sandbox = {
-    state, el, expensesController: null, exportsController: null, calendarSyncController: null,
+    state, el, $: () => null, setSaveFeedback: () => {}, expensesController: null, exportsController: null, calendarSyncController: null,
     clearTimeout: () => {},
     closeSalesOverride: (force) => { closed = force; },
     todayKey: () => "2026-08-26",
@@ -401,6 +401,7 @@ test("normal record save keeps one request id across a day-field failure and ret
   const toasts = [];
   const { saveCurrentRecordAndGoHome } = loadFunctions(["saveCurrentRecordAndGoHome"], {
     state,
+    toNum: (n) => Number(n) || 0, effectiveUnit: (row) => Number(row.unit) || 0,
     syncFormToRecord: () => draft,
     hasAutomaticEntries: () => true,
     currentUserId: () => "u1",
@@ -446,6 +447,7 @@ test("normal record save preserves the draft and id on an override revision conf
   const toasts = [];
   const { saveCurrentRecordAndGoHome } = loadFunctions(["saveCurrentRecordAndGoHome"], {
     state,
+    toNum: (n) => Number(n) || 0, effectiveUnit: (row) => Number(row.unit) || 0,
     syncFormToRecord: () => ({ automaticWorks: [{ workId: "work-1" }], rows: [{ route: "324D", count: 8, unit: 1100 }] }),
     hasAutomaticEntries: () => true,
     currentUserId: () => "u1",
