@@ -1340,3 +1340,10 @@ Browser checks:
 - Errors hide the dots and expose the existing retry message; reduced-motion mode shows three stationary dots. No new icons, fonts or dependencies.
 - Advanced the PWA shell/assets to 1.0.74 and startup CSS query to `v=2`, including its precache entry. Android remains Beta 1.15.
 - Validation: all 24 relevant startup/release tests, bootstrap/service-worker syntax checks and diff whitespace checks passed.
+
+## 2026-09-20 - Diagnosis safeguards and design integration (PWA 1.0.77 / Android Beta 1.16)
+
+- Preserve published 1.0.76 design and integrate diagnosis fixes: unsaved-input protection, checked manual saves, OCR access/quota and parsing, expense refund invariants, workbook paths/dates/period totals, auth recovery and calendar queue handling.
+- Keep record-edit actions at 44px and retain their arrow; use the common status typography. Android preserves stable route identities while aligning component styling and integrating recovery/pending/finish fixes.
+- Applied only the intended migration, aligned local version with remote 20260920012920, and deployed OCR v35 / Calendar v6. Verified RPC restrictions, private-table RLS, unauthenticated denial and no new security warnings.
+- Release sequence publishes APK before frontend download links. See docs/diagnosis-design-release-20260920.md for checks, deployment evidence and remaining scope.

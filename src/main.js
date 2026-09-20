@@ -3051,7 +3051,16 @@ async function persistDay(dateKey, context = captureAccountContext()) {
     });
     if (!isAccountContextCurrent(context)) return false;
     if (replaceError) throw replaceError;
-    if (deleteManualDay) delete state.entries[dateKey];
+    if (deleteManualDay) {
+      const current = state.entries[dateKey];
+      // The server deleted the requested snapshot, not edits made while awaiting it.
+      if (current && JSON.stringify(normalizeRecordShape(current)) !== JSON.stringify(rec)) {
+        current.manualDayUpdatedAt = null;
+      } else {
+        delete state.entries[dateKey];
+      }
+      if (state.recordDraftDate === dateKey && state.recordDraft) state.recordDraft.manualDayUpdatedAt = null;
+    }
     else {
       const saved = Array.isArray(savedManualDay) ? savedManualDay[0] : savedManualDay;
       if (!saved || saved.user_id !== userId || saved.work_date !== dateKey || !saved.updated_at) {
