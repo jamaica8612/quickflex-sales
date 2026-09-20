@@ -1,5 +1,14 @@
 # QuickFlex Worklog
 
+## 2026-09-19 Design consistency pass (1.0.76)
+
+- Shared tokens with the Android app: `--warn` (warning no longer reuses the gold accent), `--red-border`, a radius scale (`--r-xs`…`--r-full`) and a type scale (`--fs-caption` 11px … `--fs-headline` 24px). Hardcoded font sizes and radii in styles.css and styles/*.css now use them; nothing renders below 11px except calendar route labels (`--fs-cell` 9px, kept small on purpose). styles/startup.css stays self-contained.
+- One selected state for toggles (stats tabs, range tabs, theme, chart, calendar amount/count, expense chips): raised surface with a thin outline. Gold fill is reserved for action buttons.
+- Compact calendar and expense controls keep their look but get 44px hit areas; the calendar amount/count toggle keeps its width so it no longer overlaps the next-month button.
+- Empty states read as sentences, not hero numbers: measurement "등록된 구역 없음" and stats "비교할 이전 기록 부족".
+- Fixed: `.sr-only` was never defined, so the expense month label showed on screen. Danger colours unified on `--red`. Removed dead admin-* CSS and the localhost-only dark palette preview.
+- Verification: PWA Node tests 179 passed (pwa-exports needs node_modules). Browser check against a local mock at 360/375px in dark.
+
 ## 2026-09-19 Startup entrances rotate (1.0.75)
 
 - The startup splash keeps one look (same background, truck colour, name and loading dots per theme) and now picks one of four entrances per launch: brake (existing), arrive (road draws, truck leans in and straightens), build (logo layers slide in, wheels pop) and sheen (truck lifts, one light sweep). The previous entrance is never repeated; blocked storage still picks one.

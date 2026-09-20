@@ -3578,6 +3578,8 @@ function renderMeasurementBridge() {
   // truthful without changing the underlying sales rows or their quantities.
   const routes = record.off ? [] : routeListFromText(record.rows.flatMap((row) => splitStoredRoutes(row.route)));
   el.measurementRouteText.textContent = record.off ? "휴무" : routes.length ? routes.join(" · ") : "등록된 구역 없음";
+  // 구역이 없을 땐 강조 숫자처럼 보이지 않게 본문 제목 크기로 낮춘다.
+  el.measurementRouteText.toggleAttribute?.("data-empty", !routes.length);
   const households = record.rows.reduce((sum, row) => sum + toNum(row.households), 0);
   const automatic = hasAutomaticEntries(record);
   const autoNextDate = state.measurementDateAuto && isNightShift() && workDate !== todayKey();
@@ -4463,7 +4465,7 @@ function renderStatsComparison(report) {
   if (!show) return;
 
   const comparison = report.comparison;
-  el.statsComparison.classList.remove("is-positive", "is-negative", "is-neutral");
+  el.statsComparison.classList.remove("is-positive", "is-negative", "is-neutral", "is-empty");
   if (comparison.available) {
     const delta = Math.round(comparison.revenueDelta || 0);
     const rate = comparison.revenueDeltaRate;
@@ -4477,7 +4479,8 @@ function renderStatsComparison(report) {
     return;
   }
 
-  el.statsComparison.classList.add("is-neutral");
+  // 비교값이 없을 땐 안내 문장이므로 큰 숫자 대신 본문 제목 크기로 보여 준다.
+  el.statsComparison.classList.add("is-neutral", "is-empty");
   el.statsCompareLabel.textContent = "지난 정산 동일 근무일수 대비";
   if (comparison.reason === "current_no_workdays") {
     el.statsCompareValue.textContent = "근무 기록 후 비교됩니다";

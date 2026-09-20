@@ -234,10 +234,14 @@ test("light and dark design tokens meet text and control-boundary contrast floor
   assert.match(extractCssBlock(".inspection-good-button"), /background:\s*var\(--green\)[\s\S]*color:\s*var\(--button-success-text\)/i);
   assertContrast("inspection all-good button", parseColor(dark["button-success-text"]), parseColor(dark.green), 4.5);
 
-  const activeDarkSelectors = css.slice(css.indexOf('html[data-theme="dark"] .mode-btn.active'), css.indexOf("* { box-sizing"));
-  assert.match(activeDarkSelectors, /html\[data-theme="dark"\] \.stats-chart-toggle button\.active/);
-  assert.match(activeDarkSelectors, /color:\s*var\(--primary-dark\)/);
-  assertContrast("dark active stats toggle", parseColor(dark["primary-dark"]), parseColor(dark.gold), 4.5);
+  // Every selected toggle shares one raised-surface state; gold stays reserved for action buttons.
+  const selectedRule = css.slice(css.indexOf("html .mode-btn.active,"));
+  for (const selector of [".stats-tab.active", ".stats-range-tabs > button.active", ".theme-toggle button.active", ".stats-chart-toggle button.active"]) {
+    assert.ok(selectedRule.includes(`html ${selector}`), `${selector} must use the shared selected state`);
+  }
+  assert.match(selectedRule, /background:\s*var\(--panel3\)[\s\S]*?color:\s*var\(--text\)/);
+  assert.doesNotMatch(css, /\.(?:stats-tab|mode-btn)\.active\s*\{[^}]*background:\s*var\(--gold\)/);
+  assertContrast("dark selected toggle", parseColor(dark.text), parseColor(dark.panel3), 4.5);
 });
 
 test("blocking overlays, forms, sheets and live regions keep accessible HTML structure", () => {

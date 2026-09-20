@@ -10,7 +10,7 @@
     <meta name="application-name" content="플렉스노트" />
     <meta name="apple-mobile-web-app-title" content="플렉스노트" />
     <meta name="description" content="배송의 기록부터 매출·지출까지" />
-    <link rel="manifest" href="./manifest.webmanifest?v=1.0.75" />
+    <link rel="manifest" href="./manifest.webmanifest?v=1.0.76" />
     <link rel="icon" href="./favicon-32.png?v=4" type="image/png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=4" />
     <script>
@@ -40,10 +40,10 @@
     </style>
     <style>html[data-startup] #app{visibility:hidden;pointer-events:none}</style>
     <link rel="stylesheet" href="./styles/startup.css?v=3" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.75" />
-  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.75" />
-<link rel="stylesheet" href="./styles/exports.css?v=1.0.75" />
-<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.75" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.76" />
+  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.76" />
+<link rel="stylesheet" href="./styles/exports.css?v=1.0.76" />
+<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.76" />
 </head>
   <body>
     <script>document.body.dataset.theme = document.documentElement.dataset.theme;</script>
@@ -279,8 +279,8 @@
       <section class="view view-measurement">
         <header class="sub-header">
           <div class="sub-title left">
-            <span>완료 가구·상품수</span>
             <strong>배송 측정</strong>
+            <span>완료 가구·상품수</span>
           </div>
         </header>
         <main class="settings-body measurement-bridge-body">
@@ -768,40 +768,8 @@
     <script src="./src/vendor/supabase-2.116.0.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.75"></script>
+    <script type="module" src="./src/main.js?v=1.0.76"></script>
     <script>
-      // 로컬 디자인 비교용. 배포 화면에는 비교 도구를 표시하지 않는다.
-      (function () {
-        if (!["localhost", "127.0.0.1", "::1"].includes(location.hostname)) return;
-        var params = new URLSearchParams(location.search);
-        var choices = {original: "원본", mono: "블랙·화이트", blue: "소프트 블루", mint: "페일 민트", ink: "잉크 블랙", espresso: "에스프레소", midnight: "미드나이트", plum: "딥 플럼"};
-        var pick = params.get("dark");
-        if (!(pick in choices) && !params.has("palette-preview")) return;
-        var bar = document.createElement("div");
-        bar.className = "palette-preview";
-        bar.setAttribute("role", "group");
-        bar.setAttribute("aria-label", "다크 배경 비교");
-        var label = document.createElement("span");
-        label.textContent = "배경 비교";
-        bar.append(label);
-        function select(value) {
-          [document.documentElement, document.body].forEach(function (node) {
-            if (value === "original") node.removeAttribute("data-dark");
-            else node.setAttribute("data-dark", value);
-          });
-          bar.querySelectorAll("button").forEach(function (button) { button.setAttribute("aria-pressed", String(button.dataset.palette === value)); });
-        }
-        Object.keys(choices).forEach(function (value) {
-          var button = document.createElement("button");
-          button.type = "button";
-          button.textContent = choices[value];
-          button.dataset.palette = value;
-          button.addEventListener("click", function () { select(value); });
-          bar.append(button);
-        });
-        document.getElementById("app").prepend(bar);
-        select(pick in choices ? pick : "original");
-      })();
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});
       }
