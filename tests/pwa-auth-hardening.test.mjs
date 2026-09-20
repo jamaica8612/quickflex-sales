@@ -6,8 +6,9 @@ import vm from "node:vm";
 const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
 
 function extractFunctionDeclaration(name) {
+  const asyncMarker = `async function ${name}(`;
   const marker = `function ${name}(`;
-  const start = source.indexOf(marker);
+  const start = source.indexOf(asyncMarker) >= 0 ? source.indexOf(asyncMarker) : source.indexOf(marker);
   assert.notEqual(start, -1, `${name} must exist in src/main.js`);
   const paramsStart = source.indexOf("(", start);
   let paramsDepth = 0;
@@ -95,6 +96,179 @@ test("serialized native sync drops an older rotated session before posting", asy
   assert.equal(sandbox.messages.length, 1);
   assert.equal(sandbox.messages[0].accessToken, "new-access");
   assert.equal(sandbox.messages[0].sessionRevision, 101);
+});
+
+test("a native session request survives readiness and flushes only once", async () => {
+  const declarations = [
+    "flushNativeSessionSyncRequest",
+    "requestNativeSessionSync",
+  ].map(extractFunctionDeclaration).join("\n");
+  const sandbox = {};
+  vm.runInNewContext(`${declarations}
+    let nativeSessionSyncRequested = false;
+    let state = { db: null };
+    let window = { QuickFlexNative: null };
+    let syncCalls = 0;
+    function syncCurrentSessionToNative() { syncCalls += 1; nativeSessionSyncRequested = false; return Promise.resolve(true); }
+    globalThis.nativeRequestHarness = {
+      request: requestNativeSessionSync,
+      flush: flushNativeSessionSyncRequest,
+      ready() { state.db = {}; window.QuickFlexNative = { postMessage() {} }; },
+      requested() { return nativeSessionSyncRequested; },
+      syncCalls() { return syncCalls; },
+    };
+  `, sandbox);
+
+  assert.equal(await sandbox.nativeRequestHarness.request(), false);
+  assert.equal(sandbox.nativeRequestHarness.requested(), true, "request remains pending before the PWA is ready");
+  sandbox.nativeRequestHarness.ready();
+  assert.equal(await sandbox.nativeRequestHarness.flush(), true);
+  assert.equal(sandbox.nativeRequestHarness.syncCalls(), 1);
+  assert.equal(await sandbox.nativeRequestHarness.flush(), false, "the flushed request is not duplicated");
+});
+
+test("best-effort native session requests absorb a bridge refresh failure", async () => {
+  const declarations = [
+    "flushNativeSessionSyncRequest",
+    "requestNativeSessionSync",
+  ].map(extractFunctionDeclaration).join("\n");
+  const sandbox = {};
+  vm.runInNewContext(`${declarations}
+    let nativeSessionSyncRequested = false;
+    let state = { db: {} };
+    let window = { QuickFlexNative: { postMessage() {} } };
+    function syncCurrentSessionToNative() { return Promise.reject(new Error("network")); }
+    globalThis.nativeFailureHarness = {
+      request: requestNativeSessionSync,
+      requested() { return nativeSessionSyncRequested; },
+    };
+  `, sandbox);
+
+  assert.equal(await sandbox.nativeFailureHarness.request(), false);
+  assert.equal(sandbox.nativeFailureHarness.requested(), true, "a later return can retry the request");
+});
+
+function createCurrentSessionHarness(initialSession) {
+  const declarations = [
+    "sessionUserId",
+    "isAuthOperationCurrent",
+    "sessionCredentialsMatch",
+    "syncNativeSession",
+    "syncCurrentSessionToNative",
+  ].map(extractFunctionDeclaration).join("\n");
+  const sandbox = { initialSession, messages: [] };
+  vm.runInNewContext(`${declarations}
+    let nativeSessionSyncPromise = null;
+    let nativeSessionSyncTail = Promise.resolve();
+    let nativeSessionSyncRequested = true;
+    let authEventEpoch = 10;
+    let nativeSessionRevision = 100;
+    let getCalls = 0;
+    let refreshCalls = 0;
+    let resolveGet;
+    let resolveRefresh;
+    const getPromise = new Promise((resolve) => { resolveGet = resolve; });
+    const refreshPromise = new Promise((resolve) => { resolveRefresh = resolve; });
+    let state = {
+      session: initialSession,
+      db: { auth: {
+        getSession() { getCalls += 1; return getPromise; },
+        refreshSession() { refreshCalls += 1; return refreshPromise; },
+      } },
+    };
+    let window = { QuickFlexNative: { postMessage() {} } };
+    function currentUserId() { return sessionUserId(state.session); }
+    function allocateNativeSessionRevision() { nativeSessionRevision += 1; return nativeSessionRevision; }
+    function postNativeMessage(payload) { messages.push(payload); }
+    function applyAuthSession(session) {
+      const previousUserId = currentUserId();
+      state.session = session || null;
+      authEventEpoch += 1;
+      if (!session || previousUserId !== currentUserId()) nativeSessionSyncRequested = false;
+      return { authEpoch: authEventEpoch };
+    }
+    globalThis.currentSessionHarness = {
+      sync: syncCurrentSessionToNative,
+      resolveGet(value) { resolveGet(value); },
+      resolveRefresh(value) { resolveRefresh(value); },
+      replaceSession(session) { state.session = session; authEventEpoch += 1; nativeSessionSyncRequested = false; },
+      getCalls() { return getCalls; },
+      refreshCalls() { return refreshCalls; },
+      messages() { return messages; },
+      requested() { return nativeSessionSyncRequested; },
+    };
+  `, sandbox);
+  return sandbox.currentSessionHarness;
+}
+
+test("concurrent current-session requests share one getSession operation and return the same outcome", async () => {
+  const session = { user: { id: "account-a" }, access_token: "access-a", refresh_token: "refresh-a", expires_at: 4_000_000_000 };
+  const harness = createCurrentSessionHarness(session);
+  const first = harness.sync();
+  const second = harness.sync();
+  assert.equal(harness.getCalls(), 1);
+  harness.resolveGet({ data: { session }, error: null });
+  assert.deepEqual(await Promise.all([first, second]), [true, true]);
+  assert.equal(harness.messages().length, 1);
+  assert.equal(harness.requested(), false);
+});
+
+test("late getSession and refresh results cannot post after logout or an account replacement", async () => {
+  const sessionA = { user: { id: "account-a" }, access_token: "access-a", refresh_token: "refresh-a", expires_at: 4_000_000_000 };
+  const sessionB = { user: { id: "account-b" }, access_token: "access-b", refresh_token: "refresh-b", expires_at: 4_000_000_000 };
+  const afterLogout = createCurrentSessionHarness(sessionA);
+  const logoutRequest = afterLogout.sync();
+  afterLogout.replaceSession(null);
+  afterLogout.resolveGet({ data: { session: sessionA }, error: null });
+  assert.equal(await logoutRequest, false);
+  assert.equal(afterLogout.messages().length, 0);
+
+  const expiring = { ...sessionA, expires_at: 1 };
+  const afterReplacement = createCurrentSessionHarness(expiring);
+  const refreshRequest = afterReplacement.sync();
+  afterReplacement.resolveGet({ data: { session: expiring }, error: null });
+  await Promise.resolve();
+  assert.equal(afterReplacement.refreshCalls(), 1);
+  afterReplacement.replaceSession(sessionB);
+  afterReplacement.resolveRefresh({ data: { session: { ...expiring, access_token: "rotated-a" } }, error: null });
+  assert.equal(await refreshRequest, false);
+  assert.equal(afterReplacement.messages().length, 0);
+});
+
+test("sign-out or an account change discards an unflushed native session request", () => {
+  const declarations = [
+    "sessionUserId",
+    "currentUserId",
+    "captureAccountContext",
+    "applyAuthSession",
+  ].map(extractFunctionDeclaration).join("\n");
+  const sandbox = {};
+  vm.runInNewContext(`${declarations}
+    let nativeSessionSyncRequested = true;
+    let activeAccountId = "account-a";
+    let accountEpoch = 0;
+    let authEventEpoch = 0;
+    let state = { session: { user: { id: "account-a" } } };
+    function clearUserScopedState() {}
+    function showView() {}
+    function renderAll() {}
+    function showPending() {}
+    function showAuth() {}
+    function scheduleSignedInBoot() {}
+    globalThis.nativeAccountHarness = {
+      signOut() { applyAuthSession(null, { event: "SIGNED_OUT", scheduleBoot: false }); },
+      switchAccount() {
+        nativeSessionSyncRequested = true;
+        applyAuthSession({ user: { id: "account-b" } }, { event: "TOKEN_REFRESHED", scheduleBoot: false });
+      },
+      requested() { return nativeSessionSyncRequested; },
+    };
+  `, sandbox);
+
+  sandbox.nativeAccountHarness.signOut();
+  assert.equal(sandbox.nativeAccountHarness.requested(), false);
+  sandbox.nativeAccountHarness.switchAccount();
+  assert.equal(sandbox.nativeAccountHarness.requested(), false);
 });
 
 test("account boundary clears user data and drafts before adopting the next session", () => {
