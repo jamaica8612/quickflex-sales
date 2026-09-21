@@ -301,7 +301,11 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
       if (suggestOpen) applySnap("peek"); else expandSheet();
       updateWorkspace({ preserveViewport: true });
     });
-    search.addEventListener("focus", () => { if (query.trim() && !suggestOpen) { suggestOpen = true; updateWorkspace({ preserveViewport: true }); } });
+    search.addEventListener("focus", () => {
+      if (!query.trim() || suggestOpen) return;
+      if (!prepareWorkspaceChange()) { search.blur(); return; }
+      suggestOpen = true; updateWorkspace({ preserveViewport: true });
+    });
     search.addEventListener("keydown", (event) => {
       if (event.key !== "Escape" || !suggestOpen) return;
       event.stopPropagation(); suggestOpen = false; updateWorkspace({ preserveViewport: true });

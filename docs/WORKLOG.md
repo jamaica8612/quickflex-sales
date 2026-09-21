@@ -1,5 +1,12 @@
 # QuickFlex Worklog
 
+## 2026-09-21 RouteNote interaction release (PWA 1.0.84)
+
+- Prepared Claude PR #4 for production with matching manifest, shell cache and page asset versions.
+- Protected an unsaved tip when a retained search query regains focus; declining the existing discard confirmation keeps the form. Hidden sheet back buttons now remain hidden despite icon-button display rules.
+- Verification: the incoming PR passed all 377 Node tests on Windows. After release adjustments, 14 relevant route-map and release-contract tests passed; 47 JavaScript syntax checks and all 85 shell asset paths passed. Local 375px testing verified search selection and input retention across keyboard sheet resizing. The search-focus discard confirmation was observed; automated dismissal was blocked by the browser control tool.
+- This release changes only the PWA interface and release assets. No database, Edge Function or Android deployment.
+
 ## 2026-09-21 구역노트 화면을 RouteNote 조작 방식으로 (PWA 1.0.83, route-notes-2)
 
 - 사용자 판단: 이관해 온 구역노트 화면이 원본 RouteNote보다 답답하다. 색·글꼴·그림자는 플렉스노트 토큰을 그대로 두고, **조작 방식만** RouteNote에서 가져왔다.

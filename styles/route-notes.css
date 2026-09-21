@@ -72,6 +72,7 @@
   color:var(--muted);
   cursor:pointer;
 }
+.route-notes-icon-button[hidden] { display:none; }
 .route-notes-icon-button:hover {
   background:var(--panel2);
   color:var(--text);
