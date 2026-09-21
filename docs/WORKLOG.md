@@ -1411,3 +1411,12 @@ Browser checks:
 
 - Pages deployed revision `837ace8` successfully and 13 live files matched the release. Real Chrome verification then exposed a stale `config.js?v=10` module without the newly required `ROUTE_NOTES_CONFIG` export, which prevented startup on an existing browser.
 - Advance both route-note entrypoints to config revision 11, precache that exact URL, and bump PWA/main/shared-page URLs to 1.0.82 so existing caches can recover. Added a regression check for the previously cached configuration URL and matching public-page/offline dependencies.
+- Published `299a5e3`; actual existing-session Chrome startup recovered and displayed 매출 / 배송 / 구역 / 지출 / 더보기, working search and 32 zone rows. Public share rendered the selected zone/tips/photos; after creator revocation the Edge endpoint returned 404 and the browser showed the unavailable-link screen. The temporary verification share was removed.
+- Compared full data fingerprints before/after the additive release: all 1,481 day records, 2,113 day-route rows and 2,240 route-rate rows were unchanged. The user's follow-up removed only empty note zones 218/222/300A/300B after a private backup; all 138 tips and 70 photos remain.
+
+## 2026-09-21 - Map-first route notes (PWA 1.0.83)
+
+- User requested the map as the main surface and removal of the Naver zoom buttons that overlapped menus. The route tab now keeps one map with floating search/filter/manual-location controls and a collapsible result/detail/tip/share panel; Naver zoom controls are disabled while native map gestures remain enabled.
+- Preserve company/fixed-route/favorite filters, original safe zone colors, author-only editing, unsaved-input confirmation, and optional-coordinate freeform tips. Geometry fitting accounts for the visible controls/panel. Map SDK render failures remain isolated from list/detail/CRUD; a real localhost SDK rejection exposed and verified this fallback.
+- Split map adapter and UI/CSS between two Terra agents; the primary agent reviewed state/reset/edit guards, retained manual location, verified actual browser workflows and prepares the publication. Cache-version the changed UI/map/style assets for existing installations.
+- Validation: all 377 Node tests passed; syntax and diff checks passed. Local Chrome at 375px verified no horizontal overflow, 44px filters, author names with only the current author's edit button, coordinate-free tip save and usable details after SDK failure. The local domain is not authorized for map tiles, so live map placement is checked on the deployed domain separately.
