@@ -1,5 +1,6 @@
-import { createRouteNotesController } from '../../src/ui/route-notes.js';
+import { createRouteNotesController } from '../../src/ui/route-notes.js?fixture=apk-usability';
 import { ROUTE_NOTES_CONFIG } from '../../src/config.js';
+if (new URLSearchParams(location.search).has('phone')) document.body.dataset.phone = 'true';
 const uuid = (digit) => `${digit.repeat(8)}-${digit.repeat(4)}-4${digit.repeat(3)}-8${digit.repeat(3)}-${digit.repeat(12)}`;
 const company = {id:uuid('1'),name:'우리 회사 · 예시'};
 const user = {id:uuid('2')};

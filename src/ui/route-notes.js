@@ -26,7 +26,7 @@ const TEXT = {
   notReady: "구역 메모를 사용할 준비가 되지 않았습니다.", map: "지도를 준비하는 중입니다.",
 };
 const SVG_NS = "http://www.w3.org/2000/svg";
-const SHEET_PEEK = 84;
+const SHEET_PEEK = 144;
 const SUGGEST_LIMIT = 6;
 const WIDE_LAYOUT = "(min-width:768px) and (orientation:landscape), (min-width:1100px)";
 
@@ -136,7 +136,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
   if (!root) throw new Error("구역 메모 화면을 표시할 위치가 없습니다.");
   let disposed = false, generation = 0, data = null, selected = null, tab = "all", query = "", loadError = null;
   let map = null, mapRequest = 0, mapMode = null, zoneDraft = null, tipDraft = null, formDirty = false, saving = false;
-  let workspace = null, sheetSnap = "half", suggestOpen = false;
+  let workspace = null, sheetSnap = "half", suggestOpen = false, workspaceAbort = null, workspaceResize = null, mapFocusZoneId = null;
   const abort = new AbortController();
   const isCurrent = (token) => !disposed && token === generation;
   const membershipRole = () => data?.membership?.role || "member";
@@ -145,7 +145,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
   const canManageTip = (tip) => Boolean(userId() && tip?.created_by === userId());
   const isWide = () => Boolean(window.matchMedia?.(WIDE_LAYOUT)?.matches);
 
-  function clearMap() { mapRequest += 1; try { map?.destroy(); } catch { /* Optional map cleanup must not block notes. */ } map = null; mapMode = null; workspace = null; }
+  function clearMap() { workspaceAbort?.abort(); workspaceAbort = null; workspaceResize?.disconnect(); workspaceResize = null; mapRequest += 1; try { map?.destroy(); } catch { /* Optional map cleanup must not block notes. */ } map = null; mapMode = null; mapFocusZoneId = null; workspace = null; }
   function reset() {
     shareDialog?.reset?.();
     generation += 1; clearMap(); data = null; selected = null; zoneDraft = null; tipDraft = null; formDirty = false; saving = false; loadError = null; tab = "all"; query = ""; sheetSnap = "half"; suggestOpen = false;
@@ -194,13 +194,17 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
   }
   async function openZone(zoneId, token = generation) {
     if (!service?.loadZone) return;
-    if (selected?.id !== zoneId && (tipDraft || zoneDraft) && !abandonDraft()) return;
-    selected = { id: zoneId, loading: true }; expandSheet(); tipDraft = null; zoneDraft = null; formDirty = false; render();
+    if ((tipDraft || zoneDraft) && !abandonDraft()) return;
+    if (selected?.id !== zoneId) sheetSnap = "peek";
+    suggestOpen = false; query = "";
+    workspace?.search.blur();
+    selected = { id: zoneId, loading: true }; tipDraft = null; zoneDraft = null; formDirty = false; render();
+    if (sheetSnap === "peek") workspace?.sheetToggle.focus({ preventScroll: true });
     try {
       const detail = await service.loadZone(zoneId);
       if (!isCurrent(token) || selected?.id !== zoneId) return;
       selected = { ...detail, id: zoneId, loading: false, tips: Array.isArray(detail?.tips) ? detail.tips : [] }; render();
-    } catch (error) { if (isCurrent(token) && selected?.id === zoneId) { selected = { id: zoneId, error }; render(); } }
+    } catch (error) { if (isCurrent(token) && selected?.id === zoneId) { selected = { id: zoneId, error }; sheetSnap = "half"; render(); } }
   }
   async function toggleFavorite(zoneId) {
     if (!canClose()) return;
@@ -223,22 +227,28 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
   /* ── Sheet snapping ─────────────────────────────────────────────── */
   function snapHeights() {
     const total = workspace?.shell?.clientHeight || 0;
-    const full = Math.max(SHEET_PEEK, total - 120);
-    return { peek: SHEET_PEEK, half: Math.max(SHEET_PEEK, Math.min(full, Math.round(total * 0.54))), full };
+    const peek = Math.min(SHEET_PEEK, total);
+    const full = Math.max(peek, total - (tipDraft ? 8 : 88));
+    return { peek, half: Math.max(peek, Math.min(full, Math.round(total * 0.64))), full };
   }
   function applySnap(snap) {
     sheetSnap = snap;
     if (!workspace) return;
     workspace.sheet.dataset.snap = snap;
     workspace.sheetToggle.setAttribute("aria-expanded", String(snap !== "peek"));
-    workspace.sheetToggle.setAttribute("aria-label", snap === "peek" ? "구역 목록 펼치기" : "구역 목록 접기");
-    workspace.sheetToggle.replaceChildren(icon(snap === "peek" ? "up" : "down"));
+    const toggleLabel = snap === "peek" ? (tipDraft ? "작성 계속" : selected ? "메모 보기" : "구역 선택") : tipDraft ? "위치 선택" : "지도 크게";
+    workspace.sheetToggle.setAttribute("aria-label", toggleLabel);
+    workspace.sheetToggle.title = toggleLabel;
+    workspace.sheetToggle.replaceChildren(icon(snap === "peek" ? "up" : "down"), node("span", { text: toggleLabel }));
+    workspace.sheetToggle.hidden = !selected;
+    workspace.sheetBody.inert = Boolean(selected && snap === "peek");
+    workspace.grip.hidden = !selected || Boolean(tipDraft) || snap === "peek";
     workspace.grip.setAttribute("aria-expanded", String(snap !== "peek"));
-    if (isWide()) { workspace.shell.style.removeProperty("--route-note-sheet-h"); return; }
     workspace.shell.style.setProperty("--route-note-sheet-h", `${snapHeights()[snap]}px`);
   }
   function setSnap(snap, { preserveViewport = true } = {}) {
     applySnap(snap);
+    if (snap === "peek") workspace?.sheetToggle.focus({ preventScroll: true });
     if (snap !== "peek" && workspace && !workspace.sheetBody.childNodes.length) updateWorkspace({ preserveViewport });
     else renderOverviewMap({ zones: filteredZones(), zone: currentZone(), selectedZoneId: selected?.id || null, tips: selected?.tips || [], preserveViewport, padding: overviewMapPadding() });
   }
@@ -256,7 +266,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
       startHeight = workspace?.sheet?.getBoundingClientRect().height || SHEET_PEEK;
       shell.dataset.dragging = "true";
       handle.setPointerCapture?.(pointer);
-    }, { signal: abort.signal });
+    }, { signal: workspaceAbort.signal });
     handle.addEventListener("pointermove", (event) => {
       if (pointer !== event.pointerId) return;
       const delta = startY - event.clientY;
@@ -265,21 +275,21 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
       const next = Math.min(heights.full, Math.max(heights.peek, startHeight + delta));
       shell.style.setProperty("--route-note-sheet-h", `${next}px`);
       if (moved > 6) event.preventDefault();
-    }, { signal: abort.signal });
+    }, { signal: workspaceAbort.signal });
     const finish = (event) => {
       if (pointer !== event.pointerId) return;
       pointer = null; delete shell.dataset.dragging;
       if (moved <= 6) { setSnap(sheetSnap === "peek" ? "half" : "peek"); return; }
       setSnap(nearestSnap(workspace?.sheet?.getBoundingClientRect().height || SHEET_PEEK));
     };
-    handle.addEventListener("pointerup", finish, { signal: abort.signal });
-    handle.addEventListener("pointercancel", finish, { signal: abort.signal });
+    handle.addEventListener("pointerup", finish, { signal: workspaceAbort.signal });
+    handle.addEventListener("pointercancel", finish, { signal: workspaceAbort.signal });
     handle.addEventListener("keydown", (event) => {
       const order = ["peek", "half", "full"];
       const at = order.indexOf(sheetSnap);
       if (event.key === "ArrowUp") { event.preventDefault(); setSnap(order[Math.min(order.length - 1, at + 1)]); }
       if (event.key === "ArrowDown") { event.preventDefault(); setSnap(order[Math.max(0, at - 1)]); }
-    }, { signal: abort.signal });
+    }, { signal: workspaceAbort.signal });
   }
 
   /* ── Workspace shell ────────────────────────────────────────────── */
@@ -287,9 +297,10 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
   function ensureWorkspace() {
     if (workspace?.shell?.isConnected && mapMode === "overview") return;
     clearMap(); root.replaceChildren();
-    const mapHost = node("div", { class: "route-notes-map route-notes-overview-map", role: "region", "aria-label": "회사 전체 구역 지도" });
+    workspaceAbort = new AbortController();
+    const mapHost = node("div", { class: "route-notes-map route-notes-overview-map", role: "region", "aria-label": "선택한 구역 지도" });
 
-    const search = node("input", { class: "route-notes-search", type: "search", value: query, placeholder: "구역 또는 메모 검색", "aria-label": "구역 또는 메모 검색", autocomplete: "off" });
+    const search = node("input", { class: "route-notes-search", type: "search", value: query, placeholder: "구역 검색", "aria-label": "구역 또는 선택한 구역의 메모 검색", autocomplete: "off", enterkeyhint: "search" });
     const clear = iconButton("close", "검색어 지우기", () => {
       if (!prepareWorkspaceChange()) return;
       query = ""; search.value = ""; suggestOpen = false; expandSheet(); search.focus();
@@ -307,32 +318,31 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
       suggestOpen = true; updateWorkspace({ preserveViewport: true });
     });
     search.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && suggestOpen) {
+        const first = searchResults()[0];
+        if (first) { event.preventDefault(); void chooseSuggestion(first); }
+        return;
+      }
       if (event.key !== "Escape" || !suggestOpen) return;
       event.stopPropagation(); suggestOpen = false; updateWorkspace({ preserveViewport: true });
     });
     const searchBar = node("div", { class: "route-notes-searchbar" }, [icon("search"), search, clear]);
-    const suggest = node("div", { class: "route-notes-suggest", role: "listbox", "aria-label": "검색 결과", hidden: true });
+    const suggest = node("div", { class: "route-notes-suggest", role: "group", "aria-label": "검색 결과", hidden: true });
     const filters = node("div", { class: "route-notes-tabs", role: "group", "aria-label": "구역 필터" });
     const topbar = node("section", { class: "route-notes-topbar" }, [searchBar, suggest, filters]);
 
-    const locate = iconButton("locate", "내 위치", () => {
+    const locate = button("내 위치", () => {
       if (!map) { notify("지도를 사용할 수 없습니다. 잠시 후 다시 열어 주세요.", "error"); return; }
       map.locate().catch((error) => notify(errorText(error), "error"));
-    }, { class: "route-notes-fab" });
+    }, { class: "route-notes-fab route-notes-locate", icon: "locate" });
     const fabs = node("div", { class: "route-notes-fabs" }, [locate]);
-    if (canManageZones()) {
-      fabs.append(iconButton("plus", "구역 만들기", () => {
-        if (!prepareWorkspaceChange()) return;
-        zoneDraft = { name: "", memo: "", polygon: null }; formDirty = false; render();
-      }, { class: "route-notes-fab primary" }));
-    }
 
     const grip = node("button", { type: "button", class: "route-notes-sheet-grip", "aria-label": "구역 목록 크기 조절", "aria-expanded": "true" }, [node("span", { class: "route-notes-grip-bar" })]);
-    const sheetBack = iconButton("back", "구역 목록", () => handleBack(), { class: "route-notes-sheet-back" });
+    const sheetBack = button("구역 변경", () => tipDraft ? handleBack() : showZoneList(), { class: "route-notes-sheet-back", icon: "back" });
     sheetBack.hidden = true;
-    const sheetTitle = node("strong", { class: "route-notes-sheet-title", text: "구역 목록" });
+    const sheetTitle = node("strong", { class: "route-notes-sheet-title", text: "구역 목록", tabindex: "-1" });
     const sheetSubtitle = node("small", { class: "route-notes-sheet-subtitle", text: "지도에서 구역을 선택하세요." });
-    const sheetToggle = iconButton("down", "구역 목록 접기", () => { if (!prepareWorkspaceChange()) return; setSnap(sheetSnap === "peek" ? "half" : "peek"); }, { class: "route-notes-sheet-toggle", expanded: true });
+    const sheetToggle = button("지도 크게", () => setSnap(sheetSnap === "peek" ? (tipDraft ? "full" : "half") : "peek"), { class: "route-notes-sheet-toggle", icon: "down", expanded: true });
     const sheetBody = node("div", { class: "route-notes-sheet-body", "aria-live": "polite" });
     const sheet = node("section", { class: "route-notes-sheet", "aria-label": "구역 목록과 현장 메모" }, [
       grip,
@@ -342,20 +352,38 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
 
     const shell = node("section", { class: "route-notes-workspace" }, [mapHost, topbar, fabs, sheet]);
     root.append(shell);
-    workspace = { shell, mapHost, search, searchBar, clear, suggest, filters, sheet, sheetBody, sheetToggle, sheetTitle, sheetSubtitle, sheetBack, grip };
+    workspace = { shell, mapHost, search, searchBar, topbar, clear, suggest, filters, fabs, sheet, sheetBody, sheetToggle, sheetTitle, sheetSubtitle, sheetBack, grip, mapStarted: false };
+    mapMode = "overview";
     attachSheetDrag(grip, shell);
     document.addEventListener("pointerdown", (event) => {
       if (!suggestOpen || !workspace?.shell?.isConnected) return;
-      if (topbar.contains(event.target)) return;
+      if (topbar.contains(event.target) || tipDraft) return;
       suggestOpen = false; updateWorkspace({ preserveViewport: true });
-    }, { signal: abort.signal });
+    }, { signal: workspaceAbort.signal });
+    const resize = () => {
+      if (!workspace?.shell?.isConnected) return;
+      const height = Math.min(window.innerHeight, window.visualViewport?.height || window.innerHeight);
+      workspace.shell.style.setProperty("--route-note-viewport-h", `${height}px`);
+      applySnap(sheetSnap);
+      const active = document.activeElement;
+      if (tipDraft && workspace.sheetBody.contains(active)) active.scrollIntoView?.({ block: "nearest" });
+    };
+    window.addEventListener("resize", resize, { signal: workspaceAbort.signal });
+    window.visualViewport?.addEventListener("resize", resize, { signal: workspaceAbort.signal });
+    if (typeof ResizeObserver !== "undefined") { workspaceResize = new ResizeObserver(() => applySnap(sheetSnap)); workspaceResize.observe(shell); }
+    resize();
     applySnap(sheetSnap);
-    mountOverviewMap(mapHost);
   }
   function updateWorkspace({ preserveViewport = false } = {}) {
     if (!workspace) return;
     applySnap(sheetSnap);
     workspace.searchBar.dataset.filled = String(Boolean(query.trim()));
+    workspace.shell.dataset.editing = String(Boolean(tipDraft));
+    workspace.shell.dataset.selected = String(Boolean(selected));
+    workspace.mapHost.hidden = !selected;
+    workspace.topbar.hidden = Boolean(tipDraft);
+    workspace.search.placeholder = selected ? "구역 / 현재 구역 메모 검색" : "구역 검색";
+    workspace.search.setAttribute("aria-label", selected ? "구역 또는 현재 구역의 메모 검색" : "구역 검색");
     if (workspace.search.value !== query) workspace.search.value = query;
 
     workspace.filters.replaceChildren();
@@ -363,25 +391,29 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     [...(mineCount ? [["mine", "내 구역"]] : []), ["all", "전체"], ["favorites", "즐겨찾기"]].forEach(([id, label]) => {
       workspace.filters.append(button(label, () => {
         if (!prepareWorkspaceChange()) return;
-        tab = id; selected = null; suggestOpen = false; expandSheet(); updateWorkspace({ preserveViewport: true });
+        tab = id; showZoneList();
       }, { class: tab === id ? "active" : "", pressed: tab === id }));
     });
+    workspace.filters.hidden = Boolean(selected) && !suggestOpen;
+    workspace.fabs.hidden = !selected || Boolean(tipDraft);
 
     renderSuggestions();
     const zone = currentZone();
     const named = Boolean(selected && zone?.name);
     workspace.sheetBack.hidden = !selected;
-    workspace.sheetTitle.textContent = selected ? (zone?.name || "구역 메모") : "구역 목록";
+    workspace.sheetBack.replaceChildren(icon("back"), node("span", { text: tipDraft ? "메모로" : "구역 변경" }));
+    workspace.sheetTitle.textContent = tipDraft ? (tipDraft.id ? "메모 수정" : "메모 작성") : selected ? (zone?.name || "구역 메모") : "구역 선택";
     workspace.sheetTitle.dataset.code = String(named);
-    workspace.sheetSubtitle.textContent = selected
-      ? (data.company.name || "회사 공유")
-      : `${filteredZones().length}개 구역 · 지도에서 선택할 수 있습니다.`;
+    workspace.sheetSubtitle.textContent = tipDraft ? (zone?.name || "구역 메모") : selected
+      ? (selected.loading ? "메모를 불러오는 중" : `현장 메모 ${(selected.tips || []).length}개 · 선택한 구역만 표시`)
+      : `${filteredZones().length}개 구역 · 목록에서 하나를 선택하세요.`;
     workspace.sheetBody.replaceChildren();
-    if (sheetSnap !== "peek") {
+    if (!selected || sheetSnap !== "peek") {
       if (selected) renderDetail(workspace.sheetBody);
       else renderListOnly(workspace.sheetBody);
     }
-    renderOverviewMap({ zones: filteredZones(), zone, selectedZoneId: selected?.id || null, tips: selected?.tips || [], preserveViewport, padding: overviewMapPadding() });
+    if (selected && !workspace.mapStarted) { workspace.mapStarted = true; mountOverviewMap(workspace.mapHost); }
+    renderOverviewMap({ zone, tips: selected?.tips || [], preserveViewport, padding: overviewMapPadding() });
   }
   function renderSuggestions() {
     const results = suggestOpen ? searchResults() : [];
@@ -390,7 +422,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     if (!suggestOpen) return;
     if (!results.length) { workspace.suggest.append(node("p", { class: "route-notes-suggest-empty", text: "검색 결과가 없습니다." })); return; }
     results.forEach((result) => {
-      const row = node("button", { type: "button", class: "route-notes-suggest-row", role: "option", "aria-selected": "false", onClick: () => chooseSuggestion(result) }, [
+      const row = node("button", { type: "button", class: "route-notes-suggest-row", onClick: () => chooseSuggestion(result) }, [
         node("span", { class: "route-notes-suggest-glyph" }, [icon(result.glyph)]),
         node("span", { class: "route-notes-suggest-copy" }, [
           node("span", { class: "route-notes-suggest-title-row" }, [node("em", { class: "route-notes-badge", text: result.badge }), node("strong", { text: result.title })]),
@@ -403,16 +435,21 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
   async function chooseSuggestion(result) {
     if (!prepareWorkspaceChange()) return;
     suggestOpen = false;
+    workspace?.search.blur();
     const token = generation;
     if (result.kind === "zone") {
-      if (selected?.id === result.zone.id) { expandSheet(); updateWorkspace({ preserveViewport: true }); return; }
+      if (selected?.id === result.zone.id) { query = ""; sheetSnap = "peek"; updateWorkspace({ preserveViewport: true }); return; }
       await openZone(result.zone.id, token);
       return;
     }
-    expandSheet(); updateWorkspace({ preserveViewport: true });
+    query = ""; expandSheet(); updateWorkspace({ preserveViewport: true });
     focusTip(result.tip);
   }
   function renderListOnly(host) {
+    if (canManageZones()) host.append(button("구역 만들기", () => {
+      if (!prepareWorkspaceChange()) return;
+      zoneDraft = { name: "", memo: "", polygon: null }; formDirty = false; render();
+    }, { class: "route-notes-create-zone", icon: "plus" }));
     const zones = filteredZones();
     if (!zones.length) { host.append(node("p", { class: "route-notes-empty", text: tab === "favorites" ? "즐겨찾는 구역이 없습니다." : tab === "mine" ? "배정된 구역과 일치하는 구역 노트가 없습니다." : TEXT.empty })); return; }
     const list = node("section", { class: "route-notes-list", "aria-label": "검색된 구역" }); host.append(list);
@@ -430,11 +467,12 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     if (selected.loading) { host.append(node("p", { class: "route-notes-loading", text: TEXT.loading })); return; }
     if (selected.error) { host.append(node("section", { class: "route-notes-state error" }, [node("p", { text: errorText(selected.error) }), button("다시 시도", () => openZone(selected.id), { class: "secondary" }), button("목록", () => handleBack(), { class: "secondary" })])); return; }
     const zone = selected.zone; if (!zone) { host.append(node("p", { class: "route-notes-empty", text: TEXT.empty })); return; }
+    if (tipDraft) { renderTipForm(zone, host); return; }
     const favorite = data.favorites.includes(zone.id);
     const detailActions = node("div", { class: "route-notes-detail-actions" }, [
       iconButton("star", favorite ? "즐겨찾기 해제" : "즐겨찾기", () => toggleFavorite(zone.id), { class: "route-notes-star", pressed: favorite }),
     ]);
-    if (shareDialog) detailActions.append(iconButton("share", "공유", (event) => shareDialog.open({ zone, trigger: event.currentTarget })));
+    if (shareDialog) detailActions.append(button("공유", (event) => shareDialog.open({ zone, trigger: event.currentTarget }), { icon: "share" }));
     if (canManageZones()) detailActions.append(iconButton("edit", "구역 수정", () => { if (!canClose()) return; tipDraft = null; zoneDraft = { ...zone, polygon: zone.polygon || null }; formDirty = false; render(); }));
     const zoneCopy = [node("h3", { class: "sr-only", text: zone.name || "이름 없는 구역" }), node("p", { text: zone.memo || "공유 메모가 없습니다." })];
     if (!hasPolygon(zone.polygon)) zoneCopy.push(node("p", { class: "route-notes-no-polygon", text: "등록된 구역 경계가 없습니다." }));
@@ -442,11 +480,11 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
       node("div", { class: "route-notes-detail-copy" }, zoneCopy),
       detailActions,
     ]));
-    const photos = renderZonePhotos(selected.zonePhotos); if (photos) host.append(photos);
     const tipsHeader = node("div", { class: "route-notes-section-head" }, [node("h3", { text: "현장 메모" })]);
     if (userId()) tipsHeader.append(button("메모 추가", () => showTipEditor(), { class: "primary", icon: "plus" }));
     host.append(tipsHeader);
-    if (tipDraft) renderTipForm(zone, host); else host.append(renderTips(selected.tips));
+    host.append(renderTips(selected.tips));
+    const photos = renderZonePhotos(selected.zonePhotos); if (photos) host.append(photos);
   }
   function renderZonePhotos(photos) {
     const visible = (Array.isArray(photos) ? photos : []).map((photo) => {
@@ -456,8 +494,8 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
       ]);
     }).filter(Boolean);
     if (!visible.length) return null;
-    return node("section", { class: "route-notes-zone-photos", "aria-label": "구역 참고 사진" }, [
-      node("h3", { text: "구역 참고 사진" }), node("div", { class: "route-notes-zone-photo-grid" }, visible),
+    return node("details", { class: "route-notes-zone-photos", "aria-label": "구역 참고 사진" }, [
+      node("summary", { text: `구역 참고 사진 ${visible.length}장` }), node("div", { class: "route-notes-zone-photo-grid" }, visible),
     ]);
   }
   function renderTips(tips) {
@@ -505,7 +543,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
       return node("figure", { class: "route-notes-photo" }, [node("img", { src, alt: `${draft.title || "구역 메모"} 사진`, loading: "lazy" }), button("사진 삭제", () => deleteTipPhoto(photo, draft), { class: "secondary photo-delete", icon: "trash" })]);
     }).filter(Boolean);
     if (existingPhotos.length) form.append(node("section", { class: "route-notes-existing-photos" }, [node("p", { text: "등록된 사진" }), node("div", { class: "route-notes-photos" }, existingPhotos)]));
-    const actions = node("div", { class: "route-notes-form-actions" }, [button("취소", () => { tipDraft = null; formDirty = false; render(); }, { class: "secondary" })]);
+    const actions = node("div", { class: "route-notes-form-actions" }, [button("취소", () => { if (!abandonDraft()) return; render(); }, { class: "secondary" })]);
     if (draft.id && canManageTip(draft)) actions.append(button("삭제", () => deleteTip(draft), { class: "danger" }));
     actions.append(button(draft.id ? "메모 저장" : "메모 추가", null, { class: "primary" })); actions.lastChild.type = "submit"; form.append(actions);
     form.addEventListener("input", () => { formDirty = true; });
@@ -524,7 +562,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
         memo: form.elements.routeNoteTipMemo.value.trim(), lat, lng, expectedUpdatedAt: draft.updated_at });
       const photos = [...form.elements.routeNoteTipPhoto.files];
       for (const file of photos) { if (!isCurrent(token)) return; await service.uploadTipPhoto(saved.id, file); }
-      if (!isCurrent(token)) return; formDirty = false; await openZone(zone.id, token); notify("구역 메모를 저장했습니다.");
+      if (!isCurrent(token)) return; tipDraft = null; formDirty = false; sheetSnap = "half"; await openZone(zone.id, token); notify("구역 메모를 저장했습니다.");
     } catch (error) {
       if (!isCurrent(token)) return;
       if (saved) { tipDraft = { ...saved, photos: draft.photos || [] }; formDirty = false; render(); notify("메모는 저장되었습니다. 사진을 다시 선택해 추가해 주세요.", "error"); return; }
@@ -556,7 +594,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     const finish = button("경계 사용", () => { const polygon = map?.finishPolygon(); if (!polygon) { notify("점 세 개 이상이 필요합니다.", "error"); return; } zoneDraft = { ...zoneDraft, polygon }; formDirty = true; state.textContent = "새 경계를 저장할 수 있습니다."; }, { class: "secondary" });
     const locate = button("내 위치", () => { map?.locate().catch((error) => notify(errorText(error), "error")); }, { class: "secondary", icon: "locate" });
     form.append(node("section", { class: "route-notes-map-card" }, [mapHost, node("div", { class: "route-notes-map-actions" }, [locate, draw, undo, finish]), state]));
-    const actions = node("div", { class: "route-notes-form-actions" }, [button("취소", () => { zoneDraft = null; render(); }, { class: "secondary" }), button("구역 저장", null, { class: "primary" })]); actions.lastChild.type = "submit"; form.append(actions);
+    const actions = node("div", { class: "route-notes-form-actions" }, [button("취소", () => { if (!abandonDraft()) return; render(); }, { class: "secondary" }), button("구역 저장", null, { class: "primary" })]); actions.lastChild.type = "submit"; form.append(actions);
     form.addEventListener("input", () => { formDirty = true; });
     form.addEventListener("change", () => { formDirty = true; });
     form.addEventListener("submit", (event) => saveZone(event, form, draft)); root.append(form); mountMap(mapHost, draft, [], null);
@@ -576,17 +614,27 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     const controls = workspace.shell.querySelector(".route-notes-topbar")?.offsetHeight || 0;
     return isWide()
       ? { top: controls + 16, right: (workspace.sheet.offsetWidth || 0) + 32, bottom: 24, left: 24 }
-      : { top: controls + 16, right: 20, bottom: (workspace.sheet.offsetHeight || 0) + 12, left: 20 };
+      : { top: controls + 16, right: 20, bottom: Math.min(workspace.sheet.offsetHeight || 0, SHEET_PEEK) + 12, left: 20 };
   }
   function renderOverviewMap(options) {
     if (!map) return;
-    try { map.render(options); }
+    const zone = currentZone();
+    const tips = zone ? (options.tips || []) : [];
+    const preserveViewport = Boolean(options.preserveViewport || (zone?.id && mapFocusZoneId === zone.id));
+    try {
+      map.render({ ...options, preserveViewport, zones: zone ? [zone] : [], zone, selectedZoneId: zone?.id || null, tips });
+      if (!zone) mapFocusZoneId = null;
+      else if (!preserveViewport && (hasPolygon(zone.polygon) || tips.some((tip) => tip.lat != null && tip.lng != null && Number.isFinite(Number(tip.lat)) && Number.isFinite(Number(tip.lng))))) mapFocusZoneId = zone.id;
+    }
     catch (error) { failOverviewMap(error); }
   }
   function failOverviewMap(error) {
-    const failed = map; map = null;
+    const failed = map; map = null; mapFocusZoneId = null;
     try { failed?.destroy?.(); } catch { /* Map SDK failure is non-blocking. */ }
-    if (workspace?.mapHost?.isConnected) workspace.mapHost.replaceChildren(node("p", { class: "route-notes-map-error", text: `${errorText(error)} 목록에서 구역을 선택해 주세요.` }));
+    if (workspace?.mapHost?.isConnected) workspace.mapHost.replaceChildren(node("section", { class: "route-notes-map-error" }, [
+      node("p", { text: `${errorText(error)} 메모는 계속 볼 수 있습니다.` }),
+      button("지도 다시 시도", () => { if (workspace) mountOverviewMap(workspace.mapHost); }),
+    ]));
   }
   function abandonDraft() {
     if (saving) { notify("저장 중입니다. 잠시만 기다려 주세요."); return false; }
@@ -602,7 +650,10 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     host.replaceChildren();
     createRouteNoteMap({
       element: host, clientId: mapClientId,
-      onZoneSelect: (zone) => { if (zone?.id) openZone(zone.id); },
+      onZoneSelect: (zone) => {
+        if (zone?.id === selected?.id) { if (!tipDraft) setSnap("half"); }
+        else if (zone?.id) void openZone(zone.id);
+      },
       onTipSelect: (tip) => {
         if (!tip || !selected?.id || !prepareWorkspaceChange()) return;
         expandSheet(); updateWorkspace({ preserveViewport: true }); focusTip(tip);
@@ -619,7 +670,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
       map = adapter;
       renderOverviewMap({ zones: filteredZones(), zone: currentZone(), selectedZoneId: selected?.id || null, tips: selected?.tips || [], padding: overviewMapPadding() });
     }).catch((error) => {
-      if (error.name !== "AbortError" && isCurrent(token) && host.isConnected && request === mapRequest) host.replaceChildren(node("p", { class: "route-notes-map-error", text: `${errorText(error)} 목록에서 구역을 선택해 주세요.` }));
+      if (error.name !== "AbortError" && isCurrent(token) && host.isConnected && request === mapRequest) failOverviewMap(error);
     });
   }
   function mountMap(host, zone, tips, onTipSelect) {
@@ -634,13 +685,19 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
   }
   function isDirty() { return Boolean(formDirty && (zoneDraft || tipDraft)); }
   function canClose() { if (saving) { notify("저장 중입니다. 잠시만 기다려 주세요."); return false; } return !isDirty() || window.confirm("저장하지 않은 변경이 있습니다. 닫을까요?"); }
+  function showZoneList() {
+    if (!prepareWorkspaceChange()) return;
+    selected = null; query = ""; suggestOpen = false; sheetSnap = "half"; render();
+    workspace?.sheetTitle.focus({ preventScroll: true });
+  }
   function handleBack() {
     if (tipDraft || zoneDraft) {
       if (!canClose()) return true;
-      tipDraft = null; zoneDraft = null; formDirty = false; render(); return true;
+      tipDraft = null; zoneDraft = null; formDirty = false; sheetSnap = "half"; render(); return true;
     }
     if (suggestOpen) { suggestOpen = false; updateWorkspace({ preserveViewport: true }); return true; }
-    if (selected) { selected = null; formDirty = false; render(); return true; }
+    if (selected && sheetSnap !== "peek") { setSnap("peek"); return true; }
+    if (selected) { showZoneList(); return true; }
     return false;
   }
   return { open, close: reset, reset, destroy, isDirty, canClose, handleBack };
