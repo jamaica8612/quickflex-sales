@@ -1,4 +1,4 @@
-import { createRouteNoteMap, hasPolygon } from "../lib/route-note-map.js?v=2";
+import { createRouteNoteMap, hasPolygon } from "../lib/route-note-map.js?v=3";
 import { ROUTE_NOTE_MARKER_TYPES } from "../lib/route-notes.js";
 import { parseScheduleRoutes } from "../lib/route.js";
 

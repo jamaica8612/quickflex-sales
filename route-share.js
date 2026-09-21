@@ -1,5 +1,5 @@
 import { PUBLIC_SUPABASE_CONFIG, ROUTE_NOTES_CONFIG } from "./src/config.js?v=11";
-import { createRouteNoteMap, hasPolygon } from "./src/lib/route-note-map.js?v=2";
+import { createRouteNoteMap, hasPolygon } from "./src/lib/route-note-map.js?v=3";
 
 const root = document.getElementById("routeSharePage");
 let expiresAt = 0, expiryTimer = 0, map = null, generation = 0;
