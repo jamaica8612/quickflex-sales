@@ -1,5 +1,26 @@
 # QuickFlex Worklog
 
+## 2026-09-21 RouteNote interaction release (PWA 1.0.84)
+
+- Prepared Claude PR #4 for production with matching manifest, shell cache and page asset versions.
+- Protected an unsaved tip when a retained search query regains focus; declining the existing discard confirmation keeps the form. Hidden sheet back buttons now remain hidden despite icon-button display rules.
+- Verification: the incoming PR passed all 377 Node tests on Windows. After release adjustments, 14 relevant route-map and release-contract tests passed; 47 JavaScript syntax checks and all 85 shell asset paths passed. Local 375px testing verified search selection and input retention across keyboard sheet resizing. The search-focus discard confirmation was observed; automated dismissal was blocked by the browser control tool.
+- This release changes only the PWA interface and release assets. No database, Edge Function or Android deployment.
+
+## 2026-09-21 구역노트 화면을 RouteNote 조작 방식으로 (PWA 1.0.83, route-notes-2)
+
+- 사용자 판단: 이관해 온 구역노트 화면이 원본 RouteNote보다 답답하다. 색·글꼴·그림자는 플렉스노트 토큰을 그대로 두고, **조작 방식만** RouteNote에서 가져왔다.
+- 지도 위 상단: 유리 느낌의 검색 막대(돋보기 · 지우기 버튼)와 검색 결과 목록을 새로 만들었다. 결과에는 `구역`·`메모` 뱃지와 유형 아이콘이 붙고, 구역을 고르면 그 구역을 열고 메모를 고르면 해당 메모로 이동한다. 메모 검색은 지금 열려 있는 구역의 메모까지만 닿는다. 서비스가 회사 전체 팁을 한 번에 내려주지 않으므로 DB·권한은 건드리지 않았다.
+- 지도 위 제목 카드(회사명 · 구역노트)를 뺐다. 같은 이름이 하단 탭에 이미 있고, 지도를 가리고 있었다.
+- `내 위치`와 `구역 만들기`는 글자 버튼에서 지도 오른쪽 아래 46px 아이콘 버튼으로 옮겼다. 시트 높이에 맞춰 같이 움직인다.
+- 바텀시트: 손잡이를 끌어 `접힘(84px) · 절반 · 최대` 세 단계로 맞춘다. 짧게 누르면 접힘↔절반, 손잡이에 초점을 두고 ↑↓ 키로도 바꾼다. 머리글의 접기 버튼은 그대로 두었다. 넓은 화면에서는 기존처럼 오른쪽 고정 패널이며 손잡이는 숨긴다.
+- 구역을 열면 시트 머리글이 구역 이름(모노)과 회사명을 들고, 본문에서 같은 이름을 다시 쓰지 않는다. 화면 낭독기를 위해 제목은 `.sr-only`로 남겼다.
+- 목록 행·현장 메모·즐겨찾기·공유·수정을 아이콘 카드와 아이콘 버튼으로 바꿨다. 아이콘은 외부 라이브러리 없이 인라인 SVG로 넣었고 모두 `aria-label`과 `title`을 가진다. 메모 유형 아이콘은 다섯 종(주차·출입구·보관·주의·메모)으로 묶고 정확한 뜻은 글자 라벨이 말한다. 주의 계열만 `--red`를 쓴다.
+- 검색 중에는 시트를 접어 결과 목록과 겹치지 않게 하고, 검색어를 지우면 다시 펼친다.
+- 저장·권한·회사 범위·초안 보호(`isDirty`/`canClose`/`handleBack`) 로직은 그대로다. 데이터, 마이그레이션, Edge Function, 안드로이드는 변경하지 않았다.
+- 자산 쿼리 `route-notes.js?v=3`·`route-notes.css?v=3`와 셸 캐시 이름을 올려 설치된 PWA가 새 화면을 받는다.
+- 검증: Node 테스트 377개 중 376개 통과. 실패한 `tests/expense-privacy-sql.test.mjs` 1개는 이 변경 전부터 있던 것으로, 테스트가 작성자 PC의 Windows 경로를 가리켜 `main`에서도 같은 오류가 난다. 첫 번째 당사자 JS 전체 `node --check` 통과. Chromium 390px에서 목록·검색 결과·구역 상세·메모 카드·메모 폼·다크 모드와 1280px 넓은 화면을 실제 DOM으로 확인했고, 손잡이 끌기·짧게 누르기·↑↓ 키·접기 버튼이 세 단계를 오가는 것도 확인했다. 실제 네이버 지도 SDK와 실제 휴대폰 검증은 포함하지 않았다.
+
 ## 2026-09-19 Design consistency pass (1.0.76)
 
 - Shared tokens with the Android app: `--warn` (warning no longer reuses the gold accent), `--red-border`, a radius scale (`--r-xs`…`--r-full`) and a type scale (`--fs-caption` 11px … `--fs-headline` 24px). Hardcoded font sizes and radii in styles.css and styles/*.css now use them; nothing renders below 11px except calendar route labels (`--fs-cell` 9px, kept small on purpose). styles/startup.css stays self-contained.
