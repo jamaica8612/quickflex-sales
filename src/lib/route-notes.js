@@ -15,6 +15,11 @@ export function isRouteNoteUuid(value) {
   return typeof value === "string" && UUID.test(value);
 }
 
+/** Match the database key: route codes ignore case, spacing and full-width input. */
+export function routeNoteZoneNameKey(value) {
+  return String(value ?? "").normalize("NFKC").replace(/\s+/gu, "").toUpperCase();
+}
+
 function text(value, limit, label, { required = false } = {}) {
   const result = String(value ?? "").trim();
   if (required && !result) throw new RangeError(`${label} 항목을 입력해 주세요.`);
@@ -76,11 +81,13 @@ export function normalizeRouteNotePolygon(value) {
 export function normalizeRouteNoteZone(input = {}) {
   if (input.id != null && !isRouteNoteUuid(input.id)) throw new RangeError("Invalid zone ID");
   if (input.expectedUpdatedAt != null && !String(input.expectedUpdatedAt).trim()) throw new RangeError("Invalid zone revision");
+  if (input.color != null && !/^#[0-9a-fA-F]{6}$/.test(input.color)) throw new RangeError("구역 색상은 6자리 HEX 색상이어야 합니다.");
   return {
     id: input.id?.toLowerCase() || null,
     name: text(input.name, 80, "구역 이름", { required: true }),
     memo: text(input.memo, 4_000, "구역 메모"),
     polygon: normalizeRouteNotePolygon(input.polygon),
+    color: input.color == null ? undefined : input.color.toLowerCase(),
     expectedUpdatedAt: input.expectedUpdatedAt == null ? null : String(input.expectedUpdatedAt),
   };
 }

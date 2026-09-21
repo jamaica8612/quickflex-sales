@@ -10,16 +10,18 @@ let tips=[{id:uuid('8'),company_id:company.id,zone_id:zones[0].id,created_by:use
 let favorites=[];
 const copy = (value)=>structuredClone(value);
 const service={
+  async lookupPostcode(postcode){return {postcode,cityName:'예시시',districtName:'예시구',geometry:{type:'Polygon',coordinates:[[[129.05,35.16],[129.06,35.16],[129.06,35.17],[129.05,35.17],[129.05,35.16]]]}};},
   async load(){ if(mode==='failed') throw new Error('연결을 확인한 뒤 다시 시도해 주세요.'); return copy({company,membership:{company_id:company.id,user_id:user.id,role},zones:mode==='empty'?[]:zones,favorites}); },
   async loadZone(id){return copy({zone:zones.find(z=>z.id===id),tips:tips.filter(t=>t.zone_id===id)});},
   async setFavorite(id,value){favorites=value?[...new Set([...favorites,id])]:favorites.filter(z=>z!==id);return value;},
   async saveZone(input){const saved={...input,id:input.id||crypto.randomUUID(),company_id:company.id,created_by:user.id,updated_at:new Date().toISOString()};zones=zones.filter(z=>z.id!==saved.id).concat(saved);return copy(saved);},
+  async deleteZone(id){if(tips.some(t=>t.zone_id===id))throw new Error('팁이 남아 있는 구역은 삭제할 수 없습니다.');zones=zones.filter(z=>z.id!==id);},
   async saveTip(input){await new Promise(resolve=>setTimeout(resolve,100));const saved={...input,id:input.id||crypto.randomUUID(),company_id:company.id,created_by:user.id,author_name:'김기사',photos:[],updated_at:new Date().toISOString()}; tips=tips.filter(t=>t.id!==saved.id).concat(saved);return copy(saved);},
   async deleteTip(id){tips=tips.filter(t=>t.id!==id);},
   async uploadTipPhoto(){throw new Error('사진 업로드 실패 검증: 메모는 이미 저장되었습니다.');},
   async deleteTipPhoto(){},
 };
-const controller=createRouteNotesController({root:document.querySelector('#fixture'),service,getUser:()=>user,getProfile:()=>profile,notify:(message)=>{document.querySelector('#result').textContent=message;},mapClientId:new URLSearchParams(location.search).has('live-map')?ROUTE_NOTES_CONFIG.mapClientId:''});
+const controller=createRouteNotesController({root:document.querySelector('#fixture'),service,shareDialog:{open:({zone})=>{document.querySelector('#result').textContent=`예시: ${zone.name} 구역 공유`;},reset(){}},getUser:()=>user,getProfile:()=>profile,notify:(message)=>{document.querySelector('#result').textContent=message;},mapClientId:new URLSearchParams(location.search).has('live-map')?ROUTE_NOTES_CONFIG.mapClientId:''});
 document.querySelector('#member').onclick=()=>{role='member';mode='ready';controller.open();};
 document.querySelector('#admin').onclick=()=>{role='admin';mode='ready';controller.open();};
 document.querySelector('#fixed').onclick=()=>{profile={...user,status:'approved',role:'driver',driver_type:'fixed',fixed_routes:['303A302B']};mode='ready';controller.open();};

@@ -1,7 +1,8 @@
 import {
   ROUTE_NOTE_BUCKET, ROUTE_NOTE_SIGNED_URL_SECONDS, isRouteNoteUuid, normalizeRouteNoteTip,
-  normalizeRouteNoteZone, validateRouteNoteImage,
+  normalizeRouteNoteZone, normalizeRouteNotePolygon, validateRouteNoteImage,
 } from "../lib/route-notes.js";
+import { isPointInRouteNoteZone } from "../lib/route-note-rules.js";
 
 const ROLES = new Set(["admin", "editor", "member"]);
 const MUTATING_ROLES = new Set(["admin", "editor"]);
@@ -70,8 +71,23 @@ export function createRouteNotesService({ getContext, getClient, getUser, getPro
     if (current.userId !== captured.userId || current.client !== captured.client || current.sourceEpoch !== captured.sourceEpoch || epoch !== captured.epoch) throw new Error("Account changed while route notes were loading");
     return current.client;
   }
-  function editor(captured) {
-    if (!MUTATING_ROLES.has(captured.membership.role)) throw new Error("Only company admins and editors can change route notes");
+  function zoneAuthor(captured, zone) {
+    if (String(zone?.created_by || "").toLowerCase() !== captured.userId) {
+      throw new Error("구역을 만든 본인만 삭제할 수 있습니다.");
+    }
+  }
+  function zoneEditor(captured, zone) {
+    if (!MUTATING_ROLES.has(captured.membership.role) && String(zone?.created_by || "").toLowerCase() !== captured.userId) {
+      throw new Error("구역 작성자 또는 관리자만 수정할 수 있습니다.");
+    }
+  }
+  function zoneResult(result) {
+    if (result?.error?.code === "23505") {
+      const detailCode = /detail_code|detail code/i.test(`${result.error.message || ""} ${result.error.details || ""}`);
+      const error = new Error(detailCode ? "이 상세 코드는 다른 구역에서 이미 사용 중입니다." : "같은 이름의 구역이 이미 있습니다. 기존 구역을 선택해 주세요.");
+      error.code = "DUPLICATE_ZONE"; throw error;
+    }
+    return resultOrThrow(result, "Zone could not be saved");
   }
   function tipAuthor(captured, tip) {
     if (String(tip?.created_by || "").toLowerCase() !== captured.userId) {
@@ -149,41 +165,87 @@ export function createRouteNotesService({ getContext, getClient, getUser, getPro
 
     async saveZone(input) {
       const zone = normalizeRouteNoteZone(input);
-      const captured = await context(); editor(captured);
+      const captured = await context();
       await stillCurrent(captured);
       const values = { name: zone.name, memo: zone.memo, polygon: zone.polygon, updated_by: captured.userId };
+      if (zone.color !== undefined) values.color = zone.color;
       let data;
       if (zone.id) {
         if (!zone.expectedUpdatedAt) throw new RangeError("Zone revision is required to update");
-        data = resultOrThrow(await captured.client.from(TABLES.zones).update(values).eq("id", zone.id)
-          .eq("company_id", captured.company.id).eq("updated_at", zone.expectedUpdatedAt).select("*").maybeSingle(), "Zone could not be saved");
+        zoneEditor(captured, await scopedZone(captured, zone.id));
+        await stillCurrent(captured);
+        data = zoneResult(await captured.client.from(TABLES.zones).update(values).eq("id", zone.id)
+          .eq("company_id", captured.company.id).eq("updated_at", zone.expectedUpdatedAt).select("*").maybeSingle());
         if (!data) throw conflict("Zone");
       } else {
-        data = resultOrThrow(await captured.client.from(TABLES.zones).insert({ ...values, company_id: captured.company.id,
-          created_by: captured.userId }).select("*").single(), "Zone could not be saved");
+        data = zoneResult(await captured.client.from(TABLES.zones).insert({ ...values, company_id: captured.company.id,
+          created_by: captured.userId }).select("*").single());
       }
       await stillCurrent(captured); return data;
     },
 
+    async deleteZone(id, expectedUpdatedAt) {
+      if (!isRouteNoteUuid(id) || !String(expectedUpdatedAt || "").trim()) throw new RangeError("Zone revision is required to delete");
+      const captured = await context(); zoneAuthor(captured, await scopedZone(captured, id));
+      const childResults = await Promise.all([TABLES.tips, TABLES.zonePhotos].map((table) => captured.client.from(table)
+        .select("id").eq("company_id", captured.company.id).eq("zone_id", id).limit(1)));
+      const contents = childResults.map((result) => resultOrThrow(result, "Zone contents could not be checked") || []);
+      const occupied = contents.some((rows) => rows.length);
+      const occupiedMessage = "팁이나 참고 사진이 남아 있는 구역은 삭제할 수 없습니다. 먼저 각 작성자가 내용을 정리해 주세요.";
+      if (occupied) throw new Error(occupiedMessage);
+      await stillCurrent(captured);
+      const result = await captured.client.from(TABLES.zones).delete().eq("id", id).eq("company_id", captured.company.id)
+        .eq("created_by", captured.userId).eq("updated_at", expectedUpdatedAt).select("id").maybeSingle();
+      if (["23001", "23503"].includes(result?.error?.code)) throw new Error(occupiedMessage);
+      if (!resultOrThrow(result, "Zone could not be deleted")) throw conflict("Zone");
+      await stillCurrent(captured); return true;
+    },
+
     async saveTip(input) {
       const tip = normalizeRouteNoteTip(input);
-      const captured = await context(); await scopedZone(captured, tip.zone_id);
+      const captured = await context();
+      const zone = await scopedZone(captured, tip.zone_id);
+      await stillCurrent(captured);
       const values = { zone_id: tip.zone_id, title: tip.title, marker_type: tip.marker_type, memo: tip.memo,
         lat: tip.lat, lng: tip.lng, updated_by: captured.userId };
       let data;
       if (tip.id) {
         if (!tip.expectedUpdatedAt) throw new RangeError("Tip revision is required to update");
-        tipAuthor(captured, await scopedTip(captured, tip.id));
+        const previous = await scopedTip(captured, tip.id);
+        tipAuthor(captured, previous);
+        if (tip.lat != null && (tip.lat !== previous.lat || tip.lng !== previous.lng || tip.zone_id !== previous.zone_id) &&
+            !isPointInRouteNoteZone({ lat: tip.lat, lng: tip.lng }, zone.polygon)) {
+          throw new RangeError("지도 위치를 선택한 구역의 경계 안에 놓아 주세요.");
+        }
         await stillCurrent(captured);
         data = resultOrThrow(await captured.client.from(TABLES.tips).update(values).eq("id", tip.id)
           .eq("company_id", captured.company.id).eq("updated_at", tip.expectedUpdatedAt).select("*").maybeSingle(), "Tip could not be saved");
         if (!data) throw conflict("Tip");
       } else {
+        if (tip.lat != null && !isPointInRouteNoteZone({ lat: tip.lat, lng: tip.lng }, zone.polygon)) {
+          throw new RangeError("지도 위치를 선택한 구역의 경계 안에 놓아 주세요.");
+        }
         await stillCurrent(captured);
         data = resultOrThrow(await captured.client.from(TABLES.tips).insert({ ...values, company_id: captured.company.id,
           created_by: captured.userId }).select("*").single(), "Tip could not be saved");
       }
       await stillCurrent(captured); return data;
+    },
+
+    async lookupPostcode(postcode) {
+      const value = String(postcode ?? "").trim();
+      if (!/^\d{5}$/.test(value)) throw new RangeError("우편번호 5자리를 입력해 주세요.");
+      const captured = await context();
+      if (typeof captured.client.functions?.invoke !== "function") throw new Error("우편번호 조회를 사용할 수 없습니다.");
+      const result = await captured.client.functions.invoke("route-note-postcode", { body: { postcode: value } });
+      const data = resultOrThrow(result, "우편번호 경계를 조회하지 못했습니다.");
+      if (data?.postcode !== value || typeof data.cityName !== "string" || typeof data.districtName !== "string") {
+        throw new Error("우편번호 경계 응답이 올바르지 않습니다.");
+      }
+      const geometry = normalizeRouteNotePolygon(data.geometry);
+      if (!geometry) throw new Error("우편번호 경계 응답이 올바르지 않습니다.");
+      await stillCurrent(captured);
+      return { postcode: value, cityName: data.cityName, districtName: data.districtName, geometry };
     },
 
     async deleteTip(id, expectedUpdatedAt) {

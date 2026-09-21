@@ -58,7 +58,7 @@ test("PWA config names the immutable-receipt detail and date override contracts"
   assert.match(config, /replaceAutomaticSalesOverride:\s*"quickflex_replace_automatic_sales_override"/);
   assert.match(config, /replaceManualDayRecord:\s*"quickflex_replace_manual_day_record"/);
   const releaseVersion = JSON.parse(manifest).version;
-  assert.equal(releaseVersion, "1.0.85");
+  assert.equal(releaseVersion, "1.0.86");
   assert.ok(serviceWorker.includes(`quickflex-shell-v${releaseVersion}`));
   assert.ok(html.includes(`src/main.js?v=${releaseVersion}`));
   assert.ok(html.includes(`styles.css?v=${releaseVersion}`));

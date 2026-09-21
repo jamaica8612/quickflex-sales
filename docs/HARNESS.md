@@ -35,7 +35,7 @@ This file is the shared working contract for Codex, Claude Code, and future agen
 
 ## Auth and RLS
 
-- Personal finance and measurement rows remain owner-scoped using `user_id = auth.uid()::text`. Company route notes are the explicit exception: approved company members share their company's zones/tips; favorites remain private, and only each tip's author may change the tip/photos. See `docs/COMPANY-ROUTE-NOTES.md`.
+- Personal finance and measurement rows remain owner-scoped using `user_id = auth.uid()::text`. Company route notes are the explicit exception: approved company members share their company's zones/tips and may create zones with company-unique normalized names. Only the zone's creator may delete it, and remaining tips/reference photos block deletion. Favorites remain private, and only each tip's author may change the tip/photos. See `docs/COMPANY-ROUTE-NOTES.md` for local versus deployed status.
 - RLS must remain enabled on profile, rate, day, and item tables.
 - The first created profile is bootstrapped as `admin` and `approved`.
 - Later users start as `pending`; admins approve or block them.
