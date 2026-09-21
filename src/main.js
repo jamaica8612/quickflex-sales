@@ -939,6 +939,7 @@ function clearUserScopedState() {
   expensesController?.reset();
   routeNoteShareDialog?.reset();
   routeNotesController?.reset();
+  postNativeMessage({ type: "set_route_notes_active", active: false });
   routeNotesService?.reset?.();
   exportsController?.reset();
   calendarSyncController?.dispose();
@@ -1733,6 +1734,9 @@ function postNativeMessage(payload) {
   try {
     window.QuickFlexNative?.postMessage?.(JSON.stringify(payload));
   } catch (_) {}
+}
+function syncNativeRouteNotesState() {
+  postNativeMessage({ type: "set_route_notes_active", active: el.app?.dataset.view === "routes" && Boolean(currentUserId()) });
 }
 function requestNativeMessage(payload, timeoutMs = 4000) {
   const bridge = window.QuickFlexNative;
@@ -3520,6 +3524,7 @@ function showView(view, options = {}) {
     discardRecordDraft();
   }
   el.app.dataset.view = view;
+  syncNativeRouteNotesState();
   el.navTabs.forEach((tab) => {
     const selected = tab.dataset.view === (["schedule", "stats"].includes(view) ? "settings" : view);
     tab.classList.toggle("active", selected);
@@ -5902,17 +5907,20 @@ function bindEvents() {
   });
   document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState !== "visible") return;
+    syncNativeRouteNotesState();
     void requestNativeSessionSync();
     if (el.app.dataset.view !== "measurement" || !currentUserId()) return;
     refreshMeasurementAppAvailability();
     await refreshAfterNativeMeasurement();
   });
   window.addEventListener("quickflex-native-resume", () => {
+    syncNativeRouteNotesState();
     void requestNativeSessionSync();
     void refreshAfterNativeMeasurement();
   });
   window.addEventListener("quickflex-native-synced", refreshAfterNativeMeasurement);
   window.addEventListener("quickflex-native-session-request", () => {
+    syncNativeRouteNotesState();
     void requestNativeSessionSync();
   });
 }

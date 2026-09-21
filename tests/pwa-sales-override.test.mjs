@@ -287,6 +287,7 @@ test("a late override refetch is account-guarded before writing UI state", () =>
 test("account reset clears every new sales surface and force-closes an open editor", () => {
   let closed = false;
   let shareReset = false;
+  const nativeMessages = [];
   const emptyNode = () => ({ innerHTML: "old", value: "old", classList: { add() {}, contains() { return false; } } });
   const state = {
     saveTimer: null,
@@ -309,6 +310,7 @@ test("account reset clears every new sales surface and force-closes an open edit
   const sandbox = {
     state, el, $: () => null, setSaveFeedback: () => {}, expensesController: null, exportsController: null, calendarSyncController: null, routeNotesController: null, routeNotesService: null,
     routeNoteShareDialog: { reset() { shareReset = true; } },
+    postNativeMessage: (message) => nativeMessages.push(message),
     clearTimeout: () => {},
     closeSalesOverride: (force) => { closed = force; },
     todayKey: () => "2026-08-26",
@@ -322,6 +324,8 @@ test("account reset clears every new sales surface and force-closes an open edit
 
   assert.equal(closed, true);
   assert.equal(shareReset, true);
+  assert.equal(nativeMessages.at(-1).type, "set_route_notes_active");
+  assert.equal(nativeMessages.at(-1).active, false);
   assert.equal(Object.keys(state.receiptEntries).length, 0);
   assert.equal(Object.keys(state.automaticSalesOverrides).length, 0);
   assert.equal(Object.keys(state.workRouteDetails).length, 0);

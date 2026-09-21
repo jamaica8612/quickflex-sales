@@ -40,6 +40,42 @@ function layer(openClass = "") {
   return { classList: { contains: (name) => name === openClass } };
 }
 
+test("native route-note gesture state blocks only the signed-in route view", () => {
+  const calls = [];
+  let user = "driver";
+  const app = { dataset: { view: "routes" } };
+  const context = vm.createContext({ el: { app }, currentUserId: () => user, postNativeMessage: (message) => calls.push(message) });
+  vm.runInContext(`${extractFunction("syncNativeRouteNotesState")}\nglobalThis.sync = syncNativeRouteNotesState;`, context);
+  context.sync();
+  app.dataset.view = "home";
+  context.sync();
+  app.dataset.view = "routes";
+  user = null;
+  context.sync();
+  assert.deepEqual(calls.map((message) => [message.type, message.active]), [
+    ["set_route_notes_active", true], ["set_route_notes_active", false], ["set_route_notes_active", false],
+  ]);
+});
+
+test("cancelled route-note navigation does not re-enable native pull to refresh", () => {
+  const messages = [];
+  let allowClose = false;
+  const app = { dataset: { view: "routes" } };
+  const context = vm.createContext({
+    el: { app, navTabs: [] }, state: {}, currentUserId: () => "driver",
+    routeNotesController: { canClose: () => allowClose, close() {} },
+    postNativeMessage: (message) => messages.push(message), queueUsageEvent() {},
+  });
+  vm.runInContext(`${extractFunction("syncNativeRouteNotesState")}\n${extractFunction("showView")}\nglobalThis.show = showView;`, context);
+  context.show("home");
+  assert.equal(app.dataset.view, "routes");
+  assert.equal(messages.length, 0);
+  allowClose = true;
+  context.show("home");
+  assert.equal(app.dataset.view, "home");
+  assert.equal(messages.at(-1).active, false);
+});
+
 test("native back action is deterministic and only home is unhandled", () => {
   const { nativeBackAction } = loadNativeBack();
   assert.equal(nativeBackAction({ dbSheetOpen: true, salesOverrideOpen: true, blockingModalOpen: true, view: "record" }), "close-db-sheet");

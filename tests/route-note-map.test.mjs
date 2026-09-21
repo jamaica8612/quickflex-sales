@@ -118,26 +118,91 @@ test("route-note map renders a selectable multi-zone overview without built-in z
   });
 });
 
-test("route-note map emphasizes the selected zone and disposes replaced overlays", async () => {
+test("route-note map renders only the selected zone, its pins, and its bounds", async () => {
   await withMapFixture(async ({ records, element }) => {
     const adapter = await createRouteNoteMap({ element, clientId: "fixture", onZoneSelect: () => {} });
-    adapter.render({ zones: [west, east], selectedZoneId: "east" });
+    adapter.render({ zones: [west, east, multi], selectedZoneId: "east", tips: [
+      { id: "east-tip", zone_id: "east", title: "East tip", lat: 39.5, lng: 129.5 },
+      { id: "west-tip", zone_id: "west", title: "West tip", lat: 37.5, lng: 127.5 },
+      { id: "unassigned", title: "Unassigned", lat: 39.6, lng: 129.6 },
+    ] });
     const map = records.maps[0];
     assert.equal(map.fitCalls[0].bounds.points.length, 4);
-    assert.equal(records.polygons[0].options.strokeWeight, 2);
-    assert.equal(records.polygons[1].options.strokeWeight, 4);
+    assert.equal(records.polygons.length, 1);
+    assert.equal(records.polygons[0].options.strokeWeight, 4);
+    const labels = records.markers.filter((marker) => marker.options.icon?.content);
+    assert.equal(labels.length, 1);
+    assert.equal(labels[0].options.icon.content.textContent, "East");
+    const pins = records.markers.filter((marker) => !marker.options.icon);
+    assert.equal(pins.length, 1);
+    assert.equal(pins[0].options.title, "East tip");
     const firstRenderOverlays = [...records.polygons, ...records.markers];
     adapter.render({ zones: [west, east], preserveViewport: true });
     assert.equal(map.fitCalls.length, 1);
     assert.ok(firstRenderOverlays.every((overlay) => overlay.setMaps.includes(null)));
-    assert.ok(records.removedListeners.length >= 2);
+    assert.ok(records.removedListeners.length >= 1);
     adapter.destroy();
     assert.equal(element.replaced, true);
-    assert.ok(records.polygons.slice(2).every((overlay) => overlay.setMaps.includes(null)));
+    assert.ok(records.polygons.slice(1).every((overlay) => overlay.setMaps.includes(null)));
 
     const editorAdapter = await createRouteNoteMap({ element, clientId: "fixture" });
     editorAdapter.render({ zone: west });
     assert.equal(records.polygons.at(-1).options.clickable, false);
-    assert.equal(records.markers.length, 4);
+  });
+});
+
+test("route-note map leaves the map empty for an absent or invalid requested selection", async () => {
+  await withMapFixture(async ({ records, element }) => {
+    const adapter = await createRouteNoteMap({ element, clientId: "fixture", onZoneSelect: () => {} });
+    const tips = [
+      { id: "west-tip", zone_id: "west", title: "West tip", lat: 37.5, lng: 127.5 },
+      { id: "legacy-tip", title: "Legacy tip", lat: 37.6, lng: 127.6 },
+    ];
+    adapter.render({ zones: [west, east], selectedZoneId: null, tips });
+    const map = records.maps[0];
+    assert.equal(records.polygons.length, 0);
+    assert.equal(records.markers.length, 0);
+    assert.equal(map.fitCalls.length, 0);
+    assert.equal(map.centers.length, 0);
+
+    adapter.render({ zones: [west, east], selectedZoneId: "missing", tips });
+    assert.equal(records.polygons.length, 0);
+    assert.equal(records.markers.length, 0);
+    assert.equal(map.fitCalls.length, 0);
+    assert.equal(map.centers.length, 0);
+  });
+});
+
+test("route-note map preserves matching pins for a selected name-only zone", async () => {
+  await withMapFixture(async ({ records, element }) => {
+    const nameOnly = { id: "name-only", name: "Name only", polygon: null };
+    const adapter = await createRouteNoteMap({ element, clientId: "fixture" });
+    adapter.render({ zones: [west, nameOnly], selectedZoneId: nameOnly.id, tips: [
+      { id: "matching", zone_id: nameOnly.id, title: "Matching tip", lat: 36.5, lng: 128.5 },
+      { id: "other", zone_id: west.id, title: "Other tip", lat: 37.5, lng: 127.5 },
+    ] });
+    const map = records.maps[0];
+    assert.equal(records.polygons.length, 0);
+    assert.equal(records.markers.length, 1);
+    assert.equal(records.markers[0].options.title, "Matching tip");
+    assert.equal(map.fitCalls.length, 0);
+    assert.equal(map.centers.length, 1);
+    assert.equal(map.centers[0].latitude, 36.5);
+    assert.equal(map.centers[0].longitude, 128.5);
+  });
+});
+
+test("route-note map retains the share page's single-zone render contract", async () => {
+  await withMapFixture(async ({ records, element }) => {
+    const adapter = await createRouteNoteMap({ element, clientId: "fixture" });
+    adapter.render({ zone: east, tips: [
+      { id: "east-tip", zone_id: "east", title: "East tip", lat: 39.5, lng: 129.5 },
+      { id: "west-tip", zone_id: "west", title: "West tip", lat: 37.5, lng: 127.5 },
+    ] });
+    const map = records.maps[0];
+    assert.equal(records.polygons.length, 1);
+    assert.equal(records.markers.length, 1);
+    assert.equal(records.markers[0].options.title, "East tip");
+    assert.equal(map.fitCalls[0].bounds.points.length, 4);
   });
 });

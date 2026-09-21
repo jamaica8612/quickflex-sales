@@ -157,14 +157,20 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
     draftOverlays.push(new maps.Polyline({ map, path, strokeColor: "#1B62D6", strokeWeight: 3, strokeOpacity: .85 }));
     points.forEach((point) => draftOverlays.push(new maps.Marker({ map, position: new maps.LatLng(point.lat, point.lng) })));
   }
-  function render({ zone, zones, tips = [], selectedZoneId, preserveViewport = false, padding } = {}) {
+  function render(options = {}) {
+    const { zone, zones, tips = [], selectedZoneId, preserveViewport = false, padding } = options;
     clearRenderedOverlays();
     const sourceZones = Array.isArray(zones) ? zones : zone ? [zone] : [];
     const validZones = sourceZones.filter((item) => hasPolygon(item?.polygon));
     const canSelectZone = typeof onZoneSelect === "function";
-    const resolvedSelectedId = selectedZoneId ?? zone?.id;
-    const selectedZone = validZones.find((item) => item?.id === resolvedSelectedId) || (Array.isArray(zones) ? null : validZones[0]);
-    validZones.forEach((item, index) => {
+    const hasSelectedZoneId = Object.prototype.hasOwnProperty.call(options, "selectedZoneId");
+    const selectionRequested = hasSelectedZoneId || Object.prototype.hasOwnProperty.call(options, "zone");
+    const selectedZone = hasSelectedZoneId
+      ? (selectedZoneId == null ? null : sourceZones.find((item) => item?.id === selectedZoneId)
+        || (zone?.id === selectedZoneId ? zone : null))
+      : (zone || null);
+    const renderedZones = selectionRequested && hasPolygon(selectedZone?.polygon) ? [selectedZone] : selectionRequested ? [] : validZones;
+    renderedZones.forEach((item, index) => {
       const selected = item === selectedZone;
       const color = zoneColor(item, index);
       polygonRings(item.polygon).forEach((rings) => {
@@ -177,13 +183,16 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
       });
       if (canSelectZone) addZoneLabel(item, color, selected);
     });
-    const tipsWithCoordinates = tips.filter((tip) => tip.lat != null && tip.lng != null && Number.isFinite(Number(tip.lat)) && Number.isFinite(Number(tip.lng)));
+    const renderedTips = selectionRequested
+      ? tips.filter((tip) => selectedZone?.id != null && tip?.zone_id === selectedZone.id)
+      : tips;
+    const tipsWithCoordinates = renderedTips.filter((tip) => tip.lat != null && tip.lng != null && Number.isFinite(Number(tip.lat)) && Number.isFinite(Number(tip.lng)));
     const fitPadding = boundsPadding(padding);
-    if (!preserveViewport && selectedZone) {
+    if (!preserveViewport && hasPolygon(selectedZone?.polygon)) {
       const bounds = polygonPoints(selectedZone.polygon).reduce((result, point) => result.extend(new maps.LatLng(point.lat, point.lng)), new maps.LatLngBounds());
       map.fitBounds(bounds, fitPadding);
-    } else if (!preserveViewport && validZones.length) {
-      const bounds = validZones.flatMap((item) => polygonPoints(item.polygon)).reduce((result, point) => result.extend(new maps.LatLng(point.lat, point.lng)), new maps.LatLngBounds());
+    } else if (!preserveViewport && renderedZones.length) {
+      const bounds = renderedZones.flatMap((item) => polygonPoints(item.polygon)).reduce((result, point) => result.extend(new maps.LatLng(point.lat, point.lng)), new maps.LatLngBounds());
       map.fitBounds(bounds, fitPadding);
     } else if (!preserveViewport && tipsWithCoordinates[0]) map.setCenter(new maps.LatLng(Number(tipsWithCoordinates[0].lat), Number(tipsWithCoordinates[0].lng)));
     tipsWithCoordinates.forEach((tip) => {
