@@ -1,4 +1,4 @@
-# 회사 구역노트 — PWA 1.0.81
+# 회사 구역노트 — PWA 1.0.82
 
 ## 이번 범위
 
@@ -18,7 +18,7 @@
 
 `src/ui/route-notes.js`는 기존 PWA 로그인 세션을 사용하며, 별도 RouteNote 로그인이나 iframe을 열지 않는다. `src/services/route-notes.js`가 회사 멤버십을 확인하고 모든 질의를 회사별로 제한한다. API·사진·업무 데이터를 브라우저 로컬 저장소에 보관하지 않는다.
 
-`supabase/migrations/20260921110850_company_route_notes.sql`과 `20260921110900_route_note_import_provenance.sql`은 회사 구역노트 테이블·권한·private 사진 저장소·원본 보관 구조를 추가한다. 두 DB 변경과 데이터·사진 복사는 사용자 이관 요청에 따라 적용했다. 메뉴·구역노트·외부 공유 화면은 PWA 1.0.81에 포함한다. Android Beta 1.19는 이번 릴리스에서 변경하지 않는다.
+`supabase/migrations/20260921110850_company_route_notes.sql`과 `20260921110900_route_note_import_provenance.sql`은 회사 구역노트 테이블·권한·private 사진 저장소·원본 보관 구조를 추가한다. 두 DB 변경과 데이터·사진 복사는 사용자 이관 요청에 따라 적용했다. 메뉴·구역노트·외부 공유 화면은 PWA 1.0.82에 포함한다. Android Beta 1.19는 이번 릴리스에서 변경하지 않는다.
 
 현 회사 전용 설치에서는 기존 승인 회원을 기본 회사로 연결하고 이후 승인에도 같은 연결을 만든다. 여러 회사에 판매하기 전에는 `quickflex_note_sync_member` 자동 연결 트리거를 교체하고 회사 초대/가입 절차를 넣어야 한다. 클라이언트가 회사 멤버십을 만들거나 권한을 높일 수는 없다. 지정 편집자 배정은 현재 서버 관리 작업이며 UI는 추가하지 않았다.
 
@@ -30,7 +30,7 @@
 
 ## 기간제 공유
 
-사용자의 배포 승인 후 `20260921114325_route_note_shares.sql`과 `supabase/functions/route-note-share/index.ts`를 운영 서버에 적용했다. `route-share.html`은 PWA 1.0.81에 포함한다. 공유 SQL → `route-note-share` 함수 → PWA 순서로 반영하며, 운영 서버에서 유효한 링크의 구역·팁·서명 사진 열람을 확인했다. `supabase/config.toml`의 해당 함수 `verify_jwt=false`는 로그인 없는 토큰 열람을 위한 설정이며 실제 승인·회사·구역·기간 검증을 서버에서 수행한다.
+사용자의 배포 승인 후 `20260921114325_route_note_shares.sql`과 `supabase/functions/route-note-share/index.ts`를 운영 서버에 적용했다. `route-share.html`은 PWA 1.0.82에 포함한다. 공유 SQL → `route-note-share` 함수 → PWA 순서로 반영하며, 운영 서버에서 유효한 링크의 구역·팁·서명 사진 열람을 확인했다. `supabase/config.toml`의 해당 함수 `verify_jwt=false`는 로그인 없는 토큰 열람을 위한 설정이며 실제 승인·회사·구역·기간 검증을 서버에서 수행한다.
 
 공유 토큰은 256비트 난수이며 DB에는 해시만 저장한다. 승인된 회사 회원이 링크를 만들 수 있고, 만든 사람만 자신의 링크를 관리한다. 공개 열람은 유효한 토큰으로 지정된 구역과 그 팁·사진만 반환한다. 생성자의 승인이나 회사 멤버십이 해제되어도 열람이 차단된다. 원본 보관 JSON, 내부 계정 ID, 다른 구역 데이터는 공유하지 않는다.
 

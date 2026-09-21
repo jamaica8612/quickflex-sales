@@ -1,4 +1,4 @@
-import { PUBLIC_SUPABASE_CONFIG, ROUTE_NOTES_CONFIG } from "./src/config.js";
+import { PUBLIC_SUPABASE_CONFIG, ROUTE_NOTES_CONFIG } from "./src/config.js?v=11";
 import { createRouteNoteMap, hasPolygon } from "./src/lib/route-note-map.js";
 
 const root = document.getElementById("routeSharePage");

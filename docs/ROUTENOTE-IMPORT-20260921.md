@@ -39,4 +39,4 @@
 
 ## 배포 상태
 
-`company_route_notes`, `route_note_import_provenance` 두 DB 마이그레이션과 데이터·사진 복사를 적용했다. 이후 사용자의 배포 승인에 따라 `route_note_shares` 마이그레이션과 공유 Edge Function도 운영에 반영했다. 메뉴·내 구역 필터·스타일·공유 화면은 PWA 1.0.81 릴리스에 포함한다. Android Beta 1.19와 기존 매출·측정 로직은 변경하지 않는다. 세 마이그레이션 파일명은 실제 원격 적용 이력의 버전과 일치하도록 정리했다.
+`company_route_notes`, `route_note_import_provenance` 두 DB 마이그레이션과 데이터·사진 복사를 적용했다. 이후 사용자의 배포 승인에 따라 `route_note_shares` 마이그레이션과 공유 Edge Function도 운영에 반영했다. 메뉴·내 구역 필터·스타일·공유 화면은 PWA 1.0.82 릴리스에 포함한다. Android Beta 1.19와 기존 매출·측정 로직은 변경하지 않는다. 세 마이그레이션 파일명은 실제 원격 적용 이력의 버전과 일치하도록 정리했다.

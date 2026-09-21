@@ -87,3 +87,13 @@ test('initial HTML hides and inerts app before any auth script executes',()=>{
   assert.ok(sdk >= 0 && html.indexOf('src/startup.js') < sdk);
   assert.match(html,/startup-tagline">배송의 모든 기록/);
 });
+
+test('route-note entrypoints bypass the legacy config cache and precache their exact dependency',()=>{
+  const share=readFileSync(new URL('../route-share.js',import.meta.url),'utf8');
+  const worker=readFileSync(new URL('../sw.js',import.meta.url),'utf8');
+  const mainConfig=main.match(/from "\.\/config\.js\?v=(\d+)"/);
+  const shareConfig=share.match(/from "\.\/src\/config\.js\?v=(\d+)"/);
+  assert.ok(mainConfig && Number(mainConfig[1])>10,'v=10 may still be cached without ROUTE_NOTES_CONFIG');
+  assert.equal(shareConfig?.[1],mainConfig[1]);
+  assert.ok(worker.includes(`"./src/config.js?v=${mainConfig[1]}"`));
+});

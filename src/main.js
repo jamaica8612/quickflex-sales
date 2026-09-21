@@ -24,7 +24,7 @@ import {
   RPC,
   SAMPLE_SETTLEMENT,
   TABLES,
-} from "./config.js?v=10";
+} from "./config.js?v=11";
 import {
   addDays,
   formatLong,

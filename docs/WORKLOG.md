@@ -1406,3 +1406,8 @@ Browser checks:
 - Applied `route_note_shares` to project `xrrdokcjhjqdfvwtbenl` and deployed only the new `route-note-share` Edge Function. Aligned the three local migration filenames with their actual remote versions: `20260921110850`, `20260921110900`, `20260921114325`.
 - Live backend validation: an approved member can create a link; anonymous Edge POST returns exactly one zone with tips and signed photos. Two signed photos were fetched successfully, the response has the expected CORS and `no-store` headers, and internal ownership/provenance fields are absent. Security advisors have no additions (six pre-existing notices remain).
 - Raised PWA manifest, cached asset references and the service-worker cache to 1.0.81. The 374-test release run passed 373 checks and caught one stale introduction-page manifest version; fixed both introduction/install manifest references and all 19 focused release/font/guide checks then passed. All 50 JavaScript syntax checks passed. Actual browser/map/phone verification remains distinct from these API and automated checks.
+
+## 2026-09-21 - Existing-browser config cache correction (PWA 1.0.82)
+
+- Pages deployed revision `837ace8` successfully and 13 live files matched the release. Real Chrome verification then exposed a stale `config.js?v=10` module without the newly required `ROUTE_NOTES_CONFIG` export, which prevented startup on an existing browser.
+- Advance both route-note entrypoints to config revision 11, precache that exact URL, and bump PWA/main/shared-page URLs to 1.0.82 so existing caches can recover. Added a regression check for the previously cached configuration URL and matching public-page/offline dependencies.
