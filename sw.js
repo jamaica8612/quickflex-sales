@@ -1,4 +1,4 @@
-const CACHE_NAME = "quickflex-shell-v1.0.80-native-session-recovery-1-usage-guide-1";
+const CACHE_NAME = "quickflex-shell-v1.0.81-native-session-recovery-1-usage-guide-1-route-notes-1";
 const SHELL_FILES = [
   "./src/vendor/supabase-2.116.0.js",
   "./",
@@ -38,6 +38,16 @@ const SHELL_FILES = [
   "./src/lib/expenses.js",
   "./src/services/expenses.js",
   "./src/ui/expenses.js",
+  "./src/lib/route-notes.js",
+  "./src/lib/route-note-map.js",
+  "./src/services/route-notes.js",
+  "./src/ui/route-notes.js",
+  "./src/services/route-note-share.js",
+  "./src/ui/route-note-share.js",
+  "./styles/route-notes.css?v=1",
+  "./styles/route-note-share.css?v=1",
+  "./route-share.html",
+  "./route-share.js",
   "./src/lib/export-records.js",
   "./src/ui/exports.js",
   "./src/lib/calendar-sync.js",
@@ -67,7 +77,7 @@ const SHELL_FILES = [
   "./src/lib/format.js",
   "./src/lib/work-date.js",
   "./src/lib/measurement-app-launch.js",
-  "./manifest.webmanifest?v=1.0.80",
+  "./manifest.webmanifest?v=1.0.81",
   "./icon-192.png?v=4",
   "./icon-512.png?v=4",
   "./icon-maskable-192.png?v=4",

@@ -1381,3 +1381,28 @@ Browser checks:
 - Publish exactly one APK asset before advancing Pages main. The automatic updater reads the non-draft GitHub Releases list, selects Beta 1.17, and validates the downloaded package/version/signature before installation.
 - Release artifact is byte-identical to the verified session-fix APK above: 15,007,252 bytes, versionCode 139, SHA-256 `cda0e322acbdc4dfde40941a40cafaf586a4d99e1fdb752817bbab73f5c81bd2`; signer matches Beta 1.16. Android source commit: `17ccffb`.
 - Rechecked production migration history: both `20260920021710` and `20260920021733` are present. This publication does not reapply migrations or redeploy unrelated server functions.
+
+## 2026-09-21 - Company route notes (local only, not deployed)
+
+- Added the company-wide Route Notes tab, personal favorites, calendar route shortcuts, and moved Expenses under More without replacing measurement or personal financial data.
+- Approved members can write freeform tips, with optional coordinates/photos. Only the author may edit/delete tips or photos, including when another member is a company admin. The DB stamps the author display name and rejects client changes. Company admins/editors manage zone boundaries.
+- Added additive company-scoped RLS, a private photo bucket, revision conflict detection, account-epoch guards, and local synthetic UI fixtures. Original RouteNote data was not copied and no remote schema/storage writes, pushes or deployment ran.
+- Work split: Terra agents handled UI/map, service and PGlite coverage; the primary agent integrated menus/auth, designed and reviewed permissions, hardened partial failure/account switching, and verified the result.
+- Validation: all 348 Node tests passed serially; 44 first-party JS syntax checks and diff checks passed. Chrome 375px DOM verified favorites, freeform creation/editing, author labels/controls and no horizontal overflow. Screenshot capture and later deletion-dialog browser calls timed out; map/visual and remaining viewport QA are explicitly outstanding.
+- Deployment and existing-data import checklist: docs/COMPANY-ROUTE-NOTES.md. Branch: codex/company-route-notes-20260921. Existing release versions and Android source unchanged.
+
+## 2026-09-21 - RouteNote data import, menus and expiring sharing (app unpublished)
+
+- With the user's data-import authorization, applied the additive company and provenance migrations and copied 35 active source zones, 138 tips and 70 photos. Three tips without a source zone belong to one additional unassigned zone. Preserved the source service and privately archived 305 original rows; 70 source/destination file hashes and six source/archive table fingerprints matched.
+- Exact confirmed-email matching links 31 tips to their existing authors. The other 107 retain their original author names and remain read-only until identity is confirmed. No name-only or administrator fallback ownership was assigned.
+- Bottom navigation is 매출 / 배송 / 구역 / 지출 / 더보기; full screen names are 매출노트 / 배송노트 / 구역노트 / 지출노트. Statistics opens from More. The revenue title remains visible beside the existing profile information.
+- Added the fixed-driver 내 구역 default from explicit assigned route codes, retaining all zones, favorites and search. The new PWA excludes comments, realtime location sharing and periodic GPS tracking; manual one-shot location lookup remains.
+- Implemented login-free single-zone sharing with a 1–30 day expiry, creator-controlled extension/revocation, hashed tokens, restricted media signing and expiry cleanup. The user selected expiring links only, so permanent personal copies are excluded. Sharing SQL, Edge Function and PWA changes remain local and undeployed; no push or Android change ran.
+- Validation: all 374 Node tests passed serially with zero skips; 50 JavaScript syntax checks, canonical-schema inclusion and diff checks passed. The actual imported dataset passed two idempotent PGlite imports and remote RLS/storage verification. New Chrome/IAB navigation attempts timed out, so current browser layout, live map and mobile QA remain outstanding. See COMPANY-ROUTE-NOTES.md and ROUTENOTE-IMPORT-20260921.md.
+
+## 2026-09-21 - Authorized route-note publication (PWA 1.0.81)
+
+- User authorized deployment after implementation and data import. Publish the menu, company route notes, fixed-driver filter and expiring public-share page; preserve Android Beta 1.19 and the existing personal sales/counting/measurement behavior.
+- Applied `route_note_shares` to project `xrrdokcjhjqdfvwtbenl` and deployed only the new `route-note-share` Edge Function. Aligned the three local migration filenames with their actual remote versions: `20260921110850`, `20260921110900`, `20260921114325`.
+- Live backend validation: an approved member can create a link; anonymous Edge POST returns exactly one zone with tips and signed photos. Two signed photos were fetched successfully, the response has the expected CORS and `no-store` headers, and internal ownership/provenance fields are absent. Security advisors have no additions (six pre-existing notices remain).
+- Raised PWA manifest, cached asset references and the service-worker cache to 1.0.81. The 374-test release run passed 373 checks and caught one stale introduction-page manifest version; fixed both introduction/install manifest references and all 19 focused release/font/guide checks then passed. All 50 JavaScript syntax checks passed. Actual browser/map/phone verification remains distinct from these API and automated checks.

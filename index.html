@@ -10,7 +10,7 @@
     <meta name="application-name" content="플렉스노트" />
     <meta name="apple-mobile-web-app-title" content="플렉스노트" />
     <meta name="description" content="배송의 기록부터 매출·지출까지" />
-    <link rel="manifest" href="./manifest.webmanifest?v=1.0.80" />
+    <link rel="manifest" href="./manifest.webmanifest?v=1.0.81" />
     <link rel="icon" href="./favicon-32.png?v=4" type="image/png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=4" />
     <script>
@@ -40,10 +40,12 @@
     </style>
     <style>html[data-startup] #app{visibility:hidden;pointer-events:none}</style>
     <link rel="stylesheet" href="./styles/startup.css?v=3" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.80" />
-  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.80" />
-<link rel="stylesheet" href="./styles/exports.css?v=1.0.80" />
-<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.80" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.81" />
+  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.81" />
+<link rel="stylesheet" href="./styles/exports.css?v=1.0.81" />
+<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.81" />
+<link rel="stylesheet" href="./styles/route-notes.css?v=1" />
+<link rel="stylesheet" href="./styles/route-note-share.css?v=1" />
 </head>
   <body>
     <script>document.body.dataset.theme = document.documentElement.dataset.theme;</script>
@@ -94,7 +96,8 @@
         <header class="home-header">
           <div class="home-top">
             <div>
-              <h1 id="profileName">매출관리</h1>
+              <h1>매출노트</h1>
+              <p id="profileName" class="muted">내 매출 기록</p>
               <p id="periodRange" class="muted">정산기간 -</p>
             </div>
             <button class="icon-btn" id="openSettings" aria-label="설정"><svg width="18" height="18" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>
@@ -171,6 +174,7 @@
           <p id="selectedDateBreakdownNote" class="selected-breakdown-note"></p>
         </section>
 
+        <div id="homeRouteNotes" class="home-route-notes" aria-label="선택한 날짜의 구역노트" hidden></div>
         <footer class="day-dock">
           <div>
             <span id="homeSelectedDate">날짜를 선택하세요</span>
@@ -279,7 +283,7 @@
       <section class="view view-measurement">
         <header class="sub-header">
           <div class="sub-title left">
-            <strong>배송 측정</strong>
+            <strong>배송노트</strong>
             <span>완료 가구·상품수</span>
           </div>
         </header>
@@ -315,6 +319,8 @@
           </section>
         </main>
       </section>
+
+      <section class="view view-routes" aria-label="회사 구역노트"><main id="routeNotesContent"></main></section>
 
       <section class="view view-stats">
         <header class="sub-header stats-sub"><div class="sub-title left"><strong id="statsReportTitle">나의 정산</strong><span id="statsMonthTitle">이번 정산</span><em id="statsRange">-</em></div>
@@ -395,10 +401,11 @@
       <section class="view view-settings">
         <header class="sub-header">
           <button class="round-btn" id="backFromSettings" type="button" aria-label="달력으로"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
-          <div class="sub-title left"><strong>설정</strong></div>
+          <div class="sub-title left"><strong>더보기</strong></div>
           <button class="secondary-btn" id="logoutBtn">로그아웃</button>
         </header>
         <main class="settings-body settings-index">
+          <button class="settings-export-row" type="button" data-open-stats><span class="settings-row-name">통계</span><em class="settings-row-value">매출 흐름 · 정산 내역 →</em></button>
           <div class="settings-status" id="settingsStatus">
             <span class="settings-status-dot" aria-hidden="true"></span>
             <span id="syncStatus">미연결</span>
@@ -551,7 +558,7 @@
           </div><p class="app-version">플렉스노트 · Beta 1.19</p></main>
       </section>
 
-      <section class="view view-expenses"><header class="sub-header"><div class="sub-title left"><strong>지출</strong><span>영수증부터 가볍게 기록하세요</span></div><button class="secondary-btn" type="button" data-open-export>내보내기</button></header><main id="expensesContent" class="expenses-body"></main></section>
+      <section class="view view-expenses"><header class="sub-header"><div class="sub-title left"><strong>지출노트</strong><span>영수증부터 가볍게 기록하세요</span></div><button class="secondary-btn" type="button" data-open-export>내보내기</button></header><main id="expensesContent" class="expenses-body"></main></section>
       <section class="view view-schedule"><header class="sub-header"><button class="round-btn" type="button" data-back-settings aria-label="설정으로">‹</button><div class="sub-title left"><strong>근무표 가져오기</strong><span>내 스케줄에 반영</span></div></header><main class="settings-body"><section class="settings-section">
             <h2>스케줄 가져오기</h2>
             <div class="upload-row">
@@ -580,20 +587,17 @@
       <nav class="bottom-nav" aria-label="주요 화면">
         <button class="nav-tab active" data-view="home" type="button" aria-current="page">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10.5h18"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M7.5 14.5h3"/><path d="M7.5 17.5h9"/></svg>
-          <span>달력</span>
+          <span>매출</span>
         </button>
         <button class="nav-tab" data-view="measurement" type="button">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.6 18a9.5 9.5 0 1 1 16.8 0"/><path d="M12 15.2l4.2-4.6"/><circle cx="12" cy="15.6" r="1.5" fill="currentColor" stroke="none"/></svg>
-          <span>배송 측정</span>
+          <span>배송</span>
         </button>
-        <button class="nav-tab" data-view="expenses" type="button"><svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/><path d="M9 7h6M9 11h6M9 15h3"/></svg><span>지출</span></button>
-        <button class="nav-tab" data-view="stats" type="button">
-          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-          <span>통계</span>
-        </button>
+        <button class="nav-tab" data-view="routes" type="button"><svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2V5zM9 3v16M15 5v16"/></svg><span>구역</span></button>
+        <button class="nav-tab" data-view="expenses" type="button"><svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14v18H5zM8 7h8M8 11h8M8 15h5"/></svg><span>지출</span></button>
         <button class="nav-tab" data-view="settings" type="button">
           <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-          <span>설정</span>
+          <span>더보기</span>
         </button>
       </nav>
 
@@ -768,7 +772,7 @@
     <script src="./src/vendor/supabase-2.116.0.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.80"></script>
+    <script type="module" src="./src/main.js?v=1.0.81"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});

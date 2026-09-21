@@ -58,7 +58,7 @@ test("PWA config names the immutable-receipt detail and date override contracts"
   assert.match(config, /replaceAutomaticSalesOverride:\s*"quickflex_replace_automatic_sales_override"/);
   assert.match(config, /replaceManualDayRecord:\s*"quickflex_replace_manual_day_record"/);
   const releaseVersion = JSON.parse(manifest).version;
-  assert.equal(releaseVersion, "1.0.80");
+  assert.equal(releaseVersion, "1.0.81");
   assert.ok(serviceWorker.includes(`quickflex-shell-v${releaseVersion}`));
   assert.ok(html.includes(`src/main.js?v=${releaseVersion}`));
   assert.ok(html.includes(`styles.css?v=${releaseVersion}`));
@@ -286,6 +286,7 @@ test("a late override refetch is account-guarded before writing UI state", () =>
 
 test("account reset clears every new sales surface and force-closes an open editor", () => {
   let closed = false;
+  let shareReset = false;
   const emptyNode = () => ({ innerHTML: "old", value: "old", classList: { add() {}, contains() { return false; } } });
   const state = {
     saveTimer: null,
@@ -306,7 +307,8 @@ test("account reset clears every new sales surface and force-closes an open edit
     adminRevenueList: emptyNode(), adminRouteList: emptyNode(), adminBundleList: emptyNode(), adminProfiles: emptyNode(),
   };
   const sandbox = {
-    state, el, $: () => null, setSaveFeedback: () => {}, expensesController: null, exportsController: null, calendarSyncController: null,
+    state, el, $: () => null, setSaveFeedback: () => {}, expensesController: null, exportsController: null, calendarSyncController: null, routeNotesController: null, routeNotesService: null,
+    routeNoteShareDialog: { reset() { shareReset = true; } },
     clearTimeout: () => {},
     closeSalesOverride: (force) => { closed = force; },
     todayKey: () => "2026-08-26",
@@ -319,6 +321,7 @@ test("account reset clears every new sales surface and force-closes an open edit
   clearUserScopedState();
 
   assert.equal(closed, true);
+  assert.equal(shareReset, true);
   assert.equal(Object.keys(state.receiptEntries).length, 0);
   assert.equal(Object.keys(state.automaticSalesOverrides).length, 0);
   assert.equal(Object.keys(state.workRouteDetails).length, 0);

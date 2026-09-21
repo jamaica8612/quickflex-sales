@@ -61,7 +61,7 @@ test('explicit failure shows an honest retry state and preserves the auth gate',
 function declaration(name){const at=main.indexOf(`function ${name}(`);assert.ok(at>=0);const start=main.lastIndexOf('async ',at)===at-6?at-6:at;let n=0;const brace=main.indexOf('{',main.indexOf(')',at));for(let i=brace;i<main.length;i++){if(main[i]==='{')n++;if(main[i]==='}'&&!--n)return main.slice(start,i+1);}throw new Error(name);}
 function bootHarness(status='approved'){
   const events=[];let release;let current=true;
-  const sandbox={state:{profile:{status}},accountBootTask:null,events,
+  const sandbox={state:{profile:{status}},accountBootTask:null,events,routeNotesController:null,routeNotesService:null,
     captureAccountContext:()=>({epoch:1,userId:'fixture'}),isAccountContextCurrent:()=>current,
     loadProfile:async()=>true,loadFromDb:()=>new Promise(resolve=>{release=resolve;}),
     showAuth:v=>events.push(`auth:${v}`),showPending:v=>events.push(`pending:${v}`),applyProfileUi(){},
