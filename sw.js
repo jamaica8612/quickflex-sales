@@ -1,4 +1,4 @@
-const CACHE_NAME = "quickflex-shell-v1.0.83-native-session-recovery-1-usage-guide-1-route-notes-1";
+const CACHE_NAME = "quickflex-shell-v1.0.83-native-session-recovery-1-usage-guide-1-route-notes-2";
 const SHELL_FILES = [
   "./src/vendor/supabase-2.116.0.js",
   "./",
@@ -41,10 +41,10 @@ const SHELL_FILES = [
   "./src/lib/route-notes.js",
   "./src/lib/route-note-map.js?v=2",
   "./src/services/route-notes.js",
-  "./src/ui/route-notes.js?v=2",
+  "./src/ui/route-notes.js?v=3",
   "./src/services/route-note-share.js",
   "./src/ui/route-note-share.js",
-  "./styles/route-notes.css?v=2",
+  "./styles/route-notes.css?v=3",
   "./styles/route-note-share.css?v=1",
   "./route-share.html",
   "./route-share.js?v=1.0.83",
