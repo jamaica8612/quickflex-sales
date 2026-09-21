@@ -1488,3 +1488,8 @@ Browser checks:
 - Applied detail-code and point migration as provider version `20260921233040`; aligned local filename and references. Deployed `route-note-postcode` v1 ACTIVE with verify_jwt=true and its own approved-profile/company guard.
 - Immediately before/after server deployment, zones 32, tips 139, tip photos 2 and zone photos 68 have identical content hashes. The private code registry has 59 claims, enabled RLS, no authenticated direct INSERT, two enabled triggers and validated color constraint. Security advisors add one expected INFO for the private deny-all code registry (RLS with no client policies); the previous 59 findings are unchanged. No direct client grants were added.
 - Publication includes the reviewed route-note UI, map, editor, light styles, author controls, full-screen/share, cache assets and version references; Android stays Beta 1.20. Existing data is not rewritten. Live Pages commit, byte comparison and browser-update verification follow publication.
+
+## 2026-09-22 - Existing-browser route module cache recovery (PWA 1.0.87)
+
+- Pages published 0c47b5e and all 20 changed public assets matched. The existing signed-in Chrome session then exposed a stale unversioned lib/route-notes.js missing routeNoteZoneNameKey, which prevented module startup.
+- Version the shared route library and service, propagate the changed imports through editor/UI/main, precache the exact URLs, and publish 1.0.87. The service revision also ensures existing clients receive postcode lookup, boundary validation and author/duplicate handling instead of cached old service methods. No further database or Edge changes are required.
