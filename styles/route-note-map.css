@@ -1,0 +1,50 @@
+/* Shared by the signed-in route map and the public share map. */
+.route-notes-map-tip-marker,.route-notes-map-picked-marker {
+  --route-note-marker-color:#1B62D6;
+  display:grid;
+  place-items:center;
+  box-sizing:border-box;
+  width:44px;
+  height:44px;
+  padding:0;
+  border:1px solid #DBDCDF;
+  border-radius:14px;
+  background:#FFFFFF;
+  color:var(--route-note-marker-color);
+  box-shadow:0 2px 6px rgba(16,24,40,.16);
+  cursor:pointer;
+  touch-action:manipulation;
+  color-scheme:light;
+}
+.route-notes-map-tip-marker[data-alert="true"] { --route-note-marker-color:#DC3545; }
+.route-notes-map-picked-marker { border:2px dashed #1B62D6; border-radius:50%; pointer-events:none; }
+.route-notes-map-tip-marker[aria-pressed="true"] {
+  border-color:var(--route-note-marker-color);
+  background:var(--route-note-marker-color);
+  color:#FFFFFF;
+  box-shadow:0 0 0 3px #FFFFFF,0 3px 8px rgba(16,24,40,.22);
+}
+.route-notes-map-tip-marker .route-notes-icon,.route-notes-map-picked-marker .route-notes-icon {
+  display:block;
+  width:22px;
+  height:22px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  pointer-events:none;
+}
+.route-notes-map-tip-marker:active { opacity:.8; }
+.route-notes-map-tip-marker:focus-visible {
+  outline:3px solid #1B62D6;
+  outline-offset:3px;
+}
+.route-notes-map-vertex {
+  width: 44px; height: 44px; border: 8px solid transparent; background: #fff;
+  background-clip: padding-box; border-radius: 50%; color: #174da4;
+  font: 700 12px/1 system-ui, sans-serif; padding: 0; cursor: grab;
+  box-shadow: 0 0 0 1px #1b62d6 inset; touch-action: none;
+}
+.route-notes-map-vertex[aria-pressed="true"] { background-color: #1b62d6; color: #fff; }
+.route-notes-map-vertex:focus-visible { outline: 3px solid #1b62d6; outline-offset: 2px; }

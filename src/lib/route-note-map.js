@@ -1,3 +1,6 @@
+import { MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon } from "./route-note-icons.js";
+import { routeNoteBoundaryDisplay } from "./route-note-map-geometry.js";
+
 const NAVER_SCRIPT_ID = "quickflex-route-notes-naver-map";
 const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 };
 const DEFAULT_BOUNDS_PADDING = { top: 36, right: 36, bottom: 36, left: 36 };
@@ -106,10 +109,16 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
   let overlayListeners = [];
   let overlayDisposers = [];
   let draftOverlays = [];
+  let ringOverlays = [];
+  let ringListeners = [];
+  let ringDisposers = [];
   let suppressCoordinatePick = false;
   const listener = maps.Event.addListener(map, "click", (event) => {
     const point = { lat: event.coord.lat(), lng: event.coord.lng() };
     if (drawing) { points = [...points, point]; drawDraft(); } else if (!suppressCoordinatePick) onCoordinatePick?.(point);
+  });
+  const longPressListener = maps.Event.addListener(map, "longpress", (event) => {
+    if (!drawing && !suppressCoordinatePick) onCoordinatePick?.({ lat: event.coord.lat(), lng: event.coord.lng() });
   });
   function clear(items) { items.forEach((item) => item?.setMap?.(null)); return []; }
   function clearRenderedOverlays() {
@@ -119,17 +128,17 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
     overlayDisposers = [];
     overlays = clear(overlays);
   }
-  function selectZone(zone) {
+  function selectZone(zone, point = null) {
     suppressCoordinatePick = true;
     Promise.resolve().then(() => { suppressCoordinatePick = false; });
-    onZoneSelect?.(zone);
+    onZoneSelect?.(zone, point);
   }
-  function addZoneLabel(zone, color, selected) {
+  function addZoneLabel(zone, color, selected, detail = null) {
     const documentRef = element.ownerDocument || globalThis.document;
     const button = documentRef?.createElement?.("button");
-    const centroid = polygonCentroid(zone.polygon);
+    const centroid = detail?.position || polygonCentroid(zone.polygon);
     if (!button || !centroid) return;
-    const name = zoneName(zone);
+    const name = detail?.text || zoneName(zone);
     button.type = "button";
     button.className = "route-notes-map-zone-label";
     button.textContent = name;
@@ -150,15 +159,96 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
       button.removeEventListener("keydown", stopKeyPropagation);
     });
   }
+  function addTipMarker(tip, selected) {
+    const documentRef = element.ownerDocument || globalThis.document;
+    const button = documentRef.createElement("button");
+    const title = tip.title || "구역 메모";
+    button.type = "button";
+    button.className = "route-notes-map-tip-marker";
+    button.setAttribute("aria-label", title + " 메모 보기");
+    button.setAttribute("aria-pressed", String(selected));
+    button.setAttribute("data-alert", String(ALERT_MARKERS.has(tip.marker_type)));
+    button.append(createRouteNoteIcon(documentRef, MARKER_ICONS[tip.marker_type] || "note"));
+    const choose = (event) => {
+      event.preventDefault(); event.stopPropagation();
+      suppressCoordinatePick = true;
+      Promise.resolve().then(() => { suppressCoordinatePick = false; });
+      onTipSelect?.(tip);
+    };
+    const stopKeyPropagation = (event) => event.stopPropagation();
+    button.addEventListener("click", choose);
+    button.addEventListener("keydown", stopKeyPropagation);
+    overlays.push(new maps.Marker({
+      map, position: new maps.LatLng(Number(tip.lat), Number(tip.lng)), title,
+      clickable: true, zIndex: selected ? 100 : 20,
+      icon: { content: button, anchor: new maps.Point(22, 22) },
+    }));
+    overlayDisposers.push(() => {
+      button.removeEventListener("click", choose);
+      button.removeEventListener("keydown", stopKeyPropagation);
+    });
+  }
   function drawDraft() {
     draftOverlays = clear(draftOverlays);
     if (!points.length) return;
     const path = points.map((point) => new maps.LatLng(point.lat, point.lng));
-    draftOverlays.push(new maps.Polyline({ map, path, strokeColor: "#1B62D6", strokeWeight: 3, strokeOpacity: .85 }));
+    draftOverlays.push(new maps.Polyline({ map, path, strokeColor: "#1B62D6", strokeWeight: 2, strokeOpacity: .85 }));
     points.forEach((point) => draftOverlays.push(new maps.Marker({ map, position: new maps.LatLng(point.lat, point.lng) })));
   }
+  function clearRingEditor() {
+    ringListeners.forEach((item) => maps.Event.removeListener(item));
+    ringListeners = [];
+    ringDisposers.forEach((dispose) => dispose());
+    ringDisposers = [];
+    ringOverlays = clear(ringOverlays);
+  }
+  function setRingEditor({ points: vertices = [], closed = false, selectedIndex = null, onMove, onSelect } = {}) {
+    clearRingEditor();
+    if (!vertices.length) return;
+    const path = vertices.map((point) => new maps.LatLng(point.lat, point.lng));
+    if (closed) path.push(path[0]);
+    ringOverlays.push(new maps.Polyline({ map, path, strokeColor: "#1B62D6", strokeWeight: 2, strokeOpacity: 1, clickable: false, zIndex: 120 }));
+    const documentRef = element.ownerDocument || globalThis.document;
+    vertices.forEach((point, index) => {
+      const button = documentRef.createElement("button");
+      button.type = "button";
+      button.className = "route-notes-map-vertex";
+      button.textContent = String(index + 1);
+      button.setAttribute("aria-label", `경계점 ${index + 1} 선택`);
+      button.setAttribute("aria-pressed", String(index === selectedIndex));
+      const marker = new maps.Marker({ map, position: new maps.LatLng(point.lat, point.lng), draggable: true, clickable: true,
+        zIndex: index === selectedIndex ? 140 : 130, icon: { content: button, anchor: new maps.Point(22, 22) } });
+      ringOverlays.push(marker);
+      const suppress = () => {
+        suppressCoordinatePick = true;
+        Promise.resolve().then(() => { suppressCoordinatePick = false; });
+      };
+      const choose = (event) => { event.preventDefault(); event.stopPropagation(); suppress(); onSelect?.(index); };
+      const stopKey = (event) => event.stopPropagation();
+      button.addEventListener("click", choose);
+      button.addEventListener("keydown", stopKey);
+      ringDisposers.push(() => { button.removeEventListener("click", choose); button.removeEventListener("keydown", stopKey); });
+      ringListeners.push(maps.Event.addListener(marker, "dragstart", () => { suppressCoordinatePick = true; }));
+      ringListeners.push(maps.Event.addListener(marker, "dragend", () => {
+        const coord = marker.getPosition();
+        suppress();
+        onMove?.(index, { lat: coord.lat(), lng: coord.lng() });
+      }));
+    });
+  }
+  function addPickedMarker(point) {
+    if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return;
+    const documentRef = element.ownerDocument || globalThis.document;
+    const marker = documentRef.createElement("span");
+    marker.className = "route-notes-map-picked-marker";
+    marker.setAttribute("role", "img");
+    marker.setAttribute("aria-label", "선택한 팁 위치");
+    marker.append(createRouteNoteIcon(documentRef, "pin"));
+    overlays.push(new maps.Marker({ map, position: new maps.LatLng(point.lat, point.lng), zIndex: 110,
+      clickable: false, title: "선택한 팁 위치", icon: { content: marker, anchor: new maps.Point(22, 22) } }));
+  }
   function render(options = {}) {
-    const { zone, zones, tips = [], selectedZoneId, preserveViewport = false, padding } = options;
+    const { zone, zones, tips = [], selectedZoneId, selectedTipId, pickedPoint, preserveViewport = false, padding } = options;
     clearRenderedOverlays();
     const sourceZones = Array.isArray(zones) ? zones : zone ? [zone] : [];
     const validZones = sourceZones.filter((item) => hasPolygon(item?.polygon));
@@ -173,15 +263,21 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
     renderedZones.forEach((item, index) => {
       const selected = item === selectedZone;
       const color = zoneColor(item, index);
+      const display = routeNoteBoundaryDisplay(item.polygon);
       polygonRings(item.polygon).forEach((rings) => {
         const polygon = new maps.Polygon({
           map, paths: rings.map((ring) => ring.map((point) => new maps.LatLng(point.lat, point.lng))), clickable: canSelectZone,
-          fillColor: color, fillOpacity: selected ? .24 : .12, strokeColor: color, strokeOpacity: selected ? 1 : .85, strokeWeight: selected ? 4 : 2,
+          fillColor: color, fillOpacity: selected ? .07 : .035, strokeColor: color, strokeOpacity: display ? 0 : selected ? .85 : .6, strokeWeight: display ? 0 : selected ? 2 : 1,
         });
         overlays.push(polygon);
-        if (canSelectZone) overlayListeners.push(maps.Event.addListener(polygon, "click", () => selectZone(item)));
+        if (canSelectZone) overlayListeners.push(maps.Event.addListener(polygon, "click", (event) => selectZone(item,
+          event?.coord ? { lat: event.coord.lat(), lng: event.coord.lng() } : null)));
       });
-      if (canSelectZone) addZoneLabel(item, color, selected);
+      if (display) {
+        display.paths.forEach((path) => overlays.push(new maps.Polyline({ map, path: path.map((point) => new maps.LatLng(point.lat, point.lng)),
+          strokeColor: color, strokeWeight: selected ? 2 : 1, strokeOpacity: .85, clickable: false })));
+        if (canSelectZone) display.labels.forEach((detail) => addZoneLabel(item, color, selected, detail));
+      } else if (canSelectZone) addZoneLabel(item, color, selected);
     });
     const renderedTips = selectionRequested
       ? tips.filter((tip) => selectedZone?.id != null && tip?.zone_id === selectedZone.id)
@@ -195,14 +291,16 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
       const bounds = renderedZones.flatMap((item) => polygonPoints(item.polygon)).reduce((result, point) => result.extend(new maps.LatLng(point.lat, point.lng)), new maps.LatLngBounds());
       map.fitBounds(bounds, fitPadding);
     } else if (!preserveViewport && tipsWithCoordinates[0]) map.setCenter(new maps.LatLng(Number(tipsWithCoordinates[0].lat), Number(tipsWithCoordinates[0].lng)));
-    tipsWithCoordinates.forEach((tip) => {
-      const marker = new maps.Marker({ map, position: new maps.LatLng(Number(tip.lat), Number(tip.lng)), title: tip.title || "구역 메모" });
-      overlays.push(marker);
-      overlayListeners.push(maps.Event.addListener(marker, "click", () => onTipSelect?.(tip)));
-    });
+    tipsWithCoordinates.forEach((tip) => addTipMarker(tip, tip.id === selectedTipId));
+    addPickedMarker(pickedPoint);
   }
   return {
     render,
+    setRingEditor,
+    clearRingEditor,
+    resize() {
+      if (element.clientWidth > 0 && element.clientHeight > 0) map.setSize({ width: element.clientWidth, height: element.clientHeight });
+    },
     setDrawing(value, initialPoints = []) { drawing = Boolean(value); points = drawing ? [...initialPoints] : []; drawDraft(); },
     undoPoint() { points = points.slice(0, -1); drawDraft(); return points; },
     finishPolygon() { const polygon = toPolygon(points); drawing = false; points = []; drawDraft(); return polygon; },
@@ -213,6 +311,6 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
         map.setCenter(new maps.LatLng(point.lat, point.lng)); map.setZoom(17); resolve(point);
       }, () => reject(new Error("현재 위치 권한을 확인해 주세요.")), { enableHighAccuracy: true, timeout: 8000 }));
     },
-    destroy() { clearRenderedOverlays(); draftOverlays = clear(draftOverlays); maps.Event.removeListener(listener); element.replaceChildren(); },
+    destroy() { clearRingEditor(); clearRenderedOverlays(); draftOverlays = clear(draftOverlays); maps.Event.removeListener(listener); maps.Event.removeListener(longPressListener); element.replaceChildren(); },
   };
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createRouteNotesService } from "../src/services/route-notes.js";
-import { normalizeRouteNoteTip, normalizeRouteNoteZone } from "../src/lib/route-notes.js";
+import { normalizeRouteNoteTip, normalizeRouteNoteZone, routeNoteZoneNameKey } from "../src/lib/route-notes.js";
 
 const USER = "11111111-1111-4111-8111-111111111111";
 const OTHER_USER = "22222222-2222-4222-8222-222222222222";
@@ -13,12 +13,13 @@ const ZONE_PHOTO = "77777777-7777-4777-8777-777777777777";
 
 function query(response, calls, table) {
   const chain = { table, calls, operation: null };
-  for (const method of ["select", "eq", "in", "order", "update", "insert", "delete", "upsert"]) {
+  for (const method of ["select", "eq", "in", "order", "limit", "update", "insert", "delete", "upsert"]) {
     chain[method] = (...args) => { calls.push([table, method, ...args]); if (["update", "insert", "delete", "upsert"].includes(method)) chain.operation = method; return chain; };
   }
-  chain.single = async () => response;
-  chain.maybeSingle = async () => response;
-  chain.then = (resolve, reject) => Promise.resolve(response).then(resolve, reject);
+  const result = () => typeof response === "function" ? response(chain.operation) : response;
+  chain.single = async () => result();
+  chain.maybeSingle = async () => result();
+  chain.then = (resolve, reject) => Promise.resolve(result()).then(resolve, reject);
   return chain;
 }
 
@@ -82,22 +83,90 @@ test("multiple memberships fail closed instead of selecting another company", as
 
 test("optimistic zone update reports a clear conflict when its revision no longer matches", async () => {
   const responses = baseResponses();
-  responses.quickflex_note_zones = { data: null, error: null };
+  responses.quickflex_note_zones = (operation) => ({ data: operation === "update" ? null : { id: ZONE, created_by: USER }, error: null });
   const service = createRouteNotesService({ getContext: provider(responses) });
   await assert.rejects(() => service.saveZone({ id: ZONE, name: "A", memo: "", polygon: null, expectedUpdatedAt: "old" }), (error) => {
     assert.equal(error.code, "CONFLICT"); return true;
   });
 });
 
-test("a member may add an authored tip but cannot change company zones", async () => {
+test("a member may create authored zones and tips", async () => {
   const responses = baseResponses();
   responses.quickflex_note_memberships = { data: [{ company_id: COMPANY, user_id: USER, role: "member" }], error: null };
-  responses.quickflex_note_zones = { data: { id: ZONE, company_id: COMPANY, name: "A" }, error: null };
+  responses.quickflex_note_zones = { data: { id: ZONE, company_id: COMPANY, name: "A",
+    polygon: { type: "Polygon", coordinates: [[[126, 37], [128, 37], [128, 39], [126, 39], [126, 37]]] } }, error: null };
   responses.quickflex_note_tips = { data: { id: TIP, company_id: COMPANY, zone_id: ZONE, created_by: USER }, error: null };
   const service = createRouteNotesService({ getContext: provider(responses) });
   const saved = await service.saveTip({ zone_id: ZONE, title: "입구", marker_type: "entrance", memo: "", lat: 37.5, lng: 127.0 });
   assert.equal(saved.created_by, USER);
-  await assert.rejects(() => service.saveZone({ name: "A", memo: "", polygon: null }), /admins and editors/i);
+  assert.equal((await service.saveZone({ name: "A", memo: "", polygon: null })).id, ZONE);
+});
+
+test("zone names ignore case, whitespace and full-width route codes", () => {
+  for (const name of ["303a", "303 A", " ３０３Ａ ", "303\tA", "303\u00a0A"]) assert.equal(routeNoteZoneNameKey(name), "303A");
+  assert.equal(routeNoteZoneNameKey("동문 아파트"), routeNoteZoneNameKey("동문아파트"));
+});
+
+test("zone normalization preserves postcode metadata and validates color", () => {
+  const polygon = { type: "Polygon", coordinates: [[[127,37],[128,37],[128,38],[127,37]]],
+    subLabels: ["303A01"], postcodes: ["12345"], codeGroups: [{ prefix: "303A", codes: [{ label: "303A01", postcode: "12345" }] }], regionName: "서울" };
+  const zone = normalizeRouteNoteZone({ name: "303A", color: "#AABBCC", polygon });
+  assert.equal(zone.color, "#aabbcc");
+  assert.deepEqual(zone.polygon, polygon);
+  assert.throws(() => normalizeRouteNoteZone({ name: "303A", color: "red" }), RangeError);
+});
+
+test("a member updates an owned zone but cannot update another author's zone", async () => {
+  const calls = [], responses = baseResponses();
+  responses.quickflex_note_memberships.data[0].role = "member";
+  responses.quickflex_note_zones = { data: { id: ZONE, company_id: COMPANY, created_by: USER }, error: null };
+  const service = createRouteNotesService({ getContext: provider(responses, calls) });
+  await service.saveZone({ id: ZONE, name: "303A", expectedUpdatedAt: "current" });
+  assert.equal(calls.filter(([, action]) => action === "update").length, 1);
+  responses.quickflex_note_zones.data.created_by = OTHER_USER;
+  await assert.rejects(service.saveZone({ id: ZONE, name: "303B", expectedUpdatedAt: "current" }), /구역 작성자/);
+  assert.equal(calls.filter(([, action]) => action === "update").length, 1);
+});
+
+test("a duplicate reported by the database remains a clear recoverable save error", async () => {
+  const responses = baseResponses();
+  responses.quickflex_note_zones = { data: null, error: { code: "23505", message: "unique violation" } };
+  const service = createRouteNotesService({ getContext: provider(responses) });
+  await assert.rejects(service.saveZone({ name: "303a" }), { code: "DUPLICATE_ZONE" });
+});
+
+test("detail-code claim conflicts identify the conflicting code", async () => {
+  const responses = baseResponses();
+  responses.quickflex_note_zones = { data: null, error: { code: "23505",
+    message: "duplicate key value violates unique constraint zone_detail_code_claims_pkey" } };
+  const service = createRouteNotesService({ getContext: provider(responses) });
+  await assert.rejects(service.saveZone({ name: "303A", polygon: null }), (error) => {
+    assert.equal(error.code, "DUPLICATE_ZONE");
+    assert.match(error.message, /상세 코드/);
+    return true;
+  });
+});
+
+test("zone deletion is author-only even for admins and refuses occupied or changed zones", async () => {
+  const calls = [], responses = baseResponses();
+  responses.quickflex_note_memberships.data[0].role = "admin";
+  responses.quickflex_note_zones = { data: { id: ZONE, company_id: COMPANY, created_by: OTHER_USER }, error: null };
+  const service = createRouteNotesService({ getContext: provider(responses, calls) });
+  await assert.rejects(service.deleteZone(ZONE, "current"), /본인만/);
+  assert.equal(calls.filter(([, action]) => action === "delete").length, 0);
+  responses.quickflex_note_zones.data.created_by = USER;
+  responses.quickflex_note_tips = { data: [{ id: TIP }], error: null };
+  await assert.rejects(service.deleteZone(ZONE, "current"), /팁이나 참고 사진/);
+  responses.quickflex_note_tips.data = [];
+  responses.quickflex_note_zone_photos = { data: [{ id: PHOTO }], error: null };
+  await assert.rejects(service.deleteZone(ZONE, "current"), /팁이나 참고 사진/);
+  responses.quickflex_note_zone_photos.data = [];
+  assert.equal(await service.deleteZone(ZONE, "current"), true);
+  assert.ok(calls.some(([table, action, key, value]) => table === "quickflex_note_zones" && action === "eq" && key === "created_by" && value === USER));
+  responses.quickflex_note_zones = (operation) => operation === "delete" ? { data: null, error: { code: "23503" } } : { data: { id: ZONE, created_by: USER } };
+  await assert.rejects(service.deleteZone(ZONE, "current"), /팁이나 참고 사진/);
+  responses.quickflex_note_zones = (operation) => ({ data: operation === "delete" ? null : { id: ZONE, created_by: USER } });
+  await assert.rejects(service.deleteZone(ZONE, "old"), { code: "CONFLICT" });
 });
 
 test("a stale account cannot receive the old company's loaded zones", async () => {
@@ -212,4 +281,20 @@ test("even a company admin cannot edit or delete another author's tip", async ()
   await assert.rejects(service.saveTip({id:TIP,zone_id:ZONE,title:'변경',marker_type:'note',expectedUpdatedAt:'old'}),/작성자 본인/);
   await assert.rejects(service.deleteTip(TIP,'old'),/작성자 본인/);
   assert.equal(calls.filter(([,operation])=>['update','delete','insert'].includes(operation)).length,0);
+});
+
+test("postcode lookup requires company context and validates returned WGS84 geometry", async () => {
+  const calls = [], responses = baseResponses();
+  const client = clientFor(responses, calls);
+  client.functions = { invoke: async (name, options) => {
+    calls.push(["functions", name, options.body.postcode]);
+    return { data: { postcode: "12345", cityName: "서울", districtName: "종로구",
+      geometry: { type: "Polygon", coordinates: [[[127,37],[128,37],[128,38],[127,37]]] } }, error: null };
+  } };
+  const service = createRouteNotesService({ getContext: () => context(client) });
+  assert.equal((await service.lookupPostcode("12345")).postcode, "12345");
+  assert.ok(calls.some((call) => call[0] === "functions" && call[1] === "route-note-postcode"));
+  await assert.rejects(service.lookupPostcode("1234"), RangeError);
+  responses.quickflex_note_memberships = { data: [], error: null };
+  await assert.rejects(service.lookupPostcode("12345"), /membership/i);
 });

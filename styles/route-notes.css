@@ -1,4 +1,61 @@
 /* 구역노트 — 지도 우선 화면. RouteNote의 조작 방식을 플렉스노트 토큰으로 옮긴다. */
+/* 지도와 현장 사진은 앱 테마에 관계없이 같은 밝은 바탕에서 읽는다. */
+.view-routes,.route-notes-share-overlay {
+  --bg:#F5F5F5;
+  --panel:#FFFFFF;
+  --panel2:#F7F7F8;
+  --panel3:#F4F4F5;
+  --line:rgba(112,115,124,.18);
+  --line-strong:#DBDCDF;
+  --text:#171719;
+  --text-sub:rgba(46,47,51,.88);
+  --muted:#70737C;
+  --soft:#70737C;
+  --gold:#1B62D6;
+  --gold-ink:#FFFFFF;
+  --gold2:#3B82E8;
+  --primary-bg:rgba(26,115,232,.10);
+  --primary-dark:#1558B0;
+  --primary-border:rgba(26,115,232,.28);
+  --red:#DC3545;
+  --red-bg:rgba(220,53,69,.10);
+  --red-border:rgba(220,53,69,.20);
+  --green:#28A745;
+  --green-bg:rgba(40,167,69,.10);
+  --warn:#8E5100;
+  --warn-bg:rgba(142,81,0,.10);
+  --warn-border:rgba(142,81,0,.32);
+  --button-secondary:var(--panel2);
+  --button-secondary-text:var(--text);
+  --button-secondary-border:var(--line);
+  color:var(--text);
+  color-scheme:light;
+}
+.view-routes { background:var(--bg); }
+[data-route-notes-fullscreen="true"] {
+  position:fixed;
+  z-index:30;
+  inset:0;
+  width:100%;
+  max-width:none;
+  height:100dvh;
+  overflow:auto;
+  background:var(--bg);
+}
+body:has([data-route-notes-fullscreen="true"]) { overflow:hidden; }
+body:has([data-route-notes-fullscreen="true"]) .bottom-nav,
+body:has([data-route-notes-fullscreen="true"]) .fixture-nav { display:none !important; }
+[data-route-notes-fullscreen="true"] .route-notes-workspace { height:var(--route-note-viewport-h,100dvh); }
+.route-notes-workspace[data-map-only="true"] .route-notes-fabs { bottom:max(16px,env(safe-area-inset-bottom)); }
+.route-notes-workspace .route-notes-fullscreen-exit {
+  position:absolute;
+  top:max(12px,env(safe-area-inset-top));
+  right:12px;
+  z-index:6;
+  background:var(--panel);
+  border-color:var(--line);
+  box-shadow:var(--shadow-card);
+}
 .route-notes-header,.route-notes-detail-head,.route-notes-section-head,.route-notes-detail-actions,.route-notes-map-actions,.route-notes-form-actions,.route-notes-tip-actions {
   display:flex;
   align-items:center;
@@ -128,20 +185,19 @@
   min-width:48px;
   min-height:48px;
   padding:8px 12px;
-  border:2px solid var(--route-note-zone-color, var(--gold));
+  border:1px solid var(--route-note-zone-color, var(--gold));
   border-radius:var(--r-full);
   background:var(--panel);
   color:var(--text);
-  font:700 var(--fs-label) var(--font-ui);
+  font:600 var(--fs-label) var(--font-ui);
   line-height:1.2;
   white-space:nowrap;
   box-shadow:var(--shadow-card);
   cursor:pointer;
 }
 .route-notes-workspace .route-notes-map-zone-label[aria-pressed="true"] {
-  background:var(--route-note-zone-color, var(--gold));
-  color:var(--panel);
-  font-weight:800;
+  color:var(--route-note-zone-color, var(--gold));
+  font-weight:700;
 }
 .route-notes-workspace .route-notes-map-zone-label:active { opacity:.76; }
 .route-notes-workspace .route-notes-map-zone-label:focus-visible { outline:3px solid color-mix(in srgb,var(--gold) 48%,transparent); outline-offset:3px; }
@@ -635,3 +691,18 @@
 @media (prefers-reduced-motion:reduce) {
   .route-notes-sheet,.route-notes-fabs { transition:none; }
 }
+.route-notes-zone-editor-host { min-height:0; overflow:auto; overscroll-behavior:contain; }
+.route-notes-location-menu { display:grid; gap:10px; padding:4px 0; }
+.route-notes-location-menu .route-notes-button { justify-content:center; min-height:48px; }
+.route-notes-marker-field { min-width:0; padding:0; margin:0; border:0; }
+.route-notes-marker-field legend { font-weight:600; margin-bottom:8px; }
+.route-notes-marker-picker summary { display:flex; align-items:center; gap:10px; list-style:none; min-height:48px; padding:8px 12px; border:1px solid var(--line-strong); border-radius:var(--r-md); cursor:pointer; }
+.route-notes-marker-picker summary::-webkit-details-marker { display:none; }
+.route-notes-marker-picker summary span { flex:1; }
+.route-notes-marker-picker[open] .route-notes-marker-grid { margin-top:8px; }
+.route-notes-marker-picker summary:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
+.route-notes-marker-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.route-notes-marker-grid .route-notes-button { display:flex; flex-direction:column; min-height:64px; padding:8px 3px; text-align:center; font-size:12px; }
+.route-notes-marker-grid [aria-pressed="true"] { border-color:var(--gold); color:var(--gold); background:var(--primary-bg); }
+.route-notes-tip-location { display:grid; gap:8px; padding:12px; border:1px solid var(--line); border-radius:var(--r-md); }
+.route-notes-tip-location p { margin:0; }
