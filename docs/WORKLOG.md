@@ -1369,6 +1369,12 @@ Browser checks:
 - Prepared the official Android labels and download/release links for Beta 1.18 (`android-beta-1.18/flexnote-beta-1.18.apk`) and advanced the manifest, asset queries, and service-worker shell cache to PWA 1.0.79.
 - This frontend-only preparation is held until the matching APK is published and verified. No database, auth, Edge Function, or browser behavior changes are included.
 
+## 2026-09-21 - Beta 1.19 link preparation (PWA 1.0.80, unpublished)
+
+- Prepared the official Android labels and download/release links for Beta 1.19 (`android-beta-1.19/flexnote-beta-1.19.apk`, versionCode 141) and advanced the manifest, asset queries, and service-worker shell cache to PWA 1.0.80. The existing `native-session-recovery-1-usage-guide-1` cache suffix remains unchanged.
+- This metadata-only preparation remains unpublished until the matching APK and GitHub Release asset are publicly verified. No database, auth, Edge Function, or browser behavior changes are included.
+- Verification: `node --check app.js`, `node --check sw.js`, and all first-party `src/**/*.js` checks passed. The focused PWA release contracts passed: 19 tests across `pwa-sales-override`, `pwa-fonts`, and `pwa-usage-guide`; `git diff --check` passed.
+
 ## 2026-09-20 - Authorized Beta 1.17 / PWA 1.0.78 publication
 
 - User authorized publication after the revised APK and tests were complete. Advance visible Android labels and download/release links to `android-beta-1.17/flexnote-beta-1.17.apk`.
