@@ -1,4 +1,8 @@
 import { createExpenseService } from "./services/expenses.js";
+import { createRouteNotesService } from "./services/route-notes.js";
+import { createRouteNotesController } from "./ui/route-notes.js";
+import { createRouteNoteShareService } from "./services/route-note-share.js";
+import { createRouteNoteShareDialog } from "./ui/route-note-share.js";
 import { checkBetaMeasurementAccess } from "./services/beta-access.js";
 import { createExpensesController } from "./ui/expenses.js";
 import { createExportsController } from "./ui/exports.js";
@@ -16,6 +20,7 @@ import {
   PUBLIC_SITE_URL,
   PUBLIC_SUPABASE_CONFIG,
   RATE_UPDATE_OFFER,
+  ROUTE_NOTES_CONFIG,
   RPC,
   SAMPLE_SETTLEMENT,
   TABLES,
@@ -436,6 +441,7 @@ const el = {
   homeSelectedDate: $("homeSelectedDate"),
   homeSelectedTotal: $("homeSelectedTotal"),
   homeDayPanel: $("homeDayPanel"),
+  homeRouteNotes: $("homeRouteNotes"),
   homeDayTitle: $("homeDayTitle"),
   homeDayToday: $("homeDayToday"),
   homeDayIcon: $("homeDayIcon"),
@@ -931,6 +937,9 @@ function clearUserScopedState() {
   state.rateOfferPrompted = false;
   state.statsDetailDate = "";
   expensesController?.reset();
+  routeNoteShareDialog?.reset();
+  routeNotesController?.reset();
+  routeNotesService?.reset?.();
   exportsController?.reset();
   calendarSyncController?.dispose();
   calendarSyncController = null;
@@ -1000,7 +1009,7 @@ function applyAuthSession(session, { event = "", scheduleBoot = true } = {}) {
 function isBackupDriver() { return (state.profile?.driver_type || "backup") === "backup"; }
 function isNightShift() { return state.profile?.work_shift === "night"; }
 function fixedRoutes() { return Array.isArray(state.profile?.fixed_routes) ? expandRouteText(state.profile.fixed_routes.join(",")) : []; }
-function driverName() { return state.profile?.display_name || state.session?.user?.email || "매출관리"; }
+function driverName() { return state.profile?.display_name || state.session?.user?.email || "매출노트"; }
 function statusLabel(status) {
   if (status === "approved") return "승인";
   if (status === "blocked") return "차단";
@@ -2023,7 +2032,7 @@ function applyProfileUi() {
   const isAdmin = profile.role === "admin";
   el.app.dataset.driverType = profile.driver_type || "backup";
   el.app.dataset.role = isAdmin ? "admin" : "driver";
-  el.profileName.textContent = profile.display_name || "매출관리";
+  el.profileName.textContent = profile.display_name || "내 매출 기록";
   el.profileDisplayName.value = profile.display_name || "";
   el.profileBusinessName.value = profile.business_name || "";
   el.profileVehicleNumber.value = profile.vehicle_number || "";
@@ -2076,6 +2085,8 @@ async function bootSignedInUser(context = captureAccountContext()) {
     if (!await loadProfile(context) || !isAccountContextCurrent(context)) return false;
     if (state.profile?.status !== "approved") {
       if (!isAccountContextCurrent(context)) return false;
+      routeNotesController?.reset();
+      routeNotesService?.reset?.();
       showAuth(false);
       showPending(true);
       window.FlexNoteStartup?.finish();
@@ -3495,17 +3506,22 @@ async function saveInspectionMonthPdf() {
   }
 }
 
-function showView(view) {
+function showView(view, options = {}) {
   if (view === "admin") view = "settings";
-  if (!["home", "record", "measurement", "inspection", "stats", "settings", "expenses", "schedule"].includes(view)) view = "home";
+  if (!["home", "record", "measurement", "inspection", "stats", "settings", "expenses", "schedule", "routes"].includes(view)) view = "home";
   const previousView = el.app.dataset.view || "home";
+  if (previousView === "routes" && view === "routes" && routeNotesController?.canClose && !routeNotesController.canClose()) return;
+  if (previousView === "routes" && view !== "routes") {
+    if (routeNotesController?.canClose && !routeNotesController.canClose()) return;
+    routeNotesController?.close();
+  }
   if (previousView === "record" && view !== "record" && state.recordDraft) {
     if (!confirmLeaveRecordDraft()) return;
     discardRecordDraft();
   }
   el.app.dataset.view = view;
   el.navTabs.forEach((tab) => {
-    const selected = tab.dataset.view === (view === "schedule" ? "settings" : view);
+    const selected = tab.dataset.view === (["schedule", "stats"].includes(view) ? "settings" : view);
     tab.classList.toggle("active", selected);
     if (selected) tab.setAttribute("aria-current", "page");
     else tab.removeAttribute("aria-current");
@@ -3522,6 +3538,7 @@ function showView(view) {
     renderStats();
   }
   if (view === "expenses") ensureExpenseController().refresh();
+  if (view === "routes") void ensureRouteNotesController().open(options);
   if (view === "settings") {
     renderRates();
   }
@@ -3535,11 +3552,13 @@ function nativeBackAction({ dbSheetOpen = false, salesOverrideOpen = false, bloc
   if (measurementGuideOpen) return "close-measurement-guide";
   if (view === "record") return "leave-record";
   if (view === "schedule") return "go-settings";
-  if (["inspection", "measurement", "stats", "settings", "expenses"].includes(view)) return "go-home";
+  if (view === "stats") return "go-settings";
+  if (["inspection", "measurement", "expenses", "settings", "routes"].includes(view)) return "go-home";
   return "unhandled";
 }
 
 function quickflexHandleNativeBack() {
+  if (routeNoteShareDialog?.handleBack?.()) return "handled";
   if (document.querySelector(".expense-dialog[open]")) { expensesController?.handleBack(); return "handled"; }
   if (document.querySelector(".exports-overlay:not([hidden])")) { exportsController?.close(); return "handled"; }
   const action = nativeBackAction({
@@ -3576,6 +3595,7 @@ function quickflexHandleNativeBack() {
     return "handled";
   }
   if (action === "go-home") {
+    if (el.app?.dataset.view === "routes" && routeNotesController?.handleBack?.()) return "handled";
     showView("home");
     return "handled";
   }
@@ -4002,6 +4022,19 @@ function renderHomeSelection() {
   renderSelectedDateBreakdown(record);
 }
 function renderHomeDayOverview(record, calc, automatic) {
+  const routeLinks = el.homeRouteNotes;
+  if (routeLinks) {
+    const routes = [...new Set(record.rows.flatMap((row) => splitStoredRoutes(row.route)).filter(Boolean))];
+    routeLinks.replaceChildren(...routes.map((route) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "secondary-btn";
+      button.dataset.openRouteNote = route;
+      button.textContent = `${route} 구역노트`;
+      return button;
+    }));
+    routeLinks.hidden = record.off || routes.length === 0;
+  }
   const recorded = automatic || calc.revenue !== 0 || hasEnteredCounts(record);
   const planned = !recorded && record.rows.some((row) => Boolean(row.route));
   const dayState = record.off ? "off" : recorded ? "recorded" : planned ? "planned" : "missing";
@@ -5697,6 +5730,12 @@ function closeSheet() {
 }
 
 function bindEvents() {
+  $("homeRouteNotes")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-open-route-note]");
+    if (button) showView("routes", { route: button.dataset.openRouteNote });
+  });
+  document.querySelectorAll("[data-open-expenses]").forEach((button) => button.addEventListener("click", () => showView("expenses")));
+  document.querySelectorAll("[data-open-stats]").forEach((button) => button.addEventListener("click", () => showView("stats")));
   $("retryPendingSave")?.addEventListener("click", () => reviewPendingSave().catch((error) => toast(error.message, "error")));
   $("useServerRecord")?.addEventListener("click", () => reviewPendingSave(true).catch((error) => toast(error.message, "error")));
   $("showRetainedEdits")?.addEventListener("click", () => {
@@ -5716,7 +5755,7 @@ function bindEvents() {
     if (state.pendingDates.size || state.pendingRates) void flushSaves().catch(() => {});
   });
   window.addEventListener("beforeunload", (event) => {
-    if (!state.pendingDates.size && !state.pendingRates && !state.flushPromise && !state.retainedEdits && !state.recordDraft) return;
+    if (!state.pendingDates.size && !state.pendingRates && !state.flushPromise && !state.retainedEdits && !state.recordDraft && !routeNotesController?.isDirty?.()) return;
     event.preventDefault();
     event.returnValue = "";
   });
@@ -5910,6 +5949,30 @@ async function init() {
 let expensesController = null;
 let exportsController = null;
 let calendarSyncController = null;
+let routeNotesController = null;
+let routeNotesService = null;
+let routeNoteShareService = null;
+let routeNoteShareDialog = null;
+
+function ensureRouteNotesController() {
+  if (!routeNotesService) routeNotesService = createRouteNotesService({
+    getContext: () => ({ client: state.db, user: state.session?.user, profile: state.profile, epoch: accountEpoch }),
+  });
+  if (!routeNoteShareService) routeNoteShareService = createRouteNoteShareService({
+    getContext: () => ({ client: state.db, user: state.session?.user, profile: state.profile, epoch: accountEpoch }),
+  });
+  if (!routeNoteShareDialog) routeNoteShareDialog = createRouteNoteShareDialog({
+    service: routeNoteShareService,
+    getShareBaseUrl: () => PUBLIC_SITE_URL || window.location.href,
+  });
+  if (!routeNotesController) routeNotesController = createRouteNotesController({
+    root: $("routeNotesContent"), service: routeNotesService,
+    shareDialog: routeNoteShareDialog,
+    getUser: () => state.session?.user, getProfile: () => state.profile,
+    notify: (message, kind) => toast(message, kind), mapClientId: ROUTE_NOTES_CONFIG.mapClientId,
+  });
+  return routeNotesController;
+}
 
 function requireFinanceAccount(context = captureAccountContext()) {
   if (!context.userId || !state.db || !isAccountContextCurrent(context)) throw new Error("로그인 상태가 변경되었습니다. 다시 열어 주세요.");

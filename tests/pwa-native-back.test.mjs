@@ -31,7 +31,7 @@ function extractFunction(name) {
 }
 
 function loadNativeBack(sandbox = {}) {
-  const context = vm.createContext({ document: { querySelector: () => null }, expensesController: null, exportsController: null, ...sandbox });
+  const context = vm.createContext({ document: { querySelector: () => null }, expensesController: null, exportsController: null, routeNotesController: null, routeNoteShareDialog: null, ...sandbox });
   vm.runInContext(`${extractFunction("nativeBackAction")}\n${extractFunction("quickflexHandleNativeBack")}\nglobalThis.__actual = { nativeBackAction, quickflexHandleNativeBack };`, context);
   return context.__actual;
 }
@@ -48,10 +48,11 @@ test("native back action is deterministic and only home is unhandled", () => {
   assert.equal(nativeBackAction({ blockingModalOpen: true, measurementGuideOpen: true, view: "measurement" }), "unhandled");
   assert.equal(nativeBackAction({ measurementGuideOpen: true, view: "measurement" }), "close-measurement-guide");
   assert.equal(nativeBackAction({ view: "record" }), "leave-record");
-  ["inspection", "measurement", "stats", "settings", "expenses"].forEach((view) => {
+  ["inspection", "measurement", "expenses", "settings", "routes"].forEach((view) => {
     assert.equal(nativeBackAction({ view }), "go-home", `${view} should return home`);
   });
   assert.equal(nativeBackAction({ view: "schedule" }), "go-settings");
+  assert.equal(nativeBackAction({ view: "stats" }), "go-settings");
   assert.equal(nativeBackAction({ view: "home" }), "unhandled");
   assert.equal(nativeBackAction({ view: "future-unknown" }), "unhandled");
 });
@@ -73,6 +74,29 @@ test("native back closes the database sheet first", () => {
   });
   assert.equal(quickflexHandleNativeBack(), "handled");
   assert.deepEqual(calls, ["db"]);
+});
+
+test("native back closes a route-note share dialog before any route navigation", () => {
+  let resets = 0, routeBacks = 0;
+  const { quickflexHandleNativeBack } = loadNativeBack({
+    routeNoteShareDialog: { handleBack: () => { resets += 1; return true; } },
+    routeNotesController: { handleBack: () => { routeBacks += 1; return true; } },
+    el: { app: { dataset: { view: "routes" } } },
+  });
+  assert.equal(quickflexHandleNativeBack(), "handled");
+  assert.equal(resets, 1);
+  assert.equal(routeBacks, 0);
+});
+
+test("route-note editor handles native back without leaving the view", () => {
+  let handled=0, navigated=0;
+  const {quickflexHandleNativeBack}=loadNativeBack({
+    el:{app:{dataset:{view:'routes'}}}, modalLayerIsOpen:()=>false,
+    routeNotesController:{handleBack:()=>{handled++;return true;}},
+    showView:()=>navigated++,
+  });
+  assert.equal(quickflexHandleNativeBack(),'handled');
+  assert.equal(handled,1);assert.equal(navigated,0);
 });
 
 test("native back preserves the sales editor discard confirmation", () => {
@@ -155,7 +179,7 @@ test("native back keeps required account overlays open and returns unhandled", (
 test("native back returns internal views home and leaves home to Android", () => {
   const navigations = [];
   const el = {
-    app: { dataset: { view: "stats" } },
+    app: { dataset: { view: "expenses" } },
     dbSheet: layer(),
     salesOverrideOverlay: layer(),
     setupOverlay: layer(),
@@ -173,9 +197,15 @@ test("native back returns internal views home and leaves home to Android", () =>
   el.app.dataset.view = "schedule";
   assert.equal(quickflexHandleNativeBack(), "handled");
   assert.deepEqual(navigations, ["home", "settings"]);
+  el.app.dataset.view = "expenses";
+  assert.equal(quickflexHandleNativeBack(), "handled");
+  assert.deepEqual(navigations, ["home", "settings", "home"]);
+  el.app.dataset.view = "stats";
+  assert.equal(quickflexHandleNativeBack(), "handled");
+  assert.deepEqual(navigations, ["home", "settings", "home", "settings"]);
   el.app.dataset.view = "home";
   assert.equal(quickflexHandleNativeBack(), "unhandled");
-  assert.deepEqual(navigations, ["home", "settings"]);
+  assert.deepEqual(navigations, ["home", "settings", "home", "settings"]);
 });
 
 test("PWA exposes the synchronous native bridge contract", () => {

@@ -6,8 +6,11 @@ const main = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const sw = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
 
-test("bottom navigation exposes expenses while settings keeps administration collapsed", () => {
+test("bottom navigation exposes the four note screens while More retains statistics and administration", () => {
+  assert.match(html, /class="nav-tab" data-view="routes"/);
   assert.match(html, /class="nav-tab" data-view="expenses"/);
+  assert.match(html, /data-open-stats/);
+  assert.match(html, /id="expensesContent"/);
   assert.match(html, /class="nav-tab" data-view="settings"/);
   assert.match(html, /id="memberSettings"/);
   assert.match(html, /id="bundleSettings"/);

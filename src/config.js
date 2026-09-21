@@ -5,6 +5,9 @@ export const PUBLIC_SUPABASE_CONFIG = {
 
 export const PUBLIC_SITE_URL = "https://jamaica8612.github.io/quickflex-sales/";
 
+// Public browser client identifier; allowed domains remain managed in Naver Cloud.
+export const ROUTE_NOTES_CONFIG = { mapClientId: "6yf10upymh" };
+
 export const TABLES = {
   profiles: "quickflex_profiles",
   rates: "quickflex_route_rates",

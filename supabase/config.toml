@@ -3,3 +3,6 @@ verify_jwt = true
 
 [functions.calendar-sync]
 verify_jwt = false
+
+[functions.route-note-share]
+verify_jwt = false

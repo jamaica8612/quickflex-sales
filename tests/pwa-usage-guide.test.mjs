@@ -42,7 +42,7 @@ test('the guide is a small source-backed page with relative assets and no accoun
 });
 
 test('offline shell includes the guide and all zoomable images', () => {
-  assert.match(worker, /const CACHE_NAME = "[^"]*usage-guide-1"/);
+  assert.match(worker, /const CACHE_NAME = "[^"]*usage-guide-1(?:-[^"]+)?"/);
   const files = ['./guide.html', './assets/usage-guide/flexnote-symbol.svg', './assets/fonts/PretendardVariable.woff2'];
   const images = JSON.parse(guide.match(/id="guide-images">([\s\S]*?)<\/script>/)[1]);
   assert.deepEqual(Object.keys(images), ['pace', 'finish', 'edit']);
