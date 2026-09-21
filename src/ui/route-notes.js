@@ -1,4 +1,4 @@
-import { createRouteNoteMap, hasPolygon } from "../lib/route-note-map.js";
+import { createRouteNoteMap, hasPolygon } from "../lib/route-note-map.js?v=2";
 import { ROUTE_NOTE_MARKER_TYPES } from "../lib/route-notes.js";
 import { parseScheduleRoutes } from "../lib/route.js";
 
@@ -34,7 +34,7 @@ function node(tag, attrs = {}, children = []) {
 }
 
 function button(text, action, options = {}) {
-  return node("button", { type: "button", class: `route-notes-button ${options.class || ""}`, text, disabled: options.disabled, "aria-pressed": options.pressed, onClick: action }, []);
+  return node("button", { type: "button", class: `route-notes-button ${options.class || ""}`, text, disabled: options.disabled, "aria-pressed": options.pressed, "aria-expanded": options.expanded, onClick: action }, []);
 }
 
 function input(label, name, value = "", options = {}) {
@@ -71,7 +71,8 @@ export function fixedRouteZoneIds(zones, profile) {
 export function createRouteNotesController({ root, service, shareDialog = null, getUser = () => null, getProfile = () => null, notify = () => {}, mapClientId } = {}) {
   if (!root) throw new Error("구역 메모 화면을 표시할 위치가 없습니다.");
   let disposed = false, generation = 0, data = null, selected = null, tab = "all", query = "", loadError = null;
-  let map = null, mapRequest = 0, zoneDraft = null, tipDraft = null, formDirty = false, saving = false;
+  let map = null, mapRequest = 0, mapMode = null, zoneDraft = null, tipDraft = null, formDirty = false, saving = false;
+  let workspace = null, panelExpanded = true;
   const abort = new AbortController();
   const isCurrent = (token) => !disposed && token === generation;
   const membershipRole = () => data?.membership?.role || "member";
@@ -79,7 +80,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
   const canManageZones = () => ["admin", "editor"].includes(membershipRole());
   const canManageTip = (tip) => Boolean(userId() && tip?.created_by === userId());
 
-  function clearMap() { mapRequest += 1; map?.destroy(); map = null; }
+  function clearMap() { mapRequest += 1; try { map?.destroy(); } catch { /* Optional map cleanup must not block notes. */ } map = null; mapMode = null; workspace = null; }
   function reset() {
     shareDialog?.reset?.();
     generation += 1; clearMap(); data = null; selected = null; zoneDraft = null; tipDraft = null; formDirty = false; saving = false; loadError = null; tab = "all"; query = "";
@@ -115,11 +116,12 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
   }
   async function openZone(zoneId, token = generation) {
     if (!service?.loadZone) return;
-    selected = { id: zoneId, loading: true }; tipDraft = null; zoneDraft = null; formDirty = false; render();
+    if (selected?.id !== zoneId && (tipDraft || zoneDraft) && !abandonDraft()) return;
+    selected = { id: zoneId, loading: true }; panelExpanded = true; tipDraft = null; zoneDraft = null; formDirty = false; render();
     try {
       const detail = await service.loadZone(zoneId);
       if (!isCurrent(token) || selected?.id !== zoneId) return;
-      selected = { ...detail, loading: false, tips: Array.isArray(detail?.tips) ? detail.tips : [] }; render();
+      selected = { ...detail, id: zoneId, loading: false, tips: Array.isArray(detail?.tips) ? detail.tips : [] }; render();
     } catch (error) { if (isCurrent(token) && selected?.id === zoneId) { selected = { id: zoneId, error }; render(); } }
   }
   async function toggleFavorite(zoneId) {
@@ -131,62 +133,92 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
   }
   function render() {
     if (!data) return showState(loadError ? "error" : "not-ready", loadError ? errorText(loadError) : TEXT.notReady, () => open());
-    clearMap(); root.replaceChildren();
-    const company = node("header", { class: "route-notes-header" }, [
-      node("div", {}, [node("p", { class: "route-notes-kicker", text: data.company.name || "회사 공유" }), node("h2", { text: "구역노트" })]),
-      selected ? button("목록", () => handleBack(), { class: "secondary" }) : null,
-    ]);
-    root.append(company);
-    if (zoneDraft) { renderZoneEditor(); return; }
-    if (selected) { renderDetail(); return; }
-    renderList();
+    if (zoneDraft) {
+      clearMap(); root.replaceChildren(node("header", { class: "route-notes-header" }, [
+        node("div", {}, [node("p", { class: "route-notes-kicker", text: data.company.name || "회사 공유" }), node("h2", { text: "구역노트" })]),
+        button("뒤로", () => handleBack(), { class: "secondary" }),
+      ])); renderZoneEditor(); return;
+    }
+    ensureWorkspace(); updateWorkspace();
   }
-  function renderList() {
+  function ensureWorkspace() {
+    if (workspace?.shell?.isConnected && mapMode === "overview") return;
+    clearMap(); root.replaceChildren();
+    const mapHost = node("div", { class: "route-notes-map route-notes-overview-map", role: "region", "aria-label": "회사 전체 구역 지도" });
     const search = node("input", { class: "route-notes-search", type: "search", value: query, placeholder: "구역 또는 메모 검색", "aria-label": "구역 또는 메모 검색" });
-    search.addEventListener("input", () => { query = search.value; renderListOnly(); });
-    const tabs = node("div", { class: "route-notes-tabs", role: "group", "aria-label": "구역 필터" });
+    search.addEventListener("input", () => {
+      if (!prepareWorkspaceChange()) { search.value = query; return; }
+      query = search.value; selected = null; panelExpanded = true; updateWorkspace({ preserveViewport: true });
+    });
+    const filters = node("div", { class: "route-notes-tabs", role: "group", "aria-label": "구역 필터" });
+    const panelBody = node("div", { class: "route-notes-sheet-body", "aria-live": "polite" });
+    const panelToggle = button("구역 목록 접기", () => { if (!prepareWorkspaceChange()) return; panelExpanded = !panelExpanded; updateWorkspace({ preserveViewport: true }); }, { class: "route-notes-sheet-toggle secondary", expanded: true });
+    const panelTitle = node("strong", { class: "route-notes-sheet-title", text: "구역 목록" });
+    const sheet = node("section", { class: "route-notes-sheet", "aria-label": "구역 목록과 현장 메모" }, [
+      node("header", { class: "route-notes-sheet-head" }, [node("div", {}, [panelTitle, node("small", { class: "route-notes-sheet-subtitle", text: "지도에서 구역을 선택하세요." })]), panelToggle]), panelBody,
+    ]);
+    const locate = button("내 위치", () => {
+      if (!map) { notify("지도를 사용할 수 없습니다. 잠시 후 다시 열어 주세요.", "error"); return; }
+      map.locate().catch((error) => notify(errorText(error), "error"));
+    }, { class: "secondary route-notes-locate" });
+    const controls = node("section", { class: "route-notes-map-controls" }, [node("header", { class: "route-notes-map-heading" }, [node("span", { text: data.company.name || "회사 공유" }), node("strong", { text: "구역노트" })]), search, node("div", { class: "route-notes-map-filter-row" }, [filters, locate])]);
+    const shell = node("section", { class: "route-notes-workspace" }, [mapHost, controls, sheet]);
+    root.append(shell); workspace = { shell, mapHost, search, filters, sheet, panelBody, panelToggle, panelTitle };
+    mountOverviewMap(mapHost);
+  }
+  function updateWorkspace({ preserveViewport = false } = {}) {
+    if (!workspace) return;
+    workspace.sheet.dataset.expanded = String(panelExpanded);
+    workspace.panelToggle.textContent = panelExpanded ? "구역 목록 접기" : "구역 목록 펼치기";
+    workspace.panelToggle.setAttribute("aria-expanded", String(panelExpanded));
+    workspace.filters.replaceChildren();
     const mineCount = fixedRouteZoneIds(data.zones, getProfile()).size;
     [...(mineCount ? [["mine", "내 구역"]] : []), ["all", "전체"], ["favorites", "즐겨찾기"]].forEach(([id, label]) => {
-      const item = button(label, () => { tab = id; render(); }, { class: tab === id ? "active" : "", pressed: tab === id }); tabs.append(item);
+      workspace.filters.append(button(label, () => {
+        if (!prepareWorkspaceChange()) return;
+        tab = id; selected = null; panelExpanded = true; updateWorkspace({ preserveViewport: true });
+      }, { class: tab === id ? "active" : "", pressed: tab === id }));
     });
+    workspace.panelBody.replaceChildren();
+    if (panelExpanded) {
+      if (selected) renderDetail(workspace.panelBody);
+      else renderListOnly(workspace.panelBody);
+    }
+    const zone = selected?.zone || data.zones.find((item) => item.id === selected?.id) || null;
+    renderOverviewMap({ zones: filteredZones(), zone, selectedZoneId: selected?.id || null, tips: selected?.tips || [], preserveViewport, padding: overviewMapPadding() });
+  }
+  function renderListOnly(host) {
+    const zones = filteredZones();
     const actions = node("div", { class: "route-notes-list-actions" });
     if (canManageZones()) actions.append(button("구역 만들기", () => { zoneDraft = { name: "", memo: "", polygon: null }; formDirty = false; render(); }, { class: "primary" }));
-    root.append(node("section", { class: "route-notes-toolbar" }, [search, tabs, actions]));
-    root.append(node("section", { class: "route-notes-list", "aria-live": "polite" })); renderListOnly();
-  }
-  function renderListOnly() {
-    const host = root.querySelector(".route-notes-list"); if (!host) return; host.replaceChildren();
-    const zones = filteredZones();
+    if (actions.childNodes.length) host.append(actions);
     if (!zones.length) { host.append(node("p", { class: "route-notes-empty", text: tab === "favorites" ? "즐겨찾는 구역이 없습니다." : tab === "mine" ? "배정된 구역과 일치하는 구역 노트가 없습니다." : TEXT.empty })); return; }
+    const list = node("section", { class: "route-notes-list", "aria-label": "검색된 구역" }); host.append(list);
     zones.forEach((zone) => {
       const favorite = data.favorites.includes(zone.id);
       const favoriteButton = button(favorite ? "즐겨찾기 해제" : "즐겨찾기", () => toggleFavorite(zone.id), { class: "icon secondary", pressed: favorite });
       const openButton = button("상세 보기", () => openZone(zone.id), { class: "route-notes-zone-main" });
       openButton.append(node("strong", { text: zone.name || "이름 없는 구역" }), node("small", { text: zone.memo || "공유 메모가 없습니다." }));
-      host.append(node("article", { class: "route-notes-zone-row" }, [openButton, favoriteButton]));
+      list.append(node("article", { class: "route-notes-zone-row" }, [openButton, favoriteButton]));
     });
   }
-  function renderDetail() {
-    if (selected.loading) { root.append(node("p", { class: "route-notes-loading", text: TEXT.loading })); return; }
-    if (selected.error) { root.append(node("section", { class: "route-notes-state error" }, [node("p", { text: errorText(selected.error) }), button("다시 시도", () => openZone(selected.id), { class: "secondary" })])); return; }
-    const zone = selected.zone; if (!zone) { root.append(node("p", { class: "route-notes-empty", text: TEXT.empty })); return; }
+  function renderDetail(host) {
+    if (selected.loading) { host.append(node("p", { class: "route-notes-loading", text: TEXT.loading })); return; }
+    if (selected.error) { host.append(node("section", { class: "route-notes-state error" }, [node("p", { text: errorText(selected.error) }), button("다시 시도", () => openZone(selected.id), { class: "secondary" }), button("목록", () => handleBack(), { class: "secondary" })])); return; }
+    const zone = selected.zone; if (!zone) { host.append(node("p", { class: "route-notes-empty", text: TEXT.empty })); return; }
     const favorite = data.favorites.includes(zone.id);
     const detailActions = node("div", { class: "route-notes-detail-actions" }, [button(favorite ? "즐겨찾기 해제" : "즐겨찾기", () => toggleFavorite(zone.id), { class: "secondary", pressed: favorite })]);
     if (shareDialog) detailActions.append(button("공유", (event) => shareDialog.open({ zone, trigger: event.currentTarget }), { class: "secondary" }));
     if (canManageZones()) detailActions.append(button("구역 수정", () => { if (!canClose()) return; tipDraft = null; zoneDraft = { ...zone, polygon: zone.polygon || null }; formDirty = false; render(); }, { class: "secondary" }));
-    root.append(node("section", { class: "route-notes-detail-head" }, [node("div", {}, [node("h3", { text: zone.name || "이름 없는 구역" }), node("p", { text: zone.memo || "공유 메모가 없습니다." })]), detailActions]));
-    renderZonePhotos(selected.zonePhotos);
-    const mapHost = node("div", { class: "route-notes-map", role: "region", "aria-label": `${zone.name || "구역"} 지도` });
-    const mapActions = node("div", { class: "route-notes-map-actions" }, [button("내 위치", () => {
-      if (!map) { notify("지도를 준비하는 중입니다.", "error"); return; }
-      map.locate().catch((error) => notify(errorText(error), "error"));
-    }, { class: "secondary" })]);
-    root.append(node("section", { class: "route-notes-map-card" }, [mapHost, mapActions]));
-    mountMap(mapHost, zone, selected.tips, (tip) => canManageTip(tip) ? showTipEditor(tip) : focusTip(tip));
+    detailActions.prepend(button("목록", () => handleBack(), { class: "secondary" }));
+    const zoneCopy = [node("h3", { text: zone.name || "이름 없는 구역" }), node("p", { text: zone.memo || "공유 메모가 없습니다." })];
+    if (!hasPolygon(zone.polygon)) zoneCopy.push(node("p", { class: "route-notes-no-polygon", text: "등록된 구역 경계가 없습니다." }));
+    host.append(node("section", { class: "route-notes-detail-head" }, [node("div", {}, zoneCopy), detailActions]));
+    const photos = renderZonePhotos(selected.zonePhotos); if (photos) host.append(photos);
     const tipsHeader = node("div", { class: "route-notes-section-head" }, [node("h3", { text: "현장 메모" })]);
     if (userId()) tipsHeader.append(button("메모 추가", () => showTipEditor(), { class: "primary" }));
-    root.append(tipsHeader);
-    if (tipDraft) renderTipForm(zone); else renderTips(selected.tips);
+    host.append(tipsHeader);
+    if (tipDraft) renderTipForm(zone, host); else host.append(renderTips(selected.tips));
   }
   function renderZonePhotos(photos) {
     const visible = (Array.isArray(photos) ? photos : []).map((photo) => {
@@ -195,10 +227,10 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
         node("img", { src, alt: "구역 참고 사진", loading: "lazy" }),
       ]);
     }).filter(Boolean);
-    if (!visible.length) return;
-    root.append(node("section", { class: "route-notes-zone-photos", "aria-label": "구역 참고 사진" }, [
+    if (!visible.length) return null;
+    return node("section", { class: "route-notes-zone-photos", "aria-label": "구역 참고 사진" }, [
       node("h3", { text: "구역 참고 사진" }), node("div", { class: "route-notes-zone-photo-grid" }, visible),
-    ]));
+    ]);
   }
   function renderTips(tips) {
     const host = node("section", { class: "route-notes-tips" });
@@ -216,14 +248,14 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
         return photoNode;
       }).filter(Boolean);
       if (photos.length) article.append(node("div", { class: "route-notes-photos" }, photos)); host.append(article);
-    }); root.append(host);
+    }); return host;
   }
   function focusTip(tip) {
     const element = root.querySelector(`#routeNoteTip-${CSS.escape(String(tip.id))}`);
     element?.scrollIntoView({ behavior: "auto", block: "center" }); element?.focus({ preventScroll: true });
   }
   function showTipEditor(tip = null) { if (!canClose()) return; tipDraft = tip ? { ...tip } : { marker_type: "note", lat: "", lng: "" }; formDirty = false; render(); }
-  function renderTipForm(zone) {
+  function renderTipForm(zone, host = root) {
     const draft = tipDraft; const form = node("form", { class: "route-notes-form" });
     form.append(input("제목", "routeNoteTipTitle", draft.title || "", { placeholder: "예: 공동현관 호출 위치" }));
     const type = node("select", { id: "routeNoteTipType", name: "marker_type" }, MARKER_TYPES.map((value) => node("option", { value, text: MARKER_LABELS[value] || value, selected: value === draft.marker_type })));
@@ -242,7 +274,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     actions.append(button(draft.id ? "메모 저장" : "메모 추가", null, { class: "primary" })); actions.lastChild.type = "submit"; form.append(actions);
     form.addEventListener("input", () => { formDirty = true; });
     form.addEventListener("change", () => { formDirty = true; });
-    form.addEventListener("submit", (event) => saveTip(event, zone, draft, form)); root.append(form);
+    form.addEventListener("submit", (event) => saveTip(event, zone, draft, form)); host.append(form);
   }
   async function saveTip(event, zone, draft, form) {
     event.preventDefault(); if (saving) return; const token = generation;
@@ -303,10 +335,63 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     finally { if (isCurrent(token)) saving = false; if (form.isConnected) setFormBusy(form, false); }
   }
   function setFormBusy(form, busy) { form.querySelectorAll("button, input, textarea, select").forEach((control) => { control.disabled = busy; }); }
+  function overviewMapPadding() {
+    if (!workspace) return { top: 36, right: 36, bottom: 36, left: 36 };
+    const controls = workspace.shell.querySelector(".route-notes-map-controls")?.offsetHeight || 0;
+    const wide = window.matchMedia?.("(min-width:768px) and (orientation:landscape), (min-width:1100px)")?.matches;
+    return wide
+      ? { top: controls + 16, right: (workspace.sheet.offsetWidth || 0) + 32, bottom: 24, left: 24 }
+      : { top: controls + 16, right: 20, bottom: (workspace.sheet.offsetHeight || 0) + 12, left: 20 };
+  }
+  function renderOverviewMap(options) {
+    if (!map) return;
+    try { map.render(options); }
+    catch (error) { failOverviewMap(error); }
+  }
+  function failOverviewMap(error) {
+    const failed = map; map = null;
+    try { failed?.destroy?.(); } catch { /* Map SDK failure is non-blocking. */ }
+    if (workspace?.mapHost?.isConnected) workspace.mapHost.replaceChildren(node("p", { class: "route-notes-map-error", text: `${errorText(error)} 목록에서 구역을 선택해 주세요.` }));
+  }
+  function abandonDraft() {
+    if (saving) { notify("저장 중입니다. 잠시만 기다려 주세요."); return false; }
+    if (isDirty() && !window.confirm("저장하지 않은 변경이 있습니다. 닫을까요?")) return false;
+    tipDraft = null; zoneDraft = null; formDirty = false; return true;
+  }
+  function prepareWorkspaceChange() { return (tipDraft || zoneDraft) ? abandonDraft() : !saving; }
+  function mountOverviewMap(host) {
+    host.append(node("p", { class: "route-notes-map-status", text: mapClientId ? TEXT.map : "지도 키가 준비되지 않았습니다. 목록으로 구역과 메모를 확인할 수 있습니다." }));
+    mapMode = "overview";
+    if (!mapClientId) return;
+    const token = generation, request = ++mapRequest;
+    host.replaceChildren();
+    createRouteNoteMap({
+      element: host, clientId: mapClientId,
+      onZoneSelect: (zone) => { if (zone?.id) openZone(zone.id); },
+      onTipSelect: (tip) => {
+        if (!tip || !selected?.id || !prepareWorkspaceChange()) return;
+        panelExpanded = true; updateWorkspace({ preserveViewport: true }); focusTip(tip);
+      },
+      onCoordinatePick: (point) => {
+        if (!tipDraft) return;
+        const lat = root.querySelector("#routeNoteTipLat"), lng = root.querySelector("#routeNoteTipLng");
+        if (!lat || !lng) return;
+        lat.value = point.lat.toFixed(6); lng.value = point.lng.toFixed(6); formDirty = true; notify("지도 위치를 메모에 넣었습니다.");
+      },
+      isActive: () => isCurrent(token) && host.isConnected && request === mapRequest,
+    }).then((adapter) => {
+      if (!isCurrent(token) || !host.isConnected || request !== mapRequest || mapMode !== "overview") { adapter.destroy(); return; }
+      map = adapter;
+      const zone = selected?.zone || data?.zones?.find((item) => item.id === selected?.id) || null;
+      renderOverviewMap({ zones: filteredZones(), zone, selectedZoneId: selected?.id || null, tips: selected?.tips || [], padding: overviewMapPadding() });
+    }).catch((error) => {
+      if (error.name !== "AbortError" && isCurrent(token) && host.isConnected && request === mapRequest) host.replaceChildren(node("p", { class: "route-notes-map-error", text: `${errorText(error)} 목록에서 구역을 선택해 주세요.` }));
+    });
+  }
   function mountMap(host, zone, tips, onTipSelect) {
     host.append(node("p", { class: "route-notes-map-status", text: mapClientId ? TEXT.map : "지도 키가 준비되지 않았습니다. 목록과 메모는 사용할 수 있습니다." }));
     if (!mapClientId) return;
-    const token = generation, request = ++mapRequest;
+    const token = generation, request = ++mapRequest; mapMode = "editor";
     host.replaceChildren();
     createRouteNoteMap({ element: host, clientId: mapClientId, onTipSelect, isActive: () => isCurrent(token) && host.isConnected && request === mapRequest, onCoordinatePick: (point) => {
       const lat = root.querySelector("#routeNoteTipLat"), lng = root.querySelector("#routeNoteTipLng"); if (lat && lng) { lat.value = point.lat.toFixed(6); lng.value = point.lng.toFixed(6); formDirty = true; notify("지도 위치를 메모에 넣었습니다."); }

@@ -1,5 +1,7 @@
 const NAVER_SCRIPT_ID = "quickflex-route-notes-naver-map";
 const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 };
+const DEFAULT_BOUNDS_PADDING = { top: 36, right: 36, bottom: 36, left: 36 };
+const ZONE_COLORS = ["#1B62D6", "#8B5CF6", "#0F8A72", "#C26B00", "#C33D6B"];
 let naverLoadPromise = null;
 
 export function polygonRings(polygon) {
@@ -36,6 +38,31 @@ export function hasPolygon(polygon) {
   return polygonPoints(polygon).length >= 3;
 }
 
+function zoneColor(zone, index) {
+  const supplied = typeof zone?.color === "string" ? zone.color.trim() : "";
+  if (/^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/.test(supplied)) return supplied;
+  const key = String(zone?.id ?? zone?.name ?? index);
+  let hash = 0;
+  for (let position = 0; position < key.length; position += 1) hash = ((hash * 31) + key.charCodeAt(position)) | 0;
+  return ZONE_COLORS[(hash >>> 0) % ZONE_COLORS.length];
+}
+
+function zoneName(zone) {
+  const name = typeof zone?.name === "string" ? zone.name.trim() : "";
+  return name || "이름 없는 구역";
+}
+
+function boundsPadding(padding) {
+  if (typeof padding === "number" && Number.isFinite(padding) && padding >= 0) {
+    return { top: padding, right: padding, bottom: padding, left: padding };
+  }
+  if (!padding || typeof padding !== "object") return { ...DEFAULT_BOUNDS_PADDING };
+  return Object.fromEntries(Object.entries(DEFAULT_BOUNDS_PADDING).map(([side, fallback]) => {
+    const value = padding[side];
+    return [side, typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback];
+  }));
+}
+
 function loadNaverMap(clientId) {
   if (window.naver?.maps) return Promise.resolve(window.naver.maps);
   if (!clientId) return Promise.reject(new Error("지도 키가 준비되지 않았습니다."));
@@ -65,23 +92,64 @@ function loadNaverMap(clientId) {
 }
 
 /** Naver SDK is optional: all map-only state stays in this disposable adapter. */
-export async function createRouteNoteMap({ element, clientId, onCoordinatePick, onTipSelect, isActive = () => true } = {}) {
+export async function createRouteNoteMap({ element, clientId, onCoordinatePick, onTipSelect, onZoneSelect, isActive = () => true } = {}) {
   if (!element) throw new Error("지도 영역을 찾을 수 없습니다.");
   const maps = await loadNaverMap(clientId);
   if (!isActive()) { const error = new Error("지도 요청이 취소되었습니다."); error.name = "AbortError"; throw error; }
   const map = new maps.Map(element, {
     center: new maps.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng), zoom: 15,
-    minZoom: 8, zoomControl: true,
+    minZoom: 8, zoomControl: false,
   });
   let drawing = false;
   let points = [];
   let overlays = [];
+  let overlayListeners = [];
+  let overlayDisposers = [];
   let draftOverlays = [];
+  let suppressCoordinatePick = false;
   const listener = maps.Event.addListener(map, "click", (event) => {
     const point = { lat: event.coord.lat(), lng: event.coord.lng() };
-    if (drawing) { points = [...points, point]; drawDraft(); } else onCoordinatePick?.(point);
+    if (drawing) { points = [...points, point]; drawDraft(); } else if (!suppressCoordinatePick) onCoordinatePick?.(point);
   });
   function clear(items) { items.forEach((item) => item?.setMap?.(null)); return []; }
+  function clearRenderedOverlays() {
+    overlayListeners.forEach((item) => maps.Event.removeListener(item));
+    overlayListeners = [];
+    overlayDisposers.forEach((dispose) => dispose());
+    overlayDisposers = [];
+    overlays = clear(overlays);
+  }
+  function selectZone(zone) {
+    suppressCoordinatePick = true;
+    Promise.resolve().then(() => { suppressCoordinatePick = false; });
+    onZoneSelect?.(zone);
+  }
+  function addZoneLabel(zone, color, selected) {
+    const documentRef = element.ownerDocument || globalThis.document;
+    const button = documentRef?.createElement?.("button");
+    const centroid = polygonCentroid(zone.polygon);
+    if (!button || !centroid) return;
+    const name = zoneName(zone);
+    button.type = "button";
+    button.className = "route-notes-map-zone-label";
+    button.textContent = name;
+    button.setAttribute("aria-label", `${name} 구역 선택`);
+    button.setAttribute("aria-pressed", String(selected));
+    button.style?.setProperty?.("--route-note-zone-color", color);
+    const stopKeyPropagation = (event) => event.stopPropagation();
+    const choose = (event) => { event.preventDefault(); event.stopPropagation(); selectZone(zone); };
+    button.addEventListener("click", choose);
+    button.addEventListener("keydown", stopKeyPropagation);
+    const marker = new maps.Marker({
+      map, position: new maps.LatLng(centroid.lat, centroid.lng), title: name, clickable: true,
+      icon: { content: button },
+    });
+    overlays.push(marker);
+    overlayDisposers.push(() => {
+      button.removeEventListener("click", choose);
+      button.removeEventListener("keydown", stopKeyPropagation);
+    });
+  }
   function drawDraft() {
     draftOverlays = clear(draftOverlays);
     if (!points.length) return;
@@ -89,23 +157,39 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
     draftOverlays.push(new maps.Polyline({ map, path, strokeColor: "#1B62D6", strokeWeight: 3, strokeOpacity: .85 }));
     points.forEach((point) => draftOverlays.push(new maps.Marker({ map, position: new maps.LatLng(point.lat, point.lng) })));
   }
-  function render({ zone, tips = [] } = {}) {
-    overlays = clear(overlays);
-    if (hasPolygon(zone?.polygon)) {
-      polygonRings(zone.polygon).forEach((rings) => overlays.push(new maps.Polygon({
-        map, paths: rings.map((ring) => ring.map((point) => new maps.LatLng(point.lat, point.lng))),
-        fillColor: "#1B62D6", fillOpacity: .12, strokeColor: "#1B62D6", strokeOpacity: .85, strokeWeight: 2,
-      })));
-      const pointsForBounds = polygonPoints(zone.polygon);
-      const bounds = pointsForBounds.reduce((result, point) => result.extend(new maps.LatLng(point.lat, point.lng)), new maps.LatLngBounds());
-      map.fitBounds(bounds, { top: 36, right: 36, bottom: 36, left: 36 });
-    }
+  function render({ zone, zones, tips = [], selectedZoneId, preserveViewport = false, padding } = {}) {
+    clearRenderedOverlays();
+    const sourceZones = Array.isArray(zones) ? zones : zone ? [zone] : [];
+    const validZones = sourceZones.filter((item) => hasPolygon(item?.polygon));
+    const canSelectZone = typeof onZoneSelect === "function";
+    const resolvedSelectedId = selectedZoneId ?? zone?.id;
+    const selectedZone = validZones.find((item) => item?.id === resolvedSelectedId) || (Array.isArray(zones) ? null : validZones[0]);
+    validZones.forEach((item, index) => {
+      const selected = item === selectedZone;
+      const color = zoneColor(item, index);
+      polygonRings(item.polygon).forEach((rings) => {
+        const polygon = new maps.Polygon({
+          map, paths: rings.map((ring) => ring.map((point) => new maps.LatLng(point.lat, point.lng))), clickable: canSelectZone,
+          fillColor: color, fillOpacity: selected ? .24 : .12, strokeColor: color, strokeOpacity: selected ? 1 : .85, strokeWeight: selected ? 4 : 2,
+        });
+        overlays.push(polygon);
+        if (canSelectZone) overlayListeners.push(maps.Event.addListener(polygon, "click", () => selectZone(item)));
+      });
+      if (canSelectZone) addZoneLabel(item, color, selected);
+    });
     const tipsWithCoordinates = tips.filter((tip) => tip.lat != null && tip.lng != null && Number.isFinite(Number(tip.lat)) && Number.isFinite(Number(tip.lng)));
-    if (!hasPolygon(zone?.polygon) && tipsWithCoordinates[0]) map.setCenter(new maps.LatLng(Number(tipsWithCoordinates[0].lat), Number(tipsWithCoordinates[0].lng)));
+    const fitPadding = boundsPadding(padding);
+    if (!preserveViewport && selectedZone) {
+      const bounds = polygonPoints(selectedZone.polygon).reduce((result, point) => result.extend(new maps.LatLng(point.lat, point.lng)), new maps.LatLngBounds());
+      map.fitBounds(bounds, fitPadding);
+    } else if (!preserveViewport && validZones.length) {
+      const bounds = validZones.flatMap((item) => polygonPoints(item.polygon)).reduce((result, point) => result.extend(new maps.LatLng(point.lat, point.lng)), new maps.LatLngBounds());
+      map.fitBounds(bounds, fitPadding);
+    } else if (!preserveViewport && tipsWithCoordinates[0]) map.setCenter(new maps.LatLng(Number(tipsWithCoordinates[0].lat), Number(tipsWithCoordinates[0].lng)));
     tipsWithCoordinates.forEach((tip) => {
       const marker = new maps.Marker({ map, position: new maps.LatLng(Number(tip.lat), Number(tip.lng)), title: tip.title || "구역 메모" });
-      maps.Event.addListener(marker, "click", () => onTipSelect?.(tip));
       overlays.push(marker);
+      overlayListeners.push(maps.Event.addListener(marker, "click", () => onTipSelect?.(tip)));
     });
   }
   return {
@@ -120,6 +204,6 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
         map.setCenter(new maps.LatLng(point.lat, point.lng)); map.setZoom(17); resolve(point);
       }, () => reject(new Error("현재 위치 권한을 확인해 주세요.")), { enableHighAccuracy: true, timeout: 8000 }));
     },
-    destroy() { overlays = clear(overlays); draftOverlays = clear(draftOverlays); maps.Event.removeListener(listener); element.replaceChildren(); },
+    destroy() { clearRenderedOverlays(); draftOverlays = clear(draftOverlays); maps.Event.removeListener(listener); element.replaceChildren(); },
   };
 }

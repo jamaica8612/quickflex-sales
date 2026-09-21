@@ -1,8 +1,9 @@
-# 회사 구역노트 — PWA 1.0.82
+# 회사 구역노트 — PWA 1.0.83
 
 ## 이번 범위
 
 - 하단 메뉴: 매출 / 배송 / 구역 / 지출 / 더보기. 화면명은 매출노트·배송노트·구역노트·지출노트로 맞추고, 통계는 더보기에서 연다.
+- 구역노트 첫 화면은 전체 지도다. 검색·필터·수동 내 위치를 지도 위에 두고, 구역 경계/이름을 선택하면 접을 수 있는 패널에서 팁·사진·공유를 연다. 작은 화면은 하단 패널, 넓은 화면은 우측 패널이며 앱 내비게이션 영역과 지도 레이어를 분리한다. 네이버 기본 확대/축소 버튼은 숨기고 지도 터치 제스처는 유지한다.
 - 승인된 회사 회원은 회사 전체 구역과 팁을 읽고 개인 즐겨찾기를 저장한다.
 - 회원 누구나 자유 팁을 작성한다. 지도 위치와 사진은 선택이며, 글만 남길 수 있다.
 - 팁·사진 수정/삭제는 작성자 본인만 가능하다. 관리자도 다른 작성자의 팁을 수정하지 못한다.
@@ -18,19 +19,19 @@
 
 `src/ui/route-notes.js`는 기존 PWA 로그인 세션을 사용하며, 별도 RouteNote 로그인이나 iframe을 열지 않는다. `src/services/route-notes.js`가 회사 멤버십을 확인하고 모든 질의를 회사별로 제한한다. API·사진·업무 데이터를 브라우저 로컬 저장소에 보관하지 않는다.
 
-`supabase/migrations/20260921110850_company_route_notes.sql`과 `20260921110900_route_note_import_provenance.sql`은 회사 구역노트 테이블·권한·private 사진 저장소·원본 보관 구조를 추가한다. 두 DB 변경과 데이터·사진 복사는 사용자 이관 요청에 따라 적용했다. 메뉴·구역노트·외부 공유 화면은 PWA 1.0.82에 포함한다. Android Beta 1.19는 이번 릴리스에서 변경하지 않는다.
+`supabase/migrations/20260921110850_company_route_notes.sql`과 `20260921110900_route_note_import_provenance.sql`은 회사 구역노트 테이블·권한·private 사진 저장소·원본 보관 구조를 추가한다. 두 DB 변경과 데이터·사진 복사는 사용자 이관 요청에 따라 적용했다. 메뉴·구역노트·외부 공유 화면은 PWA 1.0.83에 포함한다. Android Beta 1.19는 이번 릴리스에서 변경하지 않는다.
 
 현 회사 전용 설치에서는 기존 승인 회원을 기본 회사로 연결하고 이후 승인에도 같은 연결을 만든다. 여러 회사에 판매하기 전에는 `quickflex_note_sync_member` 자동 연결 트리거를 교체하고 회사 초대/가입 절차를 넣어야 한다. 클라이언트가 회사 멤버십을 만들거나 권한을 높일 수는 없다. 지정 편집자 배정은 현재 서버 관리 작업이며 UI는 추가하지 않았다.
 
 ## 기존 RouteNote 데이터
 
-현재 RouteNote의 사용 중인 구역 35개·팁 138개·사진 70개를 복사했다. 구역 미지정 팁 3개를 위한 보조 구역 1개가 추가되어 대상 구역은 36개다. 원본은 보존했으며 상세 기록은 [이관 기록](ROUTENOTE-IMPORT-20260921.md)에 있다.
+이관 당시 RouteNote의 사용 중인 구역 35개·팁 138개·사진 70개를 복사했다. 구역 미지정 팁 3개를 위한 보조 구역 1개가 추가되어 36개였다. 이후 사용자 요청으로 팁·사진이 없는 `218`, `222`, `300A`, `300B`를 삭제해 현재 구역은 32개이며 팁·사진 수는 동일하다. 원본과 삭제 전 백업은 보존했으며 상세 기록은 [이관 기록](ROUTENOTE-IMPORT-20260921.md)에 있다.
 
 확인된 이메일로 정확히 계정이 연결된 팁은 31개다. 나머지 107개는 작성자 이름을 보존하고 `created_by=null`로 두어 다른 사용자에게 수정 권한이 넘어가지 않게 했다. 이름만 같은 계정으로 임의 연결하지 않으며, 계정 확인 후 별도 권한 이관이 필요하다. 원본 JSON은 일반 회원에게 공개하지 않는 private archive에 보관한다.
 
 ## 기간제 공유
 
-사용자의 배포 승인 후 `20260921114325_route_note_shares.sql`과 `supabase/functions/route-note-share/index.ts`를 운영 서버에 적용했다. `route-share.html`은 PWA 1.0.82에 포함한다. 공유 SQL → `route-note-share` 함수 → PWA 순서로 반영하며, 운영 서버에서 유효한 링크의 구역·팁·서명 사진 열람을 확인했다. `supabase/config.toml`의 해당 함수 `verify_jwt=false`는 로그인 없는 토큰 열람을 위한 설정이며 실제 승인·회사·구역·기간 검증을 서버에서 수행한다.
+사용자의 배포 승인 후 `20260921114325_route_note_shares.sql`과 `supabase/functions/route-note-share/index.ts`를 운영 서버에 적용했다. `route-share.html`은 PWA 1.0.83에 포함한다. 공유 SQL → `route-note-share` 함수 → PWA 순서로 반영하며, 운영 서버에서 유효한 링크의 구역·팁·서명 사진 열람을 확인했다. `supabase/config.toml`의 해당 함수 `verify_jwt=false`는 로그인 없는 토큰 열람을 위한 설정이며 실제 승인·회사·구역·기간 검증을 서버에서 수행한다.
 
 공유 토큰은 256비트 난수이며 DB에는 해시만 저장한다. 승인된 회사 회원이 링크를 만들 수 있고, 만든 사람만 자신의 링크를 관리한다. 공개 열람은 유효한 토큰으로 지정된 구역과 그 팁·사진만 반환한다. 생성자의 승인이나 회사 멤버십이 해제되어도 열람이 차단된다. 원본 보관 JSON, 내부 계정 ID, 다른 구역 데이터는 공유하지 않는다.
 
@@ -38,7 +39,7 @@
 
 ## 지도와 사진
 
-지도 SDK는 구역 상세/편집을 열 때만 로드한다. 공개 브라우저 client ID는 `ROUTE_NOTES_CONFIG`에 있고 허용 도메인은 Naver Cloud 설정에 따른다. SDK 실패 시 목록과 텍스트 메모를 계속 쓸 수 있다. GeoJSON의 분리된 영역과 내부 빈 영역을 유지한다. [Naver 지도 시작 안내](https://navermaps.github.io/maps.js.ncp/docs/tutorial-2-Getting-Started.html), [Polygon API](https://navermaps.github.io/maps.js.ncp/docs/naver.maps.Polygon.html)를 참고했다.
+지도 SDK는 구역노트를 열 때 로드한다. 검색·필터·패널 전환 때 지도 인스턴스를 유지하며, 구역 선택 시 위쪽 검색창과 패널을 제외한 공간에 경계를 맞춘다. 공개 브라우저 client ID는 `ROUTE_NOTES_CONFIG`에 있고 허용 도메인은 Naver Cloud 설정에 따른다. SDK 초기화·렌더 실패 시에도 목록과 텍스트 메모를 계속 쓸 수 있다. GeoJSON의 분리된 영역과 내부 빈 영역 및 검증된 원본 구역 색상을 유지한다. [Naver 지도 시작 안내](https://navermaps.github.io/maps.js.ncp/docs/tutorial-2-Getting-Started.html), [Polygon API](https://navermaps.github.io/maps.js.ncp/docs/naver.maps.Polygon.html)를 참고했다.
 
 사진은 JPEG/PNG/WebP, 한 장 5MB까지이며 서명 URL은 5분간 유효하다. 새로 열면 URL을 다시 발급한다. 사진이 있는 팁은 사진을 먼저 개별 삭제해야 한다. SQL도 같은 조건을 강제한다. Storage와 PostgreSQL 사이에는 분산 트랜잭션이 없으므로 업로드 중 계정 변경이나 네트워크 장애로 생긴 private orphan은 향후 서버 정리 작업 대상이며, 클라이언트가 다른 계정의 정리 작업을 계속 실행하지 않는다.
 
