@@ -1,15 +1,17 @@
-.route-notes-header,.route-notes-toolbar,.route-notes-detail-head,.route-notes-section-head,.route-notes-list-actions,.route-notes-detail-actions,.route-notes-map-actions,.route-notes-form-actions,.route-notes-tip-actions {
+/* 구역노트 — 지도 우선 화면. RouteNote의 조작 방식을 플렉스노트 토큰으로 옮긴다. */
+.route-notes-header,.route-notes-detail-head,.route-notes-section-head,.route-notes-detail-actions,.route-notes-map-actions,.route-notes-form-actions,.route-notes-tip-actions {
   display:flex;
   align-items:center;
-  gap:10px;
-}
-.route-notes-header,.route-notes-detail-head,.route-notes-section-head {
-  justify-content:space-between;
+  gap:8px;
 }
 .route-notes-header {
-  padding:18px 16px 12px;
+  gap:4px;
+  padding:14px 14px 10px;
 }
-.route-notes-header h2,.route-notes-detail-head h3,.route-notes-section-head h3,.route-notes-tip h4 {
+.route-notes-section-head {
+  justify-content:space-between;
+}
+.route-notes-header h2,.route-notes-detail-copy h3,.route-notes-section-head h3,.route-notes-tip h4 {
   margin:0;
   color:var(--text);
   font-weight:700;
@@ -19,39 +21,19 @@
   font-size:var(--fs-title-l);
 }
 .route-notes-kicker,.route-notes-tip-type {
-  margin:0 0 4px;
+  margin:0 0 2px;
   color:var(--muted);
   font-size:var(--fs-caption);
   font-weight:500;
   letter-spacing:.08em;
 }
-.route-notes-toolbar,.route-notes-list,.route-notes-tips,.route-notes-form,.route-notes-detail-head,.route-notes-section-head {
-  margin-inline:14px;
-}
-.route-notes-toolbar {
-  display:grid;
-  grid-template-columns:minmax(0,1fr) auto;
-  align-items:center;
-  margin-bottom:12px;
-}
-.route-notes-search {
-  width:100%;
-  min-height:44px;
-  padding:0 14px;
-  border:1px solid var(--line-strong);
-  border-radius:var(--r-full);
-  background:var(--panel);
-  color:var(--text);
-  font:500 var(--fs-body) var(--font-ui);
-}
-.route-notes-tabs {
-  display:flex;
-  gap:3px;
-  padding:3px;
-  border-radius:var(--r-full);
-  background:var(--panel2);
-}
+
+/* ── 공통 버튼 ─────────────────────────────────────────────── */
 .route-notes-button {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
   min-height:44px;
   padding:0 14px;
   border:1px solid var(--line-strong);
@@ -61,323 +43,67 @@
   font:600 var(--fs-label) var(--font-ui);
   cursor:pointer;
 }
-.route-notes-button:focus-visible,.route-notes-search:focus-visible,.route-notes-field input:focus-visible,.route-notes-field textarea:focus-visible,.route-notes-field select:focus-visible {
-  outline:3px solid color-mix(in srgb,var(--gold) 36%,transparent);
-  outline-offset:2px;
-}
-.route-notes-button:active {
+.route-notes-button:active,.route-notes-icon-button:active {
   opacity:.72;
 }
-.route-notes-button:disabled {
+.route-notes-button:disabled,.route-notes-icon-button:disabled {
   opacity:.45;
   cursor:not-allowed;
-}
-.route-notes-tabs .route-notes-button {
-  min-height:44px;
-  border:0;
-  background:transparent;
-  color:var(--muted);
-}
-.route-notes-tabs .route-notes-button.active {
-  background:var(--panel);
-  color:var(--text);
-  box-shadow:var(--shadow-card);
 }
 .route-notes-button.primary {
   border-color:transparent;
   background:var(--gold);
-  color:var(--panel);
+  color:var(--gold-ink);
 }
 .route-notes-button.danger {
   color:var(--red);
 }
-.route-notes-button.icon {
-  min-width:44px;
-  padding-inline:10px;
-}
-.route-notes-list-actions {
-  grid-column:1/-1;
-  justify-content:flex-end;
-}
-.route-notes-list {
-  display:grid;
-  gap:10px;
-  padding-bottom:24px;
-}
-.route-notes-zone-row,.route-notes-tip,.route-notes-map-card,.route-notes-form {
-  border-radius:var(--r-lg);
-  background:var(--panel);
-  box-shadow:var(--shadow-card);
-}
-.route-notes-zone-row {
-  display:grid;
-  grid-template-columns:minmax(0,1fr) auto;
-  align-items:stretch;
-}
-.route-notes-zone-main {
-  min-width:0;
-  min-height:72px;
-  padding:14px 16px;
-  border:0;
+.route-notes-icon-button {
+  display:inline-flex;
+  flex:0 0 auto;
+  align-items:center;
+  justify-content:center;
+  width:44px;
+  height:44px;
+  padding:0;
+  border:1px solid transparent;
+  border-radius:var(--r-md);
   background:transparent;
-  color:var(--text);
-  text-align:left;
+  color:var(--muted);
   cursor:pointer;
 }
-.route-notes-zone-main strong {
-  display:block;
-  font-family:var(--font-code);
-  font-size:var(--fs-body);
-  font-weight:700;
-  letter-spacing:.01em;
-}
-.route-notes-zone-main small {
-  display:block;
-  overflow:hidden;
-  margin-top:5px;
-  color:var(--muted);
-  font-size:var(--fs-label);
-  font-weight:500;
-  line-height:1.4;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-.route-notes-zone-row>.route-notes-button {
-  align-self:center;
-  margin-right:10px;
-}
-.route-notes-empty,.route-notes-loading {
-  margin:0;
-  padding:22px 16px;
-  color:var(--muted);
-  font-size:var(--fs-body);
-  line-height:1.55;
-  text-align:center;
-}
-.route-notes-state {
-  display:grid;
-  justify-items:center;
-  gap:12px;
-  padding:40px 20px;
-  color:var(--muted);
-  text-align:center;
-}
-.route-notes-state.error,.route-notes-map-error {
-  color:var(--red);
-}
-.route-notes-detail-head {
-  align-items:flex-start;
-  margin-top:2px;
-  margin-bottom:12px;
-}
-.route-notes-detail-head p {
-  max-width:62ch;
-  margin:6px 0 0;
-  color:var(--muted);
-  font-size:var(--fs-body);
-  line-height:1.55;
-}
-.route-notes-detail-actions {
-  flex-wrap:wrap;
-  justify-content:flex-end;
-}
-.route-notes-map-card {
-  overflow:hidden;
-  margin:0 14px 20px;
-}
-.route-notes-zone-photos {
-  margin:0 14px 20px;
-  padding:16px;
-  border-radius:var(--r-lg);
-  background:var(--panel);
-  box-shadow:var(--shadow-card);
-}
-.route-notes-zone-photos h3 { margin:0; color:var(--text); font-size:var(--fs-body); }
-.route-notes-zone-photo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(124px,1fr)); gap:8px; margin-top:12px; }
-.route-notes-zone-photo { display:block; min-height:44px; border-radius:var(--r-md); outline-offset:3px; }
-.route-notes-zone-photo:focus-visible { outline:3px solid color-mix(in srgb,var(--gold) 36%,transparent); }
-.route-notes-zone-photo img { display:block; width:100%; aspect-ratio:4/3; border-radius:var(--r-md); background:var(--panel2); object-fit:cover; }
-.route-notes-map {
-  position:relative;
-  min-height:280px;
-  background:var(--panel2);
-}
-.route-notes-map-status,.route-notes-map-error {
-  display:grid;
-  min-height:280px;
-  place-items:center;
-  margin:0;
-  padding:18px;
-  color:var(--muted);
-  font-size:var(--fs-label);
-  text-align:center;
-}
-.route-notes-map-actions {
-  justify-content:flex-end;
-  flex-wrap:wrap;
-  padding:10px;
-}
-.route-notes-section-head {
-  margin-top:22px;
-  margin-bottom:10px;
-}
-.route-notes-tips {
-  display:grid;
-  gap:10px;
-  padding-bottom:26px;
-}
-.route-notes-tip {
-  padding:16px;
-}
-.route-notes-tip>div:first-child {
-  min-width:0;
-  overflow-wrap:anywhere;
-}
-.route-notes-tip {
-  display:grid;
-  grid-template-columns:minmax(0,1fr) auto;
-  gap:10px;
-}
-.route-notes-tip>.route-notes-photos {
-  grid-column:1/-1;
-}
-.route-notes-tip h4 {
-  font-size:var(--fs-body);
-}
-.route-notes-tip p:not(.route-notes-tip-type) {
-  margin:7px 0 0;
-  color:var(--muted);
-  font-size:var(--fs-label);
-  line-height:1.55;
-  white-space:pre-wrap;
-}
-.route-notes-tip-actions {
-  flex-wrap:wrap;
-  justify-content:flex-end;
-}
-.route-notes-tip-actions .route-notes-button {
-  min-height:44px;
-}
-.route-notes-photos {
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(112px,1fr));
-  gap:8px;
-  margin-top:12px;
-}
-.route-notes-photos img {
-  width:100%;
-  aspect-ratio:1/1;
-  object-fit:cover;
-  border-radius:var(--r-md);
-  background:var(--panel2);
-}
-.route-notes-form {
-  display:grid;
-  gap:14px;
-  margin-top:2px;
-  margin-bottom:26px;
-  padding:18px;
-}
-.route-notes-field {
-  display:grid;
-  gap:6px;
-  color:var(--muted);
-  font-size:var(--fs-label);
-  font-weight:500;
-}
-.route-notes-field input,.route-notes-field textarea,.route-notes-field select {
-  box-sizing:border-box;
-  width:100%;
-  min-height:44px;
-  padding:10px 12px;
-  border:1px solid var(--line-strong);
-  border-radius:var(--r-md);
+.route-notes-icon-button[hidden] { display:none; }
+.route-notes-icon-button:hover {
   background:var(--panel2);
   color:var(--text);
-  font:500 var(--fs-body) var(--font-ui);
-  resize:vertical;
 }
-.route-notes-coordinate-help {
-  margin:0;
-  color:var(--muted);
-  font-size:var(--fs-label);
-  line-height:1.5;
+.route-notes-icon-button[aria-pressed="true"] {
+  color:var(--gold);
 }
-.route-notes-coordinate-grid {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
+.route-notes-icon {
+  width:20px;
+  height:20px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round;
 }
-.route-notes-form-actions {
-  justify-content:flex-end;
-  flex-wrap:wrap;
-  padding-top:4px;
+.route-notes-star[aria-pressed="true"] .route-notes-icon {
+  fill:color-mix(in srgb,var(--gold) 26%,transparent);
 }
-.route-notes-form-actions .route-notes-button {
-  min-width:106px;
-}
-.route-notes-map-card .route-notes-coordinate-help {
-  padding:0 10px 10px;
-}
-@media(max-width:430px) {
-  .route-notes-toolbar {
-    grid-template-columns:1fr;
-  }
-  .route-notes-tabs,.route-notes-list-actions {
-    justify-content:stretch;
-  }
-  .route-notes-tabs .route-notes-button {
-    flex:1;
-  }
-  .route-notes-list-actions .route-notes-button {
-    width:100%;
-  }
-  .route-notes-header,.route-notes-detail-head {
-    align-items:flex-start;
-  }
-  .route-notes-header {
-    gap:8px;
-  }
-  .route-notes-detail-head {
-    display:grid;
-  }
-  .route-notes-detail-actions {
-    justify-content:flex-start;
-  }
-  .route-notes-coordinate-grid {
-    grid-template-columns:1fr;
-  }
-  .route-notes-form-actions .route-notes-button {
-    flex:1;
-  }
-  .route-notes-map {
-    min-height:240px;
-  }
-}
-@media(prefers-reduced-motion:reduce) {
-  .route-notes-button {
-    transition:none;
-  }
-}
-.route-notes-photo {
-  display:grid;
-  gap:6px;
-  margin:0;
-}
-.route-notes-photo .photo-delete {
-  min-height:44px;
-  padding-inline:10px;
-  font-size:var(--fs-caption);
-}
-.route-notes-existing-photos>p {
-  margin:0;
-  color:var(--muted);
-  font-size:var(--fs-label);
-  font-weight:500;
+.route-notes-button:focus-visible,.route-notes-icon-button:focus-visible,.route-notes-searchbar:focus-within,
+.route-notes-zone-main:focus-visible,.route-notes-suggest-row:focus-visible,
+.route-notes-field input:focus-visible,.route-notes-field textarea:focus-visible,.route-notes-field select:focus-visible {
+  outline:3px solid color-mix(in srgb,var(--gold) 36%,transparent);
+  outline-offset:2px;
 }
 
-/* The route screen keeps one disposable map alive while its sheet content changes. */
+/* ── 지도 작업 공간 ─────────────────────────────────────────── */
 .route-notes-workspace {
+  --route-note-peek:84px;
+  --route-note-glass:color-mix(in srgb,var(--panel) 90%,transparent);
+  --route-note-panel-w:min(390px,38vw);
   position:relative;
   isolation:isolate;
   height:calc(100dvh - var(--nav-h) - var(--safe-b));
@@ -418,7 +144,9 @@
 }
 .route-notes-workspace .route-notes-map-zone-label:active { opacity:.76; }
 .route-notes-workspace .route-notes-map-zone-label:focus-visible { outline:3px solid color-mix(in srgb,var(--gold) 48%,transparent); outline-offset:3px; }
-.route-notes-map-controls {
+
+/* ── 지도 위 검색·필터 ──────────────────────────────────────── */
+.route-notes-topbar {
   position:absolute;
   z-index:3;
   top:max(12px, env(safe-area-inset-top));
@@ -428,33 +156,161 @@
   gap:8px;
   pointer-events:none;
 }
-.route-notes-map-controls > * { pointer-events:auto; }
-.route-notes-map-filter-row { display:flex; align-items:start; justify-content:space-between; gap:8px; }
-.route-notes-map-filter-row .route-notes-tabs { min-width:0; }
-.route-notes-locate { flex-shrink:0; white-space:nowrap; box-shadow:var(--shadow-card); }
-.route-notes-map-heading {
-  width:max-content;
-  max-width:100%;
-  padding:8px 12px;
+.route-notes-topbar > * { pointer-events:auto; }
+.route-notes-searchbar {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  height:52px;
+  padding:0 6px 0 14px;
   border:1px solid var(--line);
-  border-radius:var(--r-md);
-  background:color-mix(in srgb,var(--panel) 94%,transparent);
+  border-radius:var(--r-lg);
+  background:var(--route-note-glass);
+  color:var(--muted);
   box-shadow:var(--shadow-card);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
 }
-.route-notes-map-heading span,.route-notes-map-heading strong { display:block; }
-.route-notes-map-heading span { color:var(--muted); font-size:var(--fs-caption); }
-.route-notes-map-heading strong { color:var(--text); font-size:var(--fs-body); letter-spacing:-.02em; }
-.route-notes-map-controls .route-notes-search {
+.route-notes-searchbar > .route-notes-icon { flex:0 0 auto; }
+.route-notes-search {
+  flex:1;
   min-width:0;
-  box-shadow:var(--shadow-card);
+  height:100%;
+  border:0;
+  background:transparent;
+  color:var(--text);
+  font:500 var(--fs-body-l) var(--font-ui);
 }
-.route-notes-map-controls .route-notes-tabs {
+.route-notes-search::placeholder { color:var(--muted); opacity:1; }
+.route-notes-search:focus { outline:none; }
+.route-notes-search::-webkit-search-cancel-button,.route-notes-search::-webkit-search-decoration { display:none; }
+.route-notes-search-clear { width:40px; height:40px; border-radius:var(--r-full); }
+.route-notes-searchbar:not([data-filled="true"]) .route-notes-search-clear { display:none; }
+.route-notes-suggest {
+  max-height:min(46dvh,340px);
+  overflow:auto;
+  overscroll-behavior:contain;
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  background:var(--route-note-glass);
+  box-shadow:var(--shadow-raise);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+}
+.route-notes-suggest-row {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  min-height:56px;
+  padding:10px 14px;
+  border:0;
+  border-bottom:1px solid var(--line);
+  background:transparent;
+  text-align:left;
+  cursor:pointer;
+}
+.route-notes-suggest-row:last-child { border-bottom:0; }
+.route-notes-suggest-row:active { background:var(--panel2); }
+.route-notes-suggest-glyph {
+  display:grid;
+  flex:0 0 auto;
+  place-items:center;
+  width:34px;
+  height:34px;
+  border-radius:var(--r-full);
+  background:var(--panel2);
+  color:var(--muted);
+}
+.route-notes-suggest-copy { display:grid; gap:3px; min-width:0; }
+.route-notes-suggest-title-row { display:flex; align-items:center; gap:7px; min-width:0; }
+.route-notes-badge {
+  flex:0 0 auto;
+  padding:2px 6px;
+  border:1px solid var(--line-strong);
+  border-radius:var(--r-xs);
+  color:var(--muted);
+  font-size:var(--fs-caption);
+  font-style:normal;
+  font-weight:700;
+  line-height:1.3;
+}
+.route-notes-suggest-title-row strong {
+  overflow:hidden;
+  color:var(--text);
+  font-size:var(--fs-body-l);
+  font-weight:700;
+  letter-spacing:-.02em;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.route-notes-suggest-copy small {
+  overflow:hidden;
+  color:var(--muted);
+  font-size:var(--fs-label);
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.route-notes-suggest-empty { margin:0; padding:18px; color:var(--muted); font-size:var(--fs-body); text-align:center; }
+.route-notes-tabs {
+  display:flex;
+  gap:3px;
   width:max-content;
   max-width:100%;
   overflow:auto;
+  padding:3px;
+  border-radius:var(--r-full);
+  background:var(--route-note-glass);
+  box-shadow:var(--shadow-card);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  scrollbar-width:none;
+}
+.route-notes-tabs::-webkit-scrollbar { display:none; }
+.route-notes-tabs .route-notes-button {
+  flex:0 0 auto;
+  min-height:38px;
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  white-space:nowrap;
+}
+.route-notes-tabs .route-notes-button.active {
+  background:var(--panel);
+  color:var(--text);
+  font-weight:700;
   box-shadow:var(--shadow-card);
 }
-.route-notes-map-controls .route-notes-tabs .route-notes-button { flex:0 0 auto; white-space:nowrap; }
+
+/* ── 지도 모서리 버튼 ───────────────────────────────────────── */
+.route-notes-fabs {
+  position:absolute;
+  z-index:3;
+  right:12px;
+  bottom:calc(var(--route-note-sheet-h, var(--route-note-peek)) + 12px);
+  display:grid;
+  gap:8px;
+  transition:bottom 180ms cubic-bezier(.2,.8,.3,1);
+}
+.route-notes-fab {
+  width:46px;
+  height:46px;
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  background:var(--route-note-glass);
+  color:var(--text);
+  box-shadow:var(--shadow-card);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+.route-notes-fab:hover { background:var(--panel); color:var(--text); }
+.route-notes-fab.primary {
+  border-color:transparent;
+  background:var(--gold);
+  color:var(--gold-ink);
+}
+
+/* ── 바텀시트 ──────────────────────────────────────────────── */
 .route-notes-sheet {
   position:absolute;
   z-index:4;
@@ -462,69 +318,298 @@
   bottom:0;
   left:0;
   display:grid;
-  grid-template-rows:auto minmax(0,1fr);
-  max-height:min(58%, 480px);
+  grid-template-rows:auto auto minmax(0,1fr);
+  height:var(--route-note-sheet-h, var(--route-note-peek));
   border:1px solid var(--line);
   border-bottom:0;
   border-radius:var(--r-xl) var(--r-xl) 0 0;
   background:var(--panel);
   box-shadow:var(--shadow-raise);
-  transition:max-height 160ms ease;
+  transition:height 180ms cubic-bezier(.2,.8,.3,1);
 }
-.route-notes-sheet[data-expanded="false"] { grid-template-rows:auto; max-height:68px; }
+.route-notes-workspace[data-dragging] .route-notes-sheet,
+.route-notes-workspace[data-dragging] .route-notes-fabs { transition:none; }
+.route-notes-sheet-grip {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  height:30px;
+  padding:0;
+  border:0;
+  border-radius:var(--r-xl) var(--r-xl) 0 0;
+  background:transparent;
+  cursor:grab;
+  touch-action:none;
+}
+.route-notes-workspace[data-dragging] .route-notes-sheet-grip { cursor:grabbing; }
+.route-notes-grip-bar {
+  width:44px;
+  height:4px;
+  border-radius:var(--r-full);
+  background:var(--line-strong);
+}
+/* 손잡이는 시트 전체 너비라서 초점 표시는 막대에만 둔다. */
+.route-notes-sheet-grip:focus-visible { outline:none; }
+.route-notes-sheet-grip:focus-visible .route-notes-grip-bar {
+  outline:3px solid color-mix(in srgb,var(--gold) 36%,transparent);
+  outline-offset:5px;
+}
 .route-notes-sheet-head {
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:12px;
-  min-height:64px;
-  padding:8px 14px 8px 18px;
+  min-height:50px;
+  padding:0 10px 10px 18px;
   border-bottom:1px solid var(--line);
 }
-.route-notes-sheet-title,.route-notes-sheet-subtitle { display:block; }
-.route-notes-sheet-title { color:var(--text); font-size:var(--fs-body); }
-.route-notes-sheet-subtitle { margin-top:2px; color:var(--muted); font-size:var(--fs-caption); }
-.route-notes-sheet-toggle { flex:0 0 auto; }
+.route-notes-sheet-heading { display:grid; flex:1; min-width:0; gap:2px; text-align:left; }
+.route-notes-sheet-back { margin-left:-6px; }
+.route-notes-sheet-title {
+  overflow:hidden;
+  color:var(--text);
+  font-size:var(--fs-title);
+  font-weight:700;
+  letter-spacing:-.022em;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+/* 구역코드는 자릿수가 고정된 문자열이라 모노로 둔다. */
+.route-notes-sheet-title[data-code="true"] { font-family:var(--font-code); letter-spacing:.01em; }
+.route-notes-sheet-subtitle {
+  overflow:hidden;
+  color:var(--muted);
+  font-size:var(--fs-caption);
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
 .route-notes-sheet-body {
   min-height:0;
   overflow:auto;
   overscroll-behavior:contain;
-  padding:0 14px calc(18px + env(safe-area-inset-bottom));
+  padding:12px 14px calc(18px + env(safe-area-inset-bottom));
 }
-.route-notes-sheet[data-expanded="false"] .route-notes-sheet-body { display:none; }
-.route-notes-sheet-body .route-notes-list-actions { display:flex; margin:12px 0 0; }
-.route-notes-sheet-body .route-notes-list,
-.route-notes-sheet-body .route-notes-tips,
-.route-notes-sheet-body .route-notes-form,
-.route-notes-sheet-body .route-notes-detail-head,
-.route-notes-sheet-body .route-notes-section-head { margin-right:0; margin-left:0; }
-.route-notes-sheet-body .route-notes-detail-head { margin-top:14px; }
-.route-notes-sheet-body .route-notes-zone-photos { margin:0 0 14px; }
-.route-notes-sheet-body .route-notes-form { margin-bottom:0; padding:14px 0 18px; box-shadow:none; }
-.route-notes-sheet-body .route-notes-loading,
-.route-notes-sheet-body .route-notes-empty { padding-block:20px; }
+.route-notes-sheet[data-snap="peek"] .route-notes-sheet-body { display:none; }
+
+/* ── 구역 목록 ─────────────────────────────────────────────── */
+.route-notes-list,.route-notes-tips { display:grid; gap:8px; }
+.route-notes-zone-row {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  padding-right:6px;
+  border-radius:var(--r-lg);
+  background:var(--panel2);
+}
+.route-notes-zone-main {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:100%;
+  min-width:0;
+  min-height:64px;
+  padding:12px 4px 12px 16px;
+  border:0;
+  background:transparent;
+  color:var(--text);
+  text-align:left;
+  cursor:pointer;
+}
+.route-notes-zone-main > .route-notes-icon { flex:0 0 auto; color:var(--muted); }
+.route-notes-zone-copy { display:grid; flex:1; gap:4px; min-width:0; }
+.route-notes-zone-copy strong {
+  font-family:var(--font-code);
+  font-size:var(--fs-body-l);
+  font-weight:700;
+  letter-spacing:.01em;
+}
+.route-notes-zone-copy small {
+  overflow:hidden;
+  color:var(--muted);
+  font-size:var(--fs-label);
+  font-weight:500;
+  line-height:1.4;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.route-notes-empty,.route-notes-loading {
+  margin:0;
+  padding:22px 16px;
+  color:var(--muted);
+  font-size:var(--fs-body);
+  line-height:1.55;
+  text-align:center;
+}
+.route-notes-state {
+  display:grid;
+  justify-items:center;
+  gap:12px;
+  padding:40px 20px;
+  color:var(--muted);
+  text-align:center;
+}
+.route-notes-state.error,.route-notes-map-error { color:var(--red); }
+
+/* ── 구역 상세 ─────────────────────────────────────────────── */
+.route-notes-detail-head {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:start;
+  gap:6px;
+  margin-bottom:12px;
+}
+.route-notes-detail-copy { min-width:0; padding-top:6px; }
+.route-notes-detail-copy p {
+  max-width:62ch;
+  margin:0;
+  color:var(--muted);
+  font-size:var(--fs-body);
+  line-height:1.55;
+}
+.route-notes-detail-copy .route-notes-no-polygon { color:var(--warn); }
+.route-notes-detail-actions { align-self:start; flex-wrap:wrap; justify-content:flex-end; }
+.route-notes-section-head { margin-top:18px; margin-bottom:8px; }
+.route-notes-section-head h3 { font-size:var(--fs-body-l); }
+.route-notes-zone-photos { margin:0 0 14px; }
+.route-notes-zone-photos h3 { margin:0; color:var(--text); font-size:var(--fs-body); }
+.route-notes-zone-photo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(124px,1fr)); gap:8px; margin-top:10px; }
+.route-notes-zone-photo { display:block; min-height:44px; border-radius:var(--r-md); outline-offset:3px; }
+.route-notes-zone-photo:focus-visible { outline:3px solid color-mix(in srgb,var(--gold) 36%,transparent); }
+.route-notes-zone-photo img { display:block; width:100%; aspect-ratio:4/3; border-radius:var(--r-md); background:var(--panel2); object-fit:cover; }
+
+/* ── 현장 메모 카드 ────────────────────────────────────────── */
+.route-notes-tip {
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  gap:12px;
+  padding:14px;
+  border-radius:var(--r-lg);
+  background:var(--panel2);
+}
+.route-notes-tip-glyph {
+  display:grid;
+  place-items:center;
+  width:36px;
+  height:36px;
+  border-radius:var(--r-full);
+  background:var(--panel);
+  color:var(--muted);
+}
+.route-notes-tip-glyph[data-alert="true"] { background:var(--red-bg); color:var(--red); }
+.route-notes-tip-copy { min-width:0; overflow-wrap:anywhere; }
+.route-notes-tip h4 { font-size:var(--fs-body-l); }
+.route-notes-tip p:not(.route-notes-tip-type) {
+  margin:6px 0 0;
+  color:var(--muted);
+  font-size:var(--fs-label);
+  line-height:1.55;
+  white-space:pre-wrap;
+}
+.route-notes-tip .route-notes-author { color:var(--soft); font-size:var(--fs-caption); }
+.route-notes-tip-actions { align-self:start; flex-wrap:wrap; justify-content:flex-end; }
+.route-notes-tip > .route-notes-photos { grid-column:1/-1; }
+.route-notes-photos {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(112px,1fr));
+  gap:8px;
+  margin-top:10px;
+}
+.route-notes-photos img {
+  width:100%;
+  aspect-ratio:1/1;
+  border-radius:var(--r-md);
+  background:var(--panel2);
+  object-fit:cover;
+}
+.route-notes-photo { display:grid; gap:6px; margin:0; }
+.route-notes-photo .photo-delete { min-height:40px; padding-inline:10px; font-size:var(--fs-caption); }
+.route-notes-existing-photos > p { margin:0; color:var(--muted); font-size:var(--fs-label); font-weight:500; }
+
+/* ── 입력 폼 ───────────────────────────────────────────────── */
+.route-notes-form {
+  display:grid;
+  gap:14px;
+  margin:0 14px 26px;
+  padding:18px;
+  border-radius:var(--r-lg);
+  background:var(--panel);
+  box-shadow:var(--shadow-card);
+}
+.route-notes-sheet-body .route-notes-form { margin:0; padding:14px 0 18px; box-shadow:none; }
+.route-notes-field {
+  display:grid;
+  gap:6px;
+  color:var(--muted);
+  font-size:var(--fs-label);
+  font-weight:500;
+}
+.route-notes-field input,.route-notes-field textarea,.route-notes-field select {
+  box-sizing:border-box;
+  width:100%;
+  min-height:44px;
+  padding:10px 12px;
+  border:1px solid var(--line-strong);
+  border-radius:var(--r-md);
+  background:var(--panel2);
+  color:var(--text);
+  font:500 var(--fs-body) var(--font-ui);
+  resize:vertical;
+}
+.route-notes-coordinate-help { margin:0; color:var(--muted); font-size:var(--fs-label); line-height:1.5; }
+.route-notes-coordinate-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.route-notes-form-actions { flex-wrap:wrap; justify-content:flex-end; padding-top:4px; }
+.route-notes-form-actions .route-notes-button { min-width:106px; }
+.route-notes-map-card {
+  overflow:hidden;
+  border-radius:var(--r-lg);
+  background:var(--panel2);
+}
+.route-notes-map-card .route-notes-coordinate-help { padding:0 10px 10px; }
+.route-notes-map-actions { flex-wrap:wrap; justify-content:flex-end; padding:10px; }
+.route-notes-map { position:relative; min-height:280px; background:var(--panel2); }
+.route-notes-map-status,.route-notes-map-error {
+  display:grid;
+  min-height:280px;
+  place-items:center;
+  margin:0;
+  padding:18px;
+  color:var(--muted);
+  font-size:var(--fs-label);
+  text-align:center;
+}
 .route-notes-workspace .route-notes-map-error,
 .route-notes-workspace .route-notes-map-status { min-height:100%; }
 
+/* ── 화면 크기 ─────────────────────────────────────────────── */
 @media (max-width:430px) {
   .route-notes-workspace { min-height:400px; }
-  .route-notes-sheet { max-height:55%; }
-  .route-notes-sheet-head { min-height:60px; }
-  .route-notes-sheet-toggle { padding-inline:11px; }
+  .route-notes-coordinate-grid { grid-template-columns:1fr; }
+  .route-notes-form-actions .route-notes-button { flex:1; }
+  .route-notes-map { min-height:240px; }
 }
 @media (max-height:520px) and (orientation:landscape) {
   .route-notes-workspace { min-height:300px; }
-  .route-notes-sheet { max-height:50%; }
-  .route-notes-sheet-head { min-height:52px; }
-  .route-notes-map-heading { padding-block:5px; }
+  .route-notes-searchbar { height:46px; }
   .route-notes-sheet-subtitle { display:none; }
 }
 @media (min-width:768px) and (orientation:landscape), (min-width:1100px) {
   .route-notes-workspace { height:100dvh; min-height:0; }
-  .route-notes-map-controls { top:16px; right:auto; left:16px; width:min(360px,42vw); }
-  .route-notes-sheet { right:16px; bottom:16px; left:auto; width:min(390px,38vw); max-height:calc(100% - 32px); border-bottom:1px solid var(--line); border-radius:var(--r-xl); }
-  .route-notes-sheet[data-expanded="false"] { max-height:68px; }
+  .route-notes-topbar { top:16px; right:auto; left:16px; width:min(380px,42vw); }
+  .route-notes-sheet {
+    right:16px;
+    bottom:16px;
+    left:auto;
+    width:var(--route-note-panel-w);
+    height:auto;
+    max-height:calc(100% - 32px);
+    border-bottom:1px solid var(--line);
+    border-radius:var(--r-xl);
+  }
+  .route-notes-sheet[data-snap="peek"] { max-height:92px; }
+  .route-notes-sheet-grip { display:none; }
+  .route-notes-fabs { right:calc(var(--route-note-panel-w) + 32px); bottom:24px; }
 }
-@media(prefers-reduced-motion:reduce) {
-  .route-notes-sheet { transition:none; }
+@media (prefers-reduced-motion:reduce) {
+  .route-notes-sheet,.route-notes-fabs { transition:none; }
 }

@@ -1,6 +1,6 @@
 import { createExpenseService } from "./services/expenses.js";
 import { createRouteNotesService } from "./services/route-notes.js";
-import { createRouteNotesController } from "./ui/route-notes.js?v=2";
+import { createRouteNotesController } from "./ui/route-notes.js?v=3";
 import { createRouteNoteShareService } from "./services/route-note-share.js";
 import { createRouteNoteShareDialog } from "./ui/route-note-share.js";
 import { checkBetaMeasurementAccess } from "./services/beta-access.js";
