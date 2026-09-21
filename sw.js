@@ -1,4 +1,4 @@
-const CACHE_NAME = "quickflex-shell-v1.0.78-native-session-recovery-1-usage-guide-1";
+const CACHE_NAME = "quickflex-shell-v1.0.79-native-session-recovery-1-usage-guide-1";
 const SHELL_FILES = [
   "./src/vendor/supabase-2.116.0.js",
   "./",
@@ -67,7 +67,7 @@ const SHELL_FILES = [
   "./src/lib/format.js",
   "./src/lib/work-date.js",
   "./src/lib/measurement-app-launch.js",
-  "./manifest.webmanifest?v=1.0.78",
+  "./manifest.webmanifest?v=1.0.79",
   "./icon-192.png?v=4",
   "./icon-512.png?v=4",
   "./icon-maskable-192.png?v=4",
