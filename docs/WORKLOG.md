@@ -1364,6 +1364,11 @@ Browser checks:
 - Validation: all 326 Node tests passed with `node --test --test-concurrency=1 tests/*.test.mjs`; serial execution avoids the SQL test processes' parallel memory exhaustion. Auth tests execute the actual session-sync functions for concurrency and late-result isolation. JS syntax and diff checks passed. Android: 1,338 passed / 9 existing log-dependent skips / 0 failures; debug, lint and signed release build passed.
 - This fixes confirmed synchronization gaps in the source. The user's specific device incident has not been reproduced on a phone.
 
+## 2026-09-21 - Beta 1.18 link preparation (PWA 1.0.79)
+
+- Prepared the official Android labels and download/release links for Beta 1.18 (`android-beta-1.18/flexnote-beta-1.18.apk`) and advanced the manifest, asset queries, and service-worker shell cache to PWA 1.0.79.
+- This frontend-only preparation is held until the matching APK is published and verified. No database, auth, Edge Function, or browser behavior changes are included.
+
 ## 2026-09-20 - Authorized Beta 1.17 / PWA 1.0.78 publication
 
 - User authorized publication after the revised APK and tests were complete. Advance visible Android labels and download/release links to `android-beta-1.17/flexnote-beta-1.17.apk`.
