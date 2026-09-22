@@ -14,44 +14,58 @@
 
 .route-notes-map-tip-marker,.route-notes-map-picked-marker {
   --route-note-marker-color:#1B62D6;
+  position:relative;
   display:grid;
   place-items:center;
   box-sizing:border-box;
   width:44px;
   height:44px;
   padding:0;
-  border:1px solid #DBDCDF;
-  border-radius:14px;
-  background:#FFFFFF;
+  border:0;
+  border-radius:50%;
+  background:transparent;
   color:var(--route-note-marker-color);
-  box-shadow:0 2px 6px rgba(16,24,40,.16);
+  box-shadow:none;
   cursor:pointer;
   touch-action:manipulation;
   color-scheme:light;
 }
 .route-notes-map-tip-marker[data-alert="true"] { --route-note-marker-color:#DC3545; }
-.route-notes-map-picked-marker { border:2px dashed #1B62D6; border-radius:50%; pointer-events:none; }
-.route-notes-map-tip-marker[aria-pressed="true"] {
-  border-color:var(--route-note-marker-color);
-  background:var(--route-note-marker-color);
-  color:#FFFFFF;
-  box-shadow:0 0 0 3px #FFFFFF,0 3px 8px rgba(16,24,40,.22);
-}
+.route-notes-map-picked-marker { pointer-events:none; }
 .route-notes-map-tip-marker .route-notes-icon,.route-notes-map-picked-marker .route-notes-icon {
   display:block;
-  width:22px;
-  height:22px;
+  width:30px;
+  height:30px;
   fill:none;
   stroke:currentColor;
-  stroke-width:1.7;
+  stroke-width:2.2;
   stroke-linecap:round;
   stroke-linejoin:round;
+  overflow:visible;
+  filter:drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff);
+  transition:transform 140ms ease;
   pointer-events:none;
 }
-.route-notes-map-tip-marker:active { opacity:.8; }
+.route-notes-map-tip-marker[aria-pressed="true"] .route-notes-icon { transform:translateY(-2px) scale(1.08); }
+.route-notes-map-tip-marker[aria-pressed="true"]::after {
+  content:"";
+  position:absolute;
+  bottom:1px;
+  left:50%;
+  width:6px;
+  height:6px;
+  border:2px solid #fff;
+  border-radius:50%;
+  background:currentColor;
+  transform:translateX(-50%);
+}
+.route-notes-map-tip-marker:active .route-notes-icon { transform:scale(.92); }
 .route-notes-map-tip-marker:focus-visible {
   outline:3px solid #1B62D6;
-  outline-offset:3px;
+  outline-offset:1px;
+}
+@media (prefers-reduced-motion:reduce) {
+  .route-notes-map-tip-marker .route-notes-icon,.route-notes-map-picked-marker .route-notes-icon { transition:none; }
 }
 .route-notes-map-vertex {
   width: 44px; height: 44px; border: 8px solid transparent; background: #fff;

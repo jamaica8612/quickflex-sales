@@ -1508,3 +1508,9 @@ Browser checks:
 - Version map, geometry, shared CSS and all importing entrypoints; advance shell/manifest to 1.0.89. All 92 precache paths exist. Publish to the existing Pages main branch. No database, stored zone/tip/photo content or APK changes are required.
 
 - Publication preflight encountered the concurrent Beta 1.21 links release (9340710, PWA 1.0.88). Rebased onto it, retained its APK links and tests, and chose 1.0.89 for this follow-up.
+
+## 2026-09-22 - Transparent map tip icons (PWA 1.0.90)
+
+- User authorized cleaner cutout-style icons. Remove the white tile/border/shadow from map tip markers and picked-location markers. Keep the existing SVG meanings and blue/red semantics; use consistent 30px icons with a thin white contour for map readability, a selected-state dot and the existing 44px transparent hit area. Honor reduced motion and preserve keyboard focus/activation.
+- The shared map stylesheet applies to the signed-in map and public shares. Advance its URL to revision 3 and PWA shell/page versions to 1.0.90; no map/controller logic, saved content, backend or APK changes.
+- Real Naver SDK example-data checks pass at 390x844, 375x667, 844x390 and 1280x800: transparent normal/selected backgrounds, all 20 typed SVG icons, six red warning types, 44px hit targets, keyboard selection, reduced-motion handling, dark-theme readability, no overflow or page errors. Reviewed icon-gallery, selected-tip and map screenshots. Existing focused map/controller/release tests and required syntax/diff checks pass.
