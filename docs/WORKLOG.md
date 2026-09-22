@@ -1,5 +1,11 @@
 # QuickFlex Worklog
 
+## 2026-09-22 Beta 1.21 download links (PWA 1.0.88)
+
+- Updated the current Android installation and in-app guide links to Beta 1.21 (`versionCode 143`) and its GitHub release asset.
+- Bumped the manifest, shell cache, and page asset versions to 1.0.88 while retaining the current RouteNote dependency cache versions.
+- Validation: 28 targeted release/startup tests and syntax checks for 54 JavaScript files passed. This change only updates the Android download links and PWA asset/cache versions; database and Edge Functions are unchanged.
+
 ## 2026-09-21 RouteNote interaction release (PWA 1.0.84)
 
 - Prepared Claude PR #4 for production with matching manifest, shell cache and page asset versions.
