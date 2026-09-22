@@ -180,28 +180,6 @@ body:has([data-route-notes-fullscreen="true"]) .fixture-nav { display:none !impo
   background:var(--panel2);
 }
 .route-notes-workspace .route-notes-overview-map > * { max-width:100%; }
-.route-notes-workspace .route-notes-map-zone-label {
-  box-sizing:border-box;
-  min-width:48px;
-  min-height:48px;
-  padding:8px 12px;
-  border:1px solid var(--route-note-zone-color, var(--gold));
-  border-radius:var(--r-full);
-  background:var(--panel);
-  color:var(--text);
-  font:600 var(--fs-label) var(--font-ui);
-  line-height:1.2;
-  white-space:nowrap;
-  box-shadow:var(--shadow-card);
-  cursor:pointer;
-}
-.route-notes-workspace .route-notes-map-zone-label[aria-pressed="true"] {
-  color:var(--route-note-zone-color, var(--gold));
-  font-weight:700;
-}
-.route-notes-workspace .route-notes-map-zone-label:active { opacity:.76; }
-.route-notes-workspace .route-notes-map-zone-label:focus-visible { outline:3px solid color-mix(in srgb,var(--gold) 48%,transparent); outline-offset:3px; }
-
 /* ── 지도 위 검색·필터 ──────────────────────────────────────── */
 .route-notes-topbar {
   position:absolute;

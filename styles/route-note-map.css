@@ -1,4 +1,17 @@
 /* Shared by the signed-in route map and the public share map. */
+.route-notes-map-zone-label {
+  display:block;
+  width:max-content;
+  color:#1E293B;
+  font-size:16px;
+  font-weight:700;
+  white-space:nowrap;
+  text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3.5px #fff;
+  user-select:none;
+  pointer-events:none;
+  transform:translate(-50%,-50%);
+}
+
 .route-notes-map-tip-marker,.route-notes-map-picked-marker {
   --route-note-marker-color:#1B62D6;
   display:grid;

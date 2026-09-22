@@ -99,9 +99,16 @@ test("route-note map renders a selectable multi-zone overview without built-in z
     assert.equal(map.fitCalls[0].bounds.points.length, 16);
     assert.deepEqual(map.fitCalls[0].padding, padding);
     const labels = records.markers.filter((marker) => marker.options.icon?.content?.className === "route-notes-map-zone-label");
-    assert.equal(labels.length, 3);
+    assert.equal(labels.length, 4);
     assert.equal(labels[0].options.icon.content.textContent, "<West>");
     assert.equal(typeof labels[0].options.icon.content, "object");
+    assert.equal(labels[0].options.icon.content.type, undefined);
+    assert.equal(labels[0].options.icon.anchor.x, 0);
+    assert.equal(labels[0].options.icon.anchor.y, 0);
+    assert.equal(labels[0].options.clickable, false);
+    assert.equal(labels[0].options.icon.content.listeners.size, 0);
+    assert.equal(labels[0].options.icon.content.attributes["aria-label"], undefined);
+    assert.deepEqual(labels.slice(2).map((item) => item.options.icon.content.textContent), ["Multi", "Multi"]);
     assert.equal(records.markers.filter((marker) => marker.options.icon?.content?.className === "route-notes-map-tip-marker").length, 1);
     records.polygons[1].listeners.get("click")();
     assert.deepEqual(selected, ["east"]);
@@ -109,13 +116,33 @@ test("route-note map renders a selectable multi-zone overview without built-in z
     records.markers.find((marker) => marker.options.icon?.content?.className === "route-notes-map-tip-marker").options.icon.content.emit("click");
     assert.deepEqual(openedTips, ["valid"]);
     const event = labels[0].options.icon.content.emit("click");
-    assert.equal(event.prevented, true);
-    assert.equal(event.stopped, true);
+    assert.equal(event.prevented, false);
+    assert.equal(event.stopped, false);
     map.listeners.get("click")({ coord: { lat: () => 37, lng: () => 127 } });
     assert.deepEqual(picked, []);
     await Promise.resolve();
     map.listeners.get("click")({ coord: { lat: () => 37, lng: () => 127 } });
     assert.deepEqual(picked, [{ lat: 37, lng: 127 }]);
+  });
+});
+
+test("route-note map shows one label per connected detail-code piece even without zone selection", async () => {
+  await withMapFixture(async ({ records, element }) => {
+    const first = [[127,37],[128,37],[128,38],[127,38],[127,37]];
+    const joined = [[128,37],[129,37],[129,38],[128,38],[128,37]];
+    const remote = [[131,41],[132,41],[132,42],[131,42],[131,41]];
+    const geometry = { type: "MultiPolygon", coordinates: [[first],[joined],[remote]], subLabels: ["303A01", "303A01", "303A01"] };
+    const original = structuredClone(geometry);
+    const adapter = await createRouteNoteMap({ element, clientId: "fixture" });
+    adapter.render({ zones: [{ id: "details", name: "Parent", polygon: geometry }] });
+    const labels = records.markers.filter((item) => item.options.icon?.content?.className === "route-notes-map-zone-label");
+    assert.equal(labels.length, 2);
+    assert.deepEqual(labels.map((item) => item.options.icon.content.textContent), ["303A01", "303A01"]);
+    assert.ok(labels.every((item) => item.options.clickable === false && item.options.icon.content.listeners.size === 0));
+    assert.ok(records.polygons.every((item) => item.options.clickable === false));
+    assert.deepEqual(geometry, original);
+    adapter.destroy();
+    assert.ok(labels.every((item) => item.setMaps.at(-1) === null));
   });
 });
 
@@ -149,6 +176,7 @@ test("route-note map renders only the selected zone, its pins, and its bounds", 
     const editorAdapter = await createRouteNoteMap({ element, clientId: "fixture" });
     editorAdapter.render({ zone: west });
     assert.equal(records.polygons.at(-1).options.clickable, false);
+    assert.equal(records.markers.at(-1).options.icon.content.textContent, "<West>");
   });
 });
 
@@ -199,7 +227,7 @@ test("custom tip markers keep safe labels, selection, keyboard activation and li
     const tip = { id: "tip", zone_id: east.id, title: "<주차 안내>", marker_type: "warning", lat: 39.5, lng: 129.5 };
     const adapter = await createRouteNoteMap({ element, clientId: "fixture", onTipSelect: (item) => opened.push(item.id), onCoordinatePick: (point) => picked.push(point) });
     adapter.render({ zone: east, tips: [tip], selectedTipId: tip.id });
-    const marker = records.markers[0], control = marker.options.icon.content;
+    const marker = records.markers.find((item) => item.options.icon?.content?.className === "route-notes-map-tip-marker"), control = marker.options.icon.content;
     assert.equal(control.type, "button");
     assert.equal(control.attributes["aria-label"], "<주차 안내> 메모 보기");
     assert.equal(control.attributes["aria-pressed"], "true");
@@ -224,8 +252,8 @@ test("route-note map retains the share page's single-zone render contract", asyn
     ] });
     const map = records.maps[0];
     assert.equal(records.polygons.length, 1);
-    assert.equal(records.markers.length, 1);
-    assert.equal(records.markers[0].options.title, "East tip");
+    assert.equal(records.markers.length, 2);
+    assert.equal(records.markers.find((item) => item.options.icon?.content?.className === "route-notes-map-tip-marker").options.title, "East tip");
     assert.equal(map.fitCalls[0].bounds.points.length, 4);
   });
 });

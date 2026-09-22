@@ -1,5 +1,5 @@
 import { MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon } from "./route-note-icons.js";
-import { routeNoteBoundaryDisplay } from "./route-note-map-geometry.js";
+import { routeNoteBoundaryDisplay, routeNoteLabelGroups } from "./route-note-map-geometry.js?v=2";
 
 const NAVER_SCRIPT_ID = "quickflex-route-notes-naver-map";
 const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 };
@@ -133,31 +133,17 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
     Promise.resolve().then(() => { suppressCoordinatePick = false; });
     onZoneSelect?.(zone, point);
   }
-  function addZoneLabel(zone, color, selected, detail = null) {
+  function addZoneLabel(detail) {
     const documentRef = element.ownerDocument || globalThis.document;
-    const button = documentRef?.createElement?.("button");
-    const centroid = detail?.position || polygonCentroid(zone.polygon);
-    if (!button || !centroid) return;
-    const name = detail?.text || zoneName(zone);
-    button.type = "button";
-    button.className = "route-notes-map-zone-label";
-    button.textContent = name;
-    button.setAttribute("aria-label", `${name} 구역 선택`);
-    button.setAttribute("aria-pressed", String(selected));
-    button.style?.setProperty?.("--route-note-zone-color", color);
-    const stopKeyPropagation = (event) => event.stopPropagation();
-    const choose = (event) => { event.preventDefault(); event.stopPropagation(); selectZone(zone); };
-    button.addEventListener("click", choose);
-    button.addEventListener("keydown", stopKeyPropagation);
-    const marker = new maps.Marker({
-      map, position: new maps.LatLng(centroid.lat, centroid.lng), title: name, clickable: true,
-      icon: { content: button },
-    });
-    overlays.push(marker);
-    overlayDisposers.push(() => {
-      button.removeEventListener("click", choose);
-      button.removeEventListener("keydown", stopKeyPropagation);
-    });
+    const label = documentRef?.createElement?.("span");
+    if (!label || !detail?.position) return;
+    label.className = "route-notes-map-zone-label";
+    label.textContent = detail.text;
+    overlays.push(new maps.Marker({
+      map, position: new maps.LatLng(detail.position.lat, detail.position.lng),
+      title: detail.text, clickable: false, zIndex: 10,
+      icon: { content: label, anchor: new maps.Point(0, 0) },
+    }));
   }
   function addTipMarker(tip, selected) {
     const documentRef = element.ownerDocument || globalThis.document;
@@ -263,7 +249,7 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
     renderedZones.forEach((item, index) => {
       const selected = item === selectedZone;
       const color = zoneColor(item, index);
-      const display = routeNoteBoundaryDisplay(item.polygon);
+      const display = routeNoteBoundaryDisplay(item.polygon, zoneName(item));
       polygonRings(item.polygon).forEach((rings) => {
         const polygon = new maps.Polygon({
           map, paths: rings.map((ring) => ring.map((point) => new maps.LatLng(point.lat, point.lng))), clickable: canSelectZone,
@@ -276,8 +262,8 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
       if (display) {
         display.paths.forEach((path) => overlays.push(new maps.Polyline({ map, path: path.map((point) => new maps.LatLng(point.lat, point.lng)),
           strokeColor: color, strokeWeight: selected ? 2 : 1, strokeOpacity: .85, clickable: false })));
-        if (canSelectZone) display.labels.forEach((detail) => addZoneLabel(item, color, selected, detail));
-      } else if (canSelectZone) addZoneLabel(item, color, selected);
+      }
+      (display?.labels || routeNoteLabelGroups(item.polygon, zoneName(item))).forEach(addZoneLabel);
     });
     const renderedTips = selectionRequested
       ? tips.filter((tip) => selectedZone?.id != null && tip?.zone_id === selectedZone.id)

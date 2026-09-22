@@ -1499,3 +1499,12 @@ Browser checks:
 
 - Pages published 0c47b5e and all 20 changed public assets matched. The existing signed-in Chrome session then exposed a stale unversioned lib/route-notes.js missing routeNoteZoneNameKey, which prevented module startup.
 - Version the shared route library and service, propagate the changed imports through editor/UI/main, precache the exact URLs, and publish 1.0.87. The service revision also ensures existing clients receive postcode lookup, boundary validation and author/duplicate handling instead of cached old service methods. No further database or Edge changes are required.
+
+## 2026-09-22 - Restore original RouteNote zone labels (PWA 1.0.89)
+
+- The user reported that zone labels no longer matched RouteNote. Compared the original `MapContainer.jsx` and `geoUtils.js`: replace the port's rounded selectable badges with the original 16px, weight-700 dark text, white text shadow and centered anchor. Label text lets map taps pass through; the zone chooser and polygon interactions remain available.
+- Match RouteNote's per-code, shared-outer-edge clustering and coordinate-average placement. Distant pieces of the same code receive separate labels, and unlabeled pieces fall back to the zone name. Preserve stored geometry, holes and the existing thin boundary strokes. Use the same labels in signed-in, editor and read-only share maps.
+- A bounded Sol subtask updated map/geometry tests while the primary handled implementation and release. All 106 focused route/PWA tests pass; the expanded dependency-cache test also passes. Real Naver SDK verification with isolated example data at 390x844 and 1280x800 confirmed three labels for joined/disconnected pieces, exact computed label styles, click-through to the tip location menu, dark-theme readability, read-only labels, no overflow and no page errors.
+- Version map, geometry, shared CSS and all importing entrypoints; advance shell/manifest to 1.0.89. All 92 precache paths exist. Publish to the existing Pages main branch. No database, stored zone/tip/photo content or APK changes are required.
+
+- Publication preflight encountered the concurrent Beta 1.21 links release (9340710, PWA 1.0.88). Rebased onto it, retained its APK links and tests, and chose 1.0.89 for this follow-up.
