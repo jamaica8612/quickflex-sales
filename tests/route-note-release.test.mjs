@@ -23,7 +23,7 @@ test("new route editor exports and postcode service bypass pre-1.0.86 cached mod
   const { createRouteNotesService } = await import("../src/services/route-notes.js?v=2");
   assert.equal(typeof createRouteNotesService({ getContext: () => null }).lookupPostcode, "function");
   for (const file of ["index.html", "route-share.html"]) {
-    assert.ok(read(file).includes("./styles/route-note-map.css?v=2"), file);
+    assert.ok(read(file).includes("./styles/route-note-map.css?v=3"), file);
   }
-  assert.ok(sw.includes('"./styles/route-note-map.css?v=2"'));
+  assert.ok(sw.includes('"./styles/route-note-map.css?v=3"'));
 });
