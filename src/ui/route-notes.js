@@ -1,8 +1,8 @@
-import { createRouteNoteMap, hasPolygon } from "../lib/route-note-map.js?v=4";
+import { createRouteNoteMap, hasPolygon } from "../lib/route-note-map.js?v=5";
 import { MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon } from "../lib/route-note-icons.js";
 import { ROUTE_NOTE_MARKER_TYPES } from "../lib/route-notes.js?v=2";
 import { isPointInRouteNoteZone } from "../lib/route-note-rules.js";
-import { createRouteNoteZoneEditor } from "./route-note-zone-editor.js?v=2";
+import { createRouteNoteZoneEditor } from "./route-note-zone-editor.js?v=3";
 import { parseScheduleRoutes } from "../lib/route.js";
 
 const MARKER_TYPES = ROUTE_NOTE_MARKER_TYPES;
