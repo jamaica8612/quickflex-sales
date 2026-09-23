@@ -76,15 +76,15 @@
 
 | 역할 | 토큰 | 글꼴 |
 |---|---|---|
-| 한글·본문 | `--font-ui` | **IBM Plex Sans KR** |
-| 모든 수치 | `--font-numeric` / `--font-amount` | **Archivo** → IBM Plex Sans KR 폴백 |
-| 코드·시각·기간 | `--font-code` | **JetBrains Mono** → IBM Plex Sans KR 폴백 |
+| 한글·본문 | `--font-ui` | **Pretendard Variable** |
+| 모든 수치 | `--font-numeric` / `--font-amount` | **Archivo** → Pretendard 폴백 |
+| 코드·시각·기간 | `--font-code` | **JetBrains Mono** → Pretendard 폴백 |
 
 2026-09-14 사용자 조정: 측정 화면에서 가구 수와 나란히 비교하는 예상 완료 시각·활성시간은 **Archivo 700**으로 통일합니다. 구역코드는 JetBrains Mono **700**을 명시적으로 적용합니다. 날짜·기간·코드의 모노 역할과 고정폭 숫자는 유지합니다.
 
 2026-09-14 추가 조정: 계기판 중앙 페이스 숫자도 구역코드와 같은 **JetBrains Mono 700**을 사용합니다. 금액·수량·예상 완료·활성시간의 Archivo 역할은 유지합니다. Android 날씨 배경은 상단 160dp 안에서 끝나고, 주간·야간 모두 어둡게(야간은 더 어둡게), 전환 효과 없이 표시합니다. 프레시백·취소·반품과 '구역 추정/구역 미확인'은 상세를 열지 않아도 볼 수 있어야 합니다.
 
-셋 다 SIL OFL 1.1. 제품 화면은 Google Fonts `@import`로 불러오는 이 세 가족과 역할 토큰을 사용합니다. 기존 소개 자료의 Pretendard·Wanted Sans 번들 및 라이선스는 해당 자료를 따로 정리할 때까지 보존하며, 제품 화면의 새 글꼴 기준으로 사용하지 않습니다.
+PWA 한글은 번들된 Pretendard Variable을 사용하고, 숫자 Archivo와 코드·시각 JetBrains Mono는 Google Fonts `@import`와 기존 역할 토큰을 유지합니다. Android 측정 앱의 번들 글꼴은 별도 기준을 유지합니다.
 
 ### 굵기 — 네 단계만
 
@@ -395,7 +395,7 @@ box-shadow: inset 0 1px 2px rgba(0,0,0,.16);
 ### 2026-09-14 확정: 시작 화면
 
 - F 트럭 + 한글 `플렉스노트` + `배송의 모든 기록`. 영문 이름은 표시하지 않습니다.
-- 중앙 배치, IBM Plex Sans KR 600/400. 이름과 슬로건 사이 10px. 시작 화면 글꼴은 필요한 글자만 WOFF로 번들합니다.
+- 중앙 배치, Pretendard Variable 600/400. 이름과 슬로건 사이 10px. 시작 화면도 PWA에 번들된 Pretendard Variable을 사용합니다.
 - 라이트는 `#F5F5F5` 바탕·`#2563EB` 로고, 다크는 흰 로고와 차콜 방사형 그라데이션 (`#333437` → `#242528` → `#191A1C`, 중심 50% 40%). 사용자가 승인한 시작 화면 전용 예외이며 본문 테마를 바꾸지 않습니다. 값은 `styles/startup.css`의 `--startup-*` 토큰에만 정의합니다.
 - 트럭은 0.76초 동안 진입 → 전방 기울기 → 정지. 동작 줄이기 설정에서는 모션과 최소 대기 시간을 없앱니다.
 - 최초 HTML부터 본문을 숨기고 inert 처리합니다. 세션·승인·기록 조회가 끝나 목적 화면이 준비되면 해제합니다. 15초 지연 또는 초기화 실패 시 연결 안내와 다시 시도를 표시하며, 미확인 상태로 본문을 노출하지 않습니다.

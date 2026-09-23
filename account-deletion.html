@@ -7,13 +7,19 @@
     <meta name="description" content="플렉스노트 계정과 연결된 데이터 삭제 요청 방법. 로그인 없이 안내를 확인할 수 있습니다." />
     <title>계정 및 데이터 삭제 | 플렉스노트</title>
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@500;600;700&display=swap");
+      @font-face {
+        font-family: "Pretendard Variable";
+        font-style: normal;
+        font-weight: 45 920;
+        font-display: swap;
+        src: url("./assets/fonts/PretendardVariable.woff2") format("woff2-variations");
+      }
       :root { --bg: #f5f5f5; --panel: #fff; --text: #171719; --muted: #70737c; --gold: #1b62d6; --line: rgba(112,115,124,.18); }
       @media (prefers-color-scheme: dark) {
         :root { --bg: #141414; --panel: #1c1c1c; --text: #eceef2; --muted: #8a9099; --gold: #e8b85c; --line: rgba(255,255,255,.075); }
       }
       * { box-sizing: border-box; }
-      body { margin: 0; background: var(--bg); color: var(--text); font: 500 16px/1.75 "IBM Plex Sans KR", "Malgun Gothic", sans-serif; word-break: keep-all; overflow-wrap: anywhere; }
+      body { margin: 0; background: var(--bg); color: var(--text); font: 500 16px/1.75 "Pretendard Variable", Pretendard, "Malgun Gothic", sans-serif; word-break: keep-all; overflow-wrap: anywhere; }
       .page { width: min(100% - 32px, 760px); margin: auto; padding: 24px 0 48px; }
       nav { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-bottom: 36px; }
       a { color: var(--gold); text-underline-offset: .18em; }

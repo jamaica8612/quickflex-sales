@@ -1,11 +1,10 @@
 /* Approved FlexNote startup identity; deliberately isolated from the app theme. */
-@font-face{font-family:"FlexNote Startup";src:url("../assets/fonts/flexnote-startup-regular.woff") format("woff");font-weight:400;font-display:swap}
-@font-face{font-family:"FlexNote Startup";src:url("../assets/fonts/flexnote-startup-semibold.woff") format("woff");font-weight:600;font-display:swap}
+@font-face{font-family:"Pretendard Variable";src:url("../assets/fonts/PretendardVariable.woff2") format("woff2-variations");font-style:normal;font-weight:45 920;font-display:swap}
 :root{--startup-bg:#F5F5F5;--startup-center:#F5F5F5;--startup-edge:#F5F5F5;--startup-ink:#202226;--startup-muted:#71747B;--startup-logo:#2563EB;--startup-line:#D5D7DC;--startup-sheen:#FFFFFF}
 :root[data-theme="dark"]{--startup-bg:#242528;--startup-center:#333437;--startup-edge:#191A1C;--startup-ink:#F2F3F5;--startup-muted:#A4A8AF;--startup-logo:#FFFFFF;--startup-line:#3A3C40;--startup-sheen:#27D4FF}
 html[data-startup] #app{visibility:hidden;pointer-events:none}
 html[data-startup],html[data-startup] body{overflow:hidden}
-#startupSplash{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;margin:0;background:radial-gradient(ellipse at 50% 40%,var(--startup-center),var(--startup-bg) 54%,var(--startup-edge));color:var(--startup-ink);font-family:"FlexNote Startup",sans-serif;text-align:center;transition:opacity .16s ease;isolation:isolate}
+#startupSplash{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;margin:0;background:radial-gradient(ellipse at 50% 40%,var(--startup-center),var(--startup-bg) 54%,var(--startup-edge));color:var(--startup-ink);font-family:"Pretendard Variable",Pretendard,sans-serif;text-align:center;transition:opacity .16s ease;isolation:isolate}
 #startupSplash[hidden]{display:none}
 #startupSplash[data-leaving]{opacity:0;pointer-events:none}
 .startup-brand{width:min(74vw,280px);transform:translateY(-3vh)}

@@ -229,10 +229,12 @@ test("custom tip markers keep safe labels, selection, keyboard activation and li
     adapter.render({ zone: east, tips: [tip], selectedTipId: tip.id });
     const marker = records.markers.find((item) => item.options.icon?.content?.className === "route-notes-map-tip-marker"), control = marker.options.icon.content;
     assert.equal(control.type, "button");
-    assert.equal(control.attributes["aria-label"], "<주차 안내> 메모 보기");
+    assert.equal(control.attributes["aria-label"], "<주차 안내> 팁 보기");
     assert.equal(control.attributes["aria-pressed"], "true");
     assert.equal(control.attributes["data-alert"], "true");
-    assert.equal(control.children[0].attributes["viewBox"], "0 0 24 24");
+    assert.equal(control.attributes["data-marker-type"], "warning");
+    assert.equal(control.children[0].attributes["viewBox"], "0 0 256 256");
+    assert.match(control.children[0].children[0].attributes.href, /phosphor-regular\.svg#warning$/);
     assert.equal(control.emit("keydown").stopped, true);
     control.emit("click");
     assert.deepEqual(opened, ["tip"]);

@@ -4,16 +4,25 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const css = read("styles.css");
+const startup = read("styles/startup.css");
 const intro = read("intro.html");
+const install = read("install.html");
+const privacy = read("privacy.html");
+const accountDeletion = read("account-deletion.html");
 const main = read("src/main.js");
 const worker = read("sw.js");
 
-test("PWA follows the documented font system and preserves legacy intro fonts", () => {
+test("PWA uses Pretendard for Korean while preserving numeric and code fonts", () => {
   for (const source of [css, intro, main, worker]) assert.doesNotMatch(source, /Outfit/);
-  assert.match(css, /--font-ui:\s*"IBM Plex Sans KR",/);
-  assert.match(css, /--font-numeric:\s*"Archivo",/);
-  assert.match(css, /--font-amount:\s*"Archivo",/);
-  assert.match(css, /--font-code:\s*"JetBrains Mono",/);
+  assert.match(css, /--font-ui:\s*"Pretendard Variable", Pretendard,/);
+  assert.match(css, /--font-numeric:\s*"Archivo", "Pretendard Variable", Pretendard,/);
+  assert.match(css, /--font-amount:\s*"Archivo", "Pretendard Variable", Pretendard,/);
+  assert.match(css, /--font-code:\s*"JetBrains Mono", "Pretendard Variable", Pretendard,/);
+  assert.match(startup, /font-family:"Pretendard Variable",Pretendard,sans-serif/);
+  for (const page of [install, privacy, accountDeletion]) {
+    assert.match(page, /font-family: "Pretendard Variable"/);
+    assert.doesNotMatch(page, /IBM Plex Sans KR/);
+  }
   assert.match(intro, /--font-ui:\s*"Pretendard Variable", Pretendard,/);
   assert.match(intro, /--font-numeric:\s*"Wanted Sans Variable", "Pretendard Variable", Pretendard,/);
 });

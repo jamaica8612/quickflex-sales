@@ -57,13 +57,15 @@ test("postcode first, mixed drawing, back confirmation, refit and save review", 
   assert.equal(host.all().some((element) => element.tag === "h2"), false, "parent supplies the screen title");
   assert.equal(host.all().find((element) => element.className === "route-note-zone-options").open, false);
   fill(host, "구역 이름", "310C");
+  findButton(host, "우편번호로 추가").dispatch("click");
   fill(host, "상세 코드", "310C01"); fill(host, "우편번호 5자리", "06236");
-  findButton(host, "우편번호 경계 추가").dispatch("click"); await flush();
+  findButton(host, "경계 추가").dispatch("click"); await flush();
   assert.equal(calls.renders.at(-1).preserveViewport, false);
+  findButton(host, "우편번호로 추가").dispatch("click");
   fill(host, "상세 코드", "310C01"); fill(host, "우편번호 5자리", "06237");
-  findButton(host, "우편번호 경계 추가").dispatch("click"); await flush();
+  findButton(host, "경계 추가").dispatch("click"); await flush();
   assert.equal(calls.renders.at(-1).preserveViewport, false, "new postcode refits map");
-  findButton(host, "직접 그린 영역 추가").dispatch("click");
+  findButton(host, "지도에서 직접 그리기").dispatch("click");
   mapOptions.onCoordinatePick({ lat: 37, lng: 129 });
   assert.equal(editor.handleBack(), true);
   assert.equal(ring.points.length, 1, "declined back preserves drawing");
