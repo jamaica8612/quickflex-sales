@@ -1514,3 +1514,9 @@ Browser checks:
 - User authorized cleaner cutout-style icons. Remove the white tile/border/shadow from map tip markers and picked-location markers. Keep the existing SVG meanings and blue/red semantics; use consistent 30px icons with a thin white contour for map readability, a selected-state dot and the existing 44px transparent hit area. Honor reduced motion and preserve keyboard focus/activation.
 - The shared map stylesheet applies to the signed-in map and public shares. Advance its URL to revision 3 and PWA shell/page versions to 1.0.90; no map/controller logic, saved content, backend or APK changes.
 - Real Naver SDK example-data checks pass at 390x844, 375x667, 844x390 and 1280x800: transparent normal/selected backgrounds, all 20 typed SVG icons, six red warning types, 44px hit targets, keyboard selection, reduced-motion handling, dark-theme readability, no overflow or page errors. Reviewed icon-gallery, selected-tip and map screenshots. Existing focused map/controller/release tests and required syntax/diff checks pass.
+
+## 2026-09-23 - Beta 1.22 download links (PWA 1.0.91)
+
+- Point the existing download and release links to Android Beta 1.22. The native update improves bounded single-card capture and fixed rejection diagnostics without relaxing exact-identity or duplicate-counting safeguards. No business data, database, route-note UI, or web application logic changes.
+- Advance the manifest, shell cache and matching entrypoint URLs to 1.0.91 so existing browsers receive the new installation guidance. Preserve the latest 1.0.90 map icon work.
+- Validation: 29 focused release, update-notice and measurement-launch tests pass; required app/service-worker syntax checks pass, all 92 precache paths exist, and diff checks pass. Android build/signing and public download verification are tracked in the native release record.
