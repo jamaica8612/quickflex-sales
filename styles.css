@@ -255,7 +255,6 @@ body:not([data-theme="dark"]) .home-header {
 .home-top { justify-content: space-between; margin-bottom: 18px; }
 h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.022em; line-height: 1.18; }
 .muted, .hint { color: var(--muted); font-size: var(--fs-label); line-height: 1.45; }
-#periodRange { margin: 3px 0 0; font-size: var(--fs-label); line-height: 1.2; }
 .center { text-align: center; }
 .icon-btn, .round-btn {
   width: 44px;
@@ -2230,27 +2229,12 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
 }
 .nav-tab svg { width: 22px; height: 22px; display: block; }
 .nav-tab.active { color: var(--gold); font-weight: 700; }
-.more-menu-layer { position:fixed; z-index:19; inset:0; pointer-events:none; }
-.more-menu-layer[aria-hidden="true"] { display:none; }
-.more-menu-layer:not([aria-hidden="true"]) { pointer-events:auto; }
-.more-menu-scrim { position:absolute; inset:0 0 calc(var(--nav-h) + var(--safe-b)); border:0; background:rgba(0,0,0,.34); }
-.more-menu-sheet {
   position:absolute; right:max(12px,calc((100vw - 480px)/2 + 12px)); bottom:calc(var(--nav-h) + var(--safe-b) + 10px); left:max(12px,calc((100vw - 480px)/2 + 12px));
   overflow:hidden; padding:8px 14px 14px; border:1px solid var(--line); border-radius:var(--r-xl); background:var(--panel); box-shadow:var(--shadow-raise);
 }
-.more-menu-handle { display:block; width:38px; height:4px; margin:0 auto 4px; border-radius:var(--r-full); background:var(--line-strong); }
-.more-menu-head { display:flex; align-items:center; justify-content:space-between; min-height:48px; }
-.more-menu-head h2 { margin:0; font-size:var(--fs-title-l); letter-spacing:-.024em; }
-.more-menu-head .round-btn { width:40px; height:40px; min-height:40px; }
-.more-menu-list { overflow:hidden; border:1px solid var(--line); border-radius:var(--r-lg); background:var(--panel2); }
-.more-menu-row {
   display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; width:100%; min-height:56px; padding:0 14px;
   border:0; border-bottom:1px solid var(--line); background:transparent; color:var(--text); font:600 var(--fs-body-l) var(--font-ui); text-align:left; text-decoration:none;
 }
-.more-menu-row:last-child { border-bottom:0; }
-.more-menu-row:active { background:var(--panel3); }
-.more-menu-row em { overflow:hidden; color:var(--muted); font-size:var(--fs-label); font-style:normal; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
-.more-menu-row:focus-visible { position:relative; outline:3px solid color-mix(in srgb,var(--gold) 38%,transparent); outline-offset:-3px; }
 
 .measurement-bridge-body { max-width: 680px; margin-inline: auto; }
 .measurement-workday-card { gap: 16px; }
@@ -2786,7 +2770,6 @@ body:has(#measurementGuideOverlay.visible) { overflow: hidden; }
   font-variant-numeric: tabular-nums;
 }
 /* 자릿수가 고정된 문자열은 모노가 흔들리지 않는다 */
-#periodRange { font-family: var(--font-code); font-size: var(--fs-caption); letter-spacing: .01em; }
 
 /* ── 2. 테두리를 표면으로 ────────────────────────────────────────
    1px 선으로 모든 걸 나누면 평평해진다. 카드는 선을 빼고 그림자로 띄운다.
@@ -2812,25 +2795,6 @@ body:has(#measurementGuideOverlay.visible) { overflow: hidden; }
 .summary-grid div { padding: 13px 4px 14px; }
 .summary-grid span { font-size: var(--fs-caption); margin-bottom: 4px; }
 .summary-grid strong { font-size: var(--fs-title); }
-
-/* ── 3. 일상점검을 요약 카드 안으로 ───────────────────────────────
-   카드 하나가 통째로 줄어 홈이 요약 → 달력 → 상세 세 층이 된다. */
-.summary-card .inspection-entry-card {
-  order: 5;
-  margin: 0 -18px;
-  padding: 12px 18px;
-  border: 0;
-  border-top: 1px solid var(--line);
-  border-radius: 0 0 var(--r-lg) var(--r-lg);
-  background: color-mix(in srgb, var(--gold) 8%, transparent);
-  box-shadow: none;
-}
-.summary-card .inspection-entry-card.complete {
-  background: color-mix(in srgb, var(--green) 9%, transparent);
-}
-.summary-card .inspection-entry-button { min-height: 34px; font-size: var(--fs-caption); padding: 0 13px; }
-.summary-card .inspection-entry-copy span { font-size: var(--fs-label); }
-.summary-card .inspection-entry-copy .inspection-duty-label { font-size: var(--fs-caption); }
 
 /* ── 4. 홈 바탕 ──────────────────────────────────────────────────
    헤더의 색조를 없애고 화면 바탕으로 연결한다. 강조색은 값과 행동에 남긴다. */
@@ -2949,34 +2913,6 @@ html[data-theme="dark"] .day-cell.today-cell .day-number,
 body[data-theme="dark"] .day-cell.today-cell .day-number { color: #1A1405; }
 .day-cell.today-cell .day-number.sun,
 .day-cell.today-cell .day-number.sat { color: inherit; }
-
-/* ── 9. 일상점검은 주인공이 아니다 ───────────────────────────────
-   매일 한 번 하고 끝나는 의무 항목이다. 색을 주면 정산액과 경쟁한다.
-   자리는 요약 카드 안에 두되 색은 전부 걷어내고 무채색으로 낮춘다. */
-.summary-card .inspection-entry-card {
-  background: transparent;
-  border-top: 1px solid var(--line);
-}
-.summary-card .inspection-entry-copy span { color: var(--muted); font-weight: 600; }
-.summary-card .inspection-entry-copy .inspection-duty-label {
-  color: var(--muted);
-  opacity: .72;
-  font-weight: 500;
-}
-.summary-card .inspection-entry-button {
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--line-strong);
-  font-weight: 600;
-}
-/* 완료 상태도 색 대신 문구로 알린다 */
-.summary-card .inspection-entry-card.complete { background: transparent; border-top-color: var(--line); }
-.summary-card .inspection-entry-card.complete .inspection-entry-copy span { color: var(--muted); }
-.summary-card .inspection-entry-card.complete .inspection-entry-button {
-  background: transparent;
-  color: var(--muted);
-  border: 1px solid var(--line);
-}
 
 /* ── 10. 날짜 상세: 카드를 벗는다 ────────────────────────────────
    달력 바로 아래에서 또 하나의 상자가 뜨면 화면이 조각난다.
@@ -3205,8 +3141,6 @@ body:not([data-theme="dark"]) .summary-card {
     0 1px 3px rgba(16,24,40,.07),
     0 20px 40px -24px rgba(16,24,40,.28);
 }
-/* 점검 줄은 카드 아래 모서리를 따라간다 */
-.summary-card .inspection-entry-card { border-radius: 0 0 19px 19px; }
 
 /* ── 17. 달 이동 화살표를 달 이름 양옆으로 ───────────────────────
    [오늘]      ‹  2026년 9월  ›      [매출|건수]
@@ -3359,12 +3293,11 @@ body:not([data-theme="dark"]) .summary-card {
 
   .home-header .summary-card {
     grid-template-columns: minmax(210px, .9fr) minmax(0, 1.1fr);
-    grid-template-rows: auto auto auto auto;
+    grid-template-rows: auto auto auto;
     grid-template-areas:
       "amount meter"
       "amount mlabel"
-      "stats  stats"
-      "insp   insp";
+      "stats  stats";
     align-items: center;
     column-gap: 22px;
     padding: 14px 16px 0;
@@ -3404,11 +3337,6 @@ body:not([data-theme="dark"]) .summary-card {
   .home-header .summary-grid div { padding: 9px 6px 10px; }
   .home-header .summary-grid div + div { border-left: 1px solid var(--line); }
   .home-header .summary-grid strong { font-size: var(--fs-title); }
-  .home-header .inspection-entry-card {
-    grid-area: insp;
-    margin: 0 -16px;
-    padding: 9px 16px;
-  }
 
   .calendar-panel {
     grid-area: calendar;
@@ -3623,9 +3551,7 @@ body:not([data-theme="dark"]) .summary-card {
     border-top: 0;
     border-right: 1px solid var(--line);
   }
-  .more-menu-scrim { inset:0 0 0 76px; }
-  .more-menu-sheet { right:auto; bottom:16px; left:92px; width:min(420px,calc(100vw - 108px)); }
-  .nav-tab {
+      .nav-tab {
     flex: 0 0 68px;
     width: 100%;
     border-radius: var(--r-md);
@@ -3654,11 +3580,10 @@ body:not([data-theme="dark"]) .summary-card {
 @media (min-width: 1001px) and (orientation: landscape), (min-width: 1100px) {
   .home-header .summary-card {
     grid-template-columns: minmax(220px, auto) minmax(180px, 1fr) minmax(330px, auto);
-    grid-template-rows: auto auto auto;
+    grid-template-rows: auto auto;
     grid-template-areas:
       "amount meter  stats"
-      "amount mlabel stats"
-      "insp   insp   insp";
+      "amount mlabel stats";
   }
   .home-header .summary-grid {
     margin-top: 0;
@@ -3941,7 +3866,7 @@ body:not([data-theme="dark"]) .summary-meter span::after {
 .calendar-toolbar .round-btn,
 .today-btn,
 .mode-btn,
-.summary-card .inspection-entry-button,
+.inspection-entry-button,
 .entry-actions .secondary-btn,
 .signature-settings-section .secondary-btn,
 #openProfileSignature { position: relative; }
@@ -3950,7 +3875,7 @@ body:not([data-theme="dark"]) .summary-meter span::after {
 .entry-actions .secondary-btn::after,
 .signature-settings-section .secondary-btn::after,
 #openProfileSignature::after { content: ""; position: absolute; inset: -4px 0; }
-.summary-card .inspection-entry-button::after { content: ""; position: absolute; inset: -5px 0; }
+.inspection-entry-button::after { content: ""; position: absolute; inset: -5px 0; }
 .mode-btn::after { content: ""; position: absolute; inset: -9px 0; }
 
 /* 선택 상태는 한 가지: 트랙 위로 올라온 표면 + 얇은 윤곽선.
@@ -3973,4 +3898,143 @@ html:not([data-theme="dark"]) .theme-toggle button.active,
 html:not([data-theme="dark"]) .stats-chart-toggle button.active {
   background: #FFFFFF;
   box-shadow: inset 0 0 0 1px var(--line-strong), 0 1px 3px rgba(16,24,40,.12);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   25. 탭 첫 화면 공통 틀 (2026-09-23)
+   매출노트·배송노트·노아·정산노트가 같은 제목줄로 시작한다:
+   제목 22px + 부제 한 줄, 오른쪽에는 그 화면의 버튼과 설정(톱니) 하나.
+   ═══════════════════════════════════════════════════════════════════ */
+.tab-header { padding: 48px 18px 12px; background: var(--bg); }
+.tab-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.tab-head-copy { min-width: 0; }
+.tab-head h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.024em; line-height: 1.2; }
+.tab-head-sub { margin: 3px 0 0; overflow: hidden; color: var(--muted); font-size: var(--fs-label); font-weight: 500; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.tab-head-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
+.tab-settings,
+.tab-action {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  height: 36px;
+  border: 0;
+  border-radius: var(--r-full);
+  background: var(--panel2);
+  color: var(--muted);
+}
+.tab-settings { width: 36px; }
+.tab-settings::after,
+.tab-action::after { content: ""; position: absolute; inset: -4px; }
+.tab-action { padding: 0 14px; color: var(--text); font-size: var(--fs-label); font-weight: 600; }
+
+/* 매출노트 홈: 공통 제목줄 + 일상점검 알약 */
+.home-header { padding: 48px 18px 0; }
+.home-header .inspection-entry-card { display: block; margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.home-header .inspection-entry-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.home-header .inspection-entry-card:not(.complete) .inspection-entry-button:not(:disabled)::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--gold);
+}
+.home-header .inspection-entry-card.complete .inspection-entry-button { border-color: var(--line); background: transparent; color: var(--muted); }
+
+/* 매출 | 지출: 같은 노트의 두 면 */
+.ledger-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  height: 38px;
+  margin: 14px 0 12px;
+  padding: 3px;
+  border-radius: var(--r-full);
+  background: var(--panel2);
+}
+.ledger-switch button { position: relative; border: 0; border-radius: var(--r-full); background: transparent; color: var(--muted); font-size: var(--fs-body); font-weight: 600; }
+.ledger-switch button::after { content: ""; position: absolute; inset: -3px 0; }
+.ledger-switch button.is-on { background: var(--panel3); color: var(--text); font-weight: 700; }
+html:not([data-theme="dark"]) .ledger-switch button.is-on { background: var(--panel); box-shadow: 0 1px 3px rgba(16,24,40,.12); }
+.view-expenses .tab-header .ledger-switch { margin-bottom: 0; }
+
+/* 정산 카드 맨 아래: 지출과 남는 돈 */
+.summary-ledger {
+  display: flex;
+  order: 5;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 -18px;
+  padding: 11px 18px 13px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: var(--fs-label);
+}
+.summary-ledger[hidden] { display: none; }
+.summary-ledger b { color: var(--text); font-family: var(--font-numeric); font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
+.summary-ledger b .number-unit { margin-left: 1px; color: var(--muted); font-family: var(--font-ui); font-size: var(--fs-caption); font-weight: 600; }
+
+/* 하단 메뉴 다섯 칸, 가운데 노아 */
+.nav-tab.nav-noah { position: relative; color: var(--text); }
+.nav-noah-orb {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-top: -16px;
+  border-radius: var(--r-full);
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, #FFFFFF 35%, var(--gold)), var(--gold) 55%, var(--gold2));
+  color: var(--gold-ink);
+  box-shadow: 0 0 0 4px var(--panel), 0 8px 18px -6px color-mix(in srgb, var(--gold) 60%, transparent);
+  font-family: var(--font-numeric);
+  font-size: var(--fs-title);
+  font-weight: 800;
+}
+.nav-tab.nav-noah.active .nav-noah-orb { box-shadow: 0 0 0 4px var(--panel), 0 0 0 6px color-mix(in srgb, var(--gold) 45%, transparent); }
+
+/* 노아 대화 화면 */
+.view-noah { display: none; }
+.app[data-view="noah"] .view-noah { display: flex; flex-direction: column; height: 100dvh; }
+.noah-body { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 6px 18px 14px; }
+.noah-thread { display: flex; flex: 1; flex-direction: column; gap: 12px; min-height: 0; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.noah-msg { display: flex; align-items: flex-start; gap: 10px; max-width: 88%; }
+.noah-msg p { margin: 0; padding: 11px 14px; border-radius: 4px 18px 18px 18px; background: var(--panel); font-size: var(--fs-body-l); line-height: 1.55; }
+.noah-msg.from-me { align-self: flex-end; }
+.noah-msg.from-me p { border-radius: 18px 4px 18px 18px; background: var(--panel3); }
+.noah-avatar {
+  display: grid;
+  flex: 0 0 34px;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-full);
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, #FFFFFF 35%, var(--gold)), var(--gold) 55%, var(--gold2));
+  color: var(--gold-ink);
+  font-family: var(--font-numeric);
+  font-size: var(--fs-label);
+  font-weight: 800;
+}
+.noah-suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 12px; }
+.noah-suggestions button { position: relative; height: 34px; padding: 0 13px; border: 1px solid var(--line-strong); border-radius: var(--r-full); background: transparent; color: var(--text); font-size: var(--fs-label); font-weight: 500; }
+.noah-suggestions button::after { content: ""; position: absolute; inset: -5px 0; }
+.noah-ask { display: flex; gap: 8px; }
+.noah-ask input { flex: 1; min-width: 0; height: 46px; padding: 0 18px; border: 0; border-radius: var(--r-full); background: var(--panel2); color: var(--text); font-size: var(--fs-body-l); }
+.noah-ask button { display: grid; flex: 0 0 46px; place-items: center; width: 46px; height: 46px; border: 0; border-radius: var(--r-full); background: var(--gold); color: var(--gold-ink); }
+
+@media (min-width: 768px) and (orientation: landscape), (min-width: 1100px) {
+  .nav-noah-orb { width: 38px; height: 38px; margin-top: 0; box-shadow: none; }
+  .app[data-view="noah"] .view-noah { height: 100dvh; }
 }

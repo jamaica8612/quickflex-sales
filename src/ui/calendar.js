@@ -20,7 +20,6 @@ export function bindCalendarEvents(ctx) {
   } = ctx;
 
   el.navTabs.forEach((tab) => tab.addEventListener("click", () => showView(tab.dataset.view)));
-  el.openSettings.addEventListener("click", () => showView("settings"));
   el.backFromSettings.addEventListener("click", () => showView("home"));
   el.prevMonth.addEventListener("click", () => moveMonth(-1));
   el.nextMonth.addEventListener("click", () => moveMonth(1));

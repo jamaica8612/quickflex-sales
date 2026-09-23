@@ -88,7 +88,8 @@ test("native back action is deterministic and only home is unhandled", () => {
     assert.equal(nativeBackAction({ view }), "go-home", `${view} should return home`);
   });
   assert.equal(nativeBackAction({ view: "schedule" }), "go-settings");
-  assert.equal(nativeBackAction({ view: "stats" }), "go-settings");
+  assert.equal(nativeBackAction({ view: "stats" }), "go-home");
+  assert.equal(nativeBackAction({ view: "noah" }), "go-home");
   assert.equal(nativeBackAction({ view: "home" }), "unhandled");
   assert.equal(nativeBackAction({ view: "future-unknown" }), "unhandled");
 });
@@ -238,10 +239,10 @@ test("native back returns internal views home and leaves home to Android", () =>
   assert.deepEqual(navigations, ["home", "settings", "home"]);
   el.app.dataset.view = "stats";
   assert.equal(quickflexHandleNativeBack(), "handled");
-  assert.deepEqual(navigations, ["home", "settings", "home", "settings"]);
+  assert.deepEqual(navigations, ["home", "settings", "home", "home"]);
   el.app.dataset.view = "home";
   assert.equal(quickflexHandleNativeBack(), "unhandled");
-  assert.deepEqual(navigations, ["home", "settings", "home", "settings"]);
+  assert.deepEqual(navigations, ["home", "settings", "home", "home"]);
 });
 
 test("PWA exposes the synchronous native bridge contract", () => {

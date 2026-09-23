@@ -9,7 +9,7 @@ const worker = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 
 test('settings and measurement open one guide without unloading the PWA', () => {
   const links = [...html.matchAll(/<a\b[^>]*href="\.\/guide\.html"[^>]*>[\s\S]*?<\/a>/g)].map(match => match[0]);
-  assert.equal(links.length, 3);
+  assert.equal(links.length, 2);
   for (const link of links) {
     assert.match(link, /target="_blank"/);
     assert.match(link, /rel="[^"]*noopener/);
