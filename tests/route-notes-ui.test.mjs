@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import test from "node:test";
 import { MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon } from "../src/lib/route-note-icons.js";
+import { appendAgriculturalMarketTip, isAgriculturalMarketTip, isAgriculturalMarketZone } from "../src/lib/agricultural-market-route-map.js";
 import { routeNoteZoneNameKey } from "../src/lib/route-notes.js";
 import { isPointInRouteNoteZone } from "../src/lib/route-note-rules.js";
 
@@ -87,7 +88,7 @@ const visible = (element) => !element.hidden && (!element.parent || visible(elem
 const button = (root, text) => root.all().find((element) => element.tag === "button" && element.textContent === text && visible(element));
 const byClass = (root, className) => root.all().find((element) => element.className.split(/\s+/).includes(className));
 
-function setup({ confirm = () => true, mapFactory, extraTips = [], shareDialog } = {}) {
+function setup({ confirm = () => true, mapFactory, extraTips = [], shareDialog, marketZone = false } = {}) {
   const document = createDocument(); const root = document.createElement("main"); document.body.append(root);
   const windowListeners = new Map();
   const window = { innerHeight: 800, location: { href: "https://example.invalid/" }, visualViewport: { height: 800, addEventListener() {} }, addEventListener(type, handler) { windowListeners.set(type, handler); }, matchMedia: () => ({ matches: false }), confirm };
@@ -95,12 +96,13 @@ function setup({ confirm = () => true, mapFactory, extraTips = [], shareDialog }
     { id: "zone-a", created_by: "user", name: "A 구역", memo: "A 안내", polygon: { type: "Polygon", coordinates: [[[127, 37], [128, 37], [127, 38], [127, 37]]] } },
     { id: "zone-b", created_by: "other", name: "B 구역", memo: "B 안내", polygon: { type: "Polygon", coordinates: [[[129, 39], [130, 39], [129, 40], [129, 39]]] } },
   ];
+  if (marketZone) zones[0] = { ...zones[0], name: "311CD322D" };
   let tips = [
     { id: "tip-a", zone_id: "zone-a", created_by: "user", title: "A 메모", memo: "A 내용", marker_type: "note", lat: 37.5, lng: 127.5, photos: [] },
     { id: "tip-b", zone_id: "zone-b", created_by: "user", title: "B 메모", memo: "B 내용", marker_type: "note", lat: 39.5, lng: 129.5, photos: [] },
   ];
   tips.push(...extraTips);
-  const calls = { loadZone: [], saveTip: [], saveZone: [], deleteZone: [], maps: [], zoneEditors: [] };
+  const calls = { loadZone: [], saveTip: [], saveZone: [], deleteZone: [], maps: [], zoneEditors: [], marketRouteMaps: [] };
   const service = {
     async load() { return { company: { id: "company", name: "회사" }, membership: { company_id: "company", role: "member" }, zones, favorites: [] }; },
     async loadZone(id) { calls.loadZone.push(id); return { zone: zones.find((zone) => zone.id === id), tips: tips.filter((tip) => tip.zone_id === id), zonePhotos: [] }; },
@@ -126,7 +128,9 @@ function setup({ confirm = () => true, mapFactory, extraTips = [], shareDialog }
     return editor;
   };
   const context = { document, window, AbortController, Promise, URL, console, CSS: { escape: (value) => value },
-    MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon, routeNoteZoneNameKey, isPointInRouteNoteZone, createRouteNoteZoneEditor, createRouteNoteMap, hasPolygon: (polygon) => Boolean(polygon?.coordinates?.length), ROUTE_NOTE_MARKER_TYPES: ["note", "parking"], parseScheduleRoutes: () => [] };
+    MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon, routeNoteZoneNameKey, isPointInRouteNoteZone, appendAgriculturalMarketTip, isAgriculturalMarketTip, isAgriculturalMarketZone,
+    openAgriculturalMarketRouteMap: (options = {}) => { const entry = { options, closed: false }; calls.marketRouteMaps.push(entry); return { close() { entry.closed = true; options.onClose?.(); } }; },
+    createRouteNoteZoneEditor, createRouteNoteMap, hasPolygon: (polygon) => Boolean(polygon?.coordinates?.length), ROUTE_NOTE_MARKER_TYPES: ["note", "parking"], parseScheduleRoutes: () => [] };
   runInNewContext(source, context, { filename: "route-notes.js" });
   const notifications = [];
   const controller = context.createRouteNotesController({ root, service, shareDialog, getUser: () => ({ id: "user" }), getProfile: () => ({ id: "user", status: "approved", driver_type: "backup" }), notify: (...args) => notifications.push(args), mapClientId: "fixture" });
@@ -141,8 +145,9 @@ async function openZone(view, zoneName = "A 구역") {
 }
 
 async function openTipForm(view) {
-  await click(button(view.root, "메모 보기"));
-  await click(button(view.root, "공통 팁 추가"));
+  await click(button(view.root, "팁 쓰기"));
+  view.calls.maps[0][0].onCoordinatePick({ lat: 37.2, lng: 127.2 }); await flush();
+  await click(button(view.root, "여기에 팁 쓰기"));
   const form = byClass(view.root, "route-notes-form");
   assert.ok(form, "tip form is visible");
   return form;
@@ -165,45 +170,58 @@ test("a map marker opens only its own tip and preserves author controls, photos 
   const tip = { id: "tip-a2", zone_id: "zone-a", created_by: "other", author_name: "동료", title: "동문 출입구", memo: "동문으로 진입", marker_type: "entrance", lat: 37.6, lng: 127.6, photos: [{ url: "https://example.invalid/entrance.jpg" }] };
   const view = setup({ extraTips: [tip] }); await openZone(view);
   view.calls.maps[0][0].onTipSelect(tip); await flush();
-  assert.equal(view.root.querySelectorAll(".route-notes-tip").length, 1);
+  assert.equal(view.root.querySelectorAll(".route-notes-pin-popup").length, 1);
+  assert.equal(view.root.querySelectorAll(".route-notes-tip").length, 0);
   assert.ok(view.root.querySelector("#routeNoteTip-tip-a2"));
   assert.doesNotMatch(view.root.textContent, /A 내용/);
-  assert.match(view.root.textContent, /작성자 · 동료/);
+  assert.match(view.root.textContent, /동료/);
   assert.equal(view.root.querySelectorAll("img").length, 1);
-  assert.equal(view.root.all().filter((element) => element.getAttribute("aria-label") === "메모 수정").length, 0);
+  assert.equal(view.root.all().filter((element) => element.getAttribute("aria-label") === "팁 수정").length, 0);
   assert.equal(view.calls.mapRenders.at(-1).selectedTipId, tip.id);
   assert.equal(view.calls.mapRenders.at(-1).preserveViewport, true);
-  await click(button(view.root, "전체 메모 보기"));
-  assert.equal(view.root.querySelectorAll(".route-notes-tip").length, 2);
-  assert.equal(view.calls.mapRenders.at(-1).selectedTipId, null);
-  view.calls.maps[0][0].onTipSelect(tip); await flush();
+  await click(button(view.root, "자세히"));
+  assert.equal(view.root.querySelectorAll(".route-notes-tip").length, 1);
+  assert.match(view.root.textContent, /작성자 · 동료/);
   assert.equal(view.controller.handleBack(), true);
-  assert.equal(view.root.querySelectorAll(".route-notes-tip").length, 2);
+  assert.equal(view.root.querySelectorAll(".route-notes-pin-popup").length, 0);
+  assert.equal(view.calls.mapRenders.at(-1).selectedTipId, null);
 });
 
-test("the selected zone can be shared directly from the map and from a single tip", async () => {
+test("a selected pin can be shared without opening the full tip list", async () => {
   const shares = [];
   const view = setup({ shareDialog: { open: (value) => shares.push(value), reset() {} } }); await openZone(view);
-  await click(button(view.root, "공유"));
-  assert.equal(shares[0].zone.id, "zone-a");
   const tip = view.calls.mapRenders.at(-1).tips[0];
   view.calls.maps[0][0].onTipSelect(tip); await flush();
   await click(button(view.root, "공유"));
-  assert.equal(shares[1].zone.id, "zone-a");
-  assert.equal(view.root.querySelectorAll(".route-notes-tip").length, 1);
+  assert.equal(shares[0].zone.id, "zone-a");
+  assert.equal(shares[0].tip.id, "tip-a");
+  assert.equal(view.root.querySelectorAll(".route-notes-pin-popup").length, 1);
 });
 
-test("searching a tip opens a single detail and deleting it returns to the remaining notes", async () => {
+test("311CD322D receives the agricultural market marker and opens its dedicated map", async () => {
+  const view = setup({ marketZone: true });
+  await openZone(view, "311CD322D");
+  const render = view.calls.mapRenders.at(-1);
+  const marketTip = render.tips.find((tip) => tip.id === "agricultural-market-route-map");
+  assert.ok(marketTip);
+  assert.equal(marketTip.marker_type, "market_map");
+  view.calls.maps[0][0].onTipSelect(marketTip); await flush();
+  assert.match(view.root.textContent, /반여농산물시장/);
+  await click(button(view.root, "시장 지도 열기"));
+  assert.equal(view.calls.marketRouteMaps.length, 1);
+});
+
+test("searching a tip opens its compact popup and deletion returns to the map", async () => {
   const tip = { id: "tip-a2", zone_id: "zone-a", created_by: "user", title: "동문 출입구", memo: "선택할 메모", marker_type: "note", photos: [] };
   const view = setup({ extraTips: [tip] }); await openZone(view);
   const search = byClass(view.root, "route-notes-search"); search.value = "동문"; search.dispatch("input");
   await click(byClass(view.root, "route-notes-suggest-row"));
-  assert.equal(view.root.querySelectorAll(".route-notes-tip").length, 1);
+  assert.equal(view.root.querySelectorAll(".route-notes-pin-popup").length, 1);
   assert.ok(view.root.querySelector("#routeNoteTip-tip-a2"));
-  await click(view.root.all().find((element) => element.getAttribute("aria-label") === "메모 수정"));
-  await click(button(view.root, "삭제"));
-  assert.equal(view.root.querySelectorAll(".route-notes-tip").length, 1);
-  assert.ok(view.root.querySelector("#routeNoteTip-tip-a"));
+  await click(button(view.root, "자세히"));
+  await click(view.root.all().find((element) => element.getAttribute("aria-label") === "팁 수정"));
+  await click(button(view.root, "팁 삭제"));
+  assert.equal(view.root.querySelectorAll(".route-notes-pin-popup").length, 0);
   assert.equal(view.calls.mapRenders.at(-1).selectedTipId, null);
 });
 
@@ -215,8 +233,7 @@ test("zone editor callbacks create and delete member zones; only owned zones exp
   assert.equal(creator.options.canDelete, false);
   await creator.save({ name: "303A", memo: "", polygon: null }); await flush();
   assert.equal(view.calls.saveZone.length, 1);
-  await click(button(view.root, "메모 보기"));
-  await click(view.root.all().find((element) => element.getAttribute("aria-label") === "구역 수정"));
+  await click(view.root.all().find((element) => element.getAttribute("aria-label") === "구역 수정" && visible(element)));
   const editor = view.calls.zoneEditors.at(-1);
   assert.equal(editor.options.zone.id, "saved-zone");
   assert.equal(editor.options.canDelete, true);
@@ -227,8 +244,8 @@ test("zone editor callbacks create and delete member zones; only owned zones exp
   assert.equal(view.calls.zoneEditors.at(-1), editor);
   await editor.delete(); await flush();
   assert.deepEqual(view.calls.deleteZone, ["saved-zone"]);
-  await openZone(view, "B 구역"); await click(button(view.root, "메모 보기"));
-  assert.equal(view.root.all().filter((element) => element.getAttribute("aria-label") === "구역 수정").length, 0);
+  await openZone(view, "B 구역");
+  assert.equal(view.root.all().filter((element) => element.getAttribute("aria-label") === "구역 수정" && visible(element)).length, 0);
 });
 
 test("map tap rejects outside points and offers tip registration inside the selected zone", async () => {
@@ -236,10 +253,10 @@ test("map tap rejects outside points and offers tip registration inside the sele
   const pick = view.calls.maps[0][0].onCoordinatePick;
   pick({ lat: 40, lng: 130 }); await flush();
   assert.match(view.notifications.at(-1)[0], /경계 안에서/);
-  assert.equal(button(view.root, "팁 등록하기"), undefined);
+  assert.equal(button(view.root, "여기에 팁 쓰기"), undefined);
   pick({ lat: 37.2, lng: 127.2 }); await flush();
-  assert.ok(button(view.root, "팁 등록하기"));
-  await click(button(view.root, "팁 등록하기"));
+  assert.ok(button(view.root, "여기에 팁 쓰기"));
+  await click(button(view.root, "여기에 팁 쓰기"));
   const form = byClass(view.root, "route-notes-form");
   assert.equal(form.elements.routeNoteTipLat.value, "37.2");
   assert.equal(form.elements.routeNoteTipLng.value, "127.2");
@@ -252,7 +269,7 @@ test("choosing a tip location keeps its draft and files, then common tip clears 
   form.elements.routeNoteTipMemo.value = "전화 먼저"; form.elements.routeNoteTipMemo.dispatch("input");
   const file = { name: "door.jpg", type: "image/jpeg", size: 123 };
   form.elements.routeNoteTipPhoto.files = [file];
-  await click(button(view.root, "지도에서 위치 선택"));
+  await click(button(view.root, "위치 수정"));
   view.calls.maps.at(-1)[0].onCoordinatePick({ lat: 37.25, lng: 127.25 }); await flush();
   assert.equal(byClass(view.root, "route-notes-form"), form);
   assert.equal(form.elements.routeNoteTipTitle.value, "현관 위치");
@@ -270,13 +287,13 @@ test("choosing a tip location keeps its draft and files, then common tip clears 
   assert.equal(view.calls.saveTip.at(-1).lng, null);
 });
 
-test("collapsing and reopening a tip form preserves unsaved input", async () => {
+test("adjusting a tip position preserves unsaved input", async () => {
   const view = setup(); await openZone(view); const form = await openTipForm(view);
   const title = form.elements.routeNoteTipTitle; title.value = "계속 작성"; title.dispatch("input");
-  await click(button(view.root, "위치 선택"));
+  await click(button(view.root, "위치 수정"));
   view.windowListeners.get("resize")();
   assert.equal(byClass(view.root, "route-notes-sheet").dataset.snap, "peek");
-  await click(button(view.root, "작성 계속"));
+  view.calls.maps.at(-1)[0].onCoordinatePick({ lat: 37.25, lng: 127.25 }); await flush();
   assert.equal(byClass(view.root, "route-notes-form").elements.routeNoteTipTitle.value, "계속 작성");
 });
 
@@ -285,11 +302,11 @@ test("a successful tip save reloads the detail without abandoning its own in-fli
   form.elements.routeNoteTipTitle.value = "저장한 메모"; form.elements.routeNoteTipTitle.dispatch("input");
   assert.equal(view.controller.isDirty(), true);
   await form.dispatch("submit"); await flush();
-  assert.doesNotMatch(String(view.notifications.at(-1)?.[0] || ""), /제목을 입력/);
+  assert.doesNotMatch(String(view.notifications.at(-1)?.[0] || ""), /한 줄 설명을 입력/);
   assert.equal(view.calls.saveTip.length, 1);
   assert.deepEqual(view.calls.loadZone, ["zone-a", "zone-a"]);
-  assert.match(view.root.textContent, /저장한 메모/);
-  assert.ok(view.notifications.some(([message]) => message === "구역 메모를 저장했습니다."));
+  assert.equal(view.calls.saveTip[0].title, "저장한 메모");
+  assert.ok(view.notifications.some(([message]) => message === "구역 팁을 저장했습니다."));
 });
 
 test("declining cancel keeps a dirty tip draft in place", async () => {
@@ -302,13 +319,12 @@ test("declining cancel keeps a dirty tip draft in place", async () => {
   assert.equal(view.controller.isDirty(), true);
 });
 
-test("native back from detail moves focus to the visible peek toggle", async () => {
-  const view = setup(); await openZone(view); await click(button(view.root, "메모 보기"));
+test("native back from a pin popup returns to the full map", async () => {
+  const view = setup(); await openZone(view);
+  view.calls.maps[0][0].onTipSelect(view.calls.mapRenders.at(-1).tips[0]); await flush();
   assert.equal(view.controller.handleBack(), true);
-  const toggle = byClass(view.root, "route-notes-sheet-toggle");
-  assert.equal(byClass(view.root, "route-notes-sheet").dataset.snap, "peek");
-  assert.equal(toggle.hidden, false);
-  assert.equal(view.document.activeElement, toggle);
+  assert.equal(byClass(view.root, "route-notes-sheet").hidden, true);
+  assert.equal(view.calls.mapRenders.at(-1).selectedTipId, null);
 });
 
 test("full-screen map opens and closes with native back without losing the selected zone or an editor draft", async () => {
@@ -319,14 +335,13 @@ test("full-screen map opens and closes with native back without losing the selec
   assert.equal(view.calls.mapRenders.at(-1).selectedZoneId, "zone-a");
   assert.equal(view.controller.handleBack(), true);
   assert.equal(view.root.getAttribute("data-route-notes-fullscreen"), "false");
-  assert.equal(byClass(view.root, "route-notes-sheet").hidden, false);
+  assert.equal(byClass(view.root, "route-notes-sheet").hidden, true);
   await click(byClass(view.root, "route-notes-fullscreen-toggle"));
   const form = await openTipForm(view);
   form.elements.routeNoteTipTitle.value = "보존할 입력"; form.elements.routeNoteTipTitle.dispatch("input");
-  await click(button(view.root, "위치 선택"));
+  await click(button(view.root, "위치 수정"));
   assert.equal(byClass(view.root, "route-notes-sheet").hidden, false);
-  assert.equal(view.document.activeElement, byClass(view.root, "route-notes-sheet-toggle"));
-  await click(button(view.root, "작성 계속"));
+  view.calls.maps.at(-1)[0].onCoordinatePick({ lat: 37.3, lng: 127.3 }); await flush();
   assert.equal(byClass(view.root, "route-notes-fullscreen-exit").hidden, false);
   await click(byClass(view.root, "route-notes-fullscreen-exit"));
   assert.equal(byClass(view.root, "route-notes-form"), form);

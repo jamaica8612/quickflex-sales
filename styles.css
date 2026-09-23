@@ -1,5 +1,5 @@
-/* 2026-09 홈 리프레시: 숫자 Archivo · 한글 IBM Plex Sans KR · 코드 JetBrains Mono (SIL OFL) */
-@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap");
+/* 2026-09 홈 리프레시: 숫자 Archivo · 한글 Pretendard · 코드 JetBrains Mono */
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap");
 
 @font-face {
   font-family: "Pretendard Variable";
@@ -18,10 +18,10 @@
 }
 
 :root {
-  --font-ui: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, system-ui, sans-serif;
-  --font-numeric: "Archivo", "IBM Plex Sans KR", system-ui, sans-serif;
-  --font-amount: "Archivo", "IBM Plex Sans KR", system-ui, sans-serif;
-  --font-code: "JetBrains Mono", "IBM Plex Sans KR", ui-monospace, monospace;
+  --font-ui: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", -apple-system, system-ui, sans-serif;
+  --font-numeric: "Archivo", "Pretendard Variable", Pretendard, system-ui, sans-serif;
+  --font-amount: "Archivo", "Pretendard Variable", Pretendard, system-ui, sans-serif;
+  --font-code: "JetBrains Mono", "Pretendard Variable", Pretendard, ui-monospace, monospace;
   --shell-bg: #ECECEC;
   --bg: #F5F5F5;
   --panel: #FFFFFF;
@@ -2230,6 +2230,27 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
 }
 .nav-tab svg { width: 22px; height: 22px; display: block; }
 .nav-tab.active { color: var(--gold); font-weight: 700; }
+.more-menu-layer { position:fixed; z-index:19; inset:0; pointer-events:none; }
+.more-menu-layer[aria-hidden="true"] { display:none; }
+.more-menu-layer:not([aria-hidden="true"]) { pointer-events:auto; }
+.more-menu-scrim { position:absolute; inset:0 0 calc(var(--nav-h) + var(--safe-b)); border:0; background:rgba(0,0,0,.34); }
+.more-menu-sheet {
+  position:absolute; right:max(12px,calc((100vw - 480px)/2 + 12px)); bottom:calc(var(--nav-h) + var(--safe-b) + 10px); left:max(12px,calc((100vw - 480px)/2 + 12px));
+  overflow:hidden; padding:8px 14px 14px; border:1px solid var(--line); border-radius:var(--r-xl); background:var(--panel); box-shadow:var(--shadow-raise);
+}
+.more-menu-handle { display:block; width:38px; height:4px; margin:0 auto 4px; border-radius:var(--r-full); background:var(--line-strong); }
+.more-menu-head { display:flex; align-items:center; justify-content:space-between; min-height:48px; }
+.more-menu-head h2 { margin:0; font-size:var(--fs-title-l); letter-spacing:-.024em; }
+.more-menu-head .round-btn { width:40px; height:40px; min-height:40px; }
+.more-menu-list { overflow:hidden; border:1px solid var(--line); border-radius:var(--r-lg); background:var(--panel2); }
+.more-menu-row {
+  display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; width:100%; min-height:56px; padding:0 14px;
+  border:0; border-bottom:1px solid var(--line); background:transparent; color:var(--text); font:600 var(--fs-body-l) var(--font-ui); text-align:left; text-decoration:none;
+}
+.more-menu-row:last-child { border-bottom:0; }
+.more-menu-row:active { background:var(--panel3); }
+.more-menu-row em { overflow:hidden; color:var(--muted); font-size:var(--fs-label); font-style:normal; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
+.more-menu-row:focus-visible { position:relative; outline:3px solid color-mix(in srgb,var(--gold) 38%,transparent); outline-offset:-3px; }
 
 .measurement-bridge-body { max-width: 680px; margin-inline: auto; }
 .measurement-workday-card { gap: 16px; }
@@ -3602,6 +3623,8 @@ body:not([data-theme="dark"]) .summary-card {
     border-top: 0;
     border-right: 1px solid var(--line);
   }
+  .more-menu-scrim { inset:0 0 0 76px; }
+  .more-menu-sheet { right:auto; bottom:16px; left:92px; width:min(420px,calc(100vw - 108px)); }
   .nav-tab {
     flex: 0 0 68px;
     width: 100%;

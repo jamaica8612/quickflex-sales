@@ -1,5 +1,6 @@
 /** Shared SVG icons for route-note controls, cards and map markers. */
 export const MARKER_ICONS = {
+  market_map: "storage",
   parking: "parking", vehicle_entrance: "car", unloading: "unloading", walk_in: "walk",
   entrance: "door", access_code: "keypad", security: "shield", elevator: "elevator", stairs: "stairs",
   restroom: "restroom", storage: "storage", locked: "lock",
@@ -7,8 +8,29 @@ export const MARKER_ICONS = {
   warning: "alert", important: "star", no_entry: "no-entry", dog: "dog", cat: "cat",
   construction: "construction", quiet: "quiet",
 };
+export const MAP_MARKER_ICONS = Object.freeze({
+  market_map: "warehouse",
+  note: "lightbulb", vehicle_entrance: "car-profile", parking: "letter-circle-p", entrance: "door-open",
+  elevator: "elevator", stairs: "stairs", restroom: "toilet", dog: "dog", cat: "cat",
+  delivery_spot: "package", warning: "warning", construction: "traffic-cone", access_code: "password",
+  security: "shield-check", storage: "warehouse", walk_in: "person-simple-walk", unloading: "truck",
+  locked: "lock-key", quiet: "speaker-slash", no_entry: "prohibit", important: "star",
+});
 export const ALERT_MARKERS = new Set(["warning", "important", "no_entry", "construction", "dog", "locked"]);
 const SVG_NS = "http://www.w3.org/2000/svg";
+const MAP_MARKER_SPRITE = new URL("../../assets/icons/route-notes/phosphor-regular.svg", import.meta.url).href;
+
+export function createRouteNoteMapIcon(documentRef, markerType) {
+  const svg = documentRef.createElementNS(SVG_NS, "svg");
+  const use = documentRef.createElementNS(SVG_NS, "use");
+  svg.setAttribute("viewBox", "0 0 256 256");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  svg.setAttribute("class", "route-notes-map-icon");
+  use.setAttribute("href", `${MAP_MARKER_SPRITE}#${MAP_MARKER_ICONS[markerType] || MAP_MARKER_ICONS.note}`);
+  svg.append(use);
+  return svg;
+}
 function circlePath(cx, cy, r) {
   return `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${r * 2} 0a${r} ${r} 0 1 0 ${-r * 2} 0`;
 }

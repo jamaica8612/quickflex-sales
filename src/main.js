@@ -1,6 +1,6 @@
 import { createExpenseService } from "./services/expenses.js";
 import { createRouteNotesService } from "./services/route-notes.js?v=2";
-import { createRouteNotesController } from "./ui/route-notes.js?v=7";
+import { createRouteNotesController } from "./ui/route-notes.js?v=12";
 import { createRouteNoteShareService } from "./services/route-note-share.js";
 import { createRouteNoteShareDialog } from "./ui/route-note-share.js";
 import { checkBetaMeasurementAccess } from "./services/beta-access.js";
@@ -618,6 +618,10 @@ const el = {
   dbStatus: $("dbStatus"),
   toast: $("toast"),
   entryTemplate: $("entryTemplate"),
+  moreMenuLayer: $("moreMenuLayer"),
+  moreMenu: $("moreMenu"),
+  moreExpenseSummary: $("moreExpenseSummary"),
+  moreStatsSummary: $("moreStatsSummary"),
   navTabs: document.querySelectorAll(".nav-tab"),
   modeBtns: document.querySelectorAll(".mode-btn"),
   statsTabs: document.querySelectorAll("[data-tab]"),
@@ -3510,10 +3514,68 @@ async function saveInspectionMonthPdf() {
   }
 }
 
+function moreNavView(view = el.app?.dataset.view || "home") {
+  return ["schedule", "stats", "settings", "expenses"].includes(view) ? "more" : view;
+}
+
+function syncNavSelection(view = el.app?.dataset.view || "home", override = "") {
+  const target = override || moreNavView(view);
+  el.navTabs.forEach((tab) => {
+    const selected = tab.dataset.view === target;
+    tab.classList.toggle("active", selected);
+    if (selected) tab.setAttribute("aria-current", "page");
+    else tab.removeAttribute("aria-current");
+    if (tab.dataset.view === "more") tab.setAttribute("aria-expanded", String(target === "more" && override === "more"));
+  });
+}
+
+function isMoreMenuOpen() {
+  return Boolean(el.moreMenuLayer && !el.moreMenuLayer.hasAttribute("inert"));
+}
+
+async function refreshMoreMenuSummaries() {
+  syncStatsToCurrentPeriod();
+  const period = summarizePeriod(state.statsYear, state.statsMonth);
+  if (el.moreStatsSummary) el.moreStatsSummary.textContent = `정산기간 ${period.workDays}일`;
+  if (!el.moreExpenseSummary) return;
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const from = `${month}-01`, to = `${month}-${String(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()).padStart(2, "0")}`;
+  el.moreExpenseSummary.textContent = "이번 달 합계 불러오는 중";
+  try {
+    const rows = await ownExpenseService().list({ from, to, includeDrafts: true, includeTrashed: false });
+    const total = (rows || []).filter((row) => row.status === "confirmed" && row.actual_date >= from && row.actual_date <= to)
+      .reduce((sum, row) => sum + Number(row.gross_amount || 0) - (row.adjustments || []).filter((item) => item.kind === "refund").reduce((amount, item) => amount + Number(item.amount || 0), 0), 0);
+    el.moreExpenseSummary.textContent = `이번 달 ${formatCompactWonWithUnit(total)}`;
+  } catch {
+    el.moreExpenseSummary.textContent = "이번 달 합계";
+  }
+}
+
+function openMoreMenu() {
+  if (!el.moreMenuLayer || isMoreMenuOpen()) return;
+  el.moreMenuLayer.removeAttribute("inert");
+  el.moreMenuLayer.setAttribute("aria-hidden", "false");
+  syncNavSelection(el.app?.dataset.view, "more");
+  void refreshMoreMenuSummaries();
+  window.requestAnimationFrame?.(() => el.moreMenu?.focus());
+}
+
+function closeMoreMenu({ restoreFocus = true } = {}) {
+  if (!el.moreMenuLayer || !isMoreMenuOpen()) return false;
+  el.moreMenuLayer.setAttribute("inert", "");
+  el.moreMenuLayer.setAttribute("aria-hidden", "true");
+  syncNavSelection();
+  if (restoreFocus) el.navTabs.forEach((tab) => { if (tab.dataset.view === "more") tab.focus(); });
+  return true;
+}
+
 function showView(view, options = {}) {
+  if (view === "more") { if (typeof openMoreMenu === "function") openMoreMenu(); return; }
   if (view === "admin") view = "settings";
   if (!["home", "record", "measurement", "inspection", "stats", "settings", "expenses", "schedule", "routes"].includes(view)) view = "home";
   const previousView = el.app.dataset.view || "home";
+  if (typeof closeMoreMenu === "function") closeMoreMenu({ restoreFocus: false });
   if (previousView === "routes" && view === "routes" && routeNotesController?.canClose && !routeNotesController.canClose()) return;
   if (previousView === "routes" && view !== "routes") {
     if (routeNotesController?.canClose && !routeNotesController.canClose()) return;
@@ -3525,12 +3587,7 @@ function showView(view, options = {}) {
   }
   el.app.dataset.view = view;
   syncNativeRouteNotesState();
-  el.navTabs.forEach((tab) => {
-    const selected = tab.dataset.view === (["schedule", "stats"].includes(view) ? "settings" : view);
-    tab.classList.toggle("active", selected);
-    if (selected) tab.setAttribute("aria-current", "page");
-    else tab.removeAttribute("aria-current");
-  });
+  if (typeof syncNavSelection === "function") syncNavSelection(view);
   if (view === "record") renderEntryForm();
   if (view === "measurement") {
     currentMeasurementWorkDate();
@@ -3563,6 +3620,7 @@ function nativeBackAction({ dbSheetOpen = false, salesOverrideOpen = false, bloc
 }
 
 function quickflexHandleNativeBack() {
+  if (typeof closeMoreMenu === "function" && closeMoreMenu()) return "handled";
   if (routeNoteShareDialog?.handleBack?.()) return "handled";
   if (document.querySelector(".expense-dialog[open]")) { expensesController?.handleBack(); return "handled"; }
   if (document.querySelector(".exports-overlay:not([hidden])")) { exportsController?.close(); return "handled"; }
@@ -5741,6 +5799,13 @@ function bindEvents() {
   });
   document.querySelectorAll("[data-open-expenses]").forEach((button) => button.addEventListener("click", () => showView("expenses")));
   document.querySelectorAll("[data-open-stats]").forEach((button) => button.addEventListener("click", () => showView("stats")));
+  document.querySelectorAll("[data-open-settings]").forEach((button) => button.addEventListener("click", () => {
+    showView("settings");
+    if (button.hasAttribute("data-open-admin")) { const panel = $("operationSettings"); if (panel) panel.open = true; }
+  }));
+  document.querySelectorAll("[data-close-more-menu]").forEach((button) => button.addEventListener("click", () => closeMoreMenu()));
+  document.querySelectorAll("[data-close-more-link]").forEach((link) => link.addEventListener("click", () => closeMoreMenu({ restoreFocus: false })));
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape" && isMoreMenuOpen()) { event.preventDefault(); closeMoreMenu(); } });
   $("retryPendingSave")?.addEventListener("click", () => reviewPendingSave().catch((error) => toast(error.message, "error")));
   $("useServerRecord")?.addEventListener("click", () => reviewPendingSave(true).catch((error) => toast(error.message, "error")));
   $("showRetainedEdits")?.addEventListener("click", () => {

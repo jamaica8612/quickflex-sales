@@ -1,4 +1,4 @@
-import { createRouteNoteMap } from "../lib/route-note-map.js?v=5";
+import { createRouteNoteMap } from "../lib/route-note-map.js?v=8";
 import { routeNoteZoneNameKey } from "../lib/route-notes.js?v=2";
 import { routeNoteDetailCodes } from "../lib/route-note-rules.js";
 import { appendManualPart, appendPostcode, createZoneGeometryHistory, editZonePartLabel, removePart, restorePostcode, ringPoints, setRingPoints, zonePolygons } from "../lib/route-note-zone-model.js";
@@ -142,7 +142,7 @@ export function createRouteNoteZoneEditor({ host, zone = null, zones = [], servi
     }
   }
   function handleBack() {
-    if (mode === "drawing" || mode === "editing" || mode === "review") {
+    if (mode === "postal" || mode === "drawing" || mode === "editing" || mode === "review") {
       if (mode === "drawing" && drawing.length && !window.confirm(`그리던 점 ${drawing.length}개를 버리고 돌아갈까요?`)) return true;
       mode = "form"; drawing = []; drawPast = []; drawFuture = []; selectedPoint = null;
       renderSections(); syncMap(); return true;
@@ -161,7 +161,7 @@ export function createRouteNoteZoneEditor({ host, zone = null, zones = [], servi
       if (disposed || epoch !== generation) return;
       didFitMap = false;
       changeGeometry(appendPostcode(history.get(), found, code, normalizedCode(pendingGroup) || code.slice(0, 4)));
-      pendingCode = ""; pendingPostcode = ""; renderSections();
+      pendingCode = ""; pendingPostcode = ""; mode = "form"; renderSections();
       notify(`${postcode} 경계를 추가했습니다.`);
     } catch (error) { if (!disposed && epoch === generation) announce(errorMessage(error)); }
     finally { if (!disposed && epoch === generation) { saving = false; renderSections(); } }
@@ -221,7 +221,11 @@ export function createRouteNoteZoneEditor({ host, zone = null, zones = [], servi
 
   host.replaceChildren();
   const shell = $("section", "route-note-zone-editor");
-  const guide = $("p", "route-note-zone-intro", "우편번호 경계를 먼저 추가하고, 빠진 곳은 지도에 직접 그려 함께 저장하세요.");
+  const topbar = $("header", "route-note-zone-topbar");
+  const topbarBack = button("뒤로", cancel, "route-note-zone-topbar-back");
+  const topbarTitle = $("strong", "route-note-zone-topbar-title");
+  const topbarTools = $("div", "route-note-zone-topbar-tools");
+  topbar.append(topbarBack, topbarTitle, topbarTools);
   const content = $("div", "route-note-zone-content");
   const mapCard = $("section", "route-note-zone-map-card");
   const mapHost = $("div", "route-note-zone-map");
@@ -233,7 +237,7 @@ export function createRouteNoteZoneEditor({ host, zone = null, zones = [], servi
   mapCard.append(mapHost, mapStatus, retryMap, mapTools);
   const errorBox = $("p", "route-note-zone-error"); errorBox.setAttribute("role", "alert"); errorBox.hidden = true;
   const actions = $("div", "route-note-zone-actions");
-  shell.append(guide, content, mapCard, actions); host.append(shell);
+  shell.append(mapCard, topbar, content, actions); host.append(shell);
 
   function renderSections() {
     if (disposed) return;
@@ -242,22 +246,30 @@ export function createRouteNoteZoneEditor({ host, zone = null, zones = [], servi
       if (details.className === "route-note-zone-group-options") groupOpen = details.open;
     }
     shell.dataset.mode = mode;
-    if (mode === "drawing" || mode === "editing") shell.insertBefore(mapCard, content);
-    else shell.insertBefore(content, mapCard);
-    content.replaceChildren(); mapTools.replaceChildren(); actions.replaceChildren();
+    content.replaceChildren(); mapTools.replaceChildren(); actions.replaceChildren(); topbarTools.replaceChildren();
     const polygon = history.get(), parts = zonePolygons(polygon);
+    const modeTitle = mode === "postal" ? "우편번호로 추가" : mode === "drawing" ? "직접 그리기" : mode === "editing" ? "경계 편집" : mode === "review" ? "저장 전 확인" : zone?.id ? "구역 수정" : "새 구역";
+    topbarTitle.textContent = modeTitle;
+    topbarBack.textContent = mode === "form" ? "닫기" : "뒤로";
+    if (mode === "form" || mode === "drawing" || mode === "editing") {
+      const undoButton = button("실행 취소", undo, "compact");
+      const redoButton = button("다시 실행", redo, "compact");
+      undoButton.disabled = mode === "drawing" ? !drawPast.length : !history.canUndo;
+      redoButton.disabled = mode === "drawing" ? !drawFuture.length : !history.canRedo;
+      topbarTools.append(undoButton, redoButton);
+    }
     if (mode === "review") {
       const panel = $("section", "route-note-zone-card");
       panel.append($("h3", "", "저장 전 확인"), $("p", "", `구역 ${name.trim() || "(이름 없음)"} · 경계 ${parts.length}개`));
       const codes = [...new Set((polygon?.subLabels || []).filter(Boolean))];
       panel.append($("p", "", `상세 코드 ${codes.length}개: ${codes.join(", ") || "없음"}`));
       panel.append($("p", "", `우편번호 ${[...new Set((polygon?.postcodes || []).filter(Boolean))].join(", ") || "직접 그린 영역만 있음"}`));
-      panel.append($("p", "", "기존 현장 메모와 사진은 이 구역에 그대로 남습니다."));
+        panel.append($("p", "", "기존 현장 팁과 사진은 이 구역에 그대로 남습니다."));
       content.append(panel);
       actions.append(button("수정하기", () => { mode = "form"; renderSections(); syncMap(); }, "secondary"), button(saving ? "저장 중…" : "이대로 저장", save, "primary"));
     } else {
       if (mode === "form") {
-        const basics = $("section", "route-note-zone-card route-note-zone-name-card"); basics.append($("h3", "", "1. 구역 이름"));
+        const basics = $("section", "route-note-zone-card route-note-zone-name-card"); basics.append($("h3", "", "구역 정보"));
         const nameField = field("구역 이름", name, (value) => { name = value; }, { placeholder: "예: 302A·302B", maxLength: 80 });
         nameField.wrapper.className += " route-note-zone-name";
         const regionField = field("지역 이름 (선택)", regionName, (value) => { regionName = value; }, { placeholder: "예: 강남구 역삼동" });
@@ -266,16 +278,7 @@ export function createRouteNoteZoneEditor({ host, zone = null, zones = [], servi
         const options = $("details", "route-note-zone-options"); options.open = moreOpen;
         options.append($("summary", "", "추가 안내·색상 (선택)"), regionField.wrapper, colorField.wrapper, memoField.wrapper);
         basics.append(nameField.wrapper, options); content.append(basics);
-        const postal = $("section", "route-note-zone-card"); postal.append($("h3", "", "2. 우편번호 경계 추가"), $("p", "route-note-zone-help", "상세 코드 하나에 여러 우편번호를 넣거나, 우편번호 하나를 여러 상세 코드에 연결할 수 있습니다."));
-        const inputs = $("div", "route-note-zone-postal-inputs");
-        const group = field("묶음 코드 직접 지정", pendingGroup, (value) => { pendingGroup = value; }, { placeholder: "예: 310C" });
-        const code = field("상세 코드", pendingCode, (value) => { pendingCode = value; }, { placeholder: "예: 310C01" });
-        const postcode = field("우편번호 5자리", pendingPostcode, (value) => { pendingPostcode = value.replace(/\D/g, "").slice(0, 5); postcode.control.value = pendingPostcode; }, { placeholder: "예: 06236", maxLength: 5 });
-        postcode.control.inputMode = "numeric"; inputs.append(code.wrapper, postcode.wrapper);
-        const groupOptions = $("details", "route-note-zone-group-options"); groupOptions.open = groupOpen;
-        groupOptions.append($("summary", "", "묶음 코드 조정 (선택)"), $("p", "route-note-zone-help", "비워 두면 상세 코드 앞 4자리로 자동 묶습니다."), group.wrapper);
-        postal.append(inputs, groupOptions, button(saving ? "조회 중…" : "우편번호 경계 추가", addPostal, "primary")); content.append(postal);
-        const boundaries = $("section", "route-note-zone-card"); boundaries.append($("h3", "", "3. 경계 확인과 수정"));
+        const boundaries = $("section", "route-note-zone-card route-note-zone-boundaries"); boundaries.append($("h3", "", "포함된 경계"));
         if (!parts.length) boundaries.append($("p", "route-note-zone-help", "아직 경계가 없습니다. 우편번호를 추가하거나 지도를 눌러 직접 그려 주세요."));
         const list = $("div", "route-note-zone-part-list");
         parts.forEach((part, index) => {
@@ -289,8 +292,33 @@ export function createRouteNoteZoneEditor({ host, zone = null, zones = [], servi
           rowActions.append(button("경계 삭제", () => { if (window.confirm("이 경계를 삭제할까요? 실행 취소로 되돌릴 수 있습니다.")) { changeGeometry(removePart(history.get(), index)); activePart = null; } }, "secondary"));
           row.append(rowActions); list.append(row);
         });
-        boundaries.append(list, button("직접 그린 영역 추가", () => { mode = "drawing"; drawing = []; drawPast = []; drawFuture = []; selectedPoint = null; renderSections(); syncMap(); }, "secondary"));
+        const addActions = $("div", "route-note-zone-add-actions");
+        addActions.append(
+          button("우편번호로 추가", () => { mode = "postal"; renderSections(); syncMap(); }, "primary"),
+          button("지도에서 직접 그리기", () => { mode = "drawing"; drawing = []; drawPast = []; drawFuture = []; selectedPoint = null; renderSections(); syncMap(); }, "secondary"),
+        );
+        boundaries.append(list, addActions);
         content.append(boundaries);
+      } else if (mode === "postal") {
+        const postal = $("section", "route-note-zone-card route-note-zone-postal-card");
+        postal.append($("h3", "", "우편번호 경계 추가"), $("p", "route-note-zone-help", "상세 코드와 우편번호를 입력하면 해당 경계를 지도에 불러옵니다."));
+        const inputs = $("div", "route-note-zone-postal-inputs");
+        const group = field("묶음 코드 직접 지정", pendingGroup, (value) => { pendingGroup = value; }, { placeholder: "예: 310C" });
+        const code = field("상세 코드", pendingCode, (value) => { pendingCode = normalizedCode(value); code.control.value = pendingCode; }, { placeholder: "예: 310C01" });
+        const postcode = field("우편번호 5자리", pendingPostcode, (value) => { pendingPostcode = value.replace(/\D/g, "").slice(0, 5); postcode.control.value = pendingPostcode; }, { placeholder: "예: 06236", maxLength: 5 });
+        postcode.control.inputMode = "numeric";
+        inputs.append(code.wrapper, postcode.wrapper);
+        const recentCodes = [...new Set(zones.flatMap((item) => routeNoteDetailCodes(item.polygon)))].slice(0, 5);
+        if (recentCodes.length) {
+          const recent = $("div", "route-note-zone-recent-codes");
+          recent.append($("small", "", "최근 사용"));
+          recentCodes.forEach((value) => recent.append(button(value, () => { pendingCode = value; code.control.value = value; }, "compact")));
+          postal.append(inputs, recent);
+        } else postal.append(inputs);
+        const groupOptions = $("details", "route-note-zone-group-options"); groupOptions.open = groupOpen;
+        groupOptions.append($("summary", "", "묶음 코드 조정 (선택)"), $("p", "route-note-zone-help", "비워 두면 상세 코드 앞 4자리로 자동 묶습니다."), group.wrapper);
+        postal.append(groupOptions); content.append(postal);
+        actions.append(button("취소", () => { mode = "form"; renderSections(); syncMap(); }, "secondary"), button(saving ? "조회 중…" : "경계 추가", addPostal, "primary"));
       } else {
         const points = activePoints();
         const panel = $("section", "route-note-zone-card");
@@ -330,9 +358,8 @@ export function createRouteNoteZoneEditor({ host, zone = null, zones = [], servi
         }, "primary"));
         mapTools.append(button("경계 편집 마치기", () => { handleBack(); }, "secondary"));
       }
-      actions.append(button("취소", cancel, "secondary"));
+      if (mode !== "postal") actions.append(button(mode === "form" ? "닫기" : "취소", cancel, "secondary"));
       if (mode === "form") {
-        actions.append(button("실행 취소", undo, "secondary"), button("다시 실행", redo, "secondary"));
         if (zone?.id && canDelete) actions.append(button("구역 삭제", removeZone, "danger"));
         actions.append(button("저장 전 확인", () => { const problem = validate(); if (problem) return announce(problem); mode = "review"; renderSections(); syncMap(); }, "primary"));
       }

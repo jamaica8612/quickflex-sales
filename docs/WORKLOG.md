@@ -1519,4 +1519,10 @@ Browser checks:
 
 - Point the existing download and release links to Android Beta 1.22. The native update improves bounded single-card capture and fixed rejection diagnostics without relaxing exact-identity or duplicate-counting safeguards. No business data, database, route-note UI, or web application logic changes.
 - Advance the manifest, shell cache and matching entrypoint URLs to 1.0.91 so existing browsers receive the new installation guidance. Preserve the latest 1.0.90 map icon work.
+
+## 2026-09-23 - Route-note market annex maps and Beta 1.23 links (PWA 1.0.92)
+
+- Restore the original 311CD322D agricultural-market layouts for 청과물동, 무배추동 and 양념동 as searchable, zoomable building tabs inside the route-note market tip.
+- Keep the current route-note visual language while aligning the zone bar, Pretendard Korean typography and distinct map marker icons.
+- Point Android installation and update guidance to Beta 1.23, whose Korean UI font is Pretendard while numeric and route-code fonts remain unchanged.
 - Validation: 29 focused release, update-notice and measurement-launch tests pass; required app/service-worker syntax checks pass, all 92 precache paths exist, and diff checks pass. Android build/signing and public download verification are tracked in the native release record.

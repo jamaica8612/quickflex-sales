@@ -1,4 +1,4 @@
-import { MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon } from "./route-note-icons.js";
+import { ALERT_MARKERS, createRouteNoteIcon, createRouteNoteMapIcon } from "./route-note-icons.js?v=2";
 import { routeNoteBoundaryDisplay, routeNoteLabelGroups } from "./route-note-map-geometry.js?v=2";
 
 const NAVER_SCRIPT_ID = "quickflex-route-notes-naver-map";
@@ -148,13 +148,14 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
   function addTipMarker(tip, selected) {
     const documentRef = element.ownerDocument || globalThis.document;
     const button = documentRef.createElement("button");
-    const title = tip.title || "구역 메모";
+    const title = tip.title || "구역 팁";
     button.type = "button";
     button.className = "route-notes-map-tip-marker";
-    button.setAttribute("aria-label", title + " 메모 보기");
+    button.setAttribute("aria-label", title + " 팁 보기");
     button.setAttribute("aria-pressed", String(selected));
     button.setAttribute("data-alert", String(ALERT_MARKERS.has(tip.marker_type)));
-    button.append(createRouteNoteIcon(documentRef, MARKER_ICONS[tip.marker_type] || "note"));
+    button.setAttribute("data-marker-type", tip.marker_type || "note");
+    button.append(createRouteNoteMapIcon(documentRef, tip.marker_type));
     const choose = (event) => {
       event.preventDefault(); event.stopPropagation();
       suppressCoordinatePick = true;
@@ -282,6 +283,10 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
   }
   return {
     render,
+    getCenter() {
+      const center = map.getCenter?.();
+      return center ? { lat: Number(center.lat()), lng: Number(center.lng()) } : null;
+    },
     setRingEditor,
     clearRingEditor,
     resize() {
