@@ -30,7 +30,6 @@ import {
   formatLong,
   formatLongShort,
   formatRecordTitleDate,
-  formatShort,
   parseDateKey,
   todayKey,
   toDateKey,
@@ -421,7 +420,6 @@ const el = {
   salesOverrideStatus: $("salesOverrideStatus"),
   salesOverrideSave: $("salesOverrideSave"),
   salesOverrideClose: $("salesOverrideClose"),
-  profileName: $("profileName"),
   periodRange: $("periodRange"),
   periodRevenue: $("periodRevenue"),
   periodCount: $("periodCount"),
@@ -456,7 +454,6 @@ const el = {
   selectedDateBreakdownRows: $("selectedDateBreakdownRows"),
   selectedDateBreakdownNote: $("selectedDateBreakdownNote"),
   openSalesOverride: $("openSalesOverride"),
-  openSettings: $("openSettings"),
   inspectionEntryCard: $("inspectionEntryCard"),
   inspectionEntryEyebrow: $("inspectionEntryEyebrow"),
   inspectionEntryTitle: $("inspectionEntryTitle"),
@@ -518,7 +515,6 @@ const el = {
   measurementGuideDone: $("measurementGuideDone"),
   statsMonthTitle: $("statsMonthTitle"),
   statsRange: $("statsRange"),
-  statsReportTitle: $("statsReportTitle"),
   statsHeroLabel: $("statsHeroLabel"),
   statsSummaryRange: $("statsSummaryRange"),
   statsSummaryTotal: $("statsSummaryTotal"),
@@ -618,10 +614,12 @@ const el = {
   dbStatus: $("dbStatus"),
   toast: $("toast"),
   entryTemplate: $("entryTemplate"),
-  moreMenuLayer: $("moreMenuLayer"),
-  moreMenu: $("moreMenu"),
-  moreExpenseSummary: $("moreExpenseSummary"),
-  moreStatsSummary: $("moreStatsSummary"),
+  summaryLedger: $("summaryLedger"),
+  summaryExpense: $("summaryExpense"),
+  summaryNet: $("summaryNet"),
+  noahThread: $("noahThread"),
+  noahAskForm: $("noahAskForm"),
+  noahInput: $("noahInput"),
   navTabs: document.querySelectorAll(".nav-tab"),
   modeBtns: document.querySelectorAll(".mode-btn"),
   statsTabs: document.querySelectorAll("[data-tab]"),
@@ -2040,7 +2038,6 @@ function applyProfileUi() {
   const isAdmin = profile.role === "admin";
   el.app.dataset.driverType = profile.driver_type || "backup";
   el.app.dataset.role = isAdmin ? "admin" : "driver";
-  el.profileName.textContent = profile.display_name || "내 매출 기록";
   el.profileDisplayName.value = profile.display_name || "";
   el.profileBusinessName.value = profile.business_name || "";
   el.profileVehicleNumber.value = profile.vehicle_number || "";
@@ -3277,7 +3274,7 @@ function renderInspectionEntry() {
     ? `${record.signed_name || driverName()} · ${new Date(record.signed_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}`
     : available ? "아직 점검하지 않았습니다" : "작성할 수 없는 날짜입니다";
   el.openInspection.disabled = !available;
-  el.openInspection.textContent = !available ? "작성 불가" : complete ? "기록 보기" : "점검하기";
+  el.openInspection.textContent = !available ? "점검 불가" : complete ? "점검 완료" : "일상점검";
 }
 function renderInspection(dateKey = todayKey(), options = {}) {
   const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? dateKey : todayKey();
@@ -3514,68 +3511,26 @@ async function saveInspectionMonthPdf() {
   }
 }
 
-function moreNavView(view = el.app?.dataset.view || "home") {
-  return ["schedule", "stats", "settings", "expenses"].includes(view) ? "more" : view;
+function tabForView(view = el.app?.dataset.view || "home") {
+  if (view === "expenses") return "home";
+  if (["settings", "schedule"].includes(view)) return "";
+  return view;
 }
 
-function syncNavSelection(view = el.app?.dataset.view || "home", override = "") {
-  const target = override || moreNavView(view);
+function syncNavSelection(view = el.app?.dataset.view || "home") {
+  const target = tabForView(view);
   el.navTabs.forEach((tab) => {
     const selected = tab.dataset.view === target;
     tab.classList.toggle("active", selected);
     if (selected) tab.setAttribute("aria-current", "page");
     else tab.removeAttribute("aria-current");
-    if (tab.dataset.view === "more") tab.setAttribute("aria-expanded", String(target === "more" && override === "more"));
   });
 }
 
-function isMoreMenuOpen() {
-  return Boolean(el.moreMenuLayer && !el.moreMenuLayer.hasAttribute("inert"));
-}
-
-async function refreshMoreMenuSummaries() {
-  syncStatsToCurrentPeriod();
-  const period = summarizePeriod(state.statsYear, state.statsMonth);
-  if (el.moreStatsSummary) el.moreStatsSummary.textContent = `정산기간 ${period.workDays}일`;
-  if (!el.moreExpenseSummary) return;
-  const now = new Date();
-  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const from = `${month}-01`, to = `${month}-${String(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()).padStart(2, "0")}`;
-  el.moreExpenseSummary.textContent = "이번 달 합계 불러오는 중";
-  try {
-    const rows = await ownExpenseService().list({ from, to, includeDrafts: true, includeTrashed: false });
-    const total = (rows || []).filter((row) => row.status === "confirmed" && row.actual_date >= from && row.actual_date <= to)
-      .reduce((sum, row) => sum + Number(row.gross_amount || 0) - (row.adjustments || []).filter((item) => item.kind === "refund").reduce((amount, item) => amount + Number(item.amount || 0), 0), 0);
-    el.moreExpenseSummary.textContent = `이번 달 ${formatCompactWonWithUnit(total)}`;
-  } catch {
-    el.moreExpenseSummary.textContent = "이번 달 합계";
-  }
-}
-
-function openMoreMenu() {
-  if (!el.moreMenuLayer || isMoreMenuOpen()) return;
-  el.moreMenuLayer.removeAttribute("inert");
-  el.moreMenuLayer.setAttribute("aria-hidden", "false");
-  syncNavSelection(el.app?.dataset.view, "more");
-  void refreshMoreMenuSummaries();
-  window.requestAnimationFrame?.(() => el.moreMenu?.focus());
-}
-
-function closeMoreMenu({ restoreFocus = true } = {}) {
-  if (!el.moreMenuLayer || !isMoreMenuOpen()) return false;
-  el.moreMenuLayer.setAttribute("inert", "");
-  el.moreMenuLayer.setAttribute("aria-hidden", "true");
-  syncNavSelection();
-  if (restoreFocus) el.navTabs.forEach((tab) => { if (tab.dataset.view === "more") tab.focus(); });
-  return true;
-}
-
 function showView(view, options = {}) {
-  if (view === "more") { if (typeof openMoreMenu === "function") openMoreMenu(); return; }
   if (view === "admin") view = "settings";
-  if (!["home", "record", "measurement", "inspection", "stats", "settings", "expenses", "schedule", "routes"].includes(view)) view = "home";
+  if (!["home", "record", "measurement", "inspection", "stats", "settings", "expenses", "schedule", "routes", "noah"].includes(view)) view = "home";
   const previousView = el.app.dataset.view || "home";
-  if (typeof closeMoreMenu === "function") closeMoreMenu({ restoreFocus: false });
   if (previousView === "routes" && view === "routes" && routeNotesController?.canClose && !routeNotesController.canClose()) return;
   if (previousView === "routes" && view !== "routes") {
     if (routeNotesController?.canClose && !routeNotesController.canClose()) return;
@@ -3585,6 +3540,7 @@ function showView(view, options = {}) {
     if (!confirmLeaveRecordDraft()) return;
     discardRecordDraft();
   }
+  if (previousView === "expenses" && view !== "expenses") invalidateSummaryLedger();
   el.app.dataset.view = view;
   syncNativeRouteNotesState();
   if (typeof syncNavSelection === "function") syncNavSelection(view);
@@ -3614,13 +3570,11 @@ function nativeBackAction({ dbSheetOpen = false, salesOverrideOpen = false, bloc
   if (measurementGuideOpen) return "close-measurement-guide";
   if (view === "record") return "leave-record";
   if (view === "schedule") return "go-settings";
-  if (view === "stats") return "go-settings";
-  if (["inspection", "measurement", "expenses", "settings", "routes"].includes(view)) return "go-home";
+  if (["inspection", "measurement", "expenses", "settings", "routes", "stats", "noah"].includes(view)) return "go-home";
   return "unhandled";
 }
 
 function quickflexHandleNativeBack() {
-  if (typeof closeMoreMenu === "function" && closeMoreMenu()) return "handled";
   if (routeNoteShareDialog?.handleBack?.()) return "handled";
   if (document.querySelector(".expense-dialog[open]")) { expensesController?.handleBack(); return "handled"; }
   if (document.querySelector(".exports-overlay:not([hidden])")) { exportsController?.close(); return "handled"; }
@@ -3891,7 +3845,6 @@ function renderAll() {
 function renderSummary() {
   const { start, end } = periodBounds();
   const total = summarizePeriod();
-  el.periodRange.textContent = `정산기간 ${formatShort(start)} ~ ${formatShort(end)}`;
   el.monthTitle.textContent = `${state.year}년 ${String(state.month).padStart(2, "0")}월`;
   el.periodRange.textContent = `정산기간 ${formatPeriodRangeSimple(start, end)}`;
   renderNumberWithUnit(el.periodRevenue, fmtWon(total.revenue));
@@ -3904,6 +3857,39 @@ function renderSummary() {
   el.meterFill.style.width = `${pct}%`;
   el.meterPct.textContent = `${Math.round(pct)}%`;
   el.meterLabel.textContent = `목표 ${fmtWon(goal)} 대비 진행률`;
+  renderSummaryLedger(total.revenue);
+}
+// 정산 카드 아래 한 줄: 이 정산기간의 확정 지출과 남는 돈. 지출은 서버에서 한 번 읽어 기간별로 기억한다.
+const summaryLedgerCache = { key: "", total: null, loading: "" };
+function renderSummaryLedger(revenue) {
+  if (!el.summaryLedger) return;
+  const { start, end } = periodBounds();
+  const from = toDateKey(start), to = toDateKey(end);
+  const key = `${currentUserId() || ""}:${from}:${to}`;
+  if (summaryLedgerCache.key === key && summaryLedgerCache.total !== null) {
+    el.summaryExpense.textContent = `지출 ${fmtWon(summaryLedgerCache.total)}`;
+    renderNumberWithUnit(el.summaryNet, fmtWon(revenue - summaryLedgerCache.total));
+    el.summaryLedger.hidden = false;
+    return;
+  }
+  el.summaryLedger.hidden = true;
+  if (summaryLedgerCache.loading === key || !currentUserId()) return;
+  summaryLedgerCache.loading = key;
+  (async () => {
+    try {
+      const rows = await ownExpenseService().list({ from, to, includeDrafts: true, includeTrashed: false });
+      const total = (rows || []).filter((row) => row.status === "confirmed" && row.actual_date >= from && row.actual_date <= to)
+        .reduce((sum, row) => sum + Number(row.gross_amount || 0) - (row.adjustments || []).filter((item) => item.kind === "refund").reduce((amount, item) => amount + Number(item.amount || 0), 0), 0);
+      if (summaryLedgerCache.loading !== key) return;
+      Object.assign(summaryLedgerCache, { key, total, loading: "" });
+      renderSummary();
+    } catch {
+      if (summaryLedgerCache.loading === key) summaryLedgerCache.loading = "";
+    }
+  })();
+}
+function invalidateSummaryLedger() {
+  Object.assign(summaryLedgerCache, { key: "", total: null, loading: "" });
 }
 function renderMonth() {
   el.modeBtns.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.mode === state.mode)));
@@ -5792,6 +5778,38 @@ function closeSheet() {
   updateModalLayer(el.dbSheet, false);
 }
 
+// 노아: 화면과 대화 틀만 먼저 둔다. 답변 엔진이 붙기 전에는 준비 중이라고 안내한다.
+function appendNoahMessage(text, from) {
+  const item = document.createElement("li");
+  item.className = `noah-msg from-${from}`;
+  if (from === "noah") {
+    const avatar = document.createElement("span");
+    avatar.className = "noah-avatar";
+    avatar.setAttribute("aria-hidden", "true");
+    avatar.textContent = "N";
+    item.append(avatar);
+  }
+  const body = document.createElement("p");
+  body.textContent = text;
+  item.append(body);
+  el.noahThread.append(item);
+  item.scrollIntoView({ block: "end", behavior: "smooth" });
+}
+function askNoah(question) {
+  const text = String(question || "").trim().slice(0, 300);
+  if (!text || !el.noahThread) return;
+  appendNoahMessage(text, "me");
+  appendNoahMessage("노아는 아직 준비 중이에요. 곧 이 질문에 답해드릴게요.", "noah");
+}
+function bindNoah() {
+  el.noahAskForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    askNoah(el.noahInput.value);
+    el.noahInput.value = "";
+  });
+  document.querySelectorAll("[data-noah-ask]").forEach((button) => button.addEventListener("click", () => askNoah(button.textContent)));
+}
+
 function bindEvents() {
   $("homeRouteNotes")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-open-route-note]");
@@ -5803,9 +5821,8 @@ function bindEvents() {
     showView("settings");
     if (button.hasAttribute("data-open-admin")) { const panel = $("operationSettings"); if (panel) panel.open = true; }
   }));
-  document.querySelectorAll("[data-close-more-menu]").forEach((button) => button.addEventListener("click", () => closeMoreMenu()));
-  document.querySelectorAll("[data-close-more-link]").forEach((link) => link.addEventListener("click", () => closeMoreMenu({ restoreFocus: false })));
-  document.addEventListener("keydown", (event) => { if (event.key === "Escape" && isMoreMenuOpen()) { event.preventDefault(); closeMoreMenu(); } });
+  document.querySelectorAll("[data-ledger]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.ledger)));
+  bindNoah();
   $("retryPendingSave")?.addEventListener("click", () => reviewPendingSave().catch((error) => toast(error.message, "error")));
   $("useServerRecord")?.addEventListener("click", () => reviewPendingSave(true).catch((error) => toast(error.message, "error")));
   $("showRetainedEdits")?.addEventListener("click", () => {

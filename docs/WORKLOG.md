@@ -1526,3 +1526,13 @@ Browser checks:
 - Keep the current route-note visual language while aligning the zone bar, Pretendard Korean typography and distinct map marker icons.
 - Point Android installation and update guidance to Beta 1.23, whose Korean UI font is Pretendard while numeric and route-code fonts remain unchanged.
 - Validation: 29 focused release, update-notice and measurement-launch tests pass; required app/service-worker syntax checks pass, all 92 precache paths exist, and diff checks pass. Android build/signing and public download verification are tracked in the native release record.
+
+## 2026-09-23 - Unified tab headers, Noah tab and expenses inside 매출노트 (PWA 1.0.93)
+
+- User-approved navigation: 매출노트 · 배송노트 · 노아 · 구역노트 · 정산노트. The 더보기 bottom sheet is removed; every tab header has a gear that opens 설정, which already holds 사용법 and the admin section. The settings page title is 설정 and its duplicate 통계 row is gone.
+- Tab first screens share one header (22px title, one-line subtitle, right-side actions). 매출노트 shows the settlement period as its subtitle and the daily inspection as a small header pill (gold dot while pending, muted 점검 완료 when done); the profile-name line is removed.
+- 지출노트 lives inside 매출노트 behind a 매출 | 지출 switch; the expenses view keeps its controller, export button and data. The settlement card adds `지출 … · 남는 돈 …` for the same period (confirmed expenses minus refunds), cached per account and period and refreshed after leaving the expenses view.
+- 통계 is renamed 정산노트 and is a tab; native back from 정산노트 and 노아 now returns home.
+- 노아 is a UI shell only: intro, suggested questions and an input that answers "준비 중". No AI backend, network call or data access yet.
+- Route-note tip icons are unchanged (icon refresh postponed by the user). No schema, backend or APK changes.
+- Validation: 430/431 Node tests pass; the remaining `expense-privacy-sql` failure is pre-existing on main. 390x844 captures checked for all tabs.
