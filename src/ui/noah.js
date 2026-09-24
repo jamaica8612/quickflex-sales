@@ -1,7 +1,6 @@
 import { createNoahService, NoahStaleAccountError } from "../services/noah.js";
-import { loadNoahHistory, saveNoahHistory, purgeNoahHistory } from "../lib/noah-history.js";
 import { validNoahLinks } from "../lib/noah-links.js";
-import { NOAH_NOTICE, noahBrief, noahChips, noahWelcome } from "../lib/noah-brief.js";
+import { NOAH_NOTICE, NOAH_PRIVACY_URL, noahChips, noahWelcome } from "../lib/noah-brief.js";
 
 const MAX_HISTORY = 12;
 const REQUEST_TIMEOUT_MS = 85000;
@@ -45,13 +44,9 @@ export function createNoahController({ thread, form, input, suggestions, status,
   if (!status && form.parentNode) form.parentNode.insertBefore(statusNode, form);
   statusNode.setAttribute("role", "status");
   statusNode.setAttribute("aria-live", "polite");
-  const clearButton = element(doc, "button", "noah-new-chat", "대화 지우기");
+  const clearButton = element(doc, "button", "noah-new-chat", "새 대화");
   clearButton.type = "button";
-  clearButton.setAttribute("aria-label", "이 기기의 노아 대화 지우기");
   if (form.parentNode) form.parentNode.insertBefore(clearButton, statusNode.parentNode === form.parentNode ? statusNode : form);
-  const briefNode = element(doc, "section", "noah-brief");
-  briefNode.setAttribute("aria-label", "오늘의 노아 브리핑");
-  if (thread.parentNode) thread.parentNode.insertBefore(briefNode, thread);
 
   let generation = 0;
   let destroyed = false;
@@ -59,8 +54,6 @@ export function createNoahController({ thread, form, input, suggestions, status,
   let activeDecisions = 0;
   let items = [];
   let activeUserId = null;
-  let loaded = false;
-  let loading = null;
   let acknowledgedHere = null;
   let freshlyAcknowledged = false;
   let pendingRetry = null;
@@ -88,8 +81,8 @@ export function createNoahController({ thread, form, input, suggestions, status,
     const picture = element(doc, "img");
     picture.src = AVATAR;
     picture.alt = "";
-    picture.width = large ? 64 : 38;
-    picture.height = large ? 64 : 38;
+    picture.width = large ? 48 : 30;
+    picture.height = large ? 48 : 30;
     wrap.append(picture);
     return wrap;
   }
@@ -116,25 +109,10 @@ export function createNoahController({ thread, form, input, suggestions, status,
     });
     return Promise.race([work(), timeout]).finally(() => { clearTimeout(timer); requests.delete(controller); });
   }
-  function renderBrief() {
-    briefNode.replaceChildren();
-    const context = getBriefingContext() || {};
-    const brief = noahBrief(context);
-    if (brief) {
-      briefNode.append(element(doc, "strong", "noah-brief-title", brief.title));
-      if (brief.caption) briefNode.append(element(doc, "p", "noah-brief-caption", brief.caption));
-      const list = element(doc, "ul", "noah-brief-facts");
-      for (const row of brief.rows) {
-        const fact = element(doc, "li");
-        fact.append(button(row.label, () => { void ask(row.question); }, "noah-brief-ask"));
-        list.append(fact);
-      }
-      briefNode.append(list);
-    }
-    if (suggestions) {
-      suggestions.replaceChildren();
-      for (const question of noahChips(context)) suggestions.append(button(question, () => { void ask(question); }, "noah-chip"));
-    }
+  function renderChips(context = getBriefingContext() || {}) {
+    if (!suggestions) return;
+    suggestions.replaceChildren();
+    for (const question of noahChips(context)) suggestions.append(button(question, () => { void ask(question); }, "noah-chip"));
   }
   function renderLinks(host, links) {
     const safe = validNoahLinks(links);
@@ -146,53 +124,30 @@ export function createNoahController({ thread, form, input, suggestions, status,
     }, "noah-link"));
     host.append(row);
   }
-  function renderFeedback(host, result, account, start) {
-    if (!getContext()?.client?.rpc) return;
-    const bar = element(doc, "div", "noah-feedback");
-    bar.append(element(doc, "span", "", "답변이 도움이 됐나요?"));
-    let busy = false;
-    const up = button("👍", () => vote(1), "noah-feedback-up");
-    const down = button("👎", () => vote(-1), "noah-feedback-down");
-    up.setAttribute("aria-label", "노아 답변이 도움이 됐어요");
-    down.setAttribute("aria-label", "노아 답변이 도움이 안 됐어요");
-    bar.append(up, down);
-    host.append(bar);
-    async function vote(rating) {
-      if (busy || up.disabled || !current(start, account)) return;
-      busy = true; up.disabled = true; down.disabled = true;
-      const controller = new AbortController();
-      try {
-        await withTimeout(() => service.feedback({ rating, sources: result.sources, hasProposal: Boolean(result.proposals?.length),
-          responseMs: result.elapsedMs, model: result.model }, controller.signal), controller);
-        if (current(start, account)) bar.replaceChildren(element(doc, "span", "", "의견을 남겼어요. 고맙습니다."));
-      } catch (error) {
-        if (!current(start, account) || error instanceof NoahStaleAccountError) return;
-        busy = false; up.disabled = false; down.disabled = false;
-        setStatus("의견을 보내지 못했어요. 다시 눌러 주세요.");
-      }
-    }
-  }
   function renderStored() {
     thread.replaceChildren();
     if (!hasNotice()) return renderNotice();
     if (!items.length) {
       const brief = getBriefingContext() || {};
-      appendMessage(noahWelcome(freshlyAcknowledged ? { ...brief, phase: "firstUse" } : brief), "noah", "noah-welcome", true);
+      const welcome = freshlyAcknowledged ? { ...brief, phase: "firstUse", closing: false } : brief;
+      appendMessage(noahWelcome(welcome), "noah", "noah-welcome", true);
+      if (freshlyAcknowledged) renderChips(welcome);
       freshlyAcknowledged = false;
       return;
     }
     for (const entry of items) {
       const view = appendMessage(entry.body, entry.role === "user" ? "me" : "noah");
-      if (entry.role === "assistant") {
-        renderLinks(view.item, entry.links);
-        if (entry.proposalMarker) view.item.append(element(doc, "small", "noah-past-proposal", "이전 변경 제안 · 다시 요청해 주세요."));
-      }
+      if (entry.role === "assistant") renderLinks(view.item, entry.links);
     }
   }
   function renderNotice() {
     thread.replaceChildren();
     const card = element(doc, "li", "noah-notice");
-    card.append(avatar(true), element(doc, "strong", "", "노아를 시작하기 전에"), element(doc, "p", "", NOAH_NOTICE));
+    const more = element(doc, "a", "noah-notice-more", "자세히 보기");
+    more.href = NOAH_PRIVACY_URL;
+    more.target = "_blank";
+    more.rel = "noopener noreferrer";
+    card.append(avatar(true), element(doc, "strong", "", "노아를 시작하기 전에"), element(doc, "p", "", NOAH_NOTICE), more);
     const accept = button("확인하고 시작", async () => {
       if (accept.disabled) return;
       const start = generation;
@@ -219,7 +174,7 @@ export function createNoahController({ thread, form, input, suggestions, status,
     thread.append(card);
     setStatus("");
   }
-  async function open() {
+  function open() {
     if (destroyed) return;
     const account = identity();
     if (activeUserId && activeUserId !== account.userId) {
@@ -227,27 +182,15 @@ export function createNoahController({ thread, form, input, suggestions, status,
       requests.clear();
       generation += 1;
       items = []; proposals.clear(); pendingRetry = null; chatPending = false;
-      acknowledgedHere = null; loaded = false;
-      // A switched account must not keep the prior account's local transcript.
-      void purgeNoahHistory(activeUserId);
+      acknowledgedHere = null;
     }
     activeUserId = account.userId || null;
-    renderBrief();
+    renderChips();
     if (!activeUserId || account.approved !== true) {
-      items = []; loaded = true; thread.replaceChildren(); setStatus(""); return;
+      items = []; thread.replaceChildren(); setStatus(""); return;
     }
-    if (loaded) {
-      if (!items.length && !chatPending && proposals.size === 0) renderStored();
-      setStatus(""); return;
-    }
-    const start = generation;
-    if (!loading) loading = loadNoahHistory(activeUserId).catch(() => []);
-    const restored = await loading;
-    if (!current(start, account)) return;
-    items = restored;
-    loaded = true;
-    loading = null;
-    renderStored();
+    // The conversation lives only in this screen's memory; nothing is restored or saved.
+    if (!items.length && !chatPending && proposals.size === 0) renderStored();
     setStatus("");
   }
   function renderProposal(proposal) {
@@ -310,15 +253,14 @@ export function createNoahController({ thread, form, input, suggestions, status,
   async function ask(question) {
     const text = String(question || "").trim().slice(0, 2000);
     if (!text || chatPending || destroyed) return;
-    if (!loaded) await open();
-    if (!loaded || !hasNotice()) { setStatus("안내를 확인한 뒤 질문할 수 있어요."); return; }
+    if (activeUserId !== identity().userId) open();
+    if (!hasNotice()) { setStatus("안내를 확인한 뒤 질문할 수 있어요."); return; }
     if (pendingRetry) { pendingRetry.button.disabled = true; pendingRetry = null; }
     const start = generation;
     const account = identity();
     const prior = items.slice(-MAX_HISTORY).map(({ role, body }) => ({ role, content: body }));
     const userMessage = appendMessage(text, "me");
-    items = [...items, { role: "user", body: text, timestamp: Date.now(), links: [], sources: [], proposalMarker: false }].slice(-20);
-    void saveNoahHistory(account.userId, items);
+    items = [...items, { role: "user", body: text, links: [] }].slice(-20);
     async function send() {
       if (!current(start, account) || chatPending) return;
       chatPending = true;
@@ -342,11 +284,8 @@ export function createNoahController({ thread, form, input, suggestions, status,
         answerView.item.className = "noah-msg from-noah";
         answerView.body.textContent = result.answer;
         renderLinks(answerView.item, result.links);
-        renderFeedback(answerView.item, result, account, start);
         const validProposals = (Array.isArray(result.proposals) ? result.proposals : []).map(proposalData).filter(Boolean);
-        items = [...items, { role: "assistant", body: result.answer, timestamp: Date.now(), links: validNoahLinks(result.links),
-          sources: (Array.isArray(result.sources) ? result.sources : []).filter((value) => typeof value === "string").slice(0, 20), proposalMarker: validProposals.length > 0 }].slice(-20);
-        void saveNoahHistory(account.userId, items);
+        items = [...items, { role: "assistant", body: result.answer, links: validNoahLinks(result.links) }].slice(-20);
         for (const proposal of validProposals) renderProposal(proposal);
         setStatus("");
       } catch (error) {
@@ -368,20 +307,17 @@ export function createNoahController({ thread, form, input, suggestions, status,
     return userMessage.item;
   }
   function reset() {
-    const oldUserId = activeUserId;
     generation += 1;
     for (const controller of requests) controller.abort();
     requests.clear(); items = []; pendingRetry = null; proposals.clear();
     chatPending = false; activeDecisions = 0; clearButton.disabled = false;
-    input.value = ""; loaded = false; loading = null; acknowledgedHere = null; freshlyAcknowledged = false;
+    input.value = ""; acknowledgedHere = null; freshlyAcknowledged = false;
     activeUserId = null; thread.replaceChildren(); setStatus("");
-    if (oldUserId) void purgeNoahHistory(oldUserId);
-    void open();
+    open();
   }
   function clearAccount(userId = activeUserId) {
-    if (!userId) return Promise.resolve();
-    if (userId === activeUserId) reset();
-    return purgeNoahHistory(userId);
+    if (userId && userId === activeUserId) reset();
+    return Promise.resolve();
   }
   function onSubmit(event) {
     event.preventDefault();
@@ -392,12 +328,10 @@ export function createNoahController({ thread, form, input, suggestions, status,
   }
   clearButton.addEventListener("click", () => {
     if (activeDecisions > 0) return;
-    const confirm = doc.defaultView?.confirm || globalThis.confirm;
-    if (typeof confirm === "function" && !confirm("이 기기의 노아 대화를 지울까요?")) return;
     reset();
   });
   form.addEventListener("submit", onSubmit);
-  void open();
+  open();
   return {
     open, reset, clearAccount, ask,
     destroy() {
@@ -406,7 +340,7 @@ export function createNoahController({ thread, form, input, suggestions, status,
       for (const controller of requests) controller.abort();
       requests.clear();
       form.removeEventListener("submit", onSubmit);
-      clearButton.remove(); briefNode.remove();
+      clearButton.remove();
       if (!status) statusNode.remove();
     },
   };

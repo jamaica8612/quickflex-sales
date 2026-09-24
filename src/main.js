@@ -1,11 +1,11 @@
 import { createExpenseService } from "./services/expenses.js";
 import { createRouteNotesService } from "./services/route-notes.js?v=2";
-import { createRouteNotesController } from "./ui/route-notes.js?v=14";
+import { createRouteNotesController } from "./ui/route-notes.js?v=15";
 import { createRouteNoteShareService } from "./services/route-note-share.js";
 import { createRouteNoteShareDialog } from "./ui/route-note-share.js";
 import { checkBetaMeasurementAccess } from "./services/beta-access.js";
 import { createExpensesController } from "./ui/expenses.js";
-import { createNoahController } from "./ui/noah.js?v=2";
+import { createNoahController } from "./ui/noah.js?v=3";
 import { createExportsController } from "./ui/exports.js";
 import { mountCalendarSync } from "./ui/calendar-sync.js";
 import { buildStatsInsights } from "./lib/stats-insights.js";
@@ -166,8 +166,9 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.96";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.97";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
+import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
 const LEGACY_USER_NAMES = new Map([["kim-gwanhyun", "김관현"]]);
@@ -933,7 +934,6 @@ function clearUserScopedState() {
   state.workDateDataLoaded = false;
   state.workDateScheduleDates = new Set();
   state.activeMeasurementLease = null;
-  noahTipSnapshots.clear();
   state.receiptEntries = {};
   state.automaticSalesOverrides = {};
   state.workRouteDetails = {};
@@ -3291,9 +3291,16 @@ function inspectionSignatureForSave(record) {
   }
   return state.inspectionSignature;
 }
+// The pre-driving inspection belongs to the Korean date driving starts. A night driver
+// looking at tonight's work (tomorrow's closing date) therefore inspects today.
+function inspectionDateForSelection(selectedDate = state.selectedDate, now = new Date()) {
+  const today = koreanDateKey(now);
+  if (isNightShift() && selectedDate > today && selectedDate === currentWorkDates(now).nextWorkDate) return today;
+  return selectedDate;
+}
 function renderInspectionEntry() {
-  const dateKey = state.selectedDate;
-  const available = dateKey >= "2026-06-30" && dateKey <= todayKey();
+  const dateKey = inspectionDateForSelection();
+  const available = dateKey >= "2026-06-30" && dateKey <= koreanDateKey();
   const record = available ? state.inspections[dateKey] : null;
   const complete = Boolean(record);
   el.inspectionEntryCard.classList.toggle("complete", complete);
@@ -3306,6 +3313,8 @@ function renderInspectionEntry() {
     : available ? "아직 점검하지 않았습니다" : "작성할 수 없는 날짜입니다";
   el.openInspection.disabled = !available;
   el.openInspection.textContent = !available ? "점검 불가" : complete ? "점검 완료" : "일상점검";
+  const [, month, day] = dateKey.split("-");
+  el.openInspection.setAttribute("aria-label", `${Number(month)}/${Number(day)} 운행 전 일상점검 · ${el.openInspection.textContent}`);
 }
 function renderInspection(dateKey = todayKey(), options = {}) {
   const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? dateKey : todayKey();
@@ -3361,8 +3370,8 @@ function renderInspection(dateKey = todayKey(), options = {}) {
   el.saveInspection.textContent = record ? "일상점검 수정 저장" : "일상점검 저장";
 }
 function openInspection() {
-  const dateKey = state.selectedDate;
-  if (dateKey < "2026-06-30" || dateKey > todayKey()) {
+  const dateKey = inspectionDateForSelection();
+  if (dateKey < "2026-06-30" || dateKey > koreanDateKey()) {
     toast("오늘 이전의 점검 대상 날짜를 선택해 주세요.", "error");
     return;
   }
@@ -3956,7 +3965,7 @@ function renderMonth() {
     const holidayName = koreanHoliday(dateKey);
     const cell = document.createElement("button");
     cell.type = "button";
-    cell.className = `day-cell${inPeriod ? "" : " outside"}${dateKey === state.selectedDate ? " selected" : ""}${dateKey === todayKey() ? " today-cell" : ""}${record.off ? " off" : ""}${holidayName ? " holiday" : ""}`;
+    cell.className = `day-cell${inPeriod ? "" : " outside"}${dateKey === state.selectedDate ? " selected" : ""}${dateKey === todayKey() ? " today-cell" : ""}${record.off ? " off" : ""}${holidayName ? " holiday" : ""}${dateKey === todayWorkDate ? " work-date-cell" : ""}`;
     const routeText = record.off || !shouldShowCalendarRoutes() ? "" : formatRecordRoutes(record.rows);
     const displayValue = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : formatCalendarWon(calc.revenue);
     const displayRouteOrHoliday = routeText || holidayName;
@@ -3984,8 +3993,7 @@ function renderMonth() {
     const inspectionDot = inspection && inspection.status !== "no_operation"
       ? `<span class="inspection-day-dot" aria-hidden="true"></span>`
       : "";
-    const workBadge = dateKey === todayWorkDate ? '<span class="today-work-badge">오늘 업무</span>' : "";
-    cell.innerHTML = `<span class="day-number">${date.getDate()}</span>${inspectionDot}<span class="day-value">${displayValue}</span><span class="day-routes">${displayRouteOrHoliday}</span>${workBadge}`;
+    cell.innerHTML = `<span class="day-number">${date.getDate()}</span>${inspectionDot}<span class="day-value">${displayValue}</span><span class="day-routes">${displayRouteOrHoliday}</span>`;
     cell.addEventListener("click", () => selectDate(dateKey));
     el.monthCalendar.appendChild(cell);
   }
@@ -5826,6 +5834,7 @@ function closeSheet() {
   updateModalLayer(el.dbSheet, false);
 }
 
+// Welcome text and suggested questions depend on the work phase; nothing here is stored.
 function currentNoahBriefing(now = new Date()) {
   const today = koreanDateKey(now);
   const dates = currentWorkDates(now);
@@ -5844,29 +5853,10 @@ function currentNoahBriefing(now = new Date()) {
   const workShift = isNightShift() ? "night" : "day";
   const period = periodForDate(parseDateKey(today));
   const keys = periodKeysFor(period.year, period.month);
-  const days = known ? statsDailyRecords() : [];
-  const byDate = new Map(days.map((record) => [record.dateKey, record]));
-  const remainingDates = keys.filter((key) => key >= dates.nextWorkDate);
-  const scheduleKnown = known && remainingDates.length > 0 && remainingDates.every((key) => {
-    const record = byDate.get(key);
-    return record?.off || record?.worked || state.workDateScheduleDates.has(key);
-  });
-  const remainingDays = scheduleKnown ? remainingDates.filter((key) => {
-    const record = byDate.get(key);
-    return !record?.off && !record?.worked && state.workDateScheduleDates.has(key);
-  }).length : 0;
-  const goal = Number(state.profile?.goal_amount);
-  const revenue = days.filter((record) => keys.includes(record.dateKey))
-    .reduce((sum, record) => sum + record.revenue, 0);
-  const snapshots = [...noahTipSnapshots.values()].filter((snapshot) => snapshot.routes.some((route) => routes.includes(route)));
-  const allTipsKnown = routes.length > 0 && routes.every((route) => snapshots.some((snapshot) => snapshot.routes.includes(route)));
   return { phase, workShift, nextWorkDate: dates.nextWorkDate, workDateLabel,
     workDateCaption: workShift === "night"
       ? `${dates.nextWorkDate > today ? "오늘 밤 " : ""}${workDateLabel} 마감` : `${workDateLabel} 업무`,
     routes,
-    routeTipCount: allTipsKnown ? snapshots.reduce((sum, snapshot) => sum + snapshot.tipCount, 0) : undefined,
-    goalRequiredPerDay: remainingDays > 0 && Number.isFinite(goal) && goal > 0
-      ? Math.ceil(Math.max(0, goal - revenue) / remainingDays) : undefined,
     closing: keys.slice(-3).includes(today),
   };
 }
@@ -6119,6 +6109,7 @@ function bindEvents() {
 }
 
 async function init() {
+  purgeLegacyNoahStorage();
   profileSignaturePad = createSignaturePad(el.profileSignatureCanvas);
   bindEvents();
   renderAll();
@@ -6149,7 +6140,6 @@ async function init() {
 
 let expensesController = null;
 let noahController = null;
-const noahTipSnapshots = new Map();
 let exportsController = null;
 let calendarSyncController = null;
 let routeNotesController = null;
@@ -6172,11 +6162,6 @@ function ensureRouteNotesController() {
     root: $("routeNotesContent"), service: routeNotesService,
     shareDialog: routeNoteShareDialog,
     getUser: () => state.session?.user, getProfile: () => state.profile,
-    onTipSnapshot: ({ zone, tipCount }) => {
-      if (zone?.id && Number.isInteger(tipCount)) noahTipSnapshots.set(zone.id, {
-        routes: parseScheduleRoutes(zone.name || ""), tipCount,
-      });
-    },
     notify: (message, kind) => toast(message, kind), mapClientId: ROUTE_NOTES_CONFIG.mapClientId,
   });
   return routeNotesController;

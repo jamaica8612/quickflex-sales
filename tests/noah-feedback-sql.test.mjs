@@ -4,6 +4,7 @@ import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 
 const migration = readFileSync(new URL("../supabase/migrations/20260924081941_noah_notice_feedback.sql", import.meta.url), "utf8");
+const removalMigration = readFileSync(new URL("../supabase/migrations/20260924120000_remove_noah_feedback.sql", import.meta.url), "utf8");
 const profileMigration = readFileSync(new URL("../supabase/migrations/20260913114410_quickflex_beta_enrollment_and_deletion_request_security.sql", import.meta.url), "utf8");
 const previousNoahMigration = readFileSync(new URL("../supabase/migrations/20260924001910_quickflex_noah_confirmed_actions.sql", import.meta.url), "utf8");
 const guardStart = profileMigration.indexOf("create or replace function public.quickflex_guard_profile_update()");
@@ -224,5 +225,30 @@ test("quota keeps 10 per minute and 100 per KST day with distinct machine codes"
     assert.equal(day.allowed, false);
     assert.equal(day.code, "NOAH_DAY_LIMIT");
     assert.equal(day.remainingDaily, 0);
+  } finally { await db.close(); }
+});
+
+test("removal migration drops answer feedback and its data but keeps notice acknowledgment and quota", async () => {
+  const db = await fixture();
+  try {
+    await db.query("select public.quickflex_noah_acknowledge_notice()");
+    await submit(db);
+    await identity(db, "postgres", "");
+    assert.equal((await db.query("select count(*)::integer as n from quickflex_noah_private.feedback")).rows[0].n, 1);
+    await db.exec(removalMigration);
+    await db.exec(removalMigration);
+    const leftovers = (await db.query(`select
+      to_regclass('quickflex_noah_private.feedback') as feedback_table,
+      to_regprocedure('public.quickflex_noah_submit_feedback(integer,text[],boolean,integer,text)') as feedback_rpc,
+      to_regprocedure('public.quickflex_noah_acknowledge_notice()') as notice_rpc,
+      to_regprocedure('public.quickflex_noah_consume_quota()') as quota_rpc`)).rows[0];
+    assert.equal(leftovers.feedback_table, null);
+    assert.equal(leftovers.feedback_rpc, null);
+    assert.ok(leftovers.notice_rpc);
+    assert.ok(leftovers.quota_rpc);
+    await identity(db, "authenticated", owner);
+    await assert.rejects(() => submit(db));
+    assert.ok((await db.query("select public.quickflex_noah_acknowledge_notice() as at")).rows[0].at);
+    assert.equal((await db.query("select public.quickflex_noah_consume_quota() as q")).rows[0].q.allowed, true);
   } finally { await db.close(); }
 });

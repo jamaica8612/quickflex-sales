@@ -95,7 +95,7 @@ export function fixedRouteZoneIds(zones, profile) {
 }
 
 /** Company context and all persistence are supplied by the trusted caller. */
-export function createRouteNotesController({ root, service, shareDialog = null, getUser = () => null, getProfile = () => null, notify = () => {}, onTipSnapshot = () => {}, mapClientId } = {}) {
+export function createRouteNotesController({ root, service, shareDialog = null, getUser = () => null, getProfile = () => null, notify = () => {}, mapClientId } = {}) {
   if (!root) throw new Error("구역 팁 화면을 표시할 위치가 없습니다.");
   let disposed = false, generation = 0, data = null, selected = null, tab = "all", query = "", loadError = null;
   let selectedTipId = null, tipDetailsOpen = false;
@@ -176,7 +176,6 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     try {
       const loaded = await service.loadZone(zoneId);
       if (!isCurrent(token) || selected?.id !== zoneId) return;
-      if (Array.isArray(loaded?.tips)) onTipSnapshot({ zone: loaded.zone, tipCount: loaded.tips.length });
       const detail = appendAgriculturalMarketTip(loaded);
       selected = { ...detail, id: zoneId, loading: false, tips: Array.isArray(detail?.tips) ? detail.tips : [] };
       if (!selected.tips.some((tip) => tip.id === selectedTipId)) selectedTipId = null;

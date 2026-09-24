@@ -59,7 +59,7 @@ test("PWA config names the immutable-receipt detail and date override contracts"
   assert.match(config, /replaceAutomaticSalesOverride:\s*"quickflex_replace_automatic_sales_override"/);
   assert.match(config, /replaceManualDayRecord:\s*"quickflex_replace_manual_day_record"/);
   const releaseVersion = JSON.parse(manifest).version;
-  assert.equal(releaseVersion, "1.0.96");
+  assert.equal(releaseVersion, "1.0.97");
   assert.ok(serviceWorker.includes(`quickflex-shell-v${releaseVersion}`));
   assert.ok(html.includes(`src/main.js?v=${releaseVersion}`));
   assert.ok(html.includes(`styles.css?v=${releaseVersion}`));
@@ -316,7 +316,6 @@ test("account reset clears every new sales surface and force-closes an open edit
   };
   const sandbox = {
     state, el, $: () => null, setSaveFeedback: () => {}, expensesController: null, noahController: null, exportsController: null, calendarSyncController: null, routeNotesController: null, routeNotesService: null,
-    noahTipSnapshots: new Map([["previous-zone", { tipCount: 3 }]]),
     routeNoteShareDialog: { reset() { shareReset = true; } },
     postNativeMessage: (message) => nativeMessages.push(message),
     clearTimeout: () => {},
@@ -332,7 +331,6 @@ test("account reset clears every new sales surface and force-closes an open edit
 
   assert.equal(closed, true);
   assert.equal(shareReset, true);
-  assert.equal(sandbox.noahTipSnapshots.size, 0);
   assert.equal(nativeMessages.at(-1).type, "set_route_notes_active");
   assert.equal(nativeMessages.at(-1).active, false);
   assert.equal(Object.keys(state.receiptEntries).length, 0);
