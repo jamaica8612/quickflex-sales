@@ -1567,5 +1567,7 @@ Browser checks:
 - First-use notice no longer names the provider on screen: "노아는 질문에 필요한 기사님 기록만 찾아서 답해요. 대화는 저장하지 않고, 무언가를 바꿀 때는 꼭 확인을 받아요." with a 자세히 보기 link to `privacy.html#noah`, which keeps the OpenAI disclosure.
 - privacy.html: removed the visible TODO notes (moved to docs/NOAH.md "운영자 확인 필요"), rewrote the Noah conversation and notice items, effective date 2026-09-25.
 - Noah avatars are smaller: 30px on messages (was 38px), 48px on the welcome/notice (was 64px), 40px on screens 390px wide or less (was 42px).
+- Suggested questions: each phase has a wider pool (route, settlement, comparison, expense questions); three distinct ones are drawn at random per opening. Route questions name the next work route and are skipped when no route is known. A first-use set shows right after the notice is accepted.
+- Night-shift fixes from 1.0.95: the home inspection button inspects the Korean driving-start date, so tonight's work (tomorrow's closing date) inspects today instead of showing "점검 불가". The calendar marks the next work date with a blue ring on the date number instead of an extra "오늘 업무" row that squeezed the route out of the fixed-height cell; the accessible label still says "오늘 업무".
 - Deploy order: apply only 20260924120000 → redeploy `noah` → publish PWA 1.0.97.
-- Validation: 510/511 Node tests pass; the remaining `expense-privacy-sql` failure is pre-existing. New tests cover the legacy storage cleanup, the removal migration (PGlite) and the notice copy. Mock Noah screen captured at 390px.
+- Validation: 513/514 Node tests pass; the remaining `expense-privacy-sql` failure is pre-existing. New tests cover the legacy storage cleanup, the removal migration (PGlite) and the notice copy. Mock Noah screen captured at 390px.
