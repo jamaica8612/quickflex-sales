@@ -3,7 +3,7 @@
 export const NOAH_READ_RESOURCES = Object.freeze({
   profile: "내 프로필, 월 매출 목표와 근무 설정",
   sales_days: "날짜별 수기 매출 헤더와 신선백/백업 단가. 자동 작업과 중복될 수 있는 보조 값",
-  sales_manual_items: "날짜별 수기 구역 매출 항목과 당시 단가",
+  sales_manual_items: "날짜별 예정 근무표 구역 및 수기 매출 항목과 당시 단가. 배송수 0인 행도 유효한 예정 구역이며 완료 증거는 아님",
   sales_automatic_work: "완료된 자동 작업과 그 구역별 배송수/당시 단가. 같은 날짜의 팀 작업은 하나의 읽기 모델로 합쳐짐",
   sales_overrides: "날짜별 자동 매출 수정. 적용 시 그 날짜의 수기/자동 구역 행 전체를 대체하는 표시 값",
   expenses: "내 지출(확정/초안/휴지통), 금액, 분류, 가맹점과 메모. 영수증 원본 제외",
@@ -43,7 +43,7 @@ const READ_CONFIG = Object.freeze({
 
 const SEMANTICS = Object.freeze({
   sales_days: "날짜별 보조 헤더입니다. 자동 작업의 배송수/매출과 수기 항목을 그대로 합산하지 마세요. 매출은 확정된 구역 스냅샷 기준으로 계산합니다.",
-  sales_manual_items: "수기 구역 항목입니다. 자동 작업 구역은 별도 원장에 있으며, 적용된 날짜별 매출 수정이 있으면 표시 구역 행을 대체합니다.",
+  sales_manual_items: "근무표와 수기 구역 항목입니다. 배송수 0인 행도 예정 구역이며 완료 여부를 증명하지 않습니다. 완료 작업 구역과 수량은 sales_automatic_work에서 확인하세요. 적용된 날짜별 매출 수정이 있으면 표시 구역 행을 대체합니다.",
   sales_automatic_work: "완료된 작업과 구역 단가 스냅샷입니다. team:날짜 work_id는 여러 팀 입력을 합친 단일 작업이므로 원본 팀 입력과 중복 합산하지 마세요. 자동 unit_snapshot에는 백업 단가가 이미 포함되며 다시 더하지 않습니다. 날짜별 매출 수정이 있으면 그 수정 행을 우선합니다.",
   sales_overrides: "이 날짜의 표시 구역 행 전체를 대체합니다. 원본 수기/자동 행에 수정 행을 추가 합산하면 중복됩니다.",
   expenses: "지출의 gross_amount는 원금입니다. status=confirmed만 확정 지출입니다. 환불과 재입금은 expense_adjustments에서 별도로 확인하세요.",

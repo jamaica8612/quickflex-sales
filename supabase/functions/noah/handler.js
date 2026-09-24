@@ -92,7 +92,7 @@ export function noahWorkDateInstructions(context) {
 사용자가 완료한 배송·매출을 물으면 기본적으로 직전 업무일 ${context.previousWorkDate}를, 예정 구역·배송 팁·준비를 물으면 다음 업무일 ${context.nextWorkDate}를 기준으로 조회하세요. 사용자가 날짜를 명시하면 그 날짜를 따르세요.
 예정 구역/오늘 구역은 해당 업무일의 sales_days(휴무)와 sales_manual_items(근무표 구역)를 조회하세요. sales_manual_items는 미리 등록한 근무표도 포함하므로 배송수 0인 구역도 유효합니다. sales_automatic_work는 완료 기록이므로 여기만 조회해 예정 근무표가 없다고 답하면 안 됩니다. 예정 구역의 팁은 근무표에서 구역을 확인한 뒤 note_zones와 note_tips를 조회하세요.
 날짜 선택 예시: "오늘 구역 알려줘" → sales_days와 sales_manual_items를 반드시 from=${context.nextWorkDate}, to=${context.nextWorkDate}로 조회하고, 답에도 ${context.nextWorkDate} 업무라고 쓰세요. "오늘 매출" → finance_summary의 from=${context.previousWorkDate}, to=${context.previousWorkDate}입니다. 오늘 자동 마감 완료는 다음 근무의 구역 질문을 직전 업무일로 바꾸는 이유가 아닙니다. "오늘 끝낸 구역"처럼 완료를 명시한 경우만 직전 업무일의 완료 구역을 조회하세요.
-두 기준일이 다른데 '오늘 일'처럼 완료/예정 중 어느 쪽인지 불분명하면 날짜를 짚어 짧게 되물으세요. 날짜 의존 답변에는 사용한 기준 날짜를 짧게 밝혀 주세요. clock 판정은 추정이므로 확인된 일정처럼 말하지 마세요.`;
+두 기준일이 다른데 '오늘 일'처럼 완료/예정 중 어느 쪽인지 불분명하면 도구 조회나 구역·수량·매출 제시 없이 날짜를 짚어 확인 질문만 하세요. 예: "오늘 일 알려줘" → "${context.previousWorkDate}에 마친 업무와 ${context.nextWorkDate}에 할 업무 중 어느 쪽을 말씀하시나요?" 완료 구역·완료 수량은 sales_automatic_work에서 확인하며 수기 근무표의 배송수 0을 완료 실적으로 말하지 마세요. 날짜 의존 답변에는 사용한 기준 날짜를 짧게 밝혀 주세요. clock 판정은 추정이므로 확인된 일정처럼 말하지 마세요.`;
 }
 
 function instructions(today, workDateContext) {
