@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import { createNoahDataTools, NOAH_READ_RESOURCES, NOAH_WRITE_ACTIONS } from "./data-tools.js";
 import { createNoahHandler, createOpenAIResponder } from "./handler.js";
 import { readFinanceSummary } from "./finance.js";
+import { readNoahWorkDateContext } from "./work-date-context.js";
 
 const apiKey = Deno.env.get("OPENAI_API_KEY") || "";
 const resources = { ...NOAH_READ_RESOURCES,
@@ -20,11 +21,14 @@ async function authorize(request: Request) {
   const { data: { user }, error } = await client.auth.getUser(token);
   if (error || !user) return null;
   const { data: profile, error: profileError } = await client.from("quickflex_profiles")
-    .select("id,status").eq("id", user.id).maybeSingle();
-  if (profileError || profile?.status !== "approved") return null;
-  const dataTools = createNoahDataTools({ client, userId: user.id });
+    .select("id,status,work_shift").eq("id", user.id).maybeSingle();
+  if (profileError) throw Object.assign(new Error("근무조 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."), { status: 503 });
+  if (profile?.status !== "approved") return null;
+  const dataTools: Omit<ReturnType<typeof createNoahDataTools>, "read"> & {
+    read: (args?: Record<string, unknown>) => Promise<unknown>;
+  } = createNoahDataTools({ client, userId: user.id });
   const read = dataTools.read;
-  dataTools.read = async (args) => {
+  dataTools.read = async (args = {}) => {
     if (args.resource !== "finance_summary") return read(args);
     try {
       return await readFinanceSummary({ client, userId: user.id, from: args.from, to: args.to });
@@ -32,7 +36,9 @@ async function authorize(request: Request) {
       throw new Error("정산 자료를 완전히 확인하지 못했어요. 시작일과 종료일(최대 366일)을 확인하거나 잠시 후 다시 조회해 주세요. 불완전한 합계는 제공하지 않습니다.");
     }
   };
-  return { userId: user.id, dataTools };
+  return { userId: user.id, dataTools,
+    getWorkDateContext: (now: Date) => readNoahWorkDateContext({ client, userId: user.id,
+      workShift: profile.work_shift, now }) };
 }
 
 Deno.serve(createNoahHandler({ authorize, respond: createOpenAIResponder(apiKey), configured: () => Boolean(apiKey),
