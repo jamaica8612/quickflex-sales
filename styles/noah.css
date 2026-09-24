@@ -1,4 +1,16 @@
-.noah-thread { overflow-x: hidden; }
+.app[data-view="noah"],
+.app[data-view="noah"] .view-noah,
+.app[data-view="noah"] .noah-body {
+  overflow: hidden;
+  overscroll-behavior-y: none;
+}
+.noah-thread {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
 .noah-msg { min-width: 0; }
 .noah-msg.from-noah { display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 8px; row-gap: 7px; align-self: flex-start; }
 .noah-msg.from-noah > .noah-avatar { grid-column: 1; grid-row: 1 / span 5; }

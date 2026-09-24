@@ -1,4 +1,4 @@
-const CACHE_NAME = "quickflex-shell-v1.0.97-usage-guide-1-route-notes-ui-9-market-annexes-pretendard";
+const CACHE_NAME = "quickflex-shell-v1.0.97-usage-guide-1-noah-scroll-1";
 const SHELL_FILES = [
   "./src/vendor/supabase-2.116.0.js",
   "./",
@@ -44,7 +44,7 @@ const SHELL_FILES = [
   "./src/lib/noah-links.js",
   "./src/lib/noah-brief.js",
   "./assets/noah/noah-avatar-v1.webp",
-  "./styles/noah.css?v=3",
+  "./styles/noah.css?v=4",
   "./src/lib/route-notes.js?v=2",
   "./src/lib/route-note-icons.js?v=3",
   "./src/lib/agricultural-market-route-map.js?v=2",
