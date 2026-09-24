@@ -1546,3 +1546,4 @@ Browser checks:
 - 노아는 서버가 프로필 근무조·오늘 기록·실제 구역·자동 마감·유효 lease를 읽는다. 매출/완료는 직전 업무일, 구역/팁/출근 준비는 다음 업무일을 사용하고, 애매한 질문은 날짜를 되묻고 답에 기준일을 밝힌다. 서버 규칙 사본은 PWA 파일과 바이트 및 결과 일치 테스트로 묶는다. DB 스키마·원장·팀 합산 변경은 없다.
 - 배포 순서: PWA와 노아 검증 및 main 반영 → Noah Edge Function 재배포와 Pages 확인 → 머지된 규칙을 확인해 Android 적용/빌드. PWA 버전·캐시·진입 URL은 1.0.95로 올린다.
 - 검증: npm ci 후 전체 Node 테스트 481/481 통과(건너뛰기 없음, expense-privacy-sql 포함). app.js/sw.js와 vendor 제외 src JavaScript 54개 및 Noah JavaScript 구문 통과, Deno Edge 엔트리 타입 검사 통과, SHELL_FILES 101개 실제 파일 확인, diff 검사 통과.
+- 배포 확인: Pages에서 1.0.95 및 공개 파일 9개 일치, 실제 오늘과 다음 업무일 표시·수동 날짜 유지 확인. 실서비스 질문에서 노아가 예정 구역을 완료 원장에서만 찾는 문제를 발견해 sales_days/sales_manual_items 근무표 우선 조회 지시와 테스트를 보강했다(Edge 후속 배포, PWA 자산 변경 없음).

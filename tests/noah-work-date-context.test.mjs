@@ -167,6 +167,8 @@ test("model instructions receive only server account context, not browser-suppli
   assert.match(seenInstructions, /가장 최근 매출 기록을 검색한 날짜가 아닙니다/);
   assert.match(seenInstructions, /두 기준일이 다른데/);
   assert.match(seenInstructions, /기준 날짜를 짧게/);
+  assert.match(seenInstructions, /sales_days\(휴무\).*sales_manual_items\(근무표 구역\)/);
+  assert.match(seenInstructions, /배송수 0인 구역도 유효/);
   assert.doesNotMatch(seenInstructions, /1999-01-0[12]/);
   assert.match(noahWorkDateInstructions({ ...actual, unavailable: ["schedule"], reason: "clock" }), /추정/);
 });
