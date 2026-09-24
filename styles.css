@@ -603,6 +603,9 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
   background: var(--panel);
 }
 .day-cell:nth-child(7n) { border-right: 0; }
+.today-work-badge { font-size: 9px; line-height: 12px; color: var(--blue); font-weight: 700; white-space: nowrap; }
+.day-cell:has(.today-work-badge) { grid-template-rows: 28px 20px minmax(0, 1fr) 12px; }
+#measurementScheduleMeta { font-size: 22px; font-weight: 700; color: var(--text); }
 .day-cell.outside { opacity: .28; background: var(--panel2); }
 .day-cell.outside .day-value,
 .day-cell.outside .day-routes {

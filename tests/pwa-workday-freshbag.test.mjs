@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
-import { measurementWorkDateForClock } from "../src/lib/work-date.js";
+import { measurementWorkDateForClock, koreanDateKey, resolveWorkDates } from "../src/lib/work-date.js";
 import { checkBetaMeasurementAccess } from "../src/services/beta-access.js";
 import { routeListFromText, splitStoredRoutes } from "../src/lib/route.js";
 
@@ -44,7 +44,7 @@ test("automatic measurement date ignores calendar selection while a manual measu
   const context = vm.createContext({
     state: { selectedDate: "2026-08-01", measurementDate: "stale", measurementDateAuto: true },
     isNightShift: () => true,
-    measurementWorkDateForClock,
+    measurementWorkDateForClock, koreanDateKey, resolveWorkDates,
     todayKey: () => "2026-09-09",
     el: { measurementWorkDate: {}, measurementRouteText: {}, measurementRouteHint: {}, measurementScheduleMeta: {}, openPaceApp: { dataset: { launchMode: "native" }, setAttribute() {}, removeAttribute() {} }, openPaceAppFallback: { hidden: false } },
     getRecord: (date) => ({ off: date === "2026-09-08", rows: [] }),
@@ -55,15 +55,16 @@ test("automatic measurement date ignores calendar selection while a manual measu
     navigator: { userAgent: "Android" },
     measurementDetectionPromise: null,
   });
-  vm.runInContext(["defaultMeasurementWorkDate", "currentMeasurementWorkDate", "applyMeasurementLaunchControls", "renderMeasurementBridge"].map(extractFunction).join("\n"), context);
-  assert.equal(context.currentMeasurementWorkDate(new Date(2026, 8, 9, 11, 59)), "2026-09-09");
-  assert.equal(context.currentMeasurementWorkDate(new Date(2026, 8, 9, 12, 0)), "2026-09-10");
+  vm.runInContext(["currentWorkDates", "defaultMeasurementWorkDate", "currentMeasurementWorkDate", "applyMeasurementLaunchControls", "renderMeasurementBridge"].map(extractFunction).join("\n"), context);
+  assert.equal(context.currentMeasurementWorkDate(new Date("2026-09-09T11:59:00+09:00")), "2026-09-09");
+  assert.equal(context.currentMeasurementWorkDate(new Date("2026-09-09T12:00:00+09:00")), "2026-09-10");
 
   context.state.measurementDate = "2026-09-08";
   context.state.measurementDateAuto = false;
   context.renderMeasurementBridge();
   assert.equal(context.el.measurementWorkDate.value, "2026-09-08");
   assert.equal(context.state.measurementDate, "2026-09-08");
+  assert.equal(context.el.measurementScheduleMeta.textContent, "9/8 업무로 시작");
   assert.equal(context.el.openPaceApp.disabled, true, "holiday selection disables native launch after render");
   assert.equal(context.el.openPaceAppFallback.hidden, true, "holiday selection hides retry after render");
 });

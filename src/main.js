@@ -166,7 +166,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { measurementWorkDateForClock } from "./lib/work-date.js";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.95";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
@@ -226,6 +226,9 @@ const state = {
   recordDraftSalesPayload: "",
   measurementDate: "",
   measurementDateAuto: false,
+  workDateDataLoaded: false,
+  workDateScheduleDates: new Set(),
+  activeMeasurementLease: null,
   statsRangeMode: "thisMonth",
   statsRangeCustom: { from: "", to: "" },
   revenueVisibility: (() => {
@@ -927,6 +930,9 @@ function clearUserScopedState() {
   state.defaultRates = [];
   state.routeBundles = [];
   state.entries = {};
+  state.workDateDataLoaded = false;
+  state.workDateScheduleDates = new Set();
+  state.activeMeasurementLease = null;
   state.receiptEntries = {};
   state.automaticSalesOverrides = {};
   state.workRouteDetails = {};
@@ -2794,6 +2800,14 @@ async function migrateLegacyGoalAmount(legacyGoal, context = captureAccountConte
   if (!error && data) state.profile = data;
   return true;
 }
+async function fetchActiveMeasurementLease(userId) {
+  try {
+    const { data, error } = await state.db.from("quickflex_active_work_leases")
+      .select("user_id,work_date,lease_expires_at,released_at")
+      .eq("user_id", userId).maybeSingle();
+    return error ? undefined : data;
+  } catch { return undefined; }
+}
 async function loadFromDb(context = captureAccountContext()) {
   if (!state.db || !isAccountContextCurrent(context)) return false;
   // A refresh must never replace edits, including edits made while it is in flight.
@@ -2812,12 +2826,13 @@ async function loadFromDb(context = captureAccountContext()) {
       state.db.from(TABLES.bundles).select("*").eq("active", true).order("sort_order").order("label"),
       state.db.from(TABLES.inspections).select("*").eq("user_id", userId).order("inspection_date"),
       state.db.from(TABLES.inspectionSignatures).select("signature_data").eq("user_id", userId).maybeSingle(),
+      fetchActiveMeasurementLease(userId),
     ]);
   } catch (error) {
     if (!isAccountContextCurrent(context)) return false;
     throw error;
   }
-  const [ratesResult, defaultRatesResult, daysResult, itemsResult, ledger, overridesResult, bundlesResult, inspectionsResult, signatureResult] = loaded;
+  const [ratesResult, defaultRatesResult, daysResult, itemsResult, ledger, overridesResult, bundlesResult, inspectionsResult, signatureResult, activeLease] = loaded;
   if (!isAccountContextCurrent(context)) return false;
   if (state.pendingDates.size || state.pendingRates || state.flushPromise || state.recordDraft) return false;
   if (ratesResult.error) throw ratesResult.error;
@@ -2840,6 +2855,10 @@ async function loadFromDb(context = captureAccountContext()) {
   state.workRouteDetailsContractAvailable = ledger.workRouteDetailsAvailable;
   state.receiptEntries = entriesFromDb(daysResult.data, itemsResult.data, ledger.workResults, ledger.workRoutes);
   state.entries = applyAutomaticSalesOverrides(state.receiptEntries, state.automaticSalesOverrides);
+  state.workDateDataLoaded = true;
+  state.workDateScheduleDates = new Set((itemsResult.data || []).filter((row) => splitStoredRoutes(row.route).length).map((row) => row.work_date));
+  // A failed refresh cannot erase a still-live, owner-scoped lease already seen.
+  if (activeLease !== undefined) state.activeMeasurementLease = activeLease;
   state.inspections = Object.fromEntries((inspectionsResult.data || []).map((row) => [row.inspection_date, row]));
   state.inspectionSignature = isValidSignatureData(signatureResult.data?.signature_data) ? signatureResult.data.signature_data : "";
   const hadRates = state.rates.length > 0;
@@ -3103,6 +3122,14 @@ async function persistDay(dateKey, context = captureAccountContext()) {
       }
       getRecord(dateKey, false).manualDayUpdatedAt = saved.updated_at;
       if (state.recordDraftDate === dateKey && state.recordDraft) state.recordDraft.manualDayUpdatedAt = saved.updated_at;
+    }
+    if (state.workDateDataLoaded) {
+      if (!deleteManualDay && itemPayload.some((item) => splitStoredRoutes(item.route).length)) state.workDateScheduleDates.add(dateKey);
+      else state.workDateScheduleDates.delete(dateKey);
+      if (dateKey === koreanDateKey()) {
+        renderMonth();
+        renderMeasurementBridge();
+      }
     }
     return true;
   }
@@ -3624,8 +3651,23 @@ function quickflexHandleNativeBack() {
 
 window.quickflexHandleNativeBack = quickflexHandleNativeBack;
 
+function currentWorkDates(now = new Date()) {
+  const today = koreanDateKey(now);
+  const record = getRecord(today, false);
+  const lease = state.activeMeasurementLease;
+  const activeWorkDate = lease?.user_id === state.session?.user?.id && !lease?.released_at
+    && Date.parse(lease?.lease_expires_at) > now.getTime() ? lease.work_date : undefined;
+  const dayState = state.workDateDataLoaded ? {
+    isOff: Boolean(record.off),
+    hasRecord: Boolean(state.entries[today]),
+    hasSchedule: state.workDateScheduleDates.has(today),
+    hasAutomaticCompletion: hasAutomaticEntries(record),
+    activeWorkDate,
+  } : { activeWorkDate };
+  return resolveWorkDates({ now, workShift: isNightShift() ? "night" : "day", dayState });
+}
 function defaultMeasurementWorkDate(now = new Date()) {
-  return measurementWorkDateForClock(now, isNightShift() ? "night" : "day");
+  return currentWorkDates(now).activeWorkDate;
 }
 function currentMeasurementWorkDate(now = new Date()) {
   if (!state.measurementDate || state.measurementDateAuto) {
@@ -3647,11 +3689,8 @@ function renderMeasurementBridge() {
   el.measurementRouteText.toggleAttribute?.("data-empty", !routes.length);
   const households = record.rows.reduce((sum, row) => sum + toNum(row.households), 0);
   const automatic = hasAutomaticEntries(record);
-  const autoNextDate = state.measurementDateAuto && isNightShift() && workDate !== todayKey();
   if (el.measurementScheduleMeta) {
-    el.measurementScheduleMeta.textContent = autoNextDate
-      ? `야간 다음 날 · ${formatMonthDay(workDate)} 업무`
-      : `${formatMonthDay(workDate)} 근무표 자동 입력`;
+    el.measurementScheduleMeta.textContent = `${Number(workDate.slice(5, 7))}/${Number(workDate.slice(8, 10))} 업무로 시작`;
   }
   el.measurementRouteHint.textContent = automatic
     ? `완료 ${households}가구 · 반영된 매출은 기록 화면에서 수정할 수 있습니다.`
@@ -3895,6 +3934,7 @@ function invalidateSummaryLedger() {
   Object.assign(summaryLedgerCache, { key: "", total: null, loading: "" });
 }
 function renderMonth() {
+  const todayWorkDate = isNightShift() ? currentWorkDates().nextWorkDate : "";
   el.modeBtns.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.mode === state.mode)));
   const { start, end } = periodBounds();
   const first = new Date(start);
@@ -3928,6 +3968,7 @@ function renderMonth() {
     const labels = [
       formatLong(dateKey),
       dateKey === todayKey() ? "오늘" : "",
+      dateKey === todayWorkDate ? "오늘 업무" : "",
       dateKey === state.selectedDate ? "선택됨" : "",
       holidayName || "",
       valueLabel,
@@ -3941,7 +3982,8 @@ function renderMonth() {
     const inspectionDot = inspection && inspection.status !== "no_operation"
       ? `<span class="inspection-day-dot" aria-hidden="true"></span>`
       : "";
-    cell.innerHTML = `<span class="day-number">${date.getDate()}</span>${inspectionDot}<span class="day-value">${displayValue}</span><span class="day-routes">${displayRouteOrHoliday}</span>`;
+    const workBadge = dateKey === todayWorkDate ? '<span class="today-work-badge">오늘 업무</span>' : "";
+    cell.innerHTML = `<span class="day-number">${date.getDate()}</span>${inspectionDot}<span class="day-value">${displayValue}</span><span class="day-routes">${displayRouteOrHoliday}</span>${workBadge}`;
     cell.addEventListener("click", () => selectDate(dateKey));
     el.monthCalendar.appendChild(cell);
   }
@@ -4119,11 +4161,12 @@ function selectDate(dateKey) {
   renderInspectionEntry();
 }
 function selectToday() {
-  const todayDate = new Date();
+  const dateKey = isNightShift() ? currentWorkDates().nextWorkDate : koreanDateKey();
+  const todayDate = parseDateKey(dateKey);
   const period = periodForDate(todayDate);
   state.year = period.year;
   state.month = period.month;
-  selectDate(toDateKey(todayDate));
+  selectDate(dateKey);
   renderSummary();
 }
 function moveMonth(amount) {
@@ -5979,8 +6022,8 @@ function bindEvents() {
     if (document.visibilityState !== "visible") return;
     syncNativeRouteNotesState();
     void requestNativeSessionSync();
-    if (el.app.dataset.view !== "measurement" || !currentUserId()) return;
-    refreshMeasurementAppAvailability();
+    if (!currentUserId()) return;
+    if (el.app.dataset.view === "measurement") refreshMeasurementAppAvailability();
     await refreshAfterNativeMeasurement();
   });
   window.addEventListener("quickflex-native-resume", () => {

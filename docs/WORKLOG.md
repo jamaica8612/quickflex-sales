@@ -1536,3 +1536,13 @@ Browser checks:
 - 노아 is a UI shell only: intro, suggested questions and an input that answers "준비 중". No AI backend, network call or data access yet.
 - Route-note tip icons are unchanged (icon refresh postponed by the user). No schema, backend or APK changes.
 - Validation: 430/431 Node tests pass; the remaining `expense-privacy-sql` failure is pre-existing on main. 390x844 captures checked for all tabs.
+
+## 2026-09-24 - 한국 업무일 판단 통일 (PWA 1.0.95)
+
+- `src/lib/work-date.js`의 순수 함수 `resolveWorkDates({ now, workShift, dayState })`를 배송노트·매출노트·노아의 기준으로 사용한다. 실제 한국 날짜와 업무일을 구분하며, 일상점검은 기존 운행 시작 날짜를 유지한다.
+- 주간은 항상 한국 오늘이다. 야간은 (a) 같은 계정의 유효한 진행 중 측정 업무일, (b) 오늘 자동 마감 완료면 내일, (c) 오늘 휴무 또는 실제 근무표 구역과 자동 기록이 모두 없으면 내일, (d) 오늘 실제 근무표가 있고 미마감이면 오늘, (e) 근거 부족이면 정오 전 오늘·정오부터 내일(`reason=clock`) 순서다. 고정 구역을 화면에 채운 결과는 근무표 증거가 아니다.
+- 반환값의 `activeWorkDate`는 시작할 실효 업무일이며 `nextWorkDate`와 같다. 야간 `previousWorkDate`는 그 직전 달력 업무일(오늘 마감 시 오늘)이다. 마지막 매출이 존재하는 날짜를 검색하는 의미는 아니다. 주간의 세 날짜는 모두 오늘이다. 조회 실패와 확인된 빈 근무표를 구분하며 기존 성공 스냅샷·계정 격리를 유지한다.
+- 배송노트는 사용자가 고른 날짜를 보존하고 `9/25 업무로 시작`을 크게 표시한다. 매출노트의 야간 `오늘` 버튼과 작은 `오늘 업무` 표시는 다음 업무일을 가리킨다. 실제 달력 오늘 표시는 그대로 둔다. 근무표 저장과 앱 복귀 시 표시도 갱신한다.
+- 노아는 서버가 프로필 근무조·오늘 기록·실제 구역·자동 마감·유효 lease를 읽는다. 매출/완료는 직전 업무일, 구역/팁/출근 준비는 다음 업무일을 사용하고, 애매한 질문은 날짜를 되묻고 답에 기준일을 밝힌다. 서버 규칙 사본은 PWA 파일과 바이트 및 결과 일치 테스트로 묶는다. DB 스키마·원장·팀 합산 변경은 없다.
+- 배포 순서: PWA와 노아 검증 및 main 반영 → Noah Edge Function 재배포와 Pages 확인 → 머지된 규칙을 확인해 Android 적용/빌드. PWA 버전·캐시·진입 URL은 1.0.95로 올린다.
+- 검증: npm ci 후 전체 Node 테스트 481/481 통과(건너뛰기 없음, expense-privacy-sql 포함). app.js/sw.js와 vendor 제외 src JavaScript 54개 및 Noah JavaScript 구문 통과, Deno Edge 엔트리 타입 검사 통과, SHELL_FILES 101개 실제 파일 확인, diff 검사 통과.
