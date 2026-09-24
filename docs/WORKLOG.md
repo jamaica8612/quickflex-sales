@@ -1558,3 +1558,14 @@ Browser checks:
 - 변경 파일: `src/ui/noah.js`, `src/services/noah.js`, `src/lib/noah-{brief,history,links}.js`, `styles/noah.css`, `src/main.js`, 계정·설정·구역노트 연결부, `supabase/functions/noah/{index.ts,handler.js,data-tools.js}`, `supabase/migrations/20260924081941_noah_notice_feedback.sql`, `supabase-schema.sql`, `privacy.html`, `docs/{NOAH,HARNESS}.md`, PWA 진입점·서비스워커·버전, Noah fixture와 회귀 테스트.
 - 실행한 검증: 전체 Node 테스트 507/507 통과(집중 Noah/PWA/SQL 72/72와 PGlite 피드백·고지·쿼터 검증 포함), 변경 JavaScript 10개 `node --check` 통과, `SHELL_FILES` 104개 실제 파일 확인, `git diff --check` 통과. 로컬에 Deno 실행 파일이 없어 `deno check`는 실행하지 못했다. 배포 순서는 새 마이그레이션만 적용 → `noah` 함수 배포 → PWA 배포이며 다른 마이그레이션·함수는 함께 배포하지 않는다.
 - 실제 반영: Supabase 프로젝트 `xrrdokcjhjqdfvwtbenl`에 새 마이그레이션이 provider 버전 `20260924084045`로 적용됐고 `feedback` RLS 및 고지·피드백 RPC를 확인했다. `noah` Edge Function v8을 `verify_jwt=true`로 배포했으며, GitHub Pages Actions run `35976845371`이 성공했다. 라이브 PWA에서 1.0.96 노아 탭, 다음 업무일 브리핑, OpenAI 고지, 생성 아바타를 확인했다.
+
+## 2026-09-25 - Remove Noah device history, answer feedback and briefing card (PWA 1.0.97)
+
+- User decision: Noah keeps no conversation anywhere. Removed the device cache (`src/lib/noah-history.js`); the conversation lives only in screen memory and is gone on app close, 새 대화, logout, account switch/reset or deletion request. `src/lib/noah-legacy-storage.js` deletes IndexedDB `quickflex-noah-local` and `quickflex-noah:` localStorage keys once per app start so 1.0.95–1.0.96 copies do not linger. The HARNESS localStorage exception is removed.
+- Removed answer feedback (👍/👎) from the UI and service. New migration `20260924120000_remove_noah_feedback.sql` drops `public.quickflex_noah_submit_feedback` and `quickflex_noah_private.feedback`, deleting stored ratings; notice acknowledgment and the usage quota are untouched. Canonical `supabase-schema.sql` matches.
+- Removed the "오늘의 기록" briefing card and the route-note tip-count snapshot that only fed it. Welcome text and phase-based suggested questions stay.
+- First-use notice no longer names the provider on screen: "노아는 질문에 필요한 기사님 기록만 찾아서 답해요. 대화는 저장하지 않고, 무언가를 바꿀 때는 꼭 확인을 받아요." with a 자세히 보기 link to `privacy.html#noah`, which keeps the OpenAI disclosure.
+- privacy.html: removed the visible TODO notes (moved to docs/NOAH.md "운영자 확인 필요"), rewrote the Noah conversation and notice items, effective date 2026-09-25.
+- Noah avatars are smaller: 30px on messages (was 38px), 48px on the welcome/notice (was 64px), 40px on screens 390px wide or less (was 42px).
+- Deploy order: apply only 20260924120000 → redeploy `noah` → publish PWA 1.0.97.
+- Validation: 510/511 Node tests pass; the remaining `expense-privacy-sql` failure is pre-existing. New tests cover the legacy storage cleanup, the removal migration (PGlite) and the notice copy. Mock Noah screen captured at 390px.

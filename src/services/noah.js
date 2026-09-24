@@ -176,17 +176,5 @@ export function createNoahService({ getContext, fetcher = globalThis.fetch } = {
       if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) throw new Error("안내 확인 결과를 받지 못했어요. 다시 시도해 주세요.");
       return value;
     },
-    async feedback({ rating, sources, hasProposal, responseMs, model }, signal) {
-      if (rating !== 1 && rating !== -1) throw new RangeError("평가가 올바르지 않습니다.");
-      const captured = validContext(await getContext());
-      const result = await captured.client.rpc("quickflex_noah_submit_feedback", {
-        p_rating: rating, p_sources: (Array.isArray(sources) ? sources : []).filter((item) => typeof item === "string").slice(0, 20),
-        p_has_proposal: Boolean(hasProposal), p_response_ms: Number.isFinite(responseMs) ? Math.max(0, Math.round(responseMs)) : null,
-        p_model: typeof model === "string" ? model.slice(0, 80) : null,
-      }, { signal });
-      if (!sameAccount(captured, await getContext()) || signal?.aborted) throw new NoahStaleAccountError();
-      if (result?.error) throw await readableError(result.error);
-      return result?.data;
-    },
   };
 }

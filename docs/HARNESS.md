@@ -32,7 +32,6 @@ This file is the shared working contract for Codex, Claude Code, and future agen
 - Backup bonus defaults to 30 won per delivery count, but the record screen may override it per day.
 - Do not introduce localStorage as the source of truth for production data.
 - localStorage may store only the Supabase project URL and anon key for the current browser.
-- Exception: Noah may cache up to 20 recent chat messages for 7 days on this device, in IndexedDB with a guarded localStorage fallback. This cache is not the source of truth for business data, is partitioned by user ID, and is cleared on logout, account switch/reset, deletion request, or explicit chat clearing. Consent acknowledgement stays in the account profile in the database. Restored proposals are inert history, never executable actions.
 
 ## Auth and RLS
 

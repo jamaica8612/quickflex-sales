@@ -1,11 +1,11 @@
 import { createExpenseService } from "./services/expenses.js";
 import { createRouteNotesService } from "./services/route-notes.js?v=2";
-import { createRouteNotesController } from "./ui/route-notes.js?v=14";
+import { createRouteNotesController } from "./ui/route-notes.js?v=15";
 import { createRouteNoteShareService } from "./services/route-note-share.js";
 import { createRouteNoteShareDialog } from "./ui/route-note-share.js";
 import { checkBetaMeasurementAccess } from "./services/beta-access.js";
 import { createExpensesController } from "./ui/expenses.js";
-import { createNoahController } from "./ui/noah.js?v=2";
+import { createNoahController } from "./ui/noah.js?v=3";
 import { createExportsController } from "./ui/exports.js";
 import { mountCalendarSync } from "./ui/calendar-sync.js";
 import { buildStatsInsights } from "./lib/stats-insights.js";
@@ -166,8 +166,9 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.96";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.97";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
+import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
 const LEGACY_USER_NAMES = new Map([["kim-gwanhyun", "김관현"]]);
@@ -933,7 +934,6 @@ function clearUserScopedState() {
   state.workDateDataLoaded = false;
   state.workDateScheduleDates = new Set();
   state.activeMeasurementLease = null;
-  noahTipSnapshots.clear();
   state.receiptEntries = {};
   state.automaticSalesOverrides = {};
   state.workRouteDetails = {};
@@ -5826,6 +5826,7 @@ function closeSheet() {
   updateModalLayer(el.dbSheet, false);
 }
 
+// Welcome text and suggested questions depend on the work phase; nothing here is stored.
 function currentNoahBriefing(now = new Date()) {
   const today = koreanDateKey(now);
   const dates = currentWorkDates(now);
@@ -5844,29 +5845,10 @@ function currentNoahBriefing(now = new Date()) {
   const workShift = isNightShift() ? "night" : "day";
   const period = periodForDate(parseDateKey(today));
   const keys = periodKeysFor(period.year, period.month);
-  const days = known ? statsDailyRecords() : [];
-  const byDate = new Map(days.map((record) => [record.dateKey, record]));
-  const remainingDates = keys.filter((key) => key >= dates.nextWorkDate);
-  const scheduleKnown = known && remainingDates.length > 0 && remainingDates.every((key) => {
-    const record = byDate.get(key);
-    return record?.off || record?.worked || state.workDateScheduleDates.has(key);
-  });
-  const remainingDays = scheduleKnown ? remainingDates.filter((key) => {
-    const record = byDate.get(key);
-    return !record?.off && !record?.worked && state.workDateScheduleDates.has(key);
-  }).length : 0;
-  const goal = Number(state.profile?.goal_amount);
-  const revenue = days.filter((record) => keys.includes(record.dateKey))
-    .reduce((sum, record) => sum + record.revenue, 0);
-  const snapshots = [...noahTipSnapshots.values()].filter((snapshot) => snapshot.routes.some((route) => routes.includes(route)));
-  const allTipsKnown = routes.length > 0 && routes.every((route) => snapshots.some((snapshot) => snapshot.routes.includes(route)));
   return { phase, workShift, nextWorkDate: dates.nextWorkDate, workDateLabel,
     workDateCaption: workShift === "night"
       ? `${dates.nextWorkDate > today ? "오늘 밤 " : ""}${workDateLabel} 마감` : `${workDateLabel} 업무`,
     routes,
-    routeTipCount: allTipsKnown ? snapshots.reduce((sum, snapshot) => sum + snapshot.tipCount, 0) : undefined,
-    goalRequiredPerDay: remainingDays > 0 && Number.isFinite(goal) && goal > 0
-      ? Math.ceil(Math.max(0, goal - revenue) / remainingDays) : undefined,
     closing: keys.slice(-3).includes(today),
   };
 }
@@ -6119,6 +6101,7 @@ function bindEvents() {
 }
 
 async function init() {
+  purgeLegacyNoahStorage();
   profileSignaturePad = createSignaturePad(el.profileSignatureCanvas);
   bindEvents();
   renderAll();
@@ -6149,7 +6132,6 @@ async function init() {
 
 let expensesController = null;
 let noahController = null;
-const noahTipSnapshots = new Map();
 let exportsController = null;
 let calendarSyncController = null;
 let routeNotesController = null;
@@ -6172,11 +6154,6 @@ function ensureRouteNotesController() {
     root: $("routeNotesContent"), service: routeNotesService,
     shareDialog: routeNoteShareDialog,
     getUser: () => state.session?.user, getProfile: () => state.profile,
-    onTipSnapshot: ({ zone, tipCount }) => {
-      if (zone?.id && Number.isInteger(tipCount)) noahTipSnapshots.set(zone.id, {
-        routes: parseScheduleRoutes(zone.name || ""), tipCount,
-      });
-    },
     notify: (message, kind) => toast(message, kind), mapClientId: ROUTE_NOTES_CONFIG.mapClientId,
   });
   return routeNotesController;

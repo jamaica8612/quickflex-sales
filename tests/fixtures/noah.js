@@ -20,10 +20,6 @@ const client = {
       acknowledgements.set(`fixture-user-${epoch}`, timestamp);
       return { data: timestamp };
     }
-    if (name === "quickflex_noah_submit_feedback") {
-      navigation.textContent = "모의 평가가 접수됐어요. 실제 서버에는 전송하지 않았습니다.";
-      return { data: true };
-    }
     return { error: { message: "unknown fixture RPC" } };
   },
   functions: {
@@ -71,7 +67,7 @@ function create() {
     getContext: () => ({ client, userId: `fixture-user-${epoch}`, epoch, approved: true,
       noticeAcknowledgedAt: acknowledgements.get(`fixture-user-${epoch}`), supabaseUrl: "https://fixture.invalid", anonKey: "fixture-anon-key" }),
     getBriefingContext: () => ({ phase, workShift: "night", nextWorkDate: "2026-09-25", workDateLabel: "9/25",
-      workDateCaption: "오늘 밤 9/25 마감", routes: ["302B"], routeTipCount: 3, goalRequiredPerDay: 82000 }),
+      workDateCaption: "오늘 밤 9/25 마감", routes: ["302B"] }),
     onNoticeAcknowledged: (timestamp) => { navigation.textContent = `모의 계정의 안내 확인: ${timestamp}`; },
     onNavigate: (link) => { navigation.textContent = `모의 이동: ${link.kind} ${JSON.stringify(link.target)}`; },
     onChanged: () => { navigation.textContent = "모의 데이터 갱신 완료"; },
@@ -84,8 +80,8 @@ for (const control of document.querySelectorAll("[data-phase]")) control.addEven
   phase = control.dataset.phase;
   void controller.open();
 });
-document.querySelector("[data-restore]").addEventListener("click", () => {
-  controller.destroy(); controller = create(); navigation.textContent = "이 기기의 저장된 대화를 다시 불러왔어요.";
+document.querySelector("[data-reopen]").addEventListener("click", () => {
+  controller.destroy(); controller = create(); navigation.textContent = "앱을 다시 연 것처럼 새로 시작했어요. 이전 대화는 남지 않아요.";
 });
 document.querySelector("[data-switch-account]").addEventListener("click", () => {
   epoch += 1; controller.reset(); navigation.textContent = `모의 계정 ${epoch}로 전환했어요.`;

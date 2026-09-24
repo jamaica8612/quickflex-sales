@@ -27,32 +27,28 @@ function briefing(overrides = {}) {
     parseDateKey: (key) => new Date(`${key}T12:00:00`), periodForDate: () => ({ year: 2026, month: 9 }),
     periodKeysFor: () => ["2026-09-23", "2026-09-24", "2026-09-25"],
     statsDailyRecords: () => Object.entries(state.entries).map(([dateKey, record]) => ({ dateKey, ...record })),
-    noahTipSnapshots: new Map([["zone-a", { routes: ["302B"], tipCount: 4 }]]),
   };
   return load("currentNoahBriefing", "openNoahLink", context)(new Date("2026-09-24T09:00:00Z"));
 }
-test("app briefing uses next work date and current settlement snapshots with no service call", () => {
+test("welcome context uses the next work date with no service call and no briefing card fields", () => {
   const result = briefing();
   assert.equal(result.nextWorkDate, "2026-09-25");
   assert.equal(result.workDateCaption, "오늘 밤 9/25 마감");
   assert.equal(result.phase, "completed");
   assert.deepEqual([...result.routes], ["302B"]);
-  assert.equal(result.routeTipCount, 4);
-  assert.equal(result.goalRequiredPerDay, 400);
   assert.equal(result.closing, true);
+  assert.equal("routeTipCount" in result, false);
+  assert.equal("goalRequiredPerDay" in result, false);
 });
-test("unloaded data never invents routes, tips or target pace", () => {
+test("unloaded data never invents routes", () => {
   const result = briefing({ workDateDataLoaded: false });
   assert.deepEqual([...result.routes], []);
-  assert.equal(result.routeTipCount, undefined);
-  assert.equal(result.goalRequiredPerDay, undefined);
   assert.equal(result.phase, "default");
 });
-test("missing future schedules hide required revenue and active work must belong to current account", () => {
-  const result = briefing({ workDateScheduleDates: new Set(), activeMeasurementLease: {
+test("active work must belong to the current account", () => {
+  const result = briefing({ activeMeasurementLease: {
     user_id: "another-account", lease_expires_at: "2099-01-01T00:00:00Z", work_date: "2026-09-25",
   } });
-  assert.equal(result.goalRequiredPerDay, undefined);
   assert.equal(result.phase, "completed");
 });
 test("links use existing date/route/range views and ignore unknown or malformed targets", () => {

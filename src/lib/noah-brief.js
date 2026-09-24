@@ -1,4 +1,5 @@
-export const NOAH_NOTICE = "질문과 답에 필요한 내 기록이 OpenAI로 전달돼요. 대화는 서버에 저장하지 않고 이 폰에만 최근 대화를 잠시 보관해요.";
+export const NOAH_NOTICE = "노아는 질문에 필요한 기사님 기록만 찾아서 답해요. 대화는 저장하지 않고, 무언가를 바꿀 때는 꼭 확인을 받아요.";
+export const NOAH_PRIVACY_URL = "./privacy.html#noah";
 export const NOAH_WELCOME_DEFAULT = "안녕하세요, 노아예요 🙂 오늘도 수고 많으셨어요. 매출이나 지출, 구역 팁까지 궁금한 건 편하게 물어보세요. 제가 기록을 찾아서 알려드릴게요.";
 
 const CHIPS = {
@@ -28,20 +29,4 @@ export function noahWelcome(context = {}) {
 
 export function noahChips(context = {}) {
   return [...(CHIPS[context.closing ? "closing" : context.phase] || CHIPS.default)].slice(0, 3);
-}
-
-export function noahBrief(context = {}) {
-  const rows = [];
-  const date = typeof context.workDateLabel === "string" ? context.workDateLabel.trim() : "";
-  if (date) rows.push({ label: `근무일 ${date}`, question: `${date} 근무 구역 알려줘` });
-  const routes = Array.isArray(context.routes) ? context.routes.filter((item) => typeof item === "string" && item.trim()).slice(0, 3) : [];
-  const routeQuestion = routes.length ? `${routes.join(", ")} 팁 요약해줘` : "오늘 내 구역 팁";
-  if (routes.length) rows.push({ label: `구역 ${routes.join(" · ")}`, question: routeQuestion });
-  if (Number.isSafeInteger(context.routeTipCount) && context.routeTipCount >= 0) rows.push({ label: `구역 팁 ${context.routeTipCount}개`, question: routeQuestion });
-  if (Number.isFinite(context.goalRequiredPerDay) && context.goalRequiredPerDay >= 0) {
-    rows.push({ label: context.goalRequiredPerDay === 0 ? "월 목표 달성" : `목표까지 하루 ${Math.ceil(context.goalRequiredPerDay).toLocaleString("ko-KR")}원`, question: "목표까지 하루 얼마?" });
-  }
-  if (!rows.length && context.phase !== "off") return null;
-  return { title: context.phase === "off" ? (rows.length ? "다음 근무 준비" : "오늘은 쉬는 날") : "오늘의 기록",
-    caption: typeof context.workDateCaption === "string" ? context.workDateCaption.trim() : "", rows };
 }
