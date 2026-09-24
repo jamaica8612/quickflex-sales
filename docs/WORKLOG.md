@@ -1550,10 +1550,11 @@ Browser checks:
 - Noah 최종 운영 검증(v6, JWT 검증 유지): '오늘 구역'은 다음 업무일의 실제 근무표, '오늘 매출'은 직전 업무일의 완료 매출을 기준으로 응답했다. 문맥의 실제 날짜를 도구 from/to 예시에 명시해 완료 기록과 예정 근무표를 혼동하지 않게 했다. 후속 handler/문맥 테스트 15개 및 Deno 타입 검사 통과.
 - 모호한 '오늘 일' 질문에는 자료를 추정해 덧붙이지 않고 두 기준일 중 어느 쪽인지 확인만 하도록 명시했다. 근무표의 0건 항목이 완료 실적으로 해석되지 않도록 읽기 도구 설명도 보완했다. Noah 관련 회귀·규칙 일치 테스트 45/45 통과.
 
-## 2026-09-24 - Noah 공개·스트리밍·기기 대화 기록 (PWA 1.0.96, 배포 준비)
+## 2026-09-24 - Noah 공개·스트리밍·기기 대화 기록 (PWA 1.0.96, 배포 완료)
 
 - 노아 첫 사용 고지를 승인된 프로필에 한 번만 기록하고, 피드백은 원문 없이 평점·조회 자료·제안 여부·응답 시간·모델만 새 `quickflex_noah_private.feedback` RPC로 저장하도록 했다. `privacy.html`에는 OpenAI 전달·store:false·미국 처리와 기기 보관을 추가했으며 법적 확인이 필요한 보관·국외 처리 문구는 TODO로 남겼다.
 - 노아 탭의 브리핑 카드는 AI 호출 없이 다음 업무일·구역·팁 수·목표 필요 매출을 계산하고, 답변 아래에는 실제 조회 결과에서 만든 허용된 화면 이동 링크를 표시한다. 진행 상태와 최종 문장은 SSE로 보내며 실패 시 JSON 응답으로 되돌아간다. `NOAH_MODEL`과 선택적 `NOAH_MODEL_FAST`를 지원한다.
 - 대화는 계정별 IndexedDB(실패 시 localStorage)에 최근 20개·7일만 저장하고 로그아웃·계정 전환·초기화·탈퇴·대화 지우기 때 삭제한다. 복원된 변경 제안은 지난 제안으로만 표시해 확인 버튼을 제공하지 않는다. `assets/noah/noah-avatar-v1.webp`를 노아 아바타로 추가했다.
 - 변경 파일: `src/ui/noah.js`, `src/services/noah.js`, `src/lib/noah-{brief,history,links}.js`, `styles/noah.css`, `src/main.js`, 계정·설정·구역노트 연결부, `supabase/functions/noah/{index.ts,handler.js,data-tools.js}`, `supabase/migrations/20260924081941_noah_notice_feedback.sql`, `supabase-schema.sql`, `privacy.html`, `docs/{NOAH,HARNESS}.md`, PWA 진입점·서비스워커·버전, Noah fixture와 회귀 테스트.
 - 실행한 검증: 전체 Node 테스트 507/507 통과(집중 Noah/PWA/SQL 72/72와 PGlite 피드백·고지·쿼터 검증 포함), 변경 JavaScript 10개 `node --check` 통과, `SHELL_FILES` 104개 실제 파일 확인, `git diff --check` 통과. 로컬에 Deno 실행 파일이 없어 `deno check`는 실행하지 못했다. 배포 순서는 새 마이그레이션만 적용 → `noah` 함수 배포 → PWA 배포이며 다른 마이그레이션·함수는 함께 배포하지 않는다.
+- 실제 반영: Supabase 프로젝트 `xrrdokcjhjqdfvwtbenl`에 새 마이그레이션이 provider 버전 `20260924084045`로 적용됐고 `feedback` RLS 및 고지·피드백 RPC를 확인했다. `noah` Edge Function v8을 `verify_jwt=true`로 배포했으며, GitHub Pages Actions run `35976845371`이 성공했다. 라이브 PWA에서 1.0.96 노아 탭, 다음 업무일 브리핑, OpenAI 고지, 생성 아바타를 확인했다.
