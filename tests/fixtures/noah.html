@@ -25,11 +25,17 @@
     <p class="fixture-note">화면 검증용 모의 응답입니다. 실제 계정이나 데이터베이스에 연결하지 않습니다.</p>
     <header class="fixture-head"><h1>노아</h1><p>배송·매출 대화 화면</p></header>
     <div class="fixture-controls" aria-label="모의 시나리오">
-      <button type="button" data-example="이번 주 매출 요약">읽기 답변</button>
+      <button type="button" data-example="이번 주 매출 요약">스트리밍 답변·링크·평가</button>
       <button type="button" data-example="월 목표 변경 제안">변경 제안</button>
-      <button type="button" data-example="통신 실패">통신 실패</button>
+      <button type="button" data-example="통신 실패">통신 실패·재시도</button>
+      <button type="button" data-phase="beforeShift">근무 전</button>
+      <button type="button" data-phase="active">근무 중</button>
+      <button type="button" data-phase="completed">근무 완료</button>
+      <button type="button" data-phase="off">휴무</button>
+      <button type="button" data-restore>대화 복원</button>
       <button type="button" data-switch-account>계정 전환 모의</button>
     </div>
+    <p id="fixtureNavigation" class="fixture-note" aria-live="polite">상단의 안내를 확인한 뒤 시나리오를 눌러 보세요.</p>
     <main class="noah-body">
       <ol class="noah-thread" id="noahThread" aria-live="polite"></ol>
       <div class="noah-suggestions" aria-label="추천 질문"><button type="button" data-noah-ask>이번 주 매출 요약</button><button type="button" data-noah-ask>월 목표 변경 제안</button></div>

@@ -145,7 +145,7 @@ test("model instructions receive only server account context, not browser-suppli
   const actual = (await context()).result;
   let seenInstructions = "";
   const handler = createNoahHandler({
-    authorize: async () => ({ userId: owner, getWorkDateContext: async () => actual,
+    authorize: async () => ({ userId: owner, noticeAcknowledged: true, getWorkDateContext: async () => actual,
       dataTools: { consumeQuota: async () => ({ allowed: true }) } }),
     respond: async (request) => {
       seenInstructions = request.instructions;

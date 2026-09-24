@@ -1,5 +1,5 @@
 export function bindAccountDeletion({ button, state, captureAccountContext, isAccountContextCurrent,
-  ensurePendingSavesFlushed, toast, confirm = (message) => window.confirm(message) }) {
+  ensurePendingSavesFlushed, toast, clearNoahHistory = () => {}, confirm = (message) => window.confirm(message) }) {
   let busy = false;
   button.addEventListener("click", async () => {
     if (busy) return;
@@ -14,6 +14,7 @@ export function bindAccountDeletion({ button, state, captureAccountContext, isAc
     button.textContent = "요청 접수 중…";
     button.setAttribute("aria-busy", "true");
     try {
+      await clearNoahHistory(context.userId);
       await ensurePendingSavesFlushed();
       if (!isCurrent()) return;
       const { data, error } = await db.rpc("quickflex_request_account_deletion", { p_expected_user_id: context.userId });

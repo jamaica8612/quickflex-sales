@@ -101,6 +101,7 @@ export function bindSettingsEvents(ctx) {
     if (!window.confirm("내 수동 기록, 단가, 점검 기록을 삭제할까요?\n\n앱이 마감한 자동 기록은 삭제되지 않고 그대로 유지됩니다.")) return;
     const userId = currentUserId();
     try {
+      await ctx.clearNoahHistory?.(userId);
       await deleteMutableUserData(userId);
       state.rates = [];
       state.entries = {};

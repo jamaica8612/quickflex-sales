@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createNoahDataTools, NOAH_READ_RESOURCES, NOAH_WRITE_ACTIONS } from "../supabase/functions/noah/data-tools.js";
+import { createNoahDataTools, NOAH_READ_RESOURCES, NOAH_WRITE_ACTIONS, quotaErrorMessage } from "../supabase/functions/noah/data-tools.js";
 
 const owner="11111111-1111-4111-8111-111111111111";
 const proposal="22222222-2222-4222-8222-222222222222";
@@ -76,4 +76,9 @@ test("quota denial is an error with server retry metadata",async()=>{
   client.rpc=async()=>({data:{allowed:false,remainingDaily:0,remainingMinute:0,retryAfterSeconds:3600},error:null});
   const tools=createNoahDataTools({client,userId:owner});
   await assert.rejects(()=>tools.consumeQuota(),(error)=>error.code==="NOAH_QUOTA_EXCEEDED"&&error.quota.retryAfterSeconds===3600);
+});
+
+test("quota codes map to the exact daily and minute guidance", () => {
+  assert.equal(quotaErrorMessage({ code: "NOAH_DAY_LIMIT" }), "오늘은 많이 물어보셨네요! 내일 다시 도와드릴게요.");
+  assert.equal(quotaErrorMessage({ code: "NOAH_MINUTE_LIMIT" }), "잠깐만요, 조금 뒤에 다시 물어봐 주세요.");
 });
