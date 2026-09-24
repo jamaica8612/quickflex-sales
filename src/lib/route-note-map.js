@@ -1,4 +1,4 @@
-import { ALERT_MARKERS, createRouteNoteIcon, createRouteNoteMapIcon } from "./route-note-icons.js?v=2";
+import { ALERT_MARKERS, createRouteNoteIcon, createRouteNoteMapIcon } from "./route-note-icons.js?v=3";
 import { routeNoteBoundaryDisplay, routeNoteLabelGroups } from "./route-note-map-geometry.js?v=2";
 
 const NAVER_SCRIPT_ID = "quickflex-route-notes-naver-map";

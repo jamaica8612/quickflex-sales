@@ -9,3 +9,6 @@ verify_jwt = false
 
 [functions.route-note-postcode]
 verify_jwt = true
+
+[functions.noah]
+verify_jwt = true

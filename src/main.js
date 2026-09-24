@@ -1,10 +1,11 @@
 import { createExpenseService } from "./services/expenses.js";
 import { createRouteNotesService } from "./services/route-notes.js?v=2";
-import { createRouteNotesController } from "./ui/route-notes.js?v=12";
+import { createRouteNotesController } from "./ui/route-notes.js?v=13";
 import { createRouteNoteShareService } from "./services/route-note-share.js";
 import { createRouteNoteShareDialog } from "./ui/route-note-share.js";
 import { checkBetaMeasurementAccess } from "./services/beta-access.js";
 import { createExpensesController } from "./ui/expenses.js";
+import { createNoahController } from "./ui/noah.js?v=1";
 import { createExportsController } from "./ui/exports.js";
 import { mountCalendarSync } from "./ui/calendar-sync.js";
 import { buildStatsInsights } from "./lib/stats-insights.js";
@@ -939,6 +940,7 @@ function clearUserScopedState() {
   state.rateOfferPrompted = false;
   state.statsDetailDate = "";
   expensesController?.reset();
+  noahController?.reset();
   routeNoteShareDialog?.reset();
   routeNotesController?.reset();
   postNativeMessage({ type: "set_route_notes_active", active: false });
@@ -2089,6 +2091,7 @@ async function bootSignedInUser(context = captureAccountContext()) {
   const bootPromise = (async () => {
     if (!await loadProfile(context) || !isAccountContextCurrent(context)) return false;
     if (state.profile?.status !== "approved") {
+      noahController?.reset();
       if (!isAccountContextCurrent(context)) return false;
       routeNotesController?.reset();
       routeNotesService?.reset?.();
@@ -5778,36 +5781,21 @@ function closeSheet() {
   updateModalLayer(el.dbSheet, false);
 }
 
-// 노아: 화면과 대화 틀만 먼저 둔다. 답변 엔진이 붙기 전에는 준비 중이라고 안내한다.
-function appendNoahMessage(text, from) {
-  const item = document.createElement("li");
-  item.className = `noah-msg from-${from}`;
-  if (from === "noah") {
-    const avatar = document.createElement("span");
-    avatar.className = "noah-avatar";
-    avatar.setAttribute("aria-hidden", "true");
-    avatar.textContent = "N";
-    item.append(avatar);
-  }
-  const body = document.createElement("p");
-  body.textContent = text;
-  item.append(body);
-  el.noahThread.append(item);
-  item.scrollIntoView({ block: "end", behavior: "smooth" });
-}
-function askNoah(question) {
-  const text = String(question || "").trim().slice(0, 300);
-  if (!text || !el.noahThread) return;
-  appendNoahMessage(text, "me");
-  appendNoahMessage("노아는 아직 준비 중이에요. 곧 이 질문에 답해드릴게요.", "noah");
-}
 function bindNoah() {
-  el.noahAskForm?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    askNoah(el.noahInput.value);
-    el.noahInput.value = "";
+  if (noahController) return;
+  noahController = createNoahController({
+    thread: el.noahThread, form: el.noahAskForm, input: el.noahInput,
+    suggestions: document.querySelector(".noah-suggestions"),
+    getContext: () => ({ client: state.db, userId: currentUserId(), epoch: accountEpoch, approved: state.profile?.status === "approved" }),
+    onChanged: async () => {
+      const context = captureAccountContext();
+      invalidateSummaryLedger();
+      if (!await loadProfile(context) || !isAccountContextCurrent(context)) return;
+      applyProfileUi();
+      await loadFromDb(context);
+      if (isAccountContextCurrent(context)) renderAll();
+    },
   });
-  document.querySelectorAll("[data-noah-ask]").forEach((button) => button.addEventListener("click", () => askNoah(button.textContent)));
 }
 
 function bindEvents() {
@@ -6037,6 +6025,7 @@ async function init() {
 
 
 let expensesController = null;
+let noahController = null;
 let exportsController = null;
 let calendarSyncController = null;
 let routeNotesController = null;

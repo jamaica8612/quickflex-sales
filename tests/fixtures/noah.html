@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>노아 화면 모의 검증</title>
+  <link rel="stylesheet" href="../../styles.css">
+  <link rel="stylesheet" href="../../styles/noah.css">
+  <style>
+    :root { color-scheme: dark; --text:#f4efe5; --muted:#b6afa3; --panel:#25231f; --panel2:#302e29; --panel3:#3b372e; --line-strong:#5a5348; --gold:#e8bd69; --gold-ink:#251a08; --r-full:999px; --font-ui:system-ui,sans-serif; --font-numeric:system-ui,sans-serif; --fs-label:14px; --fs-body:15px; --fs-body-l:16px; }
+    body { margin:0; background:#171715; color:var(--text); font-family:system-ui,sans-serif; }
+    .fixture-wrap { display:flex; flex-direction:column; min-height:100dvh; max-width:760px; margin:auto; }
+    .fixture-note { margin:0; padding:9px 18px; background:#5b3f16; color:#fff2d5; font-size:13px; }
+    .fixture-head { padding:18px; border-bottom:1px solid var(--line-strong); }
+    .fixture-head h1 { margin:0; font-size:22px; }
+    .fixture-head p { margin:5px 0 0; color:var(--muted); }
+    .noah-body { flex:1; min-height:420px; }
+    .noah-thread { min-height:300px; }
+    .fixture-controls { display:flex; flex-wrap:wrap; gap:8px; padding:12px 18px; }
+    .fixture-controls button { min-height:44px; border:1px solid var(--line-strong); border-radius:10px; background:var(--panel); color:var(--text); padding:8px 12px; }
+  </style>
+</head>
+<body>
+  <div class="fixture-wrap">
+    <p class="fixture-note">화면 검증용 모의 응답입니다. 실제 계정이나 데이터베이스에 연결하지 않습니다.</p>
+    <header class="fixture-head"><h1>노아</h1><p>배송·매출 대화 화면</p></header>
+    <div class="fixture-controls" aria-label="모의 시나리오">
+      <button type="button" data-example="이번 주 매출 요약">읽기 답변</button>
+      <button type="button" data-example="월 목표 변경 제안">변경 제안</button>
+      <button type="button" data-example="통신 실패">통신 실패</button>
+      <button type="button" data-switch-account>계정 전환 모의</button>
+    </div>
+    <main class="noah-body">
+      <ol class="noah-thread" id="noahThread" aria-live="polite"></ol>
+      <div class="noah-suggestions" aria-label="추천 질문"><button type="button" data-noah-ask>이번 주 매출 요약</button><button type="button" data-noah-ask>월 목표 변경 제안</button></div>
+      <form class="noah-ask" id="noahAskForm">
+        <label class="sr-only" for="noahInput">노아에게 물어보기</label>
+        <input id="noahInput" type="text" maxlength="2000" autocomplete="off" placeholder="모의 질문 입력">
+        <button type="submit" aria-label="보내기">↑</button>
+      </form>
+    </main>
+  </div>
+  <script type="module" src="./noah.js"></script>
+</body>
+</html>

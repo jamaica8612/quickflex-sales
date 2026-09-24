@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import test from "node:test";
-import { MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon } from "../src/lib/route-note-icons.js";
+import { MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon, createRouteNoteMapIcon } from "../src/lib/route-note-icons.js";
 import { appendAgriculturalMarketTip, isAgriculturalMarketTip, isAgriculturalMarketZone } from "../src/lib/agricultural-market-route-map.js";
 import { routeNoteZoneNameKey } from "../src/lib/route-notes.js";
 import { isPointInRouteNoteZone } from "../src/lib/route-note-rules.js";
@@ -128,7 +128,7 @@ function setup({ confirm = () => true, mapFactory, extraTips = [], shareDialog, 
     return editor;
   };
   const context = { document, window, AbortController, Promise, URL, console, CSS: { escape: (value) => value },
-    MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon, routeNoteZoneNameKey, isPointInRouteNoteZone, appendAgriculturalMarketTip, isAgriculturalMarketTip, isAgriculturalMarketZone,
+    MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon, createRouteNoteMapIcon, routeNoteZoneNameKey, isPointInRouteNoteZone, appendAgriculturalMarketTip, isAgriculturalMarketTip, isAgriculturalMarketZone,
     openAgriculturalMarketRouteMap: (options = {}) => { const entry = { options, closed: false }; calls.marketRouteMaps.push(entry); return { close() { entry.closed = true; options.onClose?.(); } }; },
     createRouteNoteZoneEditor, createRouteNoteMap, hasPolygon: (polygon) => Boolean(polygon?.coordinates?.length), ROUTE_NOTE_MARKER_TYPES: ["note", "parking"], parseScheduleRoutes: () => [] };
   runInNewContext(source, context, { filename: "route-notes.js" });

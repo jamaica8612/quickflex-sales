@@ -59,7 +59,7 @@ test("PWA config names the immutable-receipt detail and date override contracts"
   assert.match(config, /replaceAutomaticSalesOverride:\s*"quickflex_replace_automatic_sales_override"/);
   assert.match(config, /replaceManualDayRecord:\s*"quickflex_replace_manual_day_record"/);
   const releaseVersion = JSON.parse(manifest).version;
-  assert.equal(releaseVersion, "1.0.93");
+  assert.equal(releaseVersion, "1.0.94");
   assert.ok(serviceWorker.includes(`quickflex-shell-v${releaseVersion}`));
   assert.ok(html.includes(`src/main.js?v=${releaseVersion}`));
   assert.ok(html.includes(`styles.css?v=${releaseVersion}`));
@@ -315,7 +315,7 @@ test("account reset clears every new sales surface and force-closes an open edit
     adminRevenueList: emptyNode(), adminRouteList: emptyNode(), adminBundleList: emptyNode(), adminProfiles: emptyNode(),
   };
   const sandbox = {
-    state, el, $: () => null, setSaveFeedback: () => {}, expensesController: null, exportsController: null, calendarSyncController: null, routeNotesController: null, routeNotesService: null,
+    state, el, $: () => null, setSaveFeedback: () => {}, expensesController: null, noahController: null, exportsController: null, calendarSyncController: null, routeNotesController: null, routeNotesService: null,
     routeNoteShareDialog: { reset() { shareReset = true; } },
     postNativeMessage: (message) => nativeMessages.push(message),
     clearTimeout: () => {},

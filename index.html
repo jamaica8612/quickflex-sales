@@ -10,7 +10,7 @@
     <meta name="application-name" content="플렉스노트" />
     <meta name="apple-mobile-web-app-title" content="플렉스노트" />
     <meta name="description" content="배송의 기록부터 매출·지출까지" />
-    <link rel="manifest" href="./manifest.webmanifest?v=1.0.93" />
+    <link rel="manifest" href="./manifest.webmanifest?v=1.0.94" />
     <link rel="icon" href="./favicon-32.png?v=4" type="image/png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=4" />
     <script>
@@ -40,11 +40,12 @@
     </style>
     <style>html[data-startup] #app{visibility:hidden;pointer-events:none}</style>
     <link rel="stylesheet" href="./styles/startup.css?v=3" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.93" />
-  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.93" />
-<link rel="stylesheet" href="./styles/exports.css?v=1.0.93" />
-<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.93" />
-<link rel="stylesheet" href="./styles/route-note-map.css?v=5" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.94" />
+  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.94" />
+<link rel="stylesheet" href="./styles/exports.css?v=1.0.94" />
+<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.94" />
+<link rel="stylesheet" href="./styles/noah.css?v=1" />
+<link rel="stylesheet" href="./styles/route-note-map.css?v=6" />
 <link rel="stylesheet" href="./styles/route-notes.css?v=9" />
 <link rel="stylesheet" href="./styles/agricultural-market-route-map.css?v=2" />
 <link rel="stylesheet" href="./styles/route-note-zone-editor.css?v=2" />
@@ -334,7 +335,7 @@
         </header>
         <main class="noah-body">
           <ol class="noah-thread" id="noahThread" aria-live="polite">
-            <li class="noah-msg from-noah"><span class="noah-avatar" aria-hidden="true">N</span><p>안녕하세요, 노아예요. 매출, 배송, 구역에 대해 무엇이든 물어보세요. 지금은 준비 중이라 곧 답해드릴 수 있어요.</p></li>
+            <li class="noah-msg from-noah"><span class="noah-avatar" aria-hidden="true">N</span><p>안녕하세요, 노아예요. 매출, 배송, 구역에 대해 무엇이든 물어보세요. 기록을 바꿀 때는 먼저 확인할게요.</p></li>
           </ol>
           <div class="noah-suggestions" aria-label="추천 질문">
             <button type="button" data-noah-ask>이번 주 매출 요약</button>
@@ -344,7 +345,7 @@
           </div>
           <form class="noah-ask" id="noahAskForm">
             <label class="sr-only" for="noahInput">노아에게 물어보기</label>
-            <input id="noahInput" name="noahQuestion" type="text" autocomplete="off" placeholder="노아에게 물어보기" maxlength="300" />
+            <input id="noahInput" name="noahQuestion" type="text" autocomplete="off" placeholder="노아에게 물어보기" maxlength="2000" />
             <button type="submit" aria-label="보내기"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg></button>
           </form>
         </main>
@@ -810,7 +811,7 @@
     <script src="./src/vendor/supabase-2.116.0.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.93"></script>
+    <script type="module" src="./src/main.js?v=1.0.94"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});

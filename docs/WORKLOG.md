@@ -1527,7 +1527,7 @@ Browser checks:
 - Point Android installation and update guidance to Beta 1.23, whose Korean UI font is Pretendard while numeric and route-code fonts remain unchanged.
 - Validation: 29 focused release, update-notice and measurement-launch tests pass; required app/service-worker syntax checks pass, all 92 precache paths exist, and diff checks pass. Android build/signing and public download verification are tracked in the native release record.
 
-## 2026-09-23 - Unified tab headers, Noah tab and expenses inside 매출노트 (PWA 1.0.93)
+## 2026-09-23 - Unified tab headers, Noah tab and expenses inside 매출노트 (PWA 1.0.94)
 
 - User-approved navigation: 매출노트 · 배송노트 · 노아 · 구역노트 · 정산노트. The 더보기 bottom sheet is removed; every tab header has a gear that opens 설정, which already holds 사용법 and the admin section. The settings page title is 설정 and its duplicate 통계 row is gone.
 - Tab first screens share one header (22px title, one-line subtitle, right-side actions). 매출노트 shows the settlement period as its subtitle and the daily inspection as a small header pill (gold dot while pending, muted 점검 완료 when done); the profile-name line is removed.
