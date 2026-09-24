@@ -1547,3 +1547,4 @@ Browser checks:
 - 배포 순서: PWA와 노아 검증 및 main 반영 → Noah Edge Function 재배포와 Pages 확인 → 머지된 규칙을 확인해 Android 적용/빌드. PWA 버전·캐시·진입 URL은 1.0.95로 올린다.
 - 검증: npm ci 후 전체 Node 테스트 481/481 통과(건너뛰기 없음, expense-privacy-sql 포함). app.js/sw.js와 vendor 제외 src JavaScript 54개 및 Noah JavaScript 구문 통과, Deno Edge 엔트리 타입 검사 통과, SHELL_FILES 101개 실제 파일 확인, diff 검사 통과.
 - 배포 확인: Pages에서 1.0.95 및 공개 파일 9개 일치, 실제 오늘과 다음 업무일 표시·수동 날짜 유지 확인. 실서비스 질문에서 노아가 예정 구역을 완료 원장에서만 찾는 문제를 발견해 sales_days/sales_manual_items 근무표 우선 조회 지시와 테스트를 보강했다(Edge 후속 배포, PWA 자산 변경 없음).
+- Noah 최종 운영 검증(v6, JWT 검증 유지): '오늘 구역'은 다음 업무일의 실제 근무표, '오늘 매출'은 직전 업무일의 완료 매출을 기준으로 응답했다. 문맥의 실제 날짜를 도구 from/to 예시에 명시해 완료 기록과 예정 근무표를 혼동하지 않게 했다. 후속 handler/문맥 테스트 15개 및 Deno 타입 검사 통과.
