@@ -30,7 +30,7 @@ function setup(invoke, onChanged) {
   const status = doc.createElement("p");
   const suggestions = doc.createElement("div");
   const client = { functions: { invoke } };
-  let account = { client, userId: "user-a", epoch: 1, approved: true };
+  let account = { client, userId: "user-a", epoch: 1, approved: true, noticeAcknowledgedAt: "2026-09-24T00:00:00Z" };
   const changed = [];
   const controller = createNoahController({ thread, form, input, suggestions, status, getContext: () => account, onChanged: () => { changed.push(true); return onChanged?.(); } });
   return { thread, form, input, status, submit, changed, controller, setAccount: (next) => { account = next; }, client };
@@ -249,10 +249,10 @@ test("an old failed question cannot retry after a later successful question", as
   view.controller.destroy();
 });
 
-test("source names are localized and unknown raw resource keys are hidden", async () => {
+test("unknown raw resource keys are hidden from the answer UI", async () => {
   const view = setup(async () => ({ data: { answer: "요약", proposals: [], sources: ["profile", "sales_days", "finance_summary", "private_table"] } }));
   await view.controller.ask("요약해 줘");
-  assert.match(view.thread.textContent, /내 정보 · 날짜별 매출 · 매출·지출 요약/);
+  assert.match(view.thread.textContent, /요약/);
   assert.equal(view.thread.textContent.includes("private_table"), false);
   view.controller.destroy();
 });

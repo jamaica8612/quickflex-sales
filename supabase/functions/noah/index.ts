@@ -21,25 +21,25 @@ async function authorize(request: Request) {
   const { data: { user }, error } = await client.auth.getUser(token);
   if (error || !user) return null;
   const { data: profile, error: profileError } = await client.from("quickflex_profiles")
-    .select("id,status,work_shift").eq("id", user.id).maybeSingle();
-  if (profileError) throw Object.assign(new Error("근무조 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."), { status: 503 });
+    .select("id,status,work_shift,noah_notice_acknowledged_at").eq("id", user.id).maybeSingle();
+  if (profileError) throw Object.assign(new Error("근무조 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."), { status: 503, noahSafe: true });
   if (profile?.status !== "approved") return null;
-  const dataTools: Omit<ReturnType<typeof createNoahDataTools>, "read"> & {
-    read: (args?: Record<string, unknown>) => Promise<unknown>;
-  } = createNoahDataTools({ client, userId: user.id });
-  const read = dataTools.read;
-  dataTools.read = async (args = {}) => {
-    if (args.resource !== "finance_summary") return read(args);
-    try {
-      return await readFinanceSummary({ client, userId: user.id, from: args.from, to: args.to });
-    } catch {
-      throw new Error("정산 자료를 완전히 확인하지 못했어요. 시작일과 종료일(최대 366일)을 확인하거나 잠시 후 다시 조회해 주세요. 불완전한 합계는 제공하지 않습니다.");
-    }
+  const baseTools = createNoahDataTools({ client, userId: user.id });
+  const dataTools = { ...baseTools,
+    async read(args: Record<string, unknown> = {}): Promise<unknown> {
+      if (args.resource !== "finance_summary") return baseTools.read(args);
+      try {
+        return await readFinanceSummary({ client, userId: user.id, from: args.from, to: args.to });
+      } catch {
+        throw new Error("정산 자료를 완전히 확인하지 못했어요. 시작일과 종료일(최대 366일)을 확인하거나 잠시 후 다시 조회해 주세요. 불완전한 합계는 제공하지 않습니다.");
+      }
+    },
   };
-  return { userId: user.id, dataTools,
+  return { userId: user.id, dataTools, noticeAcknowledged: Boolean(profile.noah_notice_acknowledged_at),
     getWorkDateContext: (now: Date) => readNoahWorkDateContext({ client, userId: user.id,
       workShift: profile.work_shift, now }) };
 }
 
 Deno.serve(createNoahHandler({ authorize, respond: createOpenAIResponder(apiKey), configured: () => Boolean(apiKey),
+  model: Deno.env.get("NOAH_MODEL") || "gpt-6-luna", fastModel: Deno.env.get("NOAH_MODEL_FAST") || "",
   resources, actions: NOAH_WRITE_ACTIONS }));

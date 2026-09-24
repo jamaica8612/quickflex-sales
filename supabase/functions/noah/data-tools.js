@@ -82,10 +82,17 @@ function unwrap(result) {
       '22023': '변경할 날짜, 금액과 입력값을 다시 확인해 주세요.',
     };
     const message = messages[result.error.code];
-    if (message) throw Object.assign(new Error(message), { status: result.error.code === '42501' ? 403 : 409 });
+    if (message) throw Object.assign(new Error(message), { status: result.error.code === '42501' ? 403 : 409, noahSafe: true });
     throw result.error;
   }
   return result?.data;
+}
+
+export function quotaErrorMessage(quota) {
+  const reason = String(quota?.reason ?? quota?.code ?? quota?.limit ?? "").toLowerCase();
+  if (reason.includes("daily") || reason.includes("day") || reason.includes("하루") || quota?.remainingDaily === 0)
+    return "오늘은 많이 물어보셨네요! 내일 다시 도와드릴게요.";
+  return "잠깐만요, 조금 뒤에 다시 물어봐 주세요.";
 }
 
 export function createNoahDataTools({ client, userId }) {
@@ -156,9 +163,10 @@ export function createNoahDataTools({ client, userId }) {
   async function consumeQuota() {
     const quota=unwrap(await client.rpc("quickflex_noah_consume_quota"));
     if (!quota?.allowed) {
-      const error=new Error("노아 사용 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.");
+      const error=new Error(quotaErrorMessage(quota));
       error.code="NOAH_QUOTA_EXCEEDED";
       error.status=429;
+      error.noahSafe=true;
       error.quota=quota;
       throw error;
     }
