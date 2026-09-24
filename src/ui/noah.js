@@ -1,6 +1,8 @@
 import { createNoahService, NoahStaleAccountError } from "../services/noah.js";
 import { validNoahLinks } from "../lib/noah-links.js";
 import { NOAH_NOTICE, NOAH_PRIVACY_URL, noahChips, noahWelcome } from "../lib/noah-brief.js";
+import { noahStepDone, noahStepText, noahThinkingSummary } from "../lib/noah-thinking.js";
+import { bindNoahKeyboard } from "./noah-keyboard.js";
 
 const MAX_HISTORY = 12;
 const REQUEST_TIMEOUT_MS = 85000;
@@ -46,7 +48,11 @@ export function createNoahController({ thread, form, input, suggestions, status,
   statusNode.setAttribute("aria-live", "polite");
   const clearButton = element(doc, "button", "noah-new-chat", "새 대화");
   clearButton.type = "button";
-  if (form.parentNode) form.parentNode.insertBefore(clearButton, statusNode.parentNode === form.parentNode ? statusNode : form);
+  const view = form.closest?.(".view-noah") || null;
+  const headerActions = view?.querySelector(".tab-head-actions");
+  if (headerActions) headerActions.insertBefore(clearButton, headerActions.firstChild);
+  else if (form.parentNode) form.parentNode.insertBefore(clearButton, statusNode.parentNode === form.parentNode ? statusNode : form);
+  const unbindKeyboard = bindNoahKeyboard({ view, input, win: doc.defaultView });
 
   let generation = 0;
   let destroyed = false;
@@ -74,6 +80,7 @@ export function createNoahController({ thread, form, input, suggestions, status,
     statusNode.dataset.pending = String(pending);
     if (submit) submit.disabled = pending || !hasNotice();
     form.setAttribute("aria-busy", String(pending));
+    if (suggestions) suggestions.hidden = pending;
   }
   function avatar(large = false) {
     const wrap = element(doc, "span", `noah-avatar${large ? " noah-avatar-large" : ""}`);
@@ -94,6 +101,58 @@ export function createNoahController({ thread, form, input, suggestions, status,
     thread.append(item);
     thread.scrollTop = thread.scrollHeight;
     return { item, body };
+  }
+  // 답이 오기 전까지 노아 말풍선 자리에 실제 진행 단계를 보여줘요.
+  function createThinking() {
+    const item = element(doc, "li", "noah-msg from-noah noah-thinking");
+    item.append(avatar());
+    const box = element(doc, "div", "noah-think");
+    const head = element(doc, "div", "noah-think-head");
+    const dots = element(doc, "span", "noah-dots");
+    dots.setAttribute("aria-hidden", "true");
+    dots.append(element(doc, "i"), element(doc, "i"), element(doc, "i"));
+    head.append(dots, element(doc, "span", "", "생각하는 중"));
+    const list = element(doc, "ol", "noah-steps");
+    box.append(head, list);
+    item.append(box);
+    thread.append(item);
+    thread.scrollTop = thread.scrollHeight;
+    return { item, box, list, steps: [], current: null, started: Date.now(), body: null };
+  }
+  function finishStep(view) {
+    if (!view.current) return;
+    view.current.node.className = "done";
+    view.current.node.textContent = noahStepDone(view.current.text);
+    view.current = null;
+  }
+  function addStep(view, message) {
+    const text = noahStepText(message);
+    if (!text || view.body) return;
+    if (/했어요$/u.test(text)) { finishStep(view); return; }
+    if (view.current?.text === text) return;
+    finishStep(view);
+    const node = element(doc, "li", "now", text);
+    view.list.append(node);
+    view.current = { node, text };
+    view.steps.push(text);
+    thread.scrollTop = thread.scrollHeight;
+  }
+  function settleThinking(view) {
+    if (view.body) return view;
+    finishStep(view);
+    view.box.remove();
+    const summary = noahThinkingSummary(view.steps, Date.now() - view.started);
+    if (view.steps.length) {
+      const details = element(doc, "details", "noah-think-done");
+      details.append(element(doc, "summary", "", summary), view.list);
+      view.item.append(details);
+    } else {
+      view.item.append(element(doc, "span", "noah-think-done", summary));
+    }
+    view.item.className = "noah-msg from-noah noah-streaming";
+    view.body = element(doc, "p");
+    view.item.append(view.body);
+    return view;
   }
   function button(label, action, className = "") {
     const node = element(doc, "button", className, label);
@@ -266,21 +325,31 @@ export function createNoahController({ thread, form, input, suggestions, status,
       chatPending = true;
       setStatus("노아가 확인 중이에요…", true);
       const controller = new AbortController();
-      let preview = null;
-      const clearPreview = () => { preview?.item.remove(); preview = null; };
+      let thinking = createThinking();
+      const clearPreview = () => { if (thinking?.item.parentNode === thread) thinking.item.remove(); thinking = null; };
       try {
         const result = await withTimeout(() => service.chat(text, prior, controller.signal, {
-          onProgress(message) { if (current(start, account)) setStatus(message, true); },
+          onProgress(message) {
+            if (!current(start, account)) return;
+            setStatus(message, true);
+            if (thinking) addStep(thinking, message);
+          },
           onDelta(delta) {
             if (!current(start, account)) return;
-            if (!preview) preview = appendMessage("", "noah", "noah-streaming");
-            preview.body.textContent += delta;
+            if (!thinking) thinking = createThinking();
+            settleThinking(thinking).body.textContent += delta;
+            thread.scrollTop = thread.scrollHeight;
           },
-          onReset() { if (current(start, account)) { clearPreview(); setStatus("답변을 다시 확인하고 있어요…", true); } },
+          onReset() {
+            if (!current(start, account)) return;
+            clearPreview();
+            thinking = createThinking();
+            setStatus("답변을 다시 확인하고 있어요…", true);
+          },
         }), controller);
         if (!current(start, account)) return;
         if (typeof result.answer !== "string" || !result.answer.trim() || result.answer.length > 12000) throw new Error("답변을 확인할 수 없어요. 다시 시도해 주세요.");
-        const answerView = preview || appendMessage(result.answer, "noah");
+        const answerView = settleThinking(thinking || createThinking());
         answerView.item.className = "noah-msg from-noah";
         answerView.body.textContent = result.answer;
         renderLinks(answerView.item, result.links);
@@ -341,6 +410,7 @@ export function createNoahController({ thread, form, input, suggestions, status,
       requests.clear();
       form.removeEventListener("submit", onSubmit);
       clearButton.remove();
+      unbindKeyboard();
       if (!status) statusNode.remove();
     },
   };
