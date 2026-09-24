@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createRouteNoteMap, hasPolygon, polygonCentroid, polygonPoints, polygonRings, toPolygon } from "../src/lib/route-note-map.js";
+import { createRouteNoteMapIcon, MAP_MARKER_ICONS, ALERT_MARKERS } from "../src/lib/route-note-icons.js";
 
 function mapFixture() {
   const records = { maps: [], polygons: [], markers: [], removedListeners: [] };
@@ -233,8 +235,10 @@ test("custom tip markers keep safe labels, selection, keyboard activation and li
     assert.equal(control.attributes["aria-pressed"], "true");
     assert.equal(control.attributes["data-alert"], "true");
     assert.equal(control.attributes["data-marker-type"], "warning");
-    assert.equal(control.children[0].attributes["viewBox"], "0 0 256 256");
-    assert.match(control.children[0].children[0].attributes.href, /phosphor-regular\.svg#warning$/);
+    assert.equal(control.children[0].attributes["viewBox"], "0 0 24 24");
+    assert.equal(control.children[0].attributes["aria-hidden"], "true");
+    assert.ok(control.children[0].children.every((path) => path.attributes.d), "marker paths render without an external sprite request");
+    assert.equal(control.children[0].attributes["stroke-width"], "1.35");
     assert.equal(control.emit("keydown").stopped, true);
     control.emit("click");
     assert.deepEqual(opened, ["tip"]);
@@ -243,6 +247,27 @@ test("custom tip markers keep safe labels, selection, keyboard activation and li
     adapter.destroy();
     assert.equal(control.listeners.size, 0);
   });
+});
+
+test("all 22 map marker types bundle their selected official Tabler geometry", () => {
+  const documentRef = { createElementNS: () => ({ attributes: {}, children: [], setAttribute(key, value) { this.attributes[key] = value; }, append(child) { this.children.push(child); } }) };
+  assert.equal(Object.keys(MAP_MARKER_ICONS).length, 22);
+  for (const [type, name] of Object.entries(MAP_MARKER_ICONS)) {
+    const original = readFileSync(new URL(`../assets/icons/route-notes/tabler-outline/${name}.svg`, import.meta.url), "utf8");
+    const paths = [...original.matchAll(/<path\b[^>]*\bd="([^"]+)"[^>]*\/?\s*>/g)].map((match) => match[1]);
+    const rendered = createRouteNoteMapIcon(documentRef, type);
+    assert.ok(paths.length > 0, type);
+    assert.deepEqual(rendered.children.map((node) => node.attributes.d), paths, type);
+    assert.equal(rendered.attributes.viewBox, "0 0 24 24", type);
+    assert.equal(rendered.attributes["aria-hidden"], "true", type);
+    assert.equal(rendered.attributes.fill, "none", type);
+    assert.equal(rendered.attributes["stroke-width"], "1.35", type);
+    assert.match(rendered.attributes.style, /stroke-width:1\.35/, type);
+  }
+  assert.deepEqual([...ALERT_MARKERS], ["warning", "important", "no_entry", "construction", "dog", "locked"]);
+  const fallback = createRouteNoteMapIcon(documentRef, "unknown");
+  assert.deepEqual(fallback.children.map((node) => node.attributes.d), createRouteNoteMapIcon(documentRef, "note").children.map((node) => node.attributes.d));
+  assert.match(readFileSync(new URL("../assets/icons/route-notes/tabler-outline/LICENSE.txt", import.meta.url), "utf8"), /^MIT License/);
 });
 
 test("route-note map retains the share page's single-zone render contract", async () => {

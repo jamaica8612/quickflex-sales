@@ -13,7 +13,7 @@
 }
 
 .route-notes-map-tip-marker,.route-notes-map-picked-marker {
-  --route-note-marker-color:#1B62D6;
+  --route-note-marker-color:#2466C3;
   position:relative;
   display:grid;
   place-items:center;
@@ -21,26 +21,26 @@
   width:44px;
   height:44px;
   padding:0;
-  border:2px solid currentColor;
+  border:1px solid #D5DEE8;
   border-radius:50%;
   background:#fff;
   color:var(--route-note-marker-color);
-  box-shadow:0 2px 9px rgb(15 23 42 / .22);
+  box-shadow:0 2px 7px rgb(38 61 95 / .13);
   cursor:pointer;
   touch-action:manipulation;
   color-scheme:light;
 }
-.route-notes-map-tip-marker[data-alert="true"] { --route-note-marker-color:#DC3545; }
-.route-notes-map-tip-marker[data-marker-type="market_map"] { --route-note-marker-color:#B7791F; }
-.route-notes-map-tip-marker:is([data-marker-type="elevator"],[data-marker-type="stairs"],[data-marker-type="restroom"],[data-marker-type="security"],[data-marker-type="storage"]) { --route-note-marker-color:#0F8A72; }
-.route-notes-map-tip-marker:is([data-marker-type="vehicle_entrance"],[data-marker-type="parking"],[data-marker-type="entrance"],[data-marker-type="walk_in"],[data-marker-type="unloading"],[data-marker-type="delivery_spot"]) { --route-note-marker-color:#1B62D6; }
-.route-notes-map-tip-marker:is([data-marker-type="cat"],[data-marker-type="quiet"]) { --route-note-marker-color:#7C3AED; }
+.route-notes-map-tip-marker[data-alert="true"] { --route-note-marker-color:#DF655D; }
 .route-notes-map-picked-marker { border:0; background:transparent; box-shadow:none; pointer-events:none; }
 .route-notes-map-tip-marker .route-notes-map-icon {
   display:block;
   width:22px;
   height:22px;
-  fill:currentColor;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.35;
+  stroke-linecap:round;
+  stroke-linejoin:round;
   pointer-events:none;
   transition:transform 140ms ease;
 }
@@ -58,7 +58,7 @@
   transition:transform 140ms ease;
   pointer-events:none;
 }
-.route-notes-map-tip-marker[aria-pressed="true"] { border-width:3px; box-shadow:0 0 0 3px rgb(27 98 214 / .18),0 3px 10px rgb(15 23 42 / .26); }
+.route-notes-map-tip-marker[aria-pressed="true"] { box-shadow:0 0 0 3px color-mix(in srgb, currentColor 18%, transparent),0 3px 9px rgb(38 61 95 / .18); }
 .route-notes-map-tip-marker[aria-pressed="true"] .route-notes-map-icon { width:24px; height:24px; transform:scale(1.04); }
 .route-notes-overview-map[data-has-selected-tip="true"] .route-notes-map-tip-marker:not([aria-pressed="true"]) { opacity:.44; }
 .route-notes-map-tip-marker[aria-pressed="true"]::after {

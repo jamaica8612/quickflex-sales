@@ -62,6 +62,7 @@ function declaration(name){const at=main.indexOf(`function ${name}(`);assert.ok(
 function bootHarness(status='approved'){
   const events=[];let release;let current=true;
   const sandbox={state:{profile:{status}},accountBootTask:null,events,routeNotesController:null,routeNotesService:null,
+    noahController:{reset:()=>events.push('noah:reset')},
     captureAccountContext:()=>({epoch:1,userId:'fixture'}),isAccountContextCurrent:()=>current,
     loadProfile:async()=>true,loadFromDb:()=>new Promise(resolve=>{release=resolve;}),
     showAuth:v=>events.push(`auth:${v}`),showPending:v=>events.push(`pending:${v}`),applyProfileUi(){},
@@ -75,7 +76,7 @@ test('approved account stays behind splash until profile and records render',asy
   h.release();await task;assert.ok(h.events.indexOf('render')<h.events.indexOf('finish'));assert.ok(h.events.indexOf('auth:false')<h.events.indexOf('finish'));
 });
 test('pending account opens approval screen before dismissing splash',async()=>{
-  const h=bootHarness('pending');await h.boot();assert.deepEqual(h.events,['auth:false','pending:true','finish']);
+  const h=bootHarness('pending');await h.boot();assert.deepEqual(h.events,['noah:reset','auth:false','pending:true','finish']);
 });
 test('stale account result cannot dismiss splash',async()=>{
   const h=bootHarness();const task=h.boot();await new Promise(setImmediate);h.stale();h.release();await task;assert.equal(h.events.includes('finish'),false);

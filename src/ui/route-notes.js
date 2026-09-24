@@ -1,9 +1,9 @@
-import { createRouteNoteMap, hasPolygon } from "../lib/route-note-map.js?v=8";
-import { MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon } from "../lib/route-note-icons.js?v=2";
+import { createRouteNoteMap, hasPolygon } from "../lib/route-note-map.js?v=9";
+import { MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon, createRouteNoteMapIcon } from "../lib/route-note-icons.js?v=3";
 import { appendAgriculturalMarketTip, isAgriculturalMarketTip, isAgriculturalMarketZone, openAgriculturalMarketRouteMap } from "../lib/agricultural-market-route-map.js?v=2";
 import { ROUTE_NOTE_MARKER_TYPES } from "../lib/route-notes.js?v=2";
 import { isPointInRouteNoteZone } from "../lib/route-note-rules.js";
-import { createRouteNoteZoneEditor } from "./route-note-zone-editor.js?v=6";
+import { createRouteNoteZoneEditor } from "./route-note-zone-editor.js?v=7";
 import { parseScheduleRoutes } from "../lib/route.js";
 
 const MARKER_TYPES = ROUTE_NOTE_MARKER_TYPES;
@@ -25,6 +25,11 @@ const SUGGEST_LIMIT = 6;
 const WIDE_LAYOUT = "(min-width:768px) and (orientation:landscape), (min-width:1100px)";
 
 function icon(name) { return createRouteNoteIcon(document, name); }
+function tipIcon(type) {
+  const svg = createRouteNoteMapIcon(document, type);
+  svg.setAttribute("class", "route-notes-icon");
+  return svg;
+}
 
 function node(tag, attrs = {}, children = []) {
   const element = document.createElement(tag);
@@ -45,7 +50,8 @@ function node(tag, attrs = {}, children = []) {
 
 function button(text, action, options = {}) {
   const control = node("button", { type: "button", class: `route-notes-button ${options.class || ""}`, disabled: options.disabled, "aria-pressed": options.pressed, "aria-expanded": options.expanded, onClick: action }, []);
-  if (options.icon) control.append(icon(options.icon));
+  if (options.markerType) control.append(tipIcon(options.markerType));
+  else if (options.icon) control.append(icon(options.icon));
   if (text) control.append(node("span", { text }));
   return control;
 }
@@ -454,7 +460,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     if (!results.length) { workspace.suggest.append(node("p", { class: "route-notes-suggest-empty", text: "검색 결과가 없습니다." })); return; }
     results.forEach((result) => {
       const row = node("button", { type: "button", class: "route-notes-suggest-row", onClick: () => chooseSuggestion(result) }, [
-        node("span", { class: "route-notes-suggest-glyph" }, [icon(result.glyph)]),
+        node("span", { class: "route-notes-suggest-glyph" }, [result.kind === "tip" ? tipIcon(result.tip.marker_type) : icon(result.glyph)]),
         node("span", { class: "route-notes-suggest-copy" }, [
           node("span", { class: "route-notes-suggest-title-row" }, [node("em", { class: "route-notes-badge", text: result.badge }), node("strong", { text: result.title })]),
           node("small", { text: result.subtitle }),
@@ -569,7 +575,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
       const controls = node("div", { class: "route-notes-tip-actions" });
       if (marketMap) controls.append(button("지도 열기", showAgriculturalMarketRouteMap, { class: "primary", icon: "expand" }));
       else if (canManageTip(tip)) controls.append(iconButton("edit", "팁 수정", () => showTipEditor(tip)));
-      const glyph = node("span", { class: "route-notes-tip-glyph", "data-alert": String(ALERT_MARKERS.has(tip.marker_type)) }, [icon(MARKER_ICONS[tip.marker_type] || "note")]);
+      const glyph = node("span", { class: "route-notes-tip-glyph", "data-alert": String(ALERT_MARKERS.has(tip.marker_type)) }, [tipIcon(tip.marker_type)]);
       const articleProps = { class: `route-notes-tip${marketMap ? " route-notes-tip-market" : ""}`, tabindex: "-1" };
       if (!embedded) articleProps.id = `routeNoteTip-${tip.id}`;
       const article = node("article", articleProps, [
@@ -631,15 +637,15 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     form.append(input("한 줄 설명", "routeNoteTipTitle", draft.title || "", { placeholder: "예: 303동 택배는 지하 1층 엘리베이터" }));
     const type = node("input", { type: "hidden", id: "routeNoteTipType", name: "routeNoteTipType", value: draft.marker_type || "note" });
     const markerPicker = node("details", { class: "route-notes-marker-picker" });
-    const markerSummary = node("summary", {}, [icon(MARKER_ICONS[type.value] || "note"), node("span", { text: `${MARKER_LABELS[type.value] || "일반 팁"} · 종류 변경` }), icon("down")]);
+    const markerSummary = node("summary", {}, [tipIcon(type.value), node("span", { text: `${MARKER_LABELS[type.value] || "일반 팁"} · 종류 변경` }), icon("down")]);
     const markerGrid = node("div", { class: "route-notes-marker-grid", role: "group", "aria-label": "팁 마킹 아이콘" });
     MARKER_TYPES.forEach((value) => {
       const choice = button(MARKER_LABELS[value] || value, () => {
         type.value = value; formDirty = true;
         markerGrid.querySelectorAll("button").forEach((control) => control.setAttribute("aria-pressed", String(control.dataset.marker === value)));
-        markerSummary.replaceChildren(icon(MARKER_ICONS[value] || "note"), node("span", { text: `${MARKER_LABELS[value]} · 아이콘 변경` }), icon("down"));
+        markerSummary.replaceChildren(tipIcon(value), node("span", { text: `${MARKER_LABELS[value]} · 아이콘 변경` }), icon("down"));
         markerPicker.open = false; markerSummary.focus();
-      }, { icon: MARKER_ICONS[value] || "note", pressed: value === (draft.marker_type || "note") });
+      }, { markerType: value, pressed: value === (draft.marker_type || "note") });
       choice.dataset.marker = value; markerGrid.append(choice);
     });
     markerPicker.append(markerSummary, markerGrid);
