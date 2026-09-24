@@ -3291,9 +3291,16 @@ function inspectionSignatureForSave(record) {
   }
   return state.inspectionSignature;
 }
+// The pre-driving inspection belongs to the Korean date driving starts. A night driver
+// looking at tonight's work (tomorrow's closing date) therefore inspects today.
+function inspectionDateForSelection(selectedDate = state.selectedDate, now = new Date()) {
+  const today = koreanDateKey(now);
+  if (isNightShift() && selectedDate > today && selectedDate === currentWorkDates(now).nextWorkDate) return today;
+  return selectedDate;
+}
 function renderInspectionEntry() {
-  const dateKey = state.selectedDate;
-  const available = dateKey >= "2026-06-30" && dateKey <= todayKey();
+  const dateKey = inspectionDateForSelection();
+  const available = dateKey >= "2026-06-30" && dateKey <= koreanDateKey();
   const record = available ? state.inspections[dateKey] : null;
   const complete = Boolean(record);
   el.inspectionEntryCard.classList.toggle("complete", complete);
@@ -3306,6 +3313,8 @@ function renderInspectionEntry() {
     : available ? "아직 점검하지 않았습니다" : "작성할 수 없는 날짜입니다";
   el.openInspection.disabled = !available;
   el.openInspection.textContent = !available ? "점검 불가" : complete ? "점검 완료" : "일상점검";
+  const [, month, day] = dateKey.split("-");
+  el.openInspection.setAttribute("aria-label", `${Number(month)}/${Number(day)} 운행 전 일상점검 · ${el.openInspection.textContent}`);
 }
 function renderInspection(dateKey = todayKey(), options = {}) {
   const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? dateKey : todayKey();
@@ -3361,8 +3370,8 @@ function renderInspection(dateKey = todayKey(), options = {}) {
   el.saveInspection.textContent = record ? "일상점검 수정 저장" : "일상점검 저장";
 }
 function openInspection() {
-  const dateKey = state.selectedDate;
-  if (dateKey < "2026-06-30" || dateKey > todayKey()) {
+  const dateKey = inspectionDateForSelection();
+  if (dateKey < "2026-06-30" || dateKey > koreanDateKey()) {
     toast("오늘 이전의 점검 대상 날짜를 선택해 주세요.", "error");
     return;
   }
@@ -3956,7 +3965,7 @@ function renderMonth() {
     const holidayName = koreanHoliday(dateKey);
     const cell = document.createElement("button");
     cell.type = "button";
-    cell.className = `day-cell${inPeriod ? "" : " outside"}${dateKey === state.selectedDate ? " selected" : ""}${dateKey === todayKey() ? " today-cell" : ""}${record.off ? " off" : ""}${holidayName ? " holiday" : ""}`;
+    cell.className = `day-cell${inPeriod ? "" : " outside"}${dateKey === state.selectedDate ? " selected" : ""}${dateKey === todayKey() ? " today-cell" : ""}${record.off ? " off" : ""}${holidayName ? " holiday" : ""}${dateKey === todayWorkDate ? " work-date-cell" : ""}`;
     const routeText = record.off || !shouldShowCalendarRoutes() ? "" : formatRecordRoutes(record.rows);
     const displayValue = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : formatCalendarWon(calc.revenue);
     const displayRouteOrHoliday = routeText || holidayName;
@@ -3984,8 +3993,7 @@ function renderMonth() {
     const inspectionDot = inspection && inspection.status !== "no_operation"
       ? `<span class="inspection-day-dot" aria-hidden="true"></span>`
       : "";
-    const workBadge = dateKey === todayWorkDate ? '<span class="today-work-badge">오늘 업무</span>' : "";
-    cell.innerHTML = `<span class="day-number">${date.getDate()}</span>${inspectionDot}<span class="day-value">${displayValue}</span><span class="day-routes">${displayRouteOrHoliday}</span>${workBadge}`;
+    cell.innerHTML = `<span class="day-number">${date.getDate()}</span>${inspectionDot}<span class="day-value">${displayValue}</span><span class="day-routes">${displayRouteOrHoliday}</span>`;
     cell.addEventListener("click", () => selectDate(dateKey));
     el.monthCalendar.appendChild(cell);
   }

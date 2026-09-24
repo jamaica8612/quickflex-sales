@@ -109,10 +109,10 @@ export function createNoahController({ thread, form, input, suggestions, status,
     });
     return Promise.race([work(), timeout]).finally(() => { clearTimeout(timer); requests.delete(controller); });
   }
-  function renderChips() {
+  function renderChips(context = getBriefingContext() || {}) {
     if (!suggestions) return;
     suggestions.replaceChildren();
-    for (const question of noahChips(getBriefingContext() || {})) suggestions.append(button(question, () => { void ask(question); }, "noah-chip"));
+    for (const question of noahChips(context)) suggestions.append(button(question, () => { void ask(question); }, "noah-chip"));
   }
   function renderLinks(host, links) {
     const safe = validNoahLinks(links);
@@ -129,7 +129,9 @@ export function createNoahController({ thread, form, input, suggestions, status,
     if (!hasNotice()) return renderNotice();
     if (!items.length) {
       const brief = getBriefingContext() || {};
-      appendMessage(noahWelcome(freshlyAcknowledged ? { ...brief, phase: "firstUse" } : brief), "noah", "noah-welcome", true);
+      const welcome = freshlyAcknowledged ? { ...brief, phase: "firstUse", closing: false } : brief;
+      appendMessage(noahWelcome(welcome), "noah", "noah-welcome", true);
+      if (freshlyAcknowledged) renderChips(welcome);
       freshlyAcknowledged = false;
       return;
     }

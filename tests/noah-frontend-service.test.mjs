@@ -92,6 +92,26 @@ test("notice and welcome use known fields and never invent an unknown date or ro
   assert.equal(noahChips({ phase: "active" }).length, 3);
 });
 
+test("suggested questions vary, stay distinct and only name a route when one is known", () => {
+  const seeded = (seed) => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  const seen = new Set();
+  for (let seed = 1; seed <= 40; seed += 1) {
+    const chips = noahChips({ phase: "beforeShift", routes: ["302B"] }, seeded(seed));
+    assert.equal(chips.length, 3);
+    assert.equal(new Set(chips).size, 3);
+    chips.forEach((chip) => { assert.doesNotMatch(chip, /\{route\}/); seen.add(chip); });
+  }
+  assert.ok(seen.size >= 6, "a wider pool should appear across openings");
+  assert.ok([...seen].some((chip) => chip.startsWith("302B ")));
+  for (let seed = 1; seed <= 20; seed += 1) {
+    const chips = noahChips({ phase: "active", routes: [] }, seeded(seed));
+    assert.equal(chips.length, 3);
+    chips.forEach((chip) => assert.doesNotMatch(chip, /\{route\}|302B/));
+  }
+  const closing = noahChips({ phase: "completed", closing: true }, seeded(7));
+  assert.ok(closing.every((chip) => /정산|지출/.test(chip)));
+});
+
 test("links accept only known kinds and safe targets", () => {
   const links = validNoahLinks([{ kind: "day", target: { date: "2026-09-25" } },
     { kind: "route", target: { zoneId: "zone-1" } }, { kind: "settings", target: {} },

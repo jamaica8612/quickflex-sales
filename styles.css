@@ -603,8 +603,9 @@ body:not([data-theme="dark"]) .stats-range-custom > button {
   background: var(--panel);
 }
 .day-cell:nth-child(7n) { border-right: 0; }
-.today-work-badge { font-size: 9px; line-height: 12px; color: var(--blue); font-weight: 700; white-space: nowrap; }
-.day-cell:has(.today-work-badge) { grid-template-rows: 28px 20px minmax(0, 1fr) 12px; }
+/* 야간 기사의 다음 업무일: 칸에 줄을 더하지 않고 날짜 숫자에 링만 두른다. 구역 줄이 눌리지 않게. */
+.day-cell.work-date-cell .day-number { box-shadow: 0 0 0 1.5px var(--blue); }
+.day-cell.work-date-cell.today-cell .day-number { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px var(--blue); }
 #measurementScheduleMeta { font-size: 22px; font-weight: 700; color: var(--text); }
 .day-cell.outside { opacity: .28; background: var(--panel2); }
 .day-cell.outside .day-value,

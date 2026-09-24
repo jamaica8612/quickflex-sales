@@ -67,8 +67,8 @@ test('calendar keeps the actual today marker while marking a separate night work
     el: { modeBtns: [], monthCalendar: { appendChild: (cell) => cells.push(cell) } },
     periodBounds: () => ({ start: parseDateKey('2026-09-01'), end: parseDateKey('2026-09-30') }),
     periodKeys: () => ['2026-09-24', '2026-09-25'], toDateKey, todayKey: () => '2026-09-24',
-    getRecord: () => ({ off: false, rows: [] }), calcRecord: () => ({ count: 0, revenue: 0 }),
-    koreanHoliday: () => '', shouldShowCalendarRoutes: () => false, formatCalendarWon: () => '',
+    getRecord: () => ({ off: false, rows: [{ route: '302B' }] }), calcRecord: () => ({ count: 0, revenue: 0 }),
+    koreanHoliday: () => '', shouldShowCalendarRoutes: () => true, formatRecordRoutes: () => '302B', formatCalendarWon: () => '',
     formatLong: (d) => d, selectDate() {},
     document: { createElement: () => ({ attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, addEventListener() {} }) },
   });
@@ -77,6 +77,40 @@ test('calendar keeps the actual today marker while marking a separate night work
   const work = cells.find((cell) => cell.attrs['aria-label'].startsWith('2026-09-25'));
   assert.equal(today.attrs['aria-current'], 'date');
   assert.equal(work.attrs['aria-current'], undefined);
-  assert.match(work.innerHTML, /today-work-badge.*오늘 업무/);
-  assert.doesNotMatch(today.innerHTML, /today-work-badge/);
+  // The work date is marked with a ring class, never an extra text row that squeezes out the route.
+  assert.match(work.className, /\bwork-date-cell\b/);
+  assert.doesNotMatch(today.className, /\bwork-date-cell\b/);
+  assert.match(work.attrs['aria-label'], /오늘 업무/);
+  assert.match(work.innerHTML, /<span class="day-routes">302B<\/span>/);
+  assert.doesNotMatch(work.innerHTML, /today-work-badge|오늘 업무/);
+  const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  assert.doesNotMatch(css, /today-work-badge/);
+  assert.match(css, /\.day-cell\.work-date-cell \.day-number \{ box-shadow/);
+});
+
+function inspectionHarness(selectedDate, { night = true, nextWorkDate = '2026-09-25' } = {}) {
+  return load(['inspectionDateForSelection'], {
+    state: { selectedDate }, koreanDateKey, isNightShift: () => night,
+    currentWorkDates: () => ({ nextWorkDate }),
+  });
+}
+test('home inspection uses the driving-start date for tonight\'s night work', () => {
+  const evening = new Date('2026-09-24T21:00:00+09:00');
+  assert.equal(inspectionHarness('2026-09-25').inspectionDateForSelection('2026-09-25', evening), '2026-09-24');
+  assert.equal(inspectionHarness('2026-09-24', { night: false, nextWorkDate: '2026-09-24' })
+    .inspectionDateForSelection('2026-09-24', evening), '2026-09-24');
+  assert.equal(inspectionHarness('2026-09-20').inspectionDateForSelection('2026-09-20', evening), '2026-09-20');
+  // Another future date is not tonight's work; it stays unavailable for inspection.
+  assert.equal(inspectionHarness('2026-09-27').inspectionDateForSelection('2026-09-27', evening), '2026-09-27');
+  assert.equal(inspectionHarness('2026-09-25', { night: false, nextWorkDate: '2026-09-24' })
+    .inspectionDateForSelection('2026-09-25', evening), '2026-09-25');
+});
+test('home inspection entry and opener share the driving-start date rule', () => {
+  const entry = source.slice(source.indexOf('function renderInspectionEntry('), source.indexOf('function renderInspection('));
+  const opener = source.slice(source.indexOf('function openInspection('), source.indexOf('function setAllInspectionResults('));
+  for (const body of [entry, opener]) {
+    assert.match(body, /const dateKey = inspectionDateForSelection\(\);/);
+    assert.match(body, /koreanDateKey\(\)/);
+    assert.doesNotMatch(body, /state\.selectedDate/);
+  }
 });
