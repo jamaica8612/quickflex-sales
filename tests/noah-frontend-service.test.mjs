@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createNoahService, NoahStaleAccountError } from "../src/services/noah.js";
-import { NOAH_NOTICE, noahBrief, noahChips, noahWelcome } from "../src/lib/noah-brief.js";
+import * as noahCopy from "../src/lib/noah-brief.js";
+const { NOAH_NOTICE, NOAH_PRIVACY_URL, noahChips, noahWelcome } = noahCopy;
 import { validNoahLinks } from "../src/lib/noah-links.js";
 
 const encoder = new TextEncoder();
@@ -80,19 +81,35 @@ test("history request respects server count, character and byte bounds", async (
   await view.service.chat("한".repeat(2000), Array.from({ length: 20 }, (_, index) => ({ role: index % 2 ? "assistant" : "user", content: "가".repeat(8000) })));
 });
 
-test("brief and welcome use known fields and never invent an unknown date or route", () => {
-  assert.match(NOAH_NOTICE, /OpenAI/);
+test("notice and welcome use known fields and never invent an unknown date or route", () => {
+  assert.equal(NOAH_NOTICE, "노아는 질문에 필요한 기사님 기록만 찾아서 답해요. 대화는 저장하지 않고, 무언가를 바꿀 때는 꼭 확인을 받아요.");
+  assert.doesNotMatch(NOAH_NOTICE, /OpenAI|이 폰에|보관/);
+  assert.equal(NOAH_PRIVACY_URL, "./privacy.html#noah");
   assert.equal(noahWelcome({ phase: "beforeShift", workShift: "night", workDateLabel: "9/25", workDateCaption: "오늘 밤 9/25 마감", routes: ["302B"] }),
     "오늘 밤 9/25 근무 준비 중이시죠? 302B 팁이나 목표까지 남은 금액, 필요하면 바로 알려드릴게요.");
   assert.doesNotMatch(noahWelcome({ phase: "beforeShift", workShift: "day", workDateLabel: "9/25", routes: [] }), /오늘 밤/);
-  const brief = noahBrief({ phase: "off", workDateLabel: "9/25", workDateCaption: "오늘 밤 9/25 마감",
-    routes: ["302B"], routeTipCount: 0, goalRequiredPerDay: 0 });
-  assert.equal(brief.title, "다음 근무 준비");
-  assert.equal(brief.caption, "오늘 밤 9/25 마감");
-  assert.ok(brief.rows.some((row) => row.label === "구역 팁 0개" && row.question.includes("302B")));
-  assert.ok(brief.rows.some((row) => row.label === "월 목표 달성"));
-  assert.equal(noahBrief({ phase: "default" }), null);
+  assert.equal("noahBrief" in noahCopy, false);
   assert.equal(noahChips({ phase: "active" }).length, 3);
+});
+
+test("suggested questions vary, stay distinct and only name a route when one is known", () => {
+  const seeded = (seed) => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  const seen = new Set();
+  for (let seed = 1; seed <= 40; seed += 1) {
+    const chips = noahChips({ phase: "beforeShift", routes: ["302B"] }, seeded(seed));
+    assert.equal(chips.length, 3);
+    assert.equal(new Set(chips).size, 3);
+    chips.forEach((chip) => { assert.doesNotMatch(chip, /\{route\}/); seen.add(chip); });
+  }
+  assert.ok(seen.size >= 6, "a wider pool should appear across openings");
+  assert.ok([...seen].some((chip) => chip.startsWith("302B ")));
+  for (let seed = 1; seed <= 20; seed += 1) {
+    const chips = noahChips({ phase: "active", routes: [] }, seeded(seed));
+    assert.equal(chips.length, 3);
+    chips.forEach((chip) => assert.doesNotMatch(chip, /\{route\}|302B/));
+  }
+  const closing = noahChips({ phase: "completed", closing: true }, seeded(7));
+  assert.ok(closing.every((chip) => /정산|지출/.test(chip)));
 });
 
 test("links accept only known kinds and safe targets", () => {

@@ -1,14 +1,13 @@
 .noah-thread { overflow-x: hidden; }
 .noah-msg { min-width: 0; }
-.noah-msg.from-noah { display: grid; grid-template-columns: 38px minmax(0, 1fr); column-gap: 10px; row-gap: 7px; align-self: flex-start; }
+.noah-msg.from-noah { display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 8px; row-gap: 7px; align-self: flex-start; }
 .noah-msg.from-noah > .noah-avatar { grid-column: 1; grid-row: 1 / span 5; }
 .noah-msg.from-noah > p, .noah-msg.from-noah > .noah-links,
-.noah-msg.from-noah > .noah-feedback, .noah-msg.from-noah > .noah-past-proposal,
 .noah-msg.from-noah > .noah-retry { grid-column: 2; }
-.noah-avatar { width: 38px; height: 38px; overflow: hidden; background: transparent; }
+.noah-avatar { width: 30px; height: 30px; overflow: hidden; background: transparent; }
 .noah-avatar img { display: block; width: 100%; height: 100%; object-fit: contain; }
-.noah-avatar-large { width: 64px; height: 64px; }
-.noah-msg.noah-welcome { grid-template-columns: 64px minmax(0, 1fr); max-width: 100%; }
+.noah-avatar-large { width: 48px; height: 48px; }
+.noah-msg.noah-welcome { grid-template-columns: 48px minmax(0, 1fr); column-gap: 10px; max-width: 100%; }
 .noah-msg p {
   min-width: 0;
   white-space: pre-wrap;
@@ -17,25 +16,17 @@
 .noah-msg.noah-sources p { color: var(--muted); font-size: var(--fs-label); }
 .noah-msg.noah-error { max-width: 100%; flex-wrap: wrap; }
 .noah-msg.noah-error p { color: var(--text); }
-.noah-brief { display: grid; gap: 8px; margin: 4px 0 12px; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: 16px; background: var(--panel); }
-.noah-brief:empty { display: none; }
-.noah-brief-title { font-size: var(--fs-body); }
-.noah-brief-caption { margin: 0; color: var(--muted); font-size: var(--fs-label); }
-.noah-brief-facts { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: var(--fs-label); }
-.noah-brief-ask { text-align: left; }
 .noah-notice { align-self: stretch; display: grid; justify-items: start; gap: 10px; padding: 18px; border: 1px solid var(--gold); border-radius: 18px; background: var(--panel); }
 .noah-notice p { margin: 0; line-height: 1.6; white-space: pre-wrap; }
-.noah-links, .noah-feedback { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
-.noah-feedback { color: var(--muted); font-size: var(--fs-label); }
-.noah-past-proposal { color: var(--muted); font-size: var(--fs-label); }
-.noah-link, .noah-feedback button, .noah-brief-ask, .noah-notice-accept {
+.noah-links { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.noah-notice-more { color: var(--muted); font-size: var(--fs-label); text-decoration: underline; text-underline-offset: 3px; }
+.noah-link, .noah-notice-accept {
   min-height: 44px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 12px;
   background: var(--panel2); color: var(--text); font: inherit; font-size: var(--fs-label); cursor: pointer;
 }
-.noah-link, .noah-brief-ask, .noah-notice-accept { border-color: var(--gold); color: var(--gold); font-weight: 700; }
+.noah-link, .noah-notice-accept { border-color: var(--gold); color: var(--gold); font-weight: 700; }
 .noah-notice-accept { background: var(--gold); color: var(--gold-ink); }
-.noah-feedback button { min-width: 44px; font-size: 19px; }
-.noah-feedback button:disabled, .noah-notice-accept:disabled { opacity: .55; cursor: default; }
+.noah-notice-accept:disabled { opacity: .55; cursor: default; }
 .noah-streaming p::after { content: "▍"; color: var(--gold); }
 .noah-status {
   min-height: 1.5em;
@@ -94,7 +85,7 @@
 .noah-proposal-actions .noah-confirm { border-color: var(--gold); background: var(--gold); color: var(--gold-ink); }
 .noah-proposal-actions button:disabled { opacity: .55; cursor: default; }
 .noah-retry { margin-left: 0; justify-self: start; }
-.noah-proposal-actions button:focus-visible,.noah-retry:focus-visible,.noah-new-chat:focus-visible,.noah-suggestions button:focus-visible,.noah-ask button:focus-visible,.noah-ask input:focus-visible,.noah-link:focus-visible,.noah-feedback button:focus-visible,.noah-brief-ask:focus-visible,.noah-notice-accept:focus-visible {
+.noah-proposal-actions button:focus-visible,.noah-retry:focus-visible,.noah-new-chat:focus-visible,.noah-suggestions button:focus-visible,.noah-ask button:focus-visible,.noah-ask input:focus-visible,.noah-link:focus-visible,.noah-notice-accept:focus-visible,.noah-notice-more:focus-visible {
   outline: 3px solid var(--gold);
   outline-offset: 2px;
 }
@@ -104,6 +95,6 @@
 }
 @media (max-width: 390px) {
   .noah-msg { max-width: 100%; }
-  .noah-msg.noah-welcome { grid-template-columns: 42px minmax(0, 1fr); }
-  .noah-msg.noah-welcome .noah-avatar-large { width: 42px; height: 42px; }
+  .noah-msg.noah-welcome { grid-template-columns: 40px minmax(0, 1fr); }
+  .noah-msg.noah-welcome .noah-avatar-large { width: 40px; height: 40px; }
 }
