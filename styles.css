@@ -4011,13 +4011,13 @@ html:not([data-theme="dark"]) .ledger-switch button.is-on { background: var(--pa
 
 /* 노아 대화 화면 */
 .view-noah { display: none; }
-.app[data-view="noah"] .view-noah { display: flex; flex-direction: column; height: 100dvh; }
-.noah-body { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 6px 18px 14px; }
+.app[data-view="noah"] .view-noah { display: flex; flex-direction: column; height: var(--noah-vh, 100dvh); }
+.noah-body { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 6px 18px 0; }
 .noah-thread { display: flex; flex: 1; flex-direction: column; gap: 12px; min-height: 0; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
 .noah-msg { display: flex; align-items: flex-start; gap: 10px; max-width: 88%; }
-.noah-msg p { margin: 0; padding: 11px 14px; border-radius: 4px 18px 18px 18px; background: var(--panel); font-size: var(--fs-body-l); line-height: 1.55; }
+.noah-msg p { margin: 0; padding: 11px 14px; border: 1px solid var(--line); border-radius: 4px 18px 18px 18px; background: var(--panel); font-size: var(--fs-body-l); line-height: 1.55; }
 .noah-msg.from-me { align-self: flex-end; }
-.noah-msg.from-me p { border-radius: 18px 4px 18px 18px; background: var(--panel3); }
+.noah-msg.from-me p { border-color: transparent; border-radius: 18px 4px 18px 18px; background: var(--gold); color: var(--gold-ink); font-weight: 500; }
 .noah-avatar {
   display: grid;
   flex: 0 0 34px;
@@ -4031,12 +4031,15 @@ html:not([data-theme="dark"]) .ledger-switch button.is-on { background: var(--pa
   font-size: var(--fs-label);
   font-weight: 800;
 }
-.noah-suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 12px; }
-.noah-suggestions button { position: relative; height: 34px; padding: 0 13px; border: 1px solid var(--line-strong); border-radius: var(--r-full); background: transparent; color: var(--text); font-size: var(--fs-label); font-weight: 500; }
+.noah-suggestions { display: flex; flex-wrap: nowrap; gap: 8px; margin: 10px -18px; padding: 0 18px; overflow-x: auto; scrollbar-width: none; }
+.noah-suggestions::-webkit-scrollbar { display: none; }
+.noah-suggestions[hidden] { display: none; }
+.noah-suggestions button { position: relative; flex: 0 0 auto; height: 34px; padding: 0 13px; border: 1px solid var(--line-strong); border-radius: var(--r-full); background: var(--panel); white-space: nowrap; color: var(--text); font-size: var(--fs-label); font-weight: 500; }
 .noah-suggestions button::after { content: ""; position: absolute; inset: -5px 0; }
-.noah-ask { display: flex; gap: 8px; }
-.noah-ask input { flex: 1; min-width: 0; height: 46px; padding: 0 18px; border: 0; border-radius: var(--r-full); background: var(--panel2); color: var(--text); font-size: var(--fs-body-l); }
-.noah-ask button { display: grid; flex: 0 0 46px; place-items: center; width: 46px; height: 46px; border: 0; border-radius: var(--r-full); background: var(--gold); color: var(--gold-ink); }
+.noah-ask { position: relative; display: flex; margin: 0 -18px; padding: 10px 14px 12px; border-top: 1px solid var(--line); background: var(--panel); }
+.noah-ask input { flex: 1; min-width: 0; height: 48px; padding: 0 58px 0 18px; border: 1.5px solid var(--line-strong); border-radius: var(--r-full); background: var(--bg); color: var(--text); font-size: var(--fs-body-l); }
+.noah-ask button { position: absolute; top: 16px; right: 20px; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: var(--r-full); background: var(--gold); color: var(--gold-ink); }
+.noah-ask button::after { content: ""; position: absolute; inset: -4px; }
 
 @media (min-width: 768px) and (orientation: landscape), (min-width: 1100px) {
   .nav-noah-orb { width: 38px; height: 38px; margin-top: 0; box-shadow: none; }
