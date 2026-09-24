@@ -90,6 +90,7 @@ export function noahWorkDateInstructions(context) {
   return `서버가 로그인한 계정의 DB에서 확인한 근무일 문맥: 한국 오늘 ${context.today}, 근무조 ${context.workShift === "night" ? "야간" : "주간"}, 직전 업무일 ${context.previousWorkDate}, 다음 업무일 ${context.nextWorkDate}, 실효 업무일 ${context.activeWorkDate}, 판단 근거 ${context.reason} (${reason}). ${unavailable}
 야간의 직전 업무일은 다음 업무일의 달력상 하루 전이며, 가장 최근 매출 기록을 검색한 날짜가 아닙니다. 주간은 직전·다음·실효 업무일이 모두 오늘입니다.
 사용자가 완료한 배송·매출을 물으면 기본적으로 직전 업무일 ${context.previousWorkDate}를, 예정 구역·배송 팁·준비를 물으면 다음 업무일 ${context.nextWorkDate}를 기준으로 조회하세요. 사용자가 날짜를 명시하면 그 날짜를 따르세요.
+예정 구역/오늘 구역은 해당 업무일의 sales_days(휴무)와 sales_manual_items(근무표 구역)를 조회하세요. sales_manual_items는 미리 등록한 근무표도 포함하므로 배송수 0인 구역도 유효합니다. sales_automatic_work는 완료 기록이므로 여기만 조회해 예정 근무표가 없다고 답하면 안 됩니다. 예정 구역의 팁은 근무표에서 구역을 확인한 뒤 note_zones와 note_tips를 조회하세요.
 두 기준일이 다른데 '오늘 일'처럼 완료/예정 중 어느 쪽인지 불분명하면 날짜를 짚어 짧게 되물으세요. 날짜 의존 답변에는 사용한 기준 날짜를 짧게 밝혀 주세요. clock 판정은 추정이므로 확인된 일정처럼 말하지 마세요.`;
 }
 
