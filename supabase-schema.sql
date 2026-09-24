@@ -5852,7 +5852,7 @@ grant execute on function public.quickflex_noah_consume_quota(),public.quickflex
   public.quickflex_noah_confirm_write(uuid),public.quickflex_noah_cancel_write(uuid) to authenticated;
 
 
--- Noah notice acknowledgment and feedback (20260924081941)
+-- Noah notice acknowledgment (20260924081941; answer feedback removed by 20260924120000)
 begin;
 set local lock_timeout = '5s';
 
@@ -5906,73 +5906,6 @@ end $$;
 revoke all on function public.quickflex_noah_acknowledge_notice() from public, anon, authenticated;
 grant execute on function public.quickflex_noah_acknowledge_notice() to authenticated;
 
-create table if not exists quickflex_noah_private.feedback (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  created_at timestamptz not null default clock_timestamp(),
-  rating smallint not null check (rating in (-1, 1)),
-  sources text[] not null default '{}'::text[] check (cardinality(sources) <= 13),
-  has_proposal boolean not null,
-  response_ms integer not null check (response_ms between 0 and 80000),
-  model text not null check (char_length(model) <= 64 and model ~ '^gpt-[a-z0-9]+([.-][a-z0-9]+)*$')
-);
-create index if not exists quickflex_noah_feedback_owner_idx
-  on quickflex_noah_private.feedback(user_id, created_at desc);
-alter table quickflex_noah_private.feedback enable row level security;
-revoke all on table quickflex_noah_private.feedback from public, anon, authenticated;
-
-create or replace function public.quickflex_noah_submit_feedback(
-  p_rating integer, p_sources text[], p_has_proposal boolean,
-  p_response_ms integer, p_model text
-)
-returns uuid language plpgsql security definer set search_path = '' as $$
-declare
-  owner uuid := (select auth.uid());
-  selected_sources text[] := coalesce(p_sources, '{}'::text[]);
-  saved_id uuid;
-  source text;
-begin
-  if owner is null or not exists (
-    select 1 from public.quickflex_profiles as p
-    where p.id = owner and p.status = 'approved' and p.noah_notice_acknowledged_at is not null
-  ) then
-    raise exception 'NOAH_NOTICE_REQUIRED' using errcode = '42501';
-  end if;
-  if p_rating is null or p_rating not in (-1, 1)
-     or p_has_proposal is null or p_response_ms is null or p_response_ms not between 0 and 80000
-     or p_model is null or char_length(p_model) > 64
-     or p_model !~ '^gpt-[a-z0-9]+([.-][a-z0-9]+)*$'
-     or coalesce(array_ndims(selected_sources), 1) <> 1
-     or cardinality(selected_sources) > 13 then
-    raise exception 'invalid Noah feedback metadata' using errcode = '22023';
-  end if;
-  foreach source in array selected_sources loop
-    if source is null or source not in (
-      'profile', 'sales_days', 'sales_manual_items', 'sales_automatic_work',
-      'sales_overrides', 'expenses', 'expense_adjustments', 'route_rates',
-      'daily_inspections', 'note_zones', 'note_tips', 'note_favorites',
-      'finance_summary'
-    ) then
-      raise exception 'invalid Noah feedback source' using errcode = '22023';
-    end if;
-  end loop;
-  if cardinality(selected_sources) <> (
-    select count(distinct value) from unnest(selected_sources) as source_row(value)
-  ) then
-    raise exception 'duplicate Noah feedback source' using errcode = '22023';
-  end if;
-  insert into quickflex_noah_private.feedback
-    (user_id, rating, sources, has_proposal, response_ms, model)
-  values
-    (owner, p_rating, selected_sources, p_has_proposal, p_response_ms, p_model)
-  returning id into saved_id;
-  return saved_id;
-end $$;
-revoke all on function public.quickflex_noah_submit_feedback(integer,text[],boolean,integer,text)
-  from public, anon, authenticated;
-grant execute on function public.quickflex_noah_submit_feedback(integer,text[],boolean,integer,text)
-  to authenticated;
-
 -- Preserve the original per-minute and KST-day enforcement; return a stable
 -- machine code for the first limit that rejected this request.
 create or replace function quickflex_noah_private.quickflex_noah_consume_quota()
@@ -6011,3 +5944,7 @@ begin
 end $$;
 
 commit;
+
+-- Remove Noah answer feedback (20260924120000). Deletes stored ratings.
+drop function if exists public.quickflex_noah_submit_feedback(integer,text[],boolean,integer,text);
+drop table if exists quickflex_noah_private.feedback;
