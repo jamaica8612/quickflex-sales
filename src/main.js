@@ -6,6 +6,8 @@ import { createRouteNoteShareDialog } from "./ui/route-note-share.js";
 import { checkBetaMeasurementAccess } from "./services/beta-access.js";
 import { createExpensesController } from "./ui/expenses.js";
 import { createNoahController } from "./ui/noah.js?v=5";
+import { createNativePullRefresh } from "./ui/native-pull-refresh.js";
+import { isNativeShell } from "./ui/noah-refresh-guard.js";
 import { createExportsController } from "./ui/exports.js";
 import { mountCalendarSync } from "./ui/calendar-sync.js";
 import { buildStatsInsights } from "./lib/stats-insights.js";
@@ -166,7 +168,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.99";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.100";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 
@@ -3841,6 +3843,20 @@ function closeMeasurementGuide() {
   el.measurementGuideOverlay.classList.remove("visible");
   updateModalLayer(el.measurementGuideOverlay, false);
 }
+/** Pull-to-refresh in the Android app: reload this account's data without reopening the page. */
+async function refreshForPull() {
+  if (!currentUserId()) return false;
+  const context = captureAccountContext();
+  await ensurePendingSavesFlushed();
+  if (!isAccountContextCurrent(context) || state.recordDraft) return false;
+  if (!await loadFromDb(context).catch(() => false)) return false;
+  renderAll();
+  if (el.app.dataset.view === "measurement") {
+    renderMeasurementBridge();
+    refreshMeasurementAppAvailability();
+  }
+  return true;
+}
 async function refreshAfterNativeMeasurement() {
   if (!currentUserId()) return;
   const context = captureAccountContext();
@@ -6112,6 +6128,20 @@ async function init() {
   purgeLegacyNoahStorage();
   profileSignaturePad = createSignaturePad(el.profileSignatureCanvas);
   bindEvents();
+  if (isNativeShell(window)) {
+    // It watches screen, popup and focus changes itself; see src/ui/native-pull-refresh.js.
+    createNativePullRefresh({
+      getView: () => el.app?.dataset.view || "home",
+      isSignedIn: () => Boolean(currentUserId()),
+      isModalOpen: () => Boolean(activeModalLayer()),
+      refresh: refreshForPull,
+      post: postNativeMessage,
+      notify: (ok) => toast(
+        ok ? "최신 기록을 불러왔어요." : "새로 불러오지 못했어요. 잠시 뒤 다시 당겨 주세요.",
+        ok ? "success" : "error"
+      ),
+    });
+  }
   renderAll();
   const cfg = getDbConfig();
   if (!cfg.url || !cfg.anonKey) {
