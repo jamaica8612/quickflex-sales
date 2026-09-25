@@ -14,7 +14,9 @@ export function bindNoahKeyboard({ view, input, win }) {
     if (open) {
       view.style.setProperty("--noah-vh", `${Math.round(viewport.height)}px`);
       app?.setAttribute("data-keyboard", "open");
-      if (win.scrollY) win.scrollTo(0, 0);
+      // The refresh guard keeps the page 1px down inside the Android app.
+      const top = doc.documentElement?.classList?.contains("noah-refresh-guard") ? 1 : 0;
+      if (win.scrollY > top) win.scrollTo(0, top);
     } else {
       view.style.removeProperty("--noah-vh");
       app?.removeAttribute("data-keyboard");
