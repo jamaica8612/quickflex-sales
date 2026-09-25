@@ -1605,3 +1605,10 @@ Browser checks:
 - Proper fix (not done): have the PWA post its current view to the Android bridge and return true from `setOnChildScrollUpCallback` on Noah. Needs the Beta 1.2x Android source, which is not in the repository (latest pushed branch is Beta 1.15).
 - Assets: 1.0.99, `noah.js?v=5`, `noah.css?v=6`, new shell file `src/ui/noah-refresh-guard.js`. No database or Edge Function change.
 - Validation: 523/524 Node tests (existing `expense-privacy-sql` Windows-path failure). Headless Chromium with a fake bridge: Noah page height 846/844, scrollY stays 1 after `scrollTo(0,0)`, leaving Noah removes the class and returns to 0. Not verified on the Android WebView itself.
+
+## 2026-09-25 - Native pull refresh and Beta 1.26 links (PWA 1.0.100)
+
+- Inside the Android app, pull-to-refresh is now gated per screen: only 매출노트, 정산노트 and 배송노트 allow it, and never while a popup is open or a text field is focused. `src/ui/native-pull-refresh.js` watches `#app[data-view]`, `<dialog open>`, `inert`/`hidden` and focus, and posts `set_pull_refresh` to the app.
+- A pull calls `window.quickflexHandleNativeRefresh`, which flushes pending saves, reloads this account's data with `loadFromDb` and re-renders in place (no page reload), then posts `pull_refresh_done`. Android Beta 1.26 understands both messages; older builds ignore them and keep the settings refresh button behaviour. The 1.0.99 Noah 1px guard stays for those older builds.
+- Point download and release links to Android Beta 1.26 (versionCode 148, APK SHA-256 `f4f0f6db28a70c9238d48f17e03f8a89e1ec46edfd23f8d7b96b027e3cf32c75`) and advance the manifest, shell cache and entry URLs to 1.0.100.
+- Validation: new `native-pull-refresh` tests 7/7 pass. Full `tests/*.test.mjs`: 439/451 pass; the 12 failures all fail on a clean origin/main checkout as well.
