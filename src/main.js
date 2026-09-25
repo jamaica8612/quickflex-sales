@@ -1280,6 +1280,22 @@ function setRecord(dateKey, record) { state.entries[dateKey] = normalizeRecordSh
 function cloneRecord(record) {
   return normalizeRecordShape(JSON.parse(JSON.stringify(record || emptyRecord())));
 }
+function normalizeRecordDraftForCompare(record) {
+  if (!record) return record;
+  return {
+    ...record,
+    rows: Array.isArray(record.rows)
+      ? record.rows.map((row) => ({ ...row, count: toNum(row.count), unit: toNum(row.unit), households: toNum(row.households) }))
+      : [],
+    freshCount: toNum(record.freshCount),
+    returnCount: toNum(record.returnCount),
+    cancellationCount: toNum(record.cancellationCount),
+    freshUnit: toNum(record.freshUnit),
+    freshSoloCount: toNum(record.freshSoloCount),
+    freshLinkedCount: toNum(record.freshLinkedCount),
+    backupUnit: toNum(record.backupUnit),
+  };
+}
 function startRecordDraft(dateKey = state.selectedDate) {
   state.recordDraftDate = dateKey;
   state.recordDraft = cloneRecord(getRecord(dateKey, false));
@@ -1295,13 +1311,13 @@ function startRecordDraft(dateKey = state.selectedDate) {
   }
   state.recordDraftSalesRequestId = "";
   state.recordDraftSalesPayload = "";
-  state.recordDraftBaseline = JSON.stringify(state.recordDraft);
+  state.recordDraftBaseline = JSON.stringify(normalizeRecordDraftForCompare(state.recordDraft));
   return state.recordDraft;
 }
 function confirmLeaveRecordDraft() {
   if (!state.recordDraft) return true;
   if (el.app.dataset.view === "record") syncFormToRecord();
-  if (state.recordDraftBaseline === JSON.stringify(state.recordDraft)) return true;
+  if (state.recordDraftBaseline === JSON.stringify(normalizeRecordDraftForCompare(state.recordDraft))) return true;
   return window.confirm("아직 저장하지 않은 입력이 있습니다. 입력을 버리고 이동할까요?");
 }
 function currentRecordDraft() {

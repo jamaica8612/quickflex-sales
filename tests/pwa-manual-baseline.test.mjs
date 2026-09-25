@@ -38,7 +38,7 @@ function harness() {
     "mergeGroupedRows", "normalizeRecordShape", "entriesFromDb", "effectiveUnit", "calcRecordDetails",
     "normalizeBaseSalesRoute", "seedSalesOverrideRows", "overrideRecordRows", "applyAutomaticSalesOverrideToRecord",
     "manualLedgerItemsForSales", "userDateKey", "automaticBaseBreakdown", "recordRouteAggregates", "salesOverridePayload",
-    "startRecordDraft", "cloneRecord", "hasAutomaticSalesOverride"];
+    "normalizeRecordDraftForCompare", "startRecordDraft", "cloneRecord", "hasAutomaticSalesOverride"];
   vm.runInContext(names.map(declaration).join("\n") + `\nglobalThis.actual = {${names.join(",")}};`, context);
   return { ...context.actual, state };
 }
