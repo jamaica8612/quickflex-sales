@@ -1590,3 +1590,12 @@ Browser checks:
 - Optional `NOAH_VERBOSITY` (`low`/`medium`/`high`) adds `text.verbosity` to every Responses request; unset or unknown values send nothing, so the current deployment behaves the same until the option is confirmed for the model.
 - The app-description line still names 배송노트 because the app still has it; it changes with the commercialization restructure.
 - Deploy: redeploy the `noah` Edge Function only. No migration, PWA asset or service-worker change.
+
+## 2026-09-25 - Noah pull-to-refresh guard (PWA 1.0.99)
+
+- User report: pulling down in Noah inside the Android app refreshed the page and wiped the in-memory conversation.
+- Cause: the Android wrapper's `SwipeRefreshLayout` starts when `salesWebView.canScrollVertically(-1)` is false. Noah scrolls only its inner thread, so the page is always at the top.
+- PWA-only workaround: `src/ui/noah-refresh-guard.js` keeps the page 1px down while `#app[data-view="noah"]` inside the native shell (`QuickFlexNative` bridge or `QuickFlexMerged/` user agent); `html.noah-refresh-guard body` is 2px taller than the viewport. Leaving Noah restores 0 so other tabs keep pull-to-refresh. Browsers and iOS are untouched. The keyboard helper keeps the 1px offset.
+- Proper fix (not done): have the PWA post its current view to the Android bridge and return true from `setOnChildScrollUpCallback` on Noah. Needs the Beta 1.2x Android source, which is not in the repository (latest pushed branch is Beta 1.15).
+- Assets: 1.0.99, `noah.js?v=5`, `noah.css?v=6`, new shell file `src/ui/noah-refresh-guard.js`. No database or Edge Function change.
+- Validation: 523/524 Node tests (existing `expense-privacy-sql` Windows-path failure). Headless Chromium with a fake bridge: Noah page height 846/844, scrollY stays 1 after `scrollTo(0,0)`, leaving Noah removes the class and returns to 0. Not verified on the Android WebView itself.
