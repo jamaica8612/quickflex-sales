@@ -1,4 +1,4 @@
-const CACHE_NAME = "quickflex-shell-v1.0.99-usage-guide-1";
+const CACHE_NAME = "quickflex-shell-v1.0.100-usage-guide-1";
 const SHELL_FILES = [
   "./src/vendor/supabase-2.116.0.js",
   "./",
@@ -46,6 +46,7 @@ const SHELL_FILES = [
   "./src/lib/noah-thinking.js",
   "./src/ui/noah-keyboard.js",
   "./src/ui/noah-refresh-guard.js",
+  "./src/ui/native-pull-refresh.js",
   "./assets/noah/noah-avatar-v1.webp",
   "./styles/noah.css?v=6",
   "./src/lib/route-notes.js?v=2",
@@ -70,7 +71,7 @@ const SHELL_FILES = [
   "./styles/agricultural-market-route-map.css?v=2",
   "./styles/route-note-share.css?v=1",
   "./route-share.html",
-  "./route-share.js?v=1.0.99",
+  "./route-share.js?v=1.0.100",
   "./src/lib/export-records.js",
   "./src/ui/exports.js",
   "./src/lib/calendar-sync.js",
@@ -99,9 +100,9 @@ const SHELL_FILES = [
   "./src/lib/stats-insights.js",
   "./src/lib/revenue.js",
   "./src/lib/format.js",
-  "./src/lib/work-date.js?v=1.0.99",
+  "./src/lib/work-date.js?v=1.0.100",
   "./src/lib/measurement-app-launch.js",
-  "./manifest.webmanifest?v=1.0.99",
+  "./manifest.webmanifest?v=1.0.100",
   "./icon-192.png?v=4",
   "./icon-512.png?v=4",
   "./icon-maskable-192.png?v=4",
