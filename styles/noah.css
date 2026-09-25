@@ -115,6 +115,9 @@ span.noah-think-done::before, .noah-think-done > summary::before { content: "✓
 /* 키보드가 올라온 동안에는 입력창이 보이는 영역 맨 아래에 붙어요. */
 .app[data-view="noah"][data-keyboard="open"] .bottom-nav { display: none; }
 .app[data-view="noah"][data-keyboard="open"] .view-noah { padding-bottom: 0; }
+
+/* 안드로이드 앱에서 노아 화면은 페이지를 1px 내려 두어 당겨서 새로고침이 시작되지 않게 한다. */
+html.noah-refresh-guard body { min-height: calc(100dvh + 2px); }
 .noah-ask button:disabled { opacity: .55; cursor: wait; }
 .noah-proposal {
   align-self: stretch;

@@ -1596,3 +1596,12 @@ Browser checks:
 - Point the existing download and release links to Android Beta 1.25 (versionCode 147, APK SHA-256 `4ee9996991e403440941252cb8cade9c4a892e34d930c2021dd52af6cfcda9ab`). The native update fixes finish saves rejected by repeat completed-tab reads, simplifies the finish review with Noah's route suggestions, voices route estimates as Noah, and adds a larger route-complete celebration. It also carries the unpublished Beta 1.24 work-date alignment.
 - Links and labels only. The PWA version stays 1.0.98 because open PR #9 advances it to 1.0.99; that shell-cache bump delivers these links to returning browsers. New visitors receive them immediately.
 - Validation: `pwa-sales-override` 14/14 pass. The full `tests/*.test.mjs` run has the same 13 failures (427/440 pass) as a clean origin/main checkout, so none come from this change.
+
+## 2026-09-25 - Noah pull-to-refresh guard (PWA 1.0.99)
+
+- User report: pulling down in Noah inside the Android app refreshed the page and wiped the in-memory conversation.
+- Cause: the Android wrapper's `SwipeRefreshLayout` starts when `salesWebView.canScrollVertically(-1)` is false. Noah scrolls only its inner thread, so the page is always at the top.
+- PWA-only workaround: `src/ui/noah-refresh-guard.js` keeps the page 1px down while `#app[data-view="noah"]` inside the native shell (`QuickFlexNative` bridge or `QuickFlexMerged/` user agent); `html.noah-refresh-guard body` is 2px taller than the viewport. Leaving Noah restores 0 so other tabs keep pull-to-refresh. Browsers and iOS are untouched. The keyboard helper keeps the 1px offset.
+- Proper fix (not done): have the PWA post its current view to the Android bridge and return true from `setOnChildScrollUpCallback` on Noah. Needs the Beta 1.2x Android source, which is not in the repository (latest pushed branch is Beta 1.15).
+- Assets: 1.0.99, `noah.js?v=5`, `noah.css?v=6`, new shell file `src/ui/noah-refresh-guard.js`. No database or Edge Function change.
+- Validation: 523/524 Node tests (existing `expense-privacy-sql` Windows-path failure). Headless Chromium with a fake bridge: Noah page height 846/844, scrollY stays 1 after `scrollTo(0,0)`, leaving Noah removes the class and returns to 0. Not verified on the Android WebView itself.
