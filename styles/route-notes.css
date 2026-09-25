@@ -1,37 +1,7 @@
 /* 구역노트 — 지도 우선 화면. RouteNote의 조작 방식을 플렉스노트 토큰으로 옮긴다. */
-/* 지도와 현장 사진은 앱 테마에 관계없이 같은 밝은 바탕에서 읽는다. */
-.view-routes,.route-notes-share-overlay {
-  --bg:#F5F5F5;
-  --panel:#FFFFFF;
-  --panel2:#F7F7F8;
-  --panel3:#F4F4F5;
-  --line:rgba(112,115,124,.18);
-  --line-strong:#DBDCDF;
-  --text:#171719;
-  --text-sub:rgba(46,47,51,.88);
-  --muted:#70737C;
-  --soft:#70737C;
-  --gold:#1B62D6;
-  --gold-ink:#FFFFFF;
-  --gold2:#3B82E8;
-  --primary-bg:rgba(26,115,232,.10);
-  --primary-dark:#1558B0;
-  --primary-border:rgba(26,115,232,.28);
-  --red:#DC3545;
-  --red-bg:rgba(220,53,69,.10);
-  --red-border:rgba(220,53,69,.20);
-  --green:#28A745;
-  --green-bg:rgba(40,167,69,.10);
-  --warn:#8E5100;
-  --warn-bg:rgba(142,81,0,.10);
-  --warn-border:rgba(142,81,0,.32);
-  --button-secondary:var(--panel2);
-  --button-secondary-text:var(--text);
-  --button-secondary-border:var(--line);
-  color:var(--text);
-  color-scheme:light;
-}
-.view-routes { background:var(--bg); }
+/* 목록·시트·버튼은 다른 탭처럼 앱 테마(라이트/다크)를 그대로 따른다. 지도 위 핀·경계선처럼
+   지도 자체에 속한 요소만 route-note-map.css에서 밝은 배경 전용으로 따로 다룬다. */
+.view-routes { background:var(--bg); color:var(--text); }
 [data-route-notes-fullscreen="true"] {
   position:fixed;
   z-index:30;
