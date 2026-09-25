@@ -64,7 +64,7 @@ test("automatic measurement date ignores calendar selection while a manual measu
   context.renderMeasurementBridge();
   assert.equal(context.el.measurementWorkDate.value, "2026-09-08");
   assert.equal(context.state.measurementDate, "2026-09-08");
-  assert.equal(context.el.measurementScheduleMeta.textContent, "9/8 업무로 시작");
+  assert.equal(context.el.measurementScheduleMeta.textContent, "9/8은 휴무예요");
   assert.equal(context.el.openPaceApp.disabled, true, "holiday selection disables native launch after render");
   assert.equal(context.el.openPaceAppFallback.hidden, true, "holiday selection hides retry after render");
 });

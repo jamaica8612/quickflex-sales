@@ -3718,16 +3718,19 @@ function renderMeasurementBridge() {
   el.measurementRouteText.toggleAttribute?.("data-empty", !routes.length);
   const households = record.rows.reduce((sum, row) => sum + toNum(row.households), 0);
   const automatic = hasAutomaticEntries(record);
+  const measurementMonthDay = `${Number(workDate.slice(5, 7))}/${Number(workDate.slice(8, 10))}`;
   if (el.measurementScheduleMeta) {
-    el.measurementScheduleMeta.textContent = `${Number(workDate.slice(5, 7))}/${Number(workDate.slice(8, 10))} 업무로 시작`;
+    el.measurementScheduleMeta.textContent = record.off ? `${measurementMonthDay}은 휴무예요` : `${measurementMonthDay} 업무로 시작`;
   }
-  el.measurementRouteHint.textContent = automatic
-    ? `완료 ${households}가구 · 반영된 매출은 기록 화면에서 수정할 수 있습니다.`
-    : households > 0
-      ? `기존 수동 가구수 ${households}가구 · 측정 종료는 페이스 구간만 저장합니다.`
-      : isNightShift()
-        ? "야간은 이 날짜의 근무표를 사용하며, 매출은 업무 종료 때 반영합니다."
-        : "주간은 선택한 날짜의 근무표를 사용하며, 매출은 업무 종료 때 반영합니다.";
+  el.measurementRouteHint.textContent = record.off
+    ? "휴무로 표시된 날짜예요. 위 근무표 날짜에서 다른 날짜를 선택해 주세요."
+    : automatic
+      ? `완료 ${households}가구 · 반영된 매출은 기록 화면에서 수정할 수 있습니다.`
+      : households > 0
+        ? `기존 수동 가구수 ${households}가구 · 측정 종료는 페이스 구간만 저장합니다.`
+        : isNightShift()
+          ? "야간은 이 날짜의 근무표를 사용하며, 매출은 업무 종료 때 반영합니다."
+          : "주간은 선택한 날짜의 근무표를 사용하며, 매출은 업무 종료 때 반영합니다.";
   applyMeasurementLaunchControls(record.off);
 }
 let measurementDetectionSequence = 0;
