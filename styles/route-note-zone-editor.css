@@ -91,7 +91,8 @@
 .route-note-zone-editor[data-mode="editing"] .route-note-zone-content { max-height:min(38dvh,330px); }
 .route-note-zone-editor[data-mode="drawing"] .route-note-zone-map-tools,
 .route-note-zone-editor[data-mode="editing"] .route-note-zone-map-tools { bottom:calc(min(38dvh,330px) + 82px); }
-body:has(.route-note-zone-editor) .bottom-nav { display:none !important; }
+body:has(.route-note-zone-editor) .bottom-nav,
+body:has(.route-note-zone-editor) .tab-header { display:none !important; }
 @media (min-width:700px) {
   .route-note-zone-topbar { right:auto; left:16px; width:min(430px,calc(100% - 32px)); }
   .route-note-zone-content { right:16px; bottom:16px; left:auto; width:min(420px,calc(100% - 32px)); max-height:calc(100% - 32px); border-bottom:1px solid var(--line); border-radius:var(--r-xl); padding-bottom:84px; }

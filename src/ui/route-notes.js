@@ -237,11 +237,12 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     root.setAttribute("data-route-notes-fullscreen", String(fullscreen));
     if (zoneEditor) window.requestAnimationFrame?.(() => zoneEditor?.resize());
     if (workspace) {
+      workspace.updateViewport?.();
       syncFullscreenControls();
       if (fullscreen && selected && !tipDraft) setSnap("peek");
       else applySnap(sheetSnap);
       (tipDraft ? workspace.sheetTitle : selected ? workspace.fullscreenButton : workspace.pickerFullscreenButton).focus({ preventScroll: true });
-      window.requestAnimationFrame?.(() => { if (!disposed) { map?.resize?.(); applySnap(sheetSnap); } });
+      window.requestAnimationFrame?.(() => { if (!disposed) { map?.resize?.(); workspace.updateViewport?.(); applySnap(sheetSnap); } });
     }
   }
   function syncFullscreenControls() {
@@ -380,14 +381,17 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
       if (topbar.contains(event.target) || tipDraft) return;
       suggestOpen = false; updateWorkspace({ preserveViewport: true });
     }, { signal: workspaceAbort.signal });
+    /** The page header (other tabs' title bar) sits above this view and isn't part of the calc-based map height. */
+    const pageHeaderHeight = () => fullscreen ? 0 : (root.parentElement?.querySelector(":scope > .tab-header")?.getBoundingClientRect().height || 0);
     const resize = () => {
       if (!workspace?.shell?.isConnected) return;
-      const height = Math.min(window.innerHeight, window.visualViewport?.height || window.innerHeight);
+      const height = Math.min(window.innerHeight, window.visualViewport?.height || window.innerHeight) - pageHeaderHeight();
       workspace.shell.style.setProperty("--route-note-viewport-h", `${height}px`);
       applySnap(sheetSnap);
       const active = document.activeElement;
       if (tipDraft && workspace.sheetBody.contains(active)) active.scrollIntoView?.({ block: "nearest" });
     };
+    workspace.updateViewport = resize;
     window.addEventListener("resize", resize, { signal: workspaceAbort.signal });
     window.visualViewport?.addEventListener("resize", resize, { signal: workspaceAbort.signal });
     if (typeof ResizeObserver !== "undefined") { workspaceResize = new ResizeObserver(() => applySnap(sheetSnap)); workspaceResize.observe(shell); }

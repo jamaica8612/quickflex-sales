@@ -18,7 +18,8 @@ test("bottom navigation has four notes around Noah; expenses live in 매출노�
     assert.match(section, /data-ledger="expenses"[^>]*>지출</);
   }
   assert.match(main, /querySelectorAll\("\[data-ledger\]"\)[\s\S]*?showView\(button\.dataset\.ledger\)/);
-  assert.equal((html.match(/class="tab-settings"[^>]*data-open-settings/g) || []).length, 5);
+  // 구역노트 now carries the same title/gear header as the other tabs (six, not five).
+  assert.equal((html.match(/class="tab-settings"[^>]*data-open-settings/g) || []).length, 6);
   assert.match(html, /id="expensesContent"/);
   assert.match(html, /id="noahAskForm"/);
   assert.match(html, /id="memberSettings"/);
