@@ -2,8 +2,7 @@
 .expenses-body{padding:20px;display:grid;gap:12px}
 .expense-summary{padding:20px 18px;background:var(--panel);border-radius:var(--r-lg);box-shadow:0 6px 22px rgb(0 0 0 / .04)}
 .expense-month-control{display:flex;align-items:center;justify-content:space-between;gap:6px}
-.expense-month-control label{flex:1;display:flex;justify-content:center;margin:0}
-.expense-month-control input{width:100%;max-width:160px;border:0;background:transparent;color:var(--text);font:600 var(--fs-body-l) var(--font-ui,inherit);padding:6px;text-align:center}
+.expense-month-control .expense-period-label{flex:1;display:flex;justify-content:center;margin:0;color:var(--text);font:600 var(--fs-body-l) var(--font-ui,inherit);padding:6px;text-align:center}
 .expense-month-control .round-btn{width:30px;height:30px;min-height:30px;font-size:var(--fs-display-s)}
 .expense-total{font-family:var(--font-numeric);font-size:34px;font-weight:800;line-height:1.2;margin:14px 0 6px;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
 .expense-total.is-waiting{color:var(--muted)}

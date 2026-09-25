@@ -8,17 +8,34 @@ const blankNumber = (value) => value === '' || value == null ? null : Number(val
 const errorText = (error) => /schema cache|does not exist|could not find.*quickflex/i.test(error?.message || '') ? '지출 저장 기능을 준비 중입니다. 연결이 완료되면 사용할 수 있습니다.' : error?.message || '잠시 후 다시 시도해 주세요.';
 const adjustmentSum = (row, kind) => (row.adjustments || []).filter((a) => a.kind === kind).reduce((n,a) => n+Number(a.amount),0);
 const ALLOWED_RECEIPT_TYPES = new Set(['image/jpeg','image/png','image/webp','image/heic','application/pdf']);
+const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+const shortMonthDay = (key) => { const [,m,d]=key.split('-').map(Number); return `${m}/${d}`; };
+
+/** 지출은 매출과 같은 정산기간(26일~다음달 25일)으로 묶는다. 달력 월이 아니다. */
+export function settlementPeriodFor(now=new Date()) {
+  const month = now.getDate() <= 25 ? now.getMonth()+1 : now.getMonth()+2;
+  const anchor = new Date(now.getFullYear(), month-1, 1);
+  return {year:anchor.getFullYear(),month:anchor.getMonth()+1};
+}
+export function settlementPeriodBounds(year,month) {
+  return {from:dateKey(new Date(year,month-2,26)),to:dateKey(new Date(year,month-1,25))};
+}
+export function shiftSettlementPeriod(year,month,delta) {
+  const date = new Date(year,month-1+delta,1);
+  return {year:date.getFullYear(),month:date.getMonth()+1};
+}
+export function settlementPeriodLabel(year,month) {
+  const {from,to} = settlementPeriodBounds(year,month);
+  return `${shortMonthDay(from)} - ${shortMonthDay(to)}`;
+}
 
 /** The service owns persistence. No receipt or financial data is kept in browser storage. */
 export function createExpensesController({host,getService,toast=()=>{}}) {
-  let rows=[],month=localDate().slice(0,7),filter='all',generation=0,disposed=false;
+  let rows=[],period=settlementPeriodFor(),filter='all',generation=0,disposed=false;
   let saveOperation=null,creationInput=null,cleanupPath=null;
   let draft=null,pendingFiles=[],busy=false,dialog=null,previewUrls=[];
   const alive = (token) => !disposed && token===generation;
-  function bounds() {
-    const [year,mm]=month.split('-').map(Number);
-    return {from:`${month}-01`,to:`${month}-${new Date(year,mm,0).getDate()}`};
-  }
+  function bounds() { return settlementPeriodBounds(period.year,period.month); }
   const report = (message) => { const status=dialog?.querySelector('[data-status]'); if(status)status.textContent=message; };
   function revoke() { previewUrls.forEach((url)=>URL.revokeObjectURL(url)); previewUrls=[]; }
   function close(force=false) {
@@ -33,7 +50,7 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
       .join('');
   }
   function showFrame(content, counts={all:0,draft:0,missing:0}) {
-    host.innerHTML=`<section class="expense-summary"><div class="expense-month-control"><button type="button" class="round-btn" data-month="-1" aria-label="이전 지출 월">‹</button><label><span class="sr-only">지출 월</span><input type="month" data-month-input value="${month}" /></label><button type="button" class="round-btn" data-month="1" aria-label="다음 지출 월">›</button></div><div data-summary></div></section><div class="expense-actions"><button class="secondary-btn" type="button" data-new>지출 기록</button><button class="full-btn" type="button" data-inbox>영수증 남기기</button></div><div class="expense-filter" role="group" aria-label="기록 보기">${filterChips(counts)}</div><section class="expense-list" aria-label="지출 내역" aria-live="polite">${content}</section>`;
+    host.innerHTML=`<section class="expense-summary"><div class="expense-month-control"><button type="button" class="round-btn" data-month="-1" aria-label="이전 정산기간">‹</button><strong class="expense-period-label" aria-live="polite">${esc(settlementPeriodLabel(period.year,period.month))}</strong><button type="button" class="round-btn" data-month="1" aria-label="다음 정산기간">›</button></div><div data-summary></div></section><div class="expense-actions"><button class="secondary-btn" type="button" data-new>지출 기록</button><button class="full-btn" type="button" data-inbox>영수증 남기기</button></div><div class="expense-filter" role="group" aria-label="기록 보기">${filterChips(counts)}</div><section class="expense-list" aria-label="지출 내역" aria-live="polite">${content}</section>`;
   }
   /** 분류가 여덟 개인데 합계가 어디에도 없었다. 상위 셋과 나머지를 막대로 말한다. */
   function categoryBreakdown(confirmed) {
@@ -212,11 +229,7 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
     if(button.hasAttribute('data-retry'))refresh();
     if(button.hasAttribute('data-expense'))open(rows.find((r)=>r.id===button.dataset.expense));
     if(button.hasAttribute('data-filter-chip')){filter=button.dataset.filterChip;render();}
-    if(button.hasAttribute('data-month')){const [year,mm]=month.split('-').map(Number);const d=new Date(year,mm-1+Number(button.dataset.month),1);month=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;refresh();}
-  });
-  host.addEventListener('change',(event)=>{
-    if(event.target.matches('[data-month-input]')&&/^\d{4}-\d{2}$/.test(event.target.value)){month=event.target.value;refresh();}
-
+    if(button.hasAttribute('data-month')){period=shiftSettlementPeriod(period.year,period.month,Number(button.dataset.month));refresh();}
   });
   return {refresh,open,handleBack:()=>dialog?close():false,reset(){generation++;rows=[];close(true);host.innerHTML='';},dispose(){disposed=true;generation++;close(true);host.innerHTML='';}};
 }
