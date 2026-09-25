@@ -1,9 +1,9 @@
-import { createRouteNoteMap, hasPolygon } from "../lib/route-note-map.js?v=9";
+import { createRouteNoteMap, hasPolygon } from "../lib/route-note-map.js?v=10";
 import { MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon, createRouteNoteMapIcon } from "../lib/route-note-icons.js?v=3";
 import { appendAgriculturalMarketTip, isAgriculturalMarketTip, isAgriculturalMarketZone, openAgriculturalMarketRouteMap } from "../lib/agricultural-market-route-map.js?v=2";
-import { ROUTE_NOTE_MARKER_TYPES, formatRouteNoteZoneLabel } from "../lib/route-notes.js?v=2";
+import { ROUTE_NOTE_MARKER_TYPES, formatRouteNoteZoneLabel } from "../lib/route-notes.js?v=3";
 import { isPointInRouteNoteZone } from "../lib/route-note-rules.js";
-import { createRouteNoteZoneEditor } from "./route-note-zone-editor.js?v=7";
+import { createRouteNoteZoneEditor } from "./route-note-zone-editor.js?v=8";
 import { parseScheduleRoutes } from "../lib/route.js";
 
 const MARKER_TYPES = ROUTE_NOTE_MARKER_TYPES;

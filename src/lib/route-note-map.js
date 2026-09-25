@@ -1,5 +1,5 @@
 import { ALERT_MARKERS, createRouteNoteIcon, createRouteNoteMapIcon } from "./route-note-icons.js?v=3";
-import { routeNoteBoundaryDisplay, routeNoteLabelGroups } from "./route-note-map-geometry.js?v=2";
+import { routeNoteBoundaryDisplay, routeNoteLabelGroups } from "./route-note-map-geometry.js?v=3";
 
 const NAVER_SCRIPT_ID = "quickflex-route-notes-naver-map";
 const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 };

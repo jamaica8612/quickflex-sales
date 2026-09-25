@@ -1,7 +1,7 @@
 import {
   ROUTE_NOTE_BUCKET, ROUTE_NOTE_SIGNED_URL_SECONDS, isRouteNoteUuid, normalizeRouteNoteTip,
   normalizeRouteNoteZone, normalizeRouteNotePolygon, validateRouteNoteImage,
-} from "../lib/route-notes.js?v=2";
+} from "../lib/route-notes.js?v=3";
 import { isPointInRouteNoteZone } from "../lib/route-note-rules.js";
 
 const ROLES = new Set(["admin", "editor", "member"]);
