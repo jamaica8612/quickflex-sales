@@ -3,6 +3,7 @@ import { validNoahLinks } from "../lib/noah-links.js";
 import { NOAH_NOTICE, NOAH_PRIVACY_URL, noahChips, noahWelcome } from "../lib/noah-brief.js";
 import { noahStepDone, noahStepText, noahThinkingSummary } from "../lib/noah-thinking.js";
 import { bindNoahKeyboard } from "./noah-keyboard.js";
+import { bindNoahRefreshGuard } from "./noah-refresh-guard.js";
 
 const MAX_HISTORY = 12;
 const REQUEST_TIMEOUT_MS = 85000;
@@ -53,6 +54,7 @@ export function createNoahController({ thread, form, input, suggestions, status,
   if (headerActions) headerActions.insertBefore(clearButton, headerActions.firstChild);
   else if (form.parentNode) form.parentNode.insertBefore(clearButton, statusNode.parentNode === form.parentNode ? statusNode : form);
   const unbindKeyboard = bindNoahKeyboard({ view, input, win: doc.defaultView });
+  const unbindRefreshGuard = bindNoahRefreshGuard({ app: view?.closest?.(".app") || null, win: doc.defaultView });
 
   let generation = 0;
   let destroyed = false;
@@ -411,6 +413,7 @@ export function createNoahController({ thread, form, input, suggestions, status,
       form.removeEventListener("submit", onSubmit);
       clearButton.remove();
       unbindKeyboard();
+      unbindRefreshGuard();
       if (!status) statusNode.remove();
     },
   };
