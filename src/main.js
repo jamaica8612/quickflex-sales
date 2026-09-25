@@ -1991,7 +1991,7 @@ function setSaveFeedback(status) {
 }
 function recordInputSummary(dateKey, record) {
   const rows = (record?.rows || []).map((row) =>
-    `${splitStoredRoutes(row.route).join(" · ")}: ${toNum(row.count)}개 × ${toNum(row.unit)}원`);
+    `${splitStoredRoutes(row.route).join(" · ")}: ${toNum(row.count)}건 × ${toNum(row.unit)}원`);
   return `${dateKey}${record?.off ? " · 휴무" : ""}\n${rows.join("\n")}\n프레시백 ${toNum(record?.freshCount)}개`;
 }
 async function reviewPendingSave(useServer = false) {
@@ -4132,7 +4132,7 @@ function renderSelectedDateBreakdown(record) {
       <strong>${fmtWon(row.revenue)}</strong>
       ${details}
     </article>`;
-  }).join("") : `<div class="selected-detail-empty">매출 상품수가 0개로 보정되어 있습니다.</div>`;
+  }).join("") : `<div class="selected-detail-empty">매출 상품수가 0건으로 보정되어 있습니다.</div>`;
   const auxiliaryRows = [
     totals.freshCount > 0
       ? `<article class="selected-breakdown-row"><div><strong>프레시백</strong><span>${fmtCount(totals.freshCount)}</span></div><strong>${fmtWon(totals.freshRevenue)}</strong></article>`
