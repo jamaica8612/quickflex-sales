@@ -2,6 +2,12 @@
 
 플렉스노트의 로그인한 사용자용 AI입니다. Supabase Edge Function `noah`에서 OpenAI Responses API를 호출합니다. 기본 모델은 `NOAH_MODEL`(기본 `gpt-6-luna`)이며, 짧은 인사와 한 번의 정산 조회로 끝나는 질문에는 `NOAH_MODEL_FAST`를 선택적으로 사용할 수 있습니다. `OPENAI_API_KEY`는 Edge Function Secret에만 등록합니다.
 
+## 답변 형식
+
+- 지시문의 `NOAH_ANSWER_STYLE`(`supabase/functions/noah/handler.js`)이 답의 뼈대를 정합니다. 첫 줄은 결론이나 확인된 핵심 숫자이고, 개인 기록을 조회한 답은 근거 2~3개, 해석 한 줄, 다음 제안 하나를 붙여 보통 3~6줄로 씁니다. 인사·예/아니오·화면 위치 안내는 한두 줄로 끝냅니다.
+- 매출·정산 요약, 목표 분석, 지출 분석, 구역·배송 팁, 기간 비교의 유형별 틀과 형식 예시가 있습니다. 예시 숫자는 실제 자료가 아니므로 답에 옮기지 않도록 지시하고, 조회한 자료에 없는 수치나 원인은 만들지 않습니다.
+- `NOAH_VERBOSITY`(`low`·`medium`·`high`)를 Edge Function Secret으로 설정하면 Responses API 요청에 `text.verbosity`를 넣습니다. 설정하지 않거나 다른 값이면 보내지 않습니다. 모델이 이 옵션을 지원하는지 확인한 뒤 켭니다.
+
 ## 조회와 변경
 
 - 본인의 매출·배송 완료 기록, 날짜별 수정, 단가, 지출·환불·재입금, 일상 점검, 프로필과 소속 회사의 구역·배송 팁·즐겨찾기를 조회합니다. 사용자 JWT, 승인 상태, 명시적 소유자 조건과 기존 RLS를 함께 적용합니다.

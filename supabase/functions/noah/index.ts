@@ -42,4 +42,5 @@ async function authorize(request: Request) {
 
 Deno.serve(createNoahHandler({ authorize, respond: createOpenAIResponder(apiKey), configured: () => Boolean(apiKey),
   model: Deno.env.get("NOAH_MODEL") || "gpt-6-luna", fastModel: Deno.env.get("NOAH_MODEL_FAST") || "",
+  verbosity: Deno.env.get("NOAH_VERBOSITY") || "",
   resources, actions: NOAH_WRITE_ACTIONS }));
