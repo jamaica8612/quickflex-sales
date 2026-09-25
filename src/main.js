@@ -30,9 +30,11 @@ import {
 } from "./config.js?v=11";
 import {
   addDays,
+  eunNeunParticle,
   formatLong,
   formatLongShort,
-  formatRecordTitleDate,
+  formatMonthDayFull,
+  formatMonthDayShort,
   parseDateKey,
   todayKey,
   toDateKey,
@@ -1612,8 +1614,7 @@ function formatPeriodRangeSimple(start, end) {
   return `${fmt(start)} - ${fmt(end)}`;
 }
 function formatMonthDay(key) {
-  const date = parseDateKey(key);
-  return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
+  return formatMonthDayShort(key);
 }
 function formatCalendarWon(value) {
   const n = Math.round(Number(value) || 0);
@@ -3720,7 +3721,9 @@ function renderMeasurementBridge() {
   const automatic = hasAutomaticEntries(record);
   const measurementMonthDay = `${Number(workDate.slice(5, 7))}/${Number(workDate.slice(8, 10))}`;
   if (el.measurementScheduleMeta) {
-    el.measurementScheduleMeta.textContent = record.off ? `${measurementMonthDay}은 휴무예요` : `${measurementMonthDay} 업무로 시작`;
+    el.measurementScheduleMeta.textContent = record.off
+      ? `${measurementMonthDay}${eunNeunParticle(workDate.slice(8, 10))} 휴무예요`
+      : `${measurementMonthDay} 업무로 시작`;
   }
   el.measurementRouteHint.textContent = record.off
     ? "휴무로 표시된 날짜예요. 위 근무표 날짜에서 다른 날짜를 선택해 주세요."
@@ -4153,7 +4156,6 @@ function renderHomeSelection() {
   const record = getRecord(state.selectedDate, false);
   const calc = calcRecord(record);
   const automatic = hasAutomaticEntries(record);
-  el.homeSelectedDate.textContent = formatLong(state.selectedDate);
   el.homeSelectedDate.textContent = formatMonthDay(state.selectedDate);
   if (record.off) el.homeSelectedTotal.textContent = "휴무";
   else renderNumberWithUnit(el.homeSelectedTotal, fmtWon(calc.revenue));
@@ -4182,9 +4184,7 @@ function renderHomeDayOverview(record, calc, automatic) {
   const planned = !recorded && record.rows.some((row) => Boolean(row.route));
   const dayState = record.off ? "off" : recorded ? "recorded" : planned ? "planned" : "missing";
   el.homeDayPanel.dataset.dayState = dayState;
-  el.homeDayTitle.textContent = new Intl.DateTimeFormat("ko-KR", {
-    month: "long", day: "numeric", weekday: "long",
-  }).format(new Date(`${state.selectedDate}T12:00:00`));
+  el.homeDayTitle.textContent = formatMonthDayFull(state.selectedDate);
   el.homeDayToday.hidden = state.selectedDate !== toDateKey(new Date());
   el.homeDayIcon.toggleAttribute("hidden", !record.off);
   if (dayState === "recorded") renderNumberWithUnit(el.homeDayValue, fmtWon(calc.revenue));
@@ -4244,7 +4244,7 @@ function renderEntryForm() {
     record.off = false;
   }
   else if (record.off) record.rows = [];
-  el.selectedDateTitle.textContent = formatRecordTitleDate(state.selectedDate);
+  el.selectedDateTitle.textContent = formatMonthDayFull(state.selectedDate);
   el.offToggle.checked = record.off;
   el.offToggle.disabled = automatic;
   el.offToggle.title = automatic ? "앱 자동 기록이 있는 날짜는 휴무로 바꿀 수 없습니다." : "";

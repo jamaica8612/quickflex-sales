@@ -1895,7 +1895,7 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
 .round-btn.is-disabled { opacity: .4; pointer-events: none; }
 
 @media (max-width: 480px) {
-  #selectedDateTitle { font-family: var(--font-code); font-size: var(--fs-body-l); font-weight: 600; white-space: nowrap; }
+  #selectedDateTitle { font-size: var(--fs-body-l); font-weight: 600; white-space: nowrap; }
   .stats-summary-card { padding: 14px; }
   .stats-summary-card .ssc-rows { gap: 7px; }
   .stats-summary-card .ssc-rows > div { padding: 9px 10px; }

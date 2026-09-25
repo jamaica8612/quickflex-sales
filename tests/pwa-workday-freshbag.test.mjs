@@ -5,6 +5,7 @@ import vm from "node:vm";
 import { measurementWorkDateForClock, koreanDateKey, resolveWorkDates } from "../src/lib/work-date.js";
 import { checkBetaMeasurementAccess } from "../src/services/beta-access.js";
 import { routeListFromText, splitStoredRoutes } from "../src/lib/route.js";
+import { eunNeunParticle } from "../src/lib/date.js";
 
 const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
 
@@ -52,6 +53,7 @@ test("automatic measurement date ignores calendar selection while a manual measu
     splitStoredRoutes,
     hasAutomaticEntries: () => false,
     formatMonthDay: (key) => key,
+    eunNeunParticle,
     navigator: { userAgent: "Android" },
     measurementDetectionPromise: null,
   });
