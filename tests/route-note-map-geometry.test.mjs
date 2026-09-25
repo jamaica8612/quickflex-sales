@@ -47,3 +47,30 @@ test("overlapping duplicate outlines remain visible and winding direction does n
   assert.equal(edges(routeNoteBoundaryDisplay({type:"MultiPolygon",coordinates:[[west],[west]],subLabels:["303A01","303A01"]})).length,4);
   assert.equal(edges(routeNoteBoundaryDisplay({type:"MultiPolygon",coordinates:[[west],[east.toReversed()]],subLabels:["303A01","303A01"]})).length,6);
 });
+test("a zone label leaves its centroid alone when no tip sits nearby", () => {
+  const plain = { type: "Polygon", coordinates: [west] };
+  const [withoutTips] = routeNoteLabelGroups(plain, "West");
+  assert.deepEqual(withoutTips.position, { lat: .4, lng: .4 });
+  const [farTip] = routeNoteLabelGroups(plain, "West", [{ lat: 50, lng: 50 }]);
+  assert.deepEqual(farTip.position, withoutTips.position);
+});
+test("a zone label steps away from a tip sitting right on its centroid, without straying far", () => {
+  const plain = { type: "Polygon", coordinates: [west] };
+  const [base] = routeNoteLabelGroups(plain, "West");
+  const [nudged] = routeNoteLabelGroups(plain, "West", [{ lat: .4, lng: .4 }]);
+  assert.notDeepEqual(nudged.position, base.position);
+  const distanceFromTip = Math.hypot(nudged.position.lat - .4, nudged.position.lng - .4);
+  assert.ok(distanceFromTip > 0.15, `expected the label to clear the tip, got distance ${distanceFromTip}`);
+  const distanceFromCentroid = Math.hypot(nudged.position.lat - base.position.lat, nudged.position.lng - base.position.lng);
+  assert.ok(distanceFromCentroid < 0.3, `expected a modest nudge, moved ${distanceFromCentroid}`);
+});
+test("routeNoteBoundaryDisplay threads tips through to its per-piece labels", () => {
+  const geometry = { type: "MultiPolygon", coordinates: [[west], [east]], subLabels: ["303A01", "303A02"] };
+  const plainLabels = routeNoteBoundaryDisplay(geometry).labels;
+  const westLabel = plainLabels.find((label) => label.text === "303A01");
+  const nudgedLabels = routeNoteBoundaryDisplay(geometry, "", [westLabel.position]).labels;
+  const nudgedWest = nudgedLabels.find((label) => label.text === "303A01");
+  assert.notDeepEqual(nudgedWest.position, westLabel.position);
+  const otherLabel = nudgedLabels.find((label) => label.text === "303A02");
+  assert.deepEqual(otherLabel.position, plainLabels.find((label) => label.text === "303A02").position);
+});
