@@ -1590,3 +1590,9 @@ Browser checks:
 - Optional `NOAH_VERBOSITY` (`low`/`medium`/`high`) adds `text.verbosity` to every Responses request; unset or unknown values send nothing, so the current deployment behaves the same until the option is confirmed for the model.
 - The app-description line still names 배송노트 because the app still has it; it changes with the commercialization restructure.
 - Deploy: redeploy the `noah` Edge Function only. No migration, PWA asset or service-worker change.
+
+## 2026-09-25 - Beta 1.25 download links
+
+- Point the existing download and release links to Android Beta 1.25 (versionCode 147, APK SHA-256 `4ee9996991e403440941252cb8cade9c4a892e34d930c2021dd52af6cfcda9ab`). The native update fixes finish saves rejected by repeat completed-tab reads, simplifies the finish review with Noah's route suggestions, voices route estimates as Noah, and adds a larger route-complete celebration. It also carries the unpublished Beta 1.24 work-date alignment.
+- Links and labels only. The PWA version stays 1.0.98 because open PR #9 advances it to 1.0.99; that shell-cache bump delivers these links to returning browsers. New visitors receive them immediately.
+- Validation: `pwa-sales-override` 14/14 pass. The full `tests/*.test.mjs` run has the same 13 failures (427/440 pass) as a clean origin/main checkout, so none come from this change.
