@@ -832,6 +832,16 @@ body:not([data-theme="dark"]) .day-dock .ghost-pill.active {
   letter-spacing: 0;
   white-space: nowrap;
 }
+/* 날짜 이동 버튼은 날짜 문구 옆에 붙여 뒤로가기와 구분한다. 이동 버튼은 보조다. */
+.sub-title.date-nav { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.date-nav-btn {
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+.date-nav-btn svg { width: 13px; height: 13px; }
 .off-toggle { position: relative; }
 .off-toggle input {
   position: absolute;
@@ -1651,6 +1661,13 @@ body:not([data-theme="dark"]) #backFromSettings {
   background: #FFFFFF;
   border-color: var(--line-strong);
   color: var(--gold);
+  box-shadow: none;
+}
+html:not([data-theme="dark"]) .view-record .date-nav-btn,
+body:not([data-theme="dark"]) .view-record .date-nav-btn {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
   box-shadow: none;
 }
 html:not([data-theme="dark"]) #logoutBtn,
