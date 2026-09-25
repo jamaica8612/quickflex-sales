@@ -239,17 +239,17 @@
       <section class="view view-record">
         <header class="sub-header">
           <button class="round-btn" id="backToCalendar" aria-label="달력으로"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
-          <button class="round-btn" id="prevDay" aria-label="이전 날짜"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
-          <div class="sub-title">
+          <div class="sub-title date-nav">
+            <button class="round-btn date-nav-btn" id="prevDay" aria-label="이전 날짜"><svg width="13" height="13" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
             <strong id="selectedDateTitle">-</strong>
+            <button class="round-btn date-nav-btn" id="nextDay" aria-label="다음 날짜"><svg width="13" height="13" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
           </div>
-          <button class="round-btn" id="nextDay" aria-label="다음 날짜"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
-          <label class="off-toggle"><input id="offToggle" type="checkbox" /><span>휴무</span></label>
+          <label class="off-toggle"><input id="offToggle" type="checkbox" aria-label="휴무로 표시" /><span aria-hidden="true">휴무</span></label>
         </header>
 
         <main class="record-body">
           <div class="entry-actions">
-            <button id="addRoute" class="secondary-btn"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>구역 추가</span></button>
+            <button id="addRoute" class="secondary-btn" aria-label="구역 추가"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>구역 추가</span></button>
           </div>
           <div class="entry-card">
             <div class="entry-head"><span>구역</span><span>건수</span><span>단가</span><span>매출</span><span></span></div>
