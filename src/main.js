@@ -3941,10 +3941,14 @@ function renderSummary() {
   renderNumberWithUnit(el.dailyAverage, formatCompactWonWithUnit(total.average));
   renderNumberWithUnit(el.workDaysHome, `${total.workDays}일`);
   const goal = getGoal();
-  const pct = Math.min(100, total.revenue / goal * 100);
-  el.meterFill.style.width = `${pct}%`;
+  const pct = goal > 0 ? total.revenue / goal * 100 : 0;
+  const cappedPct = Math.min(100, Math.max(0, pct));
+  el.meterFill.style.width = `${cappedPct}%`;
   el.meterPct.textContent = `${Math.round(pct)}%`;
-  el.meterLabel.textContent = `목표 ${fmtWon(goal)} 대비 진행률`;
+  const overGoal = goal > 0 && total.revenue > goal;
+  el.meterLabel.textContent = overGoal
+    ? `목표 ${fmtWon(goal)} 대비 +${fmtWon(total.revenue - goal)}`
+    : `목표 ${fmtWon(goal)} 대비 진행률`;
   renderSummaryLedger(total.revenue);
 }
 // 정산 카드 아래 한 줄: 이 정산기간의 확정 지출과 남는 돈. 지출은 서버에서 한 번 읽어 기간별로 기억한다.
