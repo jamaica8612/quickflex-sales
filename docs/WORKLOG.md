@@ -1582,3 +1582,11 @@ Browser checks:
 - Keyboard: `src/ui/noah-keyboard.js` sizes the Noah view to `visualViewport.height` and hides the bottom nav while the input is focused and the keyboard covers >120px.
 - Assets: manifest/cache/page assets 1.0.98, `noah.js?v=4`, `noah.css?v=5`, new shell files `src/lib/noah-thinking.js`, `src/ui/noah-keyboard.js`. No database, Edge Function or Android change.
 - Validation: 517/518 Node tests pass (the pre-existing `tests/expense-privacy-sql.test.mjs` Windows-path failure remains). Headless Chromium 390×844 light/dark rendered the real page with a streamed answer and an in-progress thinking bubble. Real-phone keyboard behaviour (iOS standalone, Android) still needs checking after deploy.
+
+## 2026-09-25 - Noah answer shape (Edge Function only)
+
+- User report: Noah (gpt-6-luna) answered too tersely. The instructions told it to be "간결한" and to finish explanations "보통 한두 줄로".
+- `NOAH_ANSWER_STYLE` replaces that line: conclusion first, then 2–3 pieces of evidence, one interpretation and one next suggestion (usually 3–6 lines) for personal-record answers; simple questions stay one or two lines. Adds per-type skeletons (sales summary, goal, expenses, route tips, period comparison) and two format-only examples that must not be copied as data.
+- Optional `NOAH_VERBOSITY` (`low`/`medium`/`high`) adds `text.verbosity` to every Responses request; unset or unknown values send nothing, so the current deployment behaves the same until the option is confirmed for the model.
+- The app-description line still names 배송노트 because the app still has it; it changes with the commercialization restructure.
+- Deploy: redeploy the `noah` Edge Function only. No migration, PWA asset or service-worker change.

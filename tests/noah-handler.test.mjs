@@ -308,3 +308,29 @@ test("streamed failures expose only a safe error and client cancellation aborts 
   await reader.cancel();
   assert.equal(providerSignal.aborted, true);
 });
+
+test("Noah answers follow a conclusion, evidence and suggestion shape without copying example numbers", async () => {
+  const { dataTools } = setup();
+  let instructions = "";
+  await runNoahConversation({ body: { message: "이번 주 매출 어때?" }, dataTools, resources, actions,
+    respond: async (request) => { instructions = request.instructions; assert.equal("text" in request, false); return reply("확인했어요."); } });
+  assert.doesNotMatch(instructions, /한두 줄로 마친다/);
+  assert.match(instructions, /첫 줄은 질문에 대한 결론/);
+  assert.match(instructions, /보통 3~6줄/);
+  assert.match(instructions, /단순 질문은 한두 줄로 끝낸다/);
+  assert.match(instructions, /매출·정산 요약: 결론 금액 → 지난 기간과 비교/);
+  assert.match(instructions, /목표 분석: 남은 금액 → 남은 근무일 → 하루 필요 금액/);
+  assert.match(instructions, /실제 자료가 아니므로 답에 옮기지 않는다/);
+  assert.match(instructions, /조회한 자료에 없는 수치나 원인은 만들지 않는다/);
+});
+
+test("Noah sends a verbosity option only when the deployment opts in with a known level", async () => {
+  const { dataTools } = setup();
+  const seen = [];
+  const run = (verbosity) => runNoahConversation({ body: { message: "안녕" }, dataTools, resources, actions, verbosity,
+    respond: async (request) => { seen.push(request.text); return reply("안녕하세요"); } });
+  await run("medium");
+  await run("loud");
+  await run("");
+  assert.deepEqual(seen, [{ verbosity: "medium" }, undefined, undefined]);
+});
