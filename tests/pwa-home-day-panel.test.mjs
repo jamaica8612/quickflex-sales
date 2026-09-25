@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
+import { formatMonthDayFull } from "../src/lib/date.js";
 
 const main = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
 const start = main.indexOf("function renderHomeDayOverview(");
@@ -21,6 +22,7 @@ function setup() {
     hasEnteredCounts: (record) => record.rows.some((row) => Number(row.count) > 0),
     fmtWon: (value) => `${value.toLocaleString("ko-KR")}원`,
     renderNumberWithUnit: (target, value) => { target.textContent = value; },
+    formatMonthDayFull,
   });
   vm.runInContext(main.slice(start, end), context);
   return { el, state, render: context.renderHomeDayOverview };
@@ -43,7 +45,10 @@ test("selected-day panel replaces an off day with route-free manual sales and a 
   assert.equal(el.homeDayValue.textContent, "120,000원");
   assert.equal(el.homeDayIcon.hidden, true);
   assert.equal(el.homeDayToday.hidden, true);
-  assert.match(el.homeDayTitle.textContent, /9월 12일.*토요일/);
+  // Unified date format (item 8): full form drops the year and uses a short
+  // weekday in parentheses instead of Intl's long "토요일" word, matching the
+  // record header and other screen-title dates across the app.
+  assert.equal(el.homeDayTitle.textContent, "9월 12일 (토)");
 
   render({ off: false, rows: [] }, { revenue: 0 }, false);
   assert.equal(el.homeDayPanel.dataset.dayState, "missing");

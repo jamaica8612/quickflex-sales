@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
+import { eunNeunParticle } from "../src/lib/date.js";
 
 // Regression coverage: 배송노트 (measurement bridge) used to always say
 // "M/D 업무로 시작" even when the selected date is a day off, so a holiday
@@ -38,6 +39,7 @@ function harness({ off, rows = [], automaticWorks = [], workDate = "2026-09-26" 
     toNum: (value) => Number(value) || 0,
     hasAutomaticEntries: (rec) => Boolean(rec?.automaticWorks?.length),
     isNightShift: () => false,
+    eunNeunParticle,
   });
   vm.runInContext(`${extractSnippet()}\nglobalThis.render = renderMeasurementBridge;`, context);
   context.render();
@@ -51,6 +53,11 @@ test("a day-off date reads as a day off instead of inviting the driver to start 
   assert.match(el.measurementRouteHint.textContent, /다른 날짜/);
   assert.match(el.measurementRouteHint.textContent, /근무표 날짜/);
   assert.doesNotMatch(el.measurementScheduleMeta.textContent, /업무로 시작/);
+});
+
+test("a day-off date whose day number ends in 2/4/5/9 gets the 는 particle instead of 은", () => {
+  const el = harness({ off: true, workDate: "2026-09-25" });
+  assert.equal(el.measurementScheduleMeta.textContent, "9/25는 휴무예요");
 });
 
 test("a normal working day keeps the original start-of-work headline", () => {
