@@ -4,7 +4,7 @@ import { runInNewContext } from "node:vm";
 import test from "node:test";
 import { MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon, createRouteNoteMapIcon } from "../src/lib/route-note-icons.js";
 import { appendAgriculturalMarketTip, isAgriculturalMarketTip, isAgriculturalMarketZone } from "../src/lib/agricultural-market-route-map.js";
-import { routeNoteZoneNameKey } from "../src/lib/route-notes.js";
+import { routeNoteZoneNameKey, formatRouteNoteZoneLabel } from "../src/lib/route-notes.js";
 import { isPointInRouteNoteZone } from "../src/lib/route-note-rules.js";
 
 const source = readFileSync(new URL("../src/ui/route-notes.js", import.meta.url), "utf8")
@@ -128,7 +128,7 @@ function setup({ confirm = () => true, mapFactory, extraTips = [], shareDialog, 
     return editor;
   };
   const context = { document, window, AbortController, Promise, URL, console, CSS: { escape: (value) => value },
-    MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon, createRouteNoteMapIcon, routeNoteZoneNameKey, isPointInRouteNoteZone, appendAgriculturalMarketTip, isAgriculturalMarketTip, isAgriculturalMarketZone,
+    MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon, createRouteNoteMapIcon, routeNoteZoneNameKey, formatRouteNoteZoneLabel, isPointInRouteNoteZone, appendAgriculturalMarketTip, isAgriculturalMarketTip, isAgriculturalMarketZone,
     openAgriculturalMarketRouteMap: (options = {}) => { const entry = { options, closed: false }; calls.marketRouteMaps.push(entry); return { close() { entry.closed = true; options.onClose?.(); } }; },
     createRouteNoteZoneEditor, createRouteNoteMap, hasPolygon: (polygon) => Boolean(polygon?.coordinates?.length), ROUTE_NOTE_MARKER_TYPES: ["note", "parking"], parseScheduleRoutes: () => [] };
   runInNewContext(source, context, { filename: "route-notes.js" });
@@ -200,7 +200,8 @@ test("a selected pin can be shared without opening the full tip list", async () 
 
 test("311CD322D receives the agricultural market marker and opens its dedicated map", async () => {
   const view = setup({ marketZone: true });
-  await openZone(view, "311CD322D");
+  // The zone list now displays glued route codes separated ("311CD · 322D"), so match the rendered label.
+  await openZone(view, "311CD · 322D");
   const render = view.calls.mapRenders.at(-1);
   const marketTip = render.tips.find((tip) => tip.id === "agricultural-market-route-map");
   assert.ok(marketTip);

@@ -1,7 +1,7 @@
 import { createRouteNoteMap, hasPolygon } from "../lib/route-note-map.js?v=9";
 import { MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon, createRouteNoteMapIcon } from "../lib/route-note-icons.js?v=3";
 import { appendAgriculturalMarketTip, isAgriculturalMarketTip, isAgriculturalMarketZone, openAgriculturalMarketRouteMap } from "../lib/agricultural-market-route-map.js?v=2";
-import { ROUTE_NOTE_MARKER_TYPES } from "../lib/route-notes.js?v=2";
+import { ROUTE_NOTE_MARKER_TYPES, formatRouteNoteZoneLabel } from "../lib/route-notes.js?v=2";
 import { isPointInRouteNoteZone } from "../lib/route-note-rules.js";
 import { createRouteNoteZoneEditor } from "./route-note-zone-editor.js?v=7";
 import { parseScheduleRoutes } from "../lib/route.js";
@@ -160,7 +160,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     const needle = query.trim().toLocaleLowerCase();
     if (!needle) return [];
     const zones = (data?.zones || []).filter((zone) => matches(zone, needle)).slice(0, SUGGEST_LIMIT)
-      .map((zone) => ({ kind: "zone", key: `zone-${zone.id}`, badge: "구역", glyph: "pin", title: zone.name || "이름 없는 구역", subtitle: zone.memo || "공유 팁이 없습니다.", zone }));
+      .map((zone) => ({ kind: "zone", key: `zone-${zone.id}`, badge: "구역", glyph: "pin", title: zone.name ? formatRouteNoteZoneLabel(zone.name) : "이름 없는 구역", subtitle: zone.memo || "공유 팁이 없습니다.", zone }));
     const tips = (selected?.tips || []).filter((tip) => `${tip.title || ""} ${tip.memo || ""}`.toLocaleLowerCase().includes(needle)).slice(0, SUGGEST_LIMIT)
       .map((tip) => ({ kind: "tip", key: `tip-${tip.id}`, badge: "팁", glyph: MARKER_ICONS[tip.marker_type] || "note", title: tip.title || "제목 없는 팁", subtitle: `${MARKER_LABELS[tip.marker_type] || "팁"}${tip.memo ? ` · ${tip.memo}` : ""}`, tip }));
     return [...zones, ...tips];
@@ -432,7 +432,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     const zone = currentZone();
     const named = Boolean(selected && zone?.name);
     workspace.zoneEdit.hidden = !zone || !canManageZone(zone);
-    workspace.zoneCode.textContent = zone?.name || "구역";
+    workspace.zoneCode.textContent = zone?.name ? formatRouteNoteZoneLabel(zone.name) : "구역";
     workspace.zoneName.textContent = zone?.polygon?.regionName || zone?.memo || "선택한 구역";
     const ownTips = (selected?.tips || []).filter((tip) => tip.created_by === userId()).length;
     const sharedTips = Math.max(0, (selected?.tips || []).length - ownTips);
@@ -440,10 +440,11 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     workspace.statusLine.hidden = !selected || Boolean(selected.loading || selected.error || tipDraft || locationMenuOpen || fullscreen);
     workspace.sheetBack.hidden = !selected;
     workspace.sheetBack.replaceChildren(icon("back"), node("span", { text: tipDraft ? "지도로" : selectedTipId || locationMenuOpen ? "닫기" : "구역 변경" }));
-    workspace.sheetTitle.textContent = tipDraft ? (tipDraft.id ? "팁 수정" : "팁 쓰기") : locationMenuOpen ? "팁 위치를 지도에서 찍으세요" : selected ? (zone?.name || "구역 팁") : "구역 선택";
+    const zoneLabel = zone?.name ? formatRouteNoteZoneLabel(zone.name) : "";
+    workspace.sheetTitle.textContent = tipDraft ? (tipDraft.id ? "팁 수정" : "팁 쓰기") : locationMenuOpen ? "팁 위치를 지도에서 찍으세요" : selected ? (zoneLabel || "구역 팁") : "구역 선택";
     workspace.sheetTitle.dataset.code = String(named);
-    workspace.sheetSubtitle.textContent = tipDraft ? (zone?.name || "구역 팁") : selected
-      ? (selected.loading ? "팁을 불러오는 중" : locationMenuOpen ? `${zone?.name || ""} · 지도를 누르거나 움직여 위치를 정하세요` : selectedTipId ? "선택한 현장 팁" : `팁 ${(selected.tips || []).length}개 · 선택한 구역만 표시`)
+    workspace.sheetSubtitle.textContent = tipDraft ? (zoneLabel || "구역 팁") : selected
+      ? (selected.loading ? "팁을 불러오는 중" : locationMenuOpen ? `${zoneLabel} · 지도를 누르거나 움직여 위치를 정하세요` : selectedTipId ? "선택한 현장 팁" : `팁 ${(selected.tips || []).length}개 · 선택한 구역만 표시`)
       : `${filteredZones().length}개 구역 · 목록에서 하나를 선택하세요.`;
     workspace.sheetBody.replaceChildren();
     if (!selected || sheetSnap !== "peek") {
@@ -494,7 +495,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
       const favorite = data.favorites.includes(zone.id);
       const favoriteButton = iconButton("star", favorite ? "즐겨찾기 해제" : "즐겨찾기", () => toggleFavorite(zone.id), { class: "route-notes-star", pressed: favorite });
       const openButton = node("button", { type: "button", class: "route-notes-zone-main", onClick: () => openZone(zone.id) }, [
-        node("span", { class: "route-notes-zone-copy" }, [node("strong", { text: zone.name || "이름 없는 구역" }), node("small", { text: zone.memo || (isAgriculturalMarketZone(zone) ? "농산물시장 라우트 지도" : "공유 팁이 없습니다.") })]),
+        node("span", { class: "route-notes-zone-copy" }, [node("strong", { text: zone.name ? formatRouteNoteZoneLabel(zone.name) : "이름 없는 구역" }), node("small", { text: zone.memo || (isAgriculturalMarketZone(zone) ? "농산물시장 라우트 지도" : "공유 팁이 없습니다.") })]),
         icon("next"),
       ]);
       list.append(node("article", { class: "route-notes-zone-row" }, [openButton, favoriteButton]));
@@ -520,7 +521,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
       iconButton("star", favorite ? "즐겨찾기 해제" : "즐겨찾기", () => toggleFavorite(zone.id), { class: "route-notes-star", pressed: favorite }),
     ]);
     if (canManageZone(zone)) detailActions.append(iconButton("edit", "구역 수정", () => { if (!canClose()) return; tipDraft = null; zoneDraft = { ...zone, polygon: zone.polygon || null }; formDirty = false; render(); }));
-    const zoneCopy = [node("h3", { class: "sr-only", text: zone.name || "이름 없는 구역" }), node("p", { text: zone.memo || "공유 팁이 없습니다." })];
+    const zoneCopy = [node("h3", { class: "sr-only", text: zone.name ? formatRouteNoteZoneLabel(zone.name) : "이름 없는 구역" }), node("p", { text: zone.memo || "공유 팁이 없습니다." })];
     if (!hasPolygon(zone.polygon)) zoneCopy.push(node("p", { class: "route-notes-no-polygon", text: "등록된 구역 경계가 없습니다." }));
     host.append(node("section", { class: "route-notes-detail-head" }, [
       node("div", { class: "route-notes-detail-copy" }, zoneCopy),
