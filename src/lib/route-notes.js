@@ -20,6 +20,26 @@ export function routeNoteZoneNameKey(value) {
   return String(value ?? "").normalize("NFKC").replace(/\s+/gu, "").toUpperCase();
 }
 
+const ROUTE_ZONE_CODE = /\d{3}[A-Z]+/g;
+
+/**
+ * A zone name is often several route codes glued together with no separator
+ * (e.g. "302A303D" is the routes 302A and 303D combined). A single combined
+ * code such as "304ABD" names one route family and must stay whole.
+ * Only whole-name matches are split, so free-form names pass through as-is.
+ */
+export function splitRouteNoteZoneCodes(name) {
+  const value = String(name ?? "");
+  const codes = value.match(ROUTE_ZONE_CODE);
+  if (!codes || codes.length < 2 || codes.join("") !== value) return [value];
+  return codes;
+}
+
+/** Display-only label: separates glued route codes the way the rest of the app does. */
+export function formatRouteNoteZoneLabel(name) {
+  return splitRouteNoteZoneCodes(name).join(" · ");
+}
+
 function text(value, limit, label, { required = false } = {}) {
   const result = String(value ?? "").trim();
   if (required && !result) throw new RangeError(`${label} 항목을 입력해 주세요.`);

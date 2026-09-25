@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createRouteNotesService } from "../src/services/route-notes.js";
-import { normalizeRouteNoteTip, normalizeRouteNoteZone, routeNoteZoneNameKey } from "../src/lib/route-notes.js";
+import { normalizeRouteNoteTip, normalizeRouteNoteZone, routeNoteZoneNameKey, splitRouteNoteZoneCodes, formatRouteNoteZoneLabel } from "../src/lib/route-notes.js";
 
 const USER = "11111111-1111-4111-8111-111111111111";
 const OTHER_USER = "22222222-2222-4222-8222-222222222222";
@@ -105,6 +105,24 @@ test("a member may create authored zones and tips", async () => {
 test("zone names ignore case, whitespace and full-width route codes", () => {
   for (const name of ["303a", "303 A", " ３０３Ａ ", "303\tA", "303\u00a0A"]) assert.equal(routeNoteZoneNameKey(name), "303A");
   assert.equal(routeNoteZoneNameKey("동문 아파트"), routeNoteZoneNameKey("동문아파트"));
+});
+
+test("zone names split into their glued route codes but a combined code stays whole", () => {
+  assert.deepEqual(splitRouteNoteZoneCodes("302A303D"), ["302A", "303D"]);
+  assert.deepEqual(splitRouteNoteZoneCodes("303A302B"), ["303A", "302B"]);
+  assert.deepEqual(splitRouteNoteZoneCodes("302C304C"), ["302C", "304C"]);
+  assert.deepEqual(splitRouteNoteZoneCodes("304ABD"), ["304ABD"]);
+  assert.deepEqual(splitRouteNoteZoneCodes("232C318AB"), ["232C", "318AB"]);
+  assert.deepEqual(splitRouteNoteZoneCodes("319ABCD"), ["319ABCD"]);
+  assert.deepEqual(splitRouteNoteZoneCodes("동문 아파트"), ["동문 아파트"]);
+  assert.deepEqual(splitRouteNoteZoneCodes(""), [""]);
+  assert.deepEqual(splitRouteNoteZoneCodes(null), [""]);
+  // Free text that merely starts with a code is left untouched rather than partly split.
+  assert.deepEqual(splitRouteNoteZoneCodes("302A303D 정문"), ["302A303D 정문"]);
+
+  assert.equal(formatRouteNoteZoneLabel("302A303D"), "302A · 303D");
+  assert.equal(formatRouteNoteZoneLabel("304ABD"), "304ABD");
+  assert.equal(formatRouteNoteZoneLabel("232C318AB"), "232C · 318AB");
 });
 
 test("zone normalization preserves postcode metadata and validates color", () => {
