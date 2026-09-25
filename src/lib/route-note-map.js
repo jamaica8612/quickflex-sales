@@ -247,10 +247,17 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
         || (zone?.id === selectedZoneId ? zone : null))
       : (zone || null);
     const renderedZones = selectionRequested && hasPolygon(selectedZone?.polygon) ? [selectedZone] : selectionRequested ? [] : validZones;
+    const renderedTips = selectionRequested
+      ? tips.filter((tip) => selectedZone?.id != null && tip?.zone_id === selectedZone.id)
+      : tips;
+    const tipsWithCoordinates = renderedTips.filter((tip) => tip.lat != null && tip.lng != null && Number.isFinite(Number(tip.lat)) && Number.isFinite(Number(tip.lng)));
+    // Zone labels steer clear of whichever tips actually land on screen, so a busy zone
+    // doesn't bury its name under a pin (or a pin under its name).
+    const labelTips = tipsWithCoordinates.map((tip) => ({ lat: Number(tip.lat), lng: Number(tip.lng) }));
     renderedZones.forEach((item, index) => {
       const selected = item === selectedZone;
       const color = zoneColor(item, index);
-      const display = routeNoteBoundaryDisplay(item.polygon, zoneName(item));
+      const display = routeNoteBoundaryDisplay(item.polygon, zoneName(item), labelTips);
       polygonRings(item.polygon).forEach((rings) => {
         const polygon = new maps.Polygon({
           map, paths: rings.map((ring) => ring.map((point) => new maps.LatLng(point.lat, point.lng))), clickable: canSelectZone,
@@ -264,12 +271,8 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
         display.paths.forEach((path) => overlays.push(new maps.Polyline({ map, path: path.map((point) => new maps.LatLng(point.lat, point.lng)),
           strokeColor: color, strokeWeight: selected ? 2 : 1, strokeOpacity: .85, clickable: false })));
       }
-      (display?.labels || routeNoteLabelGroups(item.polygon, zoneName(item))).forEach(addZoneLabel);
+      (display?.labels || routeNoteLabelGroups(item.polygon, zoneName(item), labelTips)).forEach(addZoneLabel);
     });
-    const renderedTips = selectionRequested
-      ? tips.filter((tip) => selectedZone?.id != null && tip?.zone_id === selectedZone.id)
-      : tips;
-    const tipsWithCoordinates = renderedTips.filter((tip) => tip.lat != null && tip.lng != null && Number.isFinite(Number(tip.lat)) && Number.isFinite(Number(tip.lng)));
     const fitPadding = boundsPadding(padding);
     if (!preserveViewport && hasPolygon(selectedZone?.polygon)) {
       const bounds = polygonPoints(selectedZone.polygon).reduce((result, point) => result.extend(new maps.LatLng(point.lat, point.lng)), new maps.LatLngBounds());
