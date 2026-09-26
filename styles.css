@@ -2669,7 +2669,8 @@ body:has(#measurementGuideOverlay.visible) { overflow: hidden; }
   text-align: center;
   opacity: 0;
   pointer-events: none;
-  transition: .18s ease;
+  /* rise/pop-in and fade-out are spring-driven from JS (toast() in
+     main.js), not a CSS transition, so a rapid retrigger can't fight it. */
   z-index: 80;
   font-size: var(--fs-body);
   font-weight: 700;

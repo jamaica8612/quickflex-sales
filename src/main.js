@@ -854,6 +854,11 @@ function bindModalAccessibility() {
   syncModalBackground();
 }
 
+const toastMotion = motion.createAnimationGroup();
+function placeToast(v) {
+  el.toast.style.opacity = String(Math.min(1, v * 1.3));
+  el.toast.style.transform = `translateX(-50%) translateY(${((1 - v) * 20).toFixed(2)}px) scale(${(0.92 + 0.08 * Math.min(1, v)).toFixed(3)})`;
+}
 function toast(message, type = "") {
   clearTimeout(toastTimer);
   const isError = type === "error";
@@ -862,7 +867,28 @@ function toast(message, type = "") {
   el.toast.setAttribute("aria-atomic", "true");
   el.toast.textContent = message;
   el.toast.className = `toast show${type ? ` ${type}` : ""}`;
-  toastTimer = setTimeout(() => el.toast.classList.remove("show"), isError ? 5500 : 3200);
+  if (motion.shouldAnimate()) {
+    toastMotion.run("y", 0, 1, {
+      ...motion.SPRING,
+      onUpdate: placeToast,
+      onDone: () => { el.toast.style.opacity = ""; el.toast.style.transform = ""; },
+    });
+  } else {
+    el.toast.style.opacity = "";
+    el.toast.style.transform = "";
+  }
+  toastTimer = setTimeout(() => {
+    if (motion.shouldAnimate()) {
+      toastMotion.run("y", 1, 0, {
+        stiffness: 600,
+        damping: 1,
+        onUpdate: placeToast,
+        onDone: () => { el.toast.classList.remove("show"); el.toast.style.opacity = ""; el.toast.style.transform = ""; },
+      });
+    } else {
+      el.toast.classList.remove("show");
+    }
+  }, isError ? 5500 : 3200);
 }
 
 function periodBounds(year = state.year, month = state.month) {
@@ -2097,8 +2123,11 @@ function setSaveFeedback(status) {
   };
   host.hidden = status === "saved" && !state.retainedEdits;
   $("saveFeedbackText").textContent = messages[status] || "";
-  $("retryPendingSave").hidden = !["failed", "conflict"].includes(status);
-  $("retryPendingSave").textContent = status === "conflict" ? "입력 비교" : "다시 저장";
+  const retryButton = $("retryPendingSave");
+  const retryWasHidden = retryButton.hidden;
+  retryButton.hidden = !["failed", "conflict"].includes(status);
+  retryButton.textContent = status === "conflict" ? "입력 비교" : "다시 저장";
+  if (retryWasHidden && !retryButton.hidden) motion.popIn(retryButton, { from: 0.85 });
   $("useServerRecord").hidden = status !== "conflict";
   $("showRetainedEdits").hidden = !state.retainedEdits;
 }
@@ -4251,6 +4280,20 @@ function applyCalendarRingMotion() {
 }
 if (el.monthCalendar) el.monthCalendar.__moAfterRender = applyCalendarRingMotion;
 
+// applyPendingSignupsNotice() is also run directly by a regression test in
+// an isolated VM sandbox (a bare { classList, textContent } banner double),
+// so it only ever calls the optional el.pendingSignupsBanner.__moAfterUpdate
+// hook — undefined there, a no-op — wired up here for the real app.
+let pendingSignupsBannerPopped = false;
+if (el.pendingSignupsBanner) {
+  el.pendingSignupsBanner.__moAfterUpdate = (visible) => {
+    if (visible && !pendingSignupsBannerPopped) {
+      pendingSignupsBannerPopped = true;
+      motion.popIn(el.pendingSignupsBanner, { from: 0.85 });
+    }
+  };
+}
+
 function renderMonth() {
   const todayWorkDate = isNightShift() ? currentWorkDates().nextWorkDate : "";
   el.modeBtns.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.mode === state.mode)));
@@ -5984,6 +6027,7 @@ function applyPendingSignupsNotice(data) {
   if (el.pendingSignupsBanner) {
     el.pendingSignupsBanner.textContent = visible ? pendingSignupsBannerText(data) : "";
     el.pendingSignupsBanner.classList.toggle("hidden", !visible);
+    el.pendingSignupsBanner.__moAfterUpdate?.(visible);
   }
   const gearLabel = pendingSignupsGearLabel(visible ? data : null);
   document.querySelectorAll("[data-open-settings]").forEach((button) => {
