@@ -4956,6 +4956,12 @@ function renderStats() {
   renderWeekdayStats(keys);
 }
 const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+// Rebuilding these 7 columns from scratch every render (the old innerHTML
+// approach) meant a bar could never *grow into* its new height — it just
+// popped there. Kept as 7 persistent, keyed columns instead: built once,
+// then only their text and fill transform are ever updated, so a data
+// change can animate from the old value instead of jumping.
+const weekdayBars = motion.createAnimationGroup();
 function renderWeekdayStats(keys) {
   if (!el.weekdayStats) return;
   const buckets = WEEKDAY_LABELS.map((label, index) => ({ label, index, revenue: 0, count: 0, days: 0 }));
@@ -4971,6 +4977,7 @@ function renderWeekdayStats(keys) {
   });
   const worked = buckets.filter((bucket) => bucket.days > 0);
   if (!worked.length) {
+    weekdayBars.cancelAll();
     el.weekdayStats.innerHTML = `<div class="rs-empty">기록된 근무일이 없습니다.</div>`;
     return;
   }
@@ -4978,25 +4985,51 @@ function renderWeekdayStats(keys) {
   const averages = buckets.map((bucket) => (bucket.days ? bucket.revenue / bucket.days : 0));
   const max = Math.max(...averages, 1);
   const best = worked.reduce((a, b) => ((b.revenue / b.days) > (a.revenue / a.days) ? b : a));
-  const bars = buckets.map((bucket, index) => {
-    const average = averages[index];
-    const pct = bucket.days ? Math.max(4, Math.round((average / max) * 100)) : 0;
-    const tone = index === 0 ? " is-sun" : (index === 6 ? " is-sat" : "");
-    const top = index === best.index ? " is-best" : "";
-    return `<div class="wd-col${tone}${top}">
-      <span class="wd-avg">${bucket.days ? compactMoneyLabel(average) : "-"}</span>
-      <div class="wd-track"><span style="height:${pct}%"></span></div>
-      <span class="wd-label">${bucket.label}</span>
-      <span class="wd-days">${bucket.days ? bucket.days + "일" : ""}</span>
-    </div>`;
-  }).join("");
   const bestAverage = best.revenue / best.days;
   const lowest = worked.reduce((a, b) => ((b.revenue / b.days) < (a.revenue / a.days) ? b : a));
   const gap = bestAverage - (lowest.revenue / lowest.days);
   const note = worked.length > 1 && gap > 0
     ? `${best.label}요일이 ${lowest.label}요일보다 근무일당 ${fmtWon(Math.round(gap))} 많습니다.`
     : "요일을 비교하려면 근무 기록이 더 필요합니다.";
-  el.weekdayStats.innerHTML = `<div class="wd-bars">${bars}</div><p class="wd-note">${note}</p>`;
+
+  const freshBuild = el.weekdayStats.querySelectorAll(".wd-col").length !== 7;
+  if (freshBuild) {
+    weekdayBars.cancelAll();
+    const cols = buckets.map((bucket, index) => {
+      const tone = index === 0 ? " is-sun" : (index === 6 ? " is-sat" : "");
+      return `<div class="wd-col${tone}" data-weekday="${index}">
+        <span class="wd-avg"></span>
+        <div class="wd-track"><span></span></div>
+        <span class="wd-label">${bucket.label}</span>
+        <span class="wd-days"></span>
+      </div>`;
+    }).join("");
+    el.weekdayStats.innerHTML = `<div class="wd-bars">${cols}</div><p class="wd-note"></p>`;
+  }
+  const animateFirstPaint = freshBuild && motion.shouldAnimate();
+  buckets.forEach((bucket, index) => {
+    const col = el.weekdayStats.querySelector(`.wd-col[data-weekday="${index}"]`);
+    if (!col) return;
+    col.classList.toggle("is-best", index === best.index);
+    col.querySelector(".wd-avg").textContent = bucket.days ? compactMoneyLabel(averages[index]) : "-";
+    col.querySelector(".wd-days").textContent = bucket.days ? bucket.days + "일" : "";
+    const fill = col.querySelector(".wd-track > span");
+    const target = (bucket.days ? Math.max(4, Math.round((averages[index] / max) * 100)) : 0) / 100;
+    const from = freshBuild ? 0 : Number(fill.dataset.moScale || 0);
+    fill.dataset.moScale = String(target);
+    if (!freshBuild && Math.abs(from - target) < 0.001) return;
+    const start = () => weekdayBars.run(`wd-${index}`, from, target, {
+      ...motion.SPRING,
+      onUpdate: (v) => { fill.style.transform = `scaleY(${v})`; },
+    });
+    if (animateFirstPaint) {
+      fill.style.transform = `scaleY(0)`;
+      setTimeout(start, index * 30);
+    } else {
+      start();
+    }
+  });
+  el.weekdayStats.querySelector(".wd-note").textContent = note;
 }
 function compactMoneyLabel(value) {
   const won = Math.round(value || 0);
