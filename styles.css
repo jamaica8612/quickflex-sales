@@ -2650,7 +2650,8 @@ body:has(#measurementGuideOverlay.visible) { overflow: hidden; }
   border-radius: var(--r-lg) var(--r-lg) 0 0;
   padding: 18px;
   z-index: 41;
-  transition: transform .18s ease;
+  /* transform is spring-driven from JS (openSheet/closeSheet in main.js),
+     not a CSS transition, so it can't fight an in-flight animation. */
 }
 .bottom-sheet.open { transform: translate(-50%, 0); }
 .sheet-handle { width: 38px; height: 4px; border-radius: var(--r-full); background: var(--line); margin: 0 auto 14px; }

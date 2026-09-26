@@ -125,6 +125,7 @@ export function bindRecordEvents(ctx) {
     record.off = el.offToggle.checked;
     if (record.off) record.rows = [];
     else record.rows = defaultEntryRows();
+    motion.pressPop(el.offToggle.closest(".off-toggle") || el.offToggle);
     renderEntryForm();
     refreshTotals();
   });

@@ -6108,13 +6108,24 @@ function openSalesOverride(dateKey = state.selectedDate) {
   setSalesOverrideStatus([seed.warning, contractWarning].filter(Boolean).join(" "), seed.warning ? "warning" : "");
   el.salesOverrideOverlay.classList.add("visible");
   updateModalLayer(el.salesOverrideOverlay, true, ".sales-override-route");
+  if (motion.shouldAnimate()) {
+    el.salesOverrideOverlay.style.opacity = "0";
+    motion.fadeTo(el.salesOverrideOverlay, 1, { onDone: () => { el.salesOverrideOverlay.style.opacity = ""; } });
+    motion.popIn(el.salesOverrideOverlay.querySelector(".modal-card"), { from: 0.92 });
+  }
   return true;
 }
 function closeSalesOverride(force = false) {
   const draft = state.salesOverrideDraft;
   if (!force && draft?.saving) return false;
   if (!force && draft?.dirty && !window.confirm("저장하지 않은 매출 수정 입력이 있습니다. 닫을까요?")) return false;
-  el.salesOverrideOverlay?.classList.remove("visible");
+  if (motion.shouldAnimate() && el.salesOverrideOverlay) {
+    motion.fadeTo(el.salesOverrideOverlay, 0, {
+      onDone: () => { el.salesOverrideOverlay.classList.remove("visible"); el.salesOverrideOverlay.style.opacity = ""; },
+    });
+  } else {
+    el.salesOverrideOverlay?.classList.remove("visible");
+  }
   updateModalLayer(el.salesOverrideOverlay, false);
   state.salesOverrideDraft = null;
   return true;
@@ -6216,15 +6227,24 @@ async function saveSalesOverride() {
   }
 }
 
+const dbSheetMotion = motion.createAnimationGroup();
+function placeDbSheet(t) {
+  el.dbSheet.style.transform = `translate(-50%, ${(t * 105).toFixed(2)}%)`;
+}
 function openSheet() {
   el.dbOverlay.classList.add("open");
   el.dbSheet.classList.add("open");
   updateModalLayer(el.dbSheet, true, el.supabaseUrl);
+  dbSheetMotion.run("y", 1, 0, { ...motion.SPRING, onUpdate: placeDbSheet });
 }
 function closeSheet() {
   el.dbOverlay.classList.remove("open");
-  el.dbSheet.classList.remove("open");
   updateModalLayer(el.dbSheet, false);
+  dbSheetMotion.run("y", 0, 1, {
+    ...motion.SPRING,
+    onUpdate: placeDbSheet,
+    onDone: () => { el.dbSheet.classList.remove("open"); },
+  });
 }
 
 // Welcome text and suggested questions depend on the work phase; nothing here is stored.
