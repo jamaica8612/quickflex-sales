@@ -180,7 +180,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.106";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.107";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -4190,16 +4190,19 @@ function applyGoalMeterMotion() {
   const reached = rawPct >= 100;
   const sameMetric = el.meterFill.__moSameMetric;
   const firstRender = goalMeterMotion.lastPct === null;
-  const animateGrowth = sameMetric === true && motion.shouldAnimate();
+  // Same metric: grow from the previous value. First view or a new period: fill up from empty.
+  const growFromEmpty = sameMetric !== true;
+  const animateGrowth = motion.shouldAnimate() && targetPct > 0;
 
   if (!animateGrowth) {
     goalMeterMotion.group.cancelAll();
     el.meterFill.style.transform = "";
-  } else if (goalMeterMotion.lastPct !== targetPct) {
-    const from = targetPct > 0 ? goalMeterMotion.lastPct / targetPct : 1;
+  } else if (growFromEmpty || goalMeterMotion.lastPct !== targetPct) {
+    const from = growFromEmpty ? 0 : goalMeterMotion.lastPct / targetPct;
     el.meterFill.style.transform = `scaleX(${from})`;
     goalMeterMotion.group.run("fill", from, 1, {
-      ...motion.SPRING,
+      // Filling from empty gets a softer spring (about 0.7s) so the rise reads.
+      ...(growFromEmpty ? { stiffness: 140, damping: 0.92 } : motion.SPRING),
       onUpdate: (v) => { el.meterFill.style.transform = `scaleX(${v})`; },
       onDone: () => { el.meterFill.style.transform = ""; },
     });
