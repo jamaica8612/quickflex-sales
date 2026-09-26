@@ -514,8 +514,12 @@ export function shake(el, {
 
 const popRegistry = new WeakMap();
 
-/** Scale+fade pop-in, once, using the base spring. Cancels any pop already running on `el`. */
-export function popIn(el, { win, doc } = {}) {
+/**
+ * Scale+fade pop-in, once, using the base spring. Cancels any pop already
+ * running on `el`. `from` is the starting scale (0.7 for a chip popping in
+ * from nothing, 0.92 for a dialog card that's already roughly its own size).
+ */
+export function popIn(el, { win, doc, from = 0.7 } = {}) {
   if (!el) return;
   popRegistry.get(el)?.();
   const controller = animateSpring(0, 1, {
@@ -524,7 +528,7 @@ export function popIn(el, { win, doc } = {}) {
     doc,
     onUpdate: (v) => {
       el.style.opacity = String(Math.min(1, v));
-      el.style.transform = `scale(${0.7 + 0.3 * v})`;
+      el.style.transform = `scale(${from + (1 - from) * v})`;
     },
     onDone: () => {
       el.style.opacity = "";
