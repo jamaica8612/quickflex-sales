@@ -655,6 +655,7 @@ export function updateRollingNumber(el, formatted, { units = DEFAULT_UNIT_SUFFIX
     const from = Number(strip.dataset.moValue || 0);
     const to = Number(tokens[index].value);
     strip.dataset.moValue = String(to);
+    if (strip.nextElementSibling) strip.nextElementSibling.textContent = String(to);
     grp.run(`digit-${index}`, from, to, {
       ...SPRING,
       win,
@@ -693,13 +694,19 @@ function buildRollingNumber(el, tokens, unit) {
     const digitEl = document.createElement("span");
     digitEl.dataset.moDigit = "true";
     digitEl.setAttribute("aria-hidden", "true");
+    // An invisible in-flow copy of the digit gives the cell its width and the
+    // same text baseline as its neighbours; the strip rides above it, clipped.
     digitEl.style.display = "inline-block";
-    digitEl.style.overflow = "hidden";
-    digitEl.style.height = "1em";
-    digitEl.style.lineHeight = "1em";
-    digitEl.style.verticalAlign = "top";
+    digitEl.style.position = "relative";
+    digitEl.style.clipPath = "inset(0)";
+    digitEl.style.lineHeight = "1.2em";
+    digitEl.style.font = "inherit";
     const strip = document.createElement("span");
     strip.style.display = "block";
+    strip.style.position = "absolute";
+    strip.style.left = "0";
+    strip.style.right = "0";
+    strip.style.top = "0";
     // Host label rules such as `.summary-grid span` would otherwise shrink the rows.
     strip.style.font = "inherit";
     strip.style.color = "inherit";
@@ -710,12 +717,17 @@ function buildRollingNumber(el, tokens, unit) {
       digitChar.style.display = "block";
       digitChar.style.font = "inherit";
       digitChar.style.color = "inherit";
-      digitChar.style.height = "1em";
-      digitChar.style.lineHeight = "1em";
+      digitChar.style.height = "1.2em";
+      digitChar.style.lineHeight = "1.2em";
       digitChar.textContent = String(i);
       strip.appendChild(digitChar);
     }
+    const placeholder = document.createElement("span");
+    placeholder.style.visibility = "hidden";
+    placeholder.style.font = "inherit";
+    placeholder.textContent = slot.value;
     digitEl.appendChild(strip);
+    digitEl.appendChild(placeholder);
     el.appendChild(digitEl);
   }
   if (unit) {
@@ -741,15 +753,20 @@ export function createTabIndicator(container, indicator, { win, doc } = {}) {
   let edge = { l: 0, r: 0 };
   let placed = false;
 
+  // The indicator is the selected pill itself: it takes the button's height
+  // and follows its two edges, so the stretch shows on the real surface.
   function place() {
     const width = Math.max(0, edge.r - edge.l);
-    indicator.style.transform = `translateX(${edge.l.toFixed(2)}px) scaleX(${width.toFixed(2)})`;
+    indicator.style.width = `${width.toFixed(2)}px`;
+    indicator.style.transform = `translateX(${edge.l.toFixed(2)}px)`;
     indicator.style.opacity = width > 0 ? "1" : "0";
   }
 
   function measure(btn) {
     const trackRect = container.getBoundingClientRect();
     const rect = btn.getBoundingClientRect();
+    indicator.style.top = `${(rect.top - trackRect.top).toFixed(2)}px`;
+    indicator.style.height = `${rect.height.toFixed(2)}px`;
     return { l: rect.left - trackRect.left, r: rect.right - trackRect.left };
   }
 
