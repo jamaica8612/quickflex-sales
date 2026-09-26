@@ -1,3 +1,5 @@
+import * as motion from "../lib/motion.js";
+
 export function bindStatsEvents(ctx) {
   const {
     el,
@@ -82,13 +84,16 @@ export function bindStatsEvents(ctx) {
       const to = el.statsRangeTo.value || "";
       if (!from || !to || from > to) {
         toast?.("조회 시작일과 종료일을 확인해 주세요.", "error");
-        (from && to && from > to ? el.statsRangeTo : el.statsRangeFrom)?.focus();
+        const offender = from && to && from > to ? el.statsRangeTo : el.statsRangeFrom;
+        offender?.focus();
+        motion.shake(offender);
         return;
       }
       const dayCount = statsRangeDayCount?.(from, to) || 0;
       if (dayCount > maxStatsCustomRangeDays) {
         toast?.(`직접 조회는 최대 ${maxStatsCustomRangeDays}일(약 3년)까지 가능합니다.`, "error");
         el.statsRangeTo?.focus();
+        motion.shake(el.statsRangeTo);
         return;
       }
       state.statsRangeCustom = {

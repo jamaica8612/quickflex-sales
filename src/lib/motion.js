@@ -535,6 +535,29 @@ export function popIn(el, { win, doc } = {}) {
   popRegistry.set(el, () => controller.cancel());
 }
 
+const pressPopRegistry = new WeakMap();
+
+/**
+ * A quick tactile "press" bounce for an already-visible control (unlike
+ * popIn, opacity is untouched — only a brief scale dip and recovery via the
+ * base spring's small overshoot).
+ */
+export function pressPop(el, { from = 0.94, win, doc } = {}) {
+  if (!el) return;
+  pressPopRegistry.get(el)?.();
+  const controller = animateSpring(from, 1, {
+    ...SPRING,
+    win,
+    doc,
+    onUpdate: (v) => { el.style.transform = `scale(${v})`; },
+    onDone: () => {
+      el.style.transform = "";
+      pressPopRegistry.delete(el);
+    },
+  });
+  pressPopRegistry.set(el, () => controller.cancel());
+}
+
 // ---------------------------------------------------------------------------
 // Critically damped fade / crossfade
 // ---------------------------------------------------------------------------

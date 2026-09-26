@@ -1,3 +1,4 @@
+import * as motion from '../lib/motion.js';
 const CATEGORIES = [['fuel','주유 · 충전'],['vehicle','차량 정비'],['toll','통행료 · 주차'],['insurance','보험'],['lease','차량 임차'],['supplies','배송 용품'],['communication','통신'],['other','기타']];
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = (value) => Number(value ?? 0).toLocaleString('ko-KR');
@@ -150,7 +151,11 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
   async function save(status) {
     if(busy||!draft)return;
     const input=readInput(status);
-    if(status==='confirmed'&&(!input.actual_date||(input.gross_amount==null||input.gross_amount<1))){report('지출 날짜와 1원 이상의 총 금액을 입력해 주세요. 사진만 보관하려면 임시 저장을 눌러주세요.');return;}
+    if(status==='confirmed'&&(!input.actual_date||(input.gross_amount==null||input.gross_amount<1))){
+      report('지출 날짜와 1원 이상의 총 금액을 입력해 주세요. 사진만 보관하려면 임시 저장을 눌러주세요.');
+      motion.shake(!input.actual_date?dialog.querySelector('[name="actual_date"]'):dialog.querySelector('[name="gross_amount"]'));
+      return;
+    }
     if(!dialog.querySelector('form').reportValidity())return;
     const payloadKey=JSON.stringify(Object.fromEntries(Object.entries(input).filter(([key])=>!['id','request_id','receipts','adjustments','created_at','updated_at','user_id'].includes(key))));
     if(saveOperation?.payloadKey!==payloadKey)saveOperation={payloadKey,requestId:crypto.randomUUID()};
@@ -210,7 +215,7 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
       }
       if(button.hasAttribute('data-adjust')) {
         const amount=Number(dialog.querySelector('[data-adjust-amount]').value),date=dialog.querySelector('[data-adjust-date]').value;
-        if(!Number.isSafeInteger(amount)||amount<=0||!date){report('받은 날짜와 1원 이상의 금액을 입력해 주세요.');return;}
+        if(!Number.isSafeInteger(amount)||amount<=0||!date){report('받은 날짜와 1원 이상의 금액을 입력해 주세요.');motion.shake(!date?dialog.querySelector('[data-adjust-date]'):dialog.querySelector('[data-adjust-amount]'));return;}
         const input={kind:dialog.querySelector('[data-adjust-kind]').value,amount,actual_date:date,memo:dialog.querySelector('[data-adjust-memo]').value,request_id:button.dataset.requestId||crypto.randomUUID()};button.dataset.requestId=input.request_id;
         setBusy(true);const service=await getService();if(!alive(token)||dialog!==activeDialog)return;const updated=await service.adjust(draft.id,input);
         if(!alive(token))return;

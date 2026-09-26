@@ -555,12 +555,31 @@ body:not([data-theme="dark"]) .theme-toggle button:not(.active) {
   color: var(--muted);
 }
 .mode-toggle {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   padding: 0 14px 12px;
   background: transparent;
 }
+/* A thin sliding accent underneath a segmented control's own (instant)
+   active-state background — additive, never replacing that background, so
+   it can't fight the shared `.active` rule other pill toggles rely on. */
+.tab-indicator {
+  position: absolute;
+  left: 0;
+  bottom: 4px;
+  width: 1px;
+  height: 3px;
+  border-radius: var(--r-full);
+  background: var(--gold);
+  transform-origin: left center;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.stats-range-tabs { position: relative; }
+.stats-range-tabs .tab-indicator { bottom: 2px; }
 .mode-btn {
   height: 44px;
   border-radius: var(--r-full);

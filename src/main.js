@@ -672,6 +672,9 @@ const el = {
   noahInput: $("noahInput"),
   navTabs: document.querySelectorAll(".nav-tab"),
   modeBtns: document.querySelectorAll(".mode-btn"),
+  calendarModeToggle: $("calendarModeToggle"),
+  calendarModeIndicator: $("calendarModeIndicator"),
+  statsRangeIndicator: $("statsRangeIndicator"),
   statsTabs: document.querySelectorAll("[data-tab]"),
   statsPanels: document.querySelectorAll(".stats-panel"),
 };
@@ -5148,13 +5151,23 @@ function renderTotalStats() {
     <div><span>누적 휴무</span><strong>${totals.offDays}일</strong></div>
     <div><span>누적 프레시백</span><strong>${fmtCount(totals.fresh)}</strong></div>`;
 }
+let statsRangeIndicatorCtl = null;
+function statsRangeIndicator() {
+  if (!statsRangeIndicatorCtl && el.statsRangeTabs && el.statsRangeIndicator) {
+    statsRangeIndicatorCtl = motion.createTabIndicator(el.statsRangeTabs, el.statsRangeIndicator);
+  }
+  return statsRangeIndicatorCtl;
+}
 function syncStatsRangeButtons() {
   if (!el.statsRangeTabs) return;
+  let activeButton = null;
   el.statsRangeTabs.querySelectorAll("button[data-range]").forEach((btn) => {
     const selected = btn.dataset.range === state.statsRangeMode;
     btn.classList.toggle("active", selected);
     btn.setAttribute("aria-pressed", String(selected));
+    if (selected) activeButton = btn;
   });
+  statsRangeIndicator()?.moveTo(activeButton);
   if (el.statsRangeCustom) el.statsRangeCustom.hidden = state.statsRangeMode !== "custom";
   const navDisabled = state.statsRangeMode !== "thisMonth";
   [el.statsPrevMonth, el.statsNextMonth].filter(Boolean).forEach((button) => {
@@ -6185,7 +6198,10 @@ function bindEvents() {
     showView("settings");
     if (button.hasAttribute("data-open-admin")) { const panel = $("operationSettings"); if (panel) panel.open = true; }
   }));
-  document.querySelectorAll("[data-ledger]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.ledger)));
+  document.querySelectorAll("[data-ledger]").forEach((button) => button.addEventListener("click", () => {
+    motion.pressPop(button);
+    showView(button.dataset.ledger);
+  }));
   el.pendingSignupsBanner?.addEventListener("click", () => openPendingSignupsApproval());
   document.querySelectorAll("[data-usage-window]").forEach((button) => button.addEventListener("click", () => {
     renderAdminUsageSummary(Number(button.dataset.usageWindow) === 7 ? 7 : 30);
