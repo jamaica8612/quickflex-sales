@@ -180,7 +180,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.108";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.109";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -206,10 +206,13 @@ function applyStatsChartMotion(trend) {
   if (!canvas) { renderStatsChart(trend); return; }
   const fingerprint = statsChartFingerprint(trend);
   const previousFingerprint = canvas.__moFingerprint;
-  const isFirstShow = !statsChartShownThisSession;
+  // Only a chart the user can actually see counts as shown; a render behind
+  // another tab keeps the draw-on for when 정산노트 is opened.
+  const visible = Boolean(canvas.offsetParent);
+  const isFirstShow = visible && !statsChartShownThisSession;
   const dataChanged = previousFingerprint !== undefined && previousFingerprint !== fingerprint;
   canvas.__moFingerprint = fingerprint;
-  statsChartShownThisSession = true;
+  if (visible) statsChartShownThisSession = true;
 
   if (isFirstShow && motion.shouldAnimate()) {
     renderStatsChart(trend);
