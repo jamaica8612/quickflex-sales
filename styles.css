@@ -4008,6 +4008,20 @@ html:not([data-theme="dark"]) .ledger-switch button.is-on { background: var(--pa
 .summary-ledger b { color: var(--text); font-family: var(--font-numeric); font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
 .summary-ledger b .number-unit { margin-left: 1px; color: var(--muted); font-family: var(--font-ui); font-size: var(--fs-caption); font-weight: 600; }
 
+/* 새 정산기간 시작 직후, 헤드라인이 지난 정산으로 대체됐을 때의 안내 한 줄 */
+.summary-period-note {
+  order: 6;
+  margin: 0 -18px;
+  padding: 11px 18px 2px;
+  border-top: 1px solid var(--line);
+  color: var(--soft);
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: center;
+}
+.summary-period-note[hidden] { display: none; }
+
 /* 하단 메뉴 다섯 칸, 가운데 노아 */
 .nav-tab.nav-noah { position: relative; color: var(--text); }
 .nav-noah-orb {

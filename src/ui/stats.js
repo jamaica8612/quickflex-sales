@@ -33,6 +33,9 @@ export function bindStatsEvents(ctx) {
   };
 
   const selectStatsRange = (next) => {
+    // 사용자가 이번 세션에서 직접 기간을 골랐다는 표시 — 이후에는 "지난 정산" 자동 기본값이
+    // 이 선택을 다시 덮어쓰지 않는다.
+    state.statsRangeModeUserSet = true;
     if (state.statsRangeMode === next) {
       if (next !== "custom") {
         if (syncStatsToCurrentPeriod?.()) state.statsDetailDate = "";
@@ -93,6 +96,7 @@ export function bindStatsEvents(ctx) {
         to,
       };
       state.statsRangeMode = "custom";
+      state.statsRangeModeUserSet = true;
       state.statsDetailDate = "";
       renderStats();
       syncCustomRangeDisclosure();
