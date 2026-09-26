@@ -59,6 +59,15 @@ import { bindAdminEvents } from "./ui/admin.js";
 import { bindAuthEvents } from "./services/auth.js";
 import { mergeDefaultRouteMaster, ratesFromDb } from "./services/db.js";
 import { trackUsageEvent } from "./services/usage.js";
+import {
+  fetchPendingSignups,
+  fetchUsageScreenSummary,
+  formatUsageScreenSummary,
+  pendingSignupsBannerText,
+  pendingSignupsGearLabel,
+  shouldShowPendingSignupsNotice,
+  USAGE_SCREEN_SUMMARY_DEFAULT_WINDOW,
+} from "./services/admin-insights.js";
 import { bindCalendarEvents } from "./ui/calendar.js";
 import { bindInspectionEvents } from "./ui/inspection.js";
 import { bindOcrEvents } from "./ui/ocr.js";
@@ -236,6 +245,8 @@ const state = {
   activeMeasurementLease: null,
   statsRangeMode: "thisMonth",
   statsRangeCustom: { from: "", to: "" },
+  adminUsageWindowDays: USAGE_SCREEN_SUMMARY_DEFAULT_WINDOW,
+  pendingSignupsNotice: null,
   revenueVisibility: (() => {
     try { return JSON.parse(localStorage.getItem("quickflex-revenue-vis") || "{}") || {}; }
     catch (_) { return {}; }
@@ -608,6 +619,8 @@ const el = {
   csvInput: $("csvInput"),
   parseCsv: $("parseCsv"),
   adminProfiles: $("adminProfiles"),
+  adminUsageSummary: $("adminUsageSummary"),
+  pendingSignupsBanner: $("pendingSignupsBanner"),
   resetData: $("resetData"),
   requestAccountDelete: $("requestAccountDelete"),
   refreshApp: $("refreshApp"),
@@ -974,9 +987,11 @@ function clearUserScopedState() {
   if (el.salesOverrideRows) el.salesOverrideRows.innerHTML = "";
   if (el.salesOverrideReason) el.salesOverrideReason.value = "";
   if (el.salesOverrideStatus) el.salesOverrideStatus.textContent = "";
-  [el.adminBundleList, el.adminProfiles]
+  [el.adminBundleList, el.adminProfiles, el.adminUsageSummary]
     .filter(Boolean)
     .forEach((node) => { node.innerHTML = ""; });
+  state.adminUsageWindowDays = USAGE_SCREEN_SUMMARY_DEFAULT_WINDOW;
+  applyPendingSignupsNotice(null);
 }
 function scheduleSignedInBoot(context) {
   Promise.resolve().then(async () => {
@@ -2132,6 +2147,7 @@ async function bootSignedInUser(context = captureAccountContext()) {
     renderAll();
     showAuth(false);
     trackApprovedSessionStart();
+    void refreshPendingSignupsNotice(context);
     window.FlexNoteStartup?.finish();
     await maybeOfferRateUpdate(context);
     if (!isAccountContextCurrent(context)) return false;
@@ -5614,6 +5630,74 @@ async function saveAdminProfile(card) {
   if (error) throw error;
   toast("가입 정보를 저장했습니다.", "success");
   await renderAdminProfiles();
+  void refreshPendingSignupsNotice(context);
+}
+
+function syncAdminUsageWindowButtons(windowDays) {
+  document.querySelectorAll("[data-usage-window]").forEach((button) => {
+    const active = Number(button.dataset.usageWindow) === windowDays;
+    button.classList.toggle("is-on", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+async function renderAdminUsageSummary(windowDays = state.adminUsageWindowDays) {
+  if (!el.adminUsageSummary || state.profile?.role !== "admin" || !state.db) return;
+  state.adminUsageWindowDays = windowDays === 7 ? 7 : USAGE_SCREEN_SUMMARY_DEFAULT_WINDOW;
+  syncAdminUsageWindowButtons(state.adminUsageWindowDays);
+  const context = captureAccountContext();
+  el.adminUsageSummary.innerHTML = '<p class="hint">사용 현황을 불러오고 있습니다.</p>';
+  try {
+    const rows = await fetchUsageScreenSummary(state.db, { windowDays: state.adminUsageWindowDays });
+    if (!isAccountContextCurrent(context)) return;
+    if (!rows.length) {
+      el.adminUsageSummary.innerHTML = '<p class="hint">아직 모인 사용 기록이 없어요</p>';
+      return;
+    }
+    el.adminUsageSummary.innerHTML = formatUsageScreenSummary(rows).map((row) => `<div class="usage-summary-row"><span class="usage-summary-label">${escapeAttr(row.label)}</span><span class="usage-summary-counts">${escapeAttr(row.countsText)}</span></div>`).join("");
+  } catch (error) {
+    if (!isAccountContextCurrent(context)) return;
+    el.adminUsageSummary.innerHTML = `<p class="hint admin-usage-error">사용 현황을 불러오지 못했습니다. ${escapeAttr(error.message)}</p>`;
+  }
+}
+function applyPendingSignupsNotice(data) {
+  const visible = shouldShowPendingSignupsNotice(data);
+  state.pendingSignupsNotice = visible ? data : null;
+  if (el.pendingSignupsBanner) {
+    el.pendingSignupsBanner.textContent = visible ? pendingSignupsBannerText(data) : "";
+    el.pendingSignupsBanner.classList.toggle("hidden", !visible);
+  }
+  const gearLabel = pendingSignupsGearLabel(visible ? data : null);
+  document.querySelectorAll("[data-open-settings]").forEach((button) => {
+    button.classList.toggle("has-pending-dot", visible);
+    button.setAttribute("aria-label", gearLabel);
+  });
+}
+async function refreshPendingSignupsNotice(context = captureAccountContext()) {
+  if (!isAccountContextCurrent(context) || state.profile?.role !== "admin" || !state.db) {
+    if (isAccountContextCurrent(context)) applyPendingSignupsNotice(null);
+    return;
+  }
+  try {
+    const data = await fetchPendingSignups(state.db);
+    if (!isAccountContextCurrent(context)) return;
+    applyPendingSignupsNotice(data);
+  } catch (error) {
+    if (!isAccountContextCurrent(context)) return;
+    console.warn("[QuickFlex] 가입 승인 대기 조회 실패", error);
+    applyPendingSignupsNotice(null);
+  }
+}
+function openPendingSignupsApproval() {
+  showView("settings");
+  const operationDetails = $("operationSettings");
+  const memberDetails = $("memberSettings");
+  if (operationDetails) operationDetails.open = true;
+  if (memberDetails) memberDetails.open = true;
+  renderAdminProfiles().catch(() => {});
+  requestAnimationFrame(() => {
+    el.adminProfiles?.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.adminProfiles?.focus({ preventScroll: true });
+  });
 }
 
 function makeSalesOverrideRequestId() {
@@ -5961,6 +6045,10 @@ function bindEvents() {
     if (button.hasAttribute("data-open-admin")) { const panel = $("operationSettings"); if (panel) panel.open = true; }
   }));
   document.querySelectorAll("[data-ledger]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.ledger)));
+  el.pendingSignupsBanner?.addEventListener("click", () => openPendingSignupsApproval());
+  document.querySelectorAll("[data-usage-window]").forEach((button) => button.addEventListener("click", () => {
+    renderAdminUsageSummary(Number(button.dataset.usageWindow) === 7 ? 7 : 30);
+  }));
   bindNoah();
   $("retryPendingSave")?.addEventListener("click", () => reviewPendingSave().catch((error) => toast(error.message, "error")));
   $("useServerRecord")?.addEventListener("click", () => reviewPendingSave(true).catch((error) => toast(error.message, "error")));
@@ -6035,6 +6123,7 @@ function bindEvents() {
     refreshTotals,
     renderAdminProfiles,
     renderAdminBundles,
+    renderAdminUsageSummary,
     renderAll,
     renderDraftCards,
     renderEntryForm,

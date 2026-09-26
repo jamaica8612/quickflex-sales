@@ -12,6 +12,8 @@ export const USAGE_SCREEN_NAMES = Object.freeze([
   "stats",
   "settings",
   "admin",
+  "noah",
+  "routes",
 ]);
 
 export const STATS_USAGE_CONTROLS = Object.freeze([
