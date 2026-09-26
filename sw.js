@@ -98,6 +98,7 @@ const SHELL_FILES = [
   "./src/lib/route.js",
   "./src/lib/stats-report.js",
   "./src/lib/stats-insights.js",
+  "./src/lib/period-fallback.js",
   "./src/lib/revenue.js",
   "./src/lib/format.js",
   "./src/lib/work-date.js?v=1.0.101",
