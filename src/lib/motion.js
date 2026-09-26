@@ -99,20 +99,189 @@ export function springSettled(x, v, target, from = target) {
 }
 
 // ---------------------------------------------------------------------------
+// Single shared rAF scheduler
+// ---------------------------------------------------------------------------
+//
+// Exactly one ticking loop per `window`, no matter how many springs are
+// running. It sleeps (no rAF requested) whenever nothing is active, retargets
+// in place when the same key is reused (keeping the current x and v so a new
+// action never fights or resets an old one), caps concurrent springs so a
+// burst of updates (e.g. a whole list re-animating at once) can't pile up
+// unboundedly, and snaps every active spring straight to its target the
+// moment the tab is hidden or the OS switches on reduced motion mid-flight.
+
+export const MAX_CONCURRENT_SPRINGS = 16;
+const MOTION_DEBUG_KEY = "quickflexMotionDebug";
+
+function createScheduler() {
+  const entries = new Map();
+  let nextId = 1;
+  let rafId = 0;
+  let boundWin = null;
+  let listenersBound = false;
+
+  function bindGlobals(win, doc) {
+    if (listenersBound) return;
+    listenersBound = true;
+    boundWin = win;
+    try {
+      const mq = win?.matchMedia?.("(prefers-reduced-motion: reduce)");
+      const onChange = () => { if (mq?.matches) snapAll(); };
+      if (mq?.addEventListener) mq.addEventListener("change", onChange);
+      else if (mq?.addListener) mq.addListener(onChange); // older Safari
+    } catch {
+      // matchMedia unavailable in this environment; reduced-motion changes
+      // simply won't be observed live, which is fine outside a browser.
+    }
+    try {
+      doc?.addEventListener?.("visibilitychange", () => { if (doc.hidden) snapAll(); });
+    } catch {
+      // no-op: doc without addEventListener (e.g. a minimal test double).
+    }
+    setupDebugObserver(win);
+  }
+
+  function stopTicking() {
+    if (rafId) boundWin?.cancelAnimationFrame?.(rafId);
+    rafId = 0;
+  }
+
+  function ensureTicking() {
+    if (rafId || !boundWin || entries.size === 0) return;
+    rafId = boundWin.requestAnimationFrame(tick);
+  }
+
+  function settle(id, entry) {
+    entries.delete(id);
+    entry.onUpdate?.(entry.target);
+    entry.onDone?.();
+  }
+
+  /** Snap every active spring to its end value immediately and go to sleep. */
+  function snapAll() {
+    stopTicking();
+    const pending = [...entries.entries()];
+    entries.clear();
+    pending.forEach(([, entry]) => {
+      entry.onUpdate?.(entry.target);
+      entry.onDone?.();
+    });
+  }
+
+  function tick(now) {
+    rafId = 0;
+    entries.forEach((entry, id) => {
+      const dt = (now - entry.last) / 1000;
+      entry.last = now;
+      const next = stepSpring({ x: entry.x, v: entry.v }, entry.target, entry, dt);
+      entry.x = next.x;
+      entry.v = next.v;
+      if (springSettled(entry.x, entry.v, entry.target, entry.origin)) settle(id, entry);
+      else entry.onUpdate?.(entry.x);
+    });
+    ensureTicking();
+  }
+
+  /** Evicts the single lowest-priority entry if `priority` can outrank it. Returns true if room was made. */
+  function evictForCapacity(priority) {
+    let evictId = null;
+    let evictEntry = null;
+    entries.forEach((entry, id) => {
+      if (!evictEntry || entry.priority < evictEntry.priority) {
+        evictEntry = entry;
+        evictId = id;
+      }
+    });
+    if (!evictEntry || evictEntry.priority > priority) return false;
+    settle(evictId, evictEntry);
+    return true;
+  }
+
+  function add(entry, { win, doc }) {
+    bindGlobals(win, doc);
+    if (entries.size >= MAX_CONCURRENT_SPRINGS && !evictForCapacity(entry.priority)) {
+      // Every existing spring outranks this new one: snap the new one
+      // immediately instead of letting the pile grow past the cap.
+      entry.onUpdate?.(entry.target);
+      entry.onDone?.();
+      return null;
+    }
+    const id = nextId++;
+    entries.set(id, entry);
+    ensureTicking();
+    return id;
+  }
+
+  function cancel(id) {
+    entries.delete(id);
+  }
+
+  function retarget(id, newTarget, callbacks = {}) {
+    const entry = entries.get(id);
+    if (!entry) return false;
+    entry.origin = entry.x; // keep current x and v; only the destination changes
+    entry.target = newTarget;
+    if (callbacks.onUpdate) entry.onUpdate = callbacks.onUpdate;
+    if (callbacks.onDone) entry.onDone = callbacks.onDone;
+    return true;
+  }
+
+  function has(id) {
+    return entries.has(id);
+  }
+
+  return { add, cancel, retarget, has, snapAll, size: () => entries.size };
+}
+
+function setupDebugObserver(win) {
+  try {
+    if (!win?.localStorage?.getItem?.(MOTION_DEBUG_KEY)) return;
+    if (typeof win.PerformanceObserver !== "function") return;
+    const observer = new win.PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.duration > 50) {
+          // eslint-disable-next-line no-console
+          console.warn(`[motion] long animation frame: ${entry.duration.toFixed(1)}ms`, entry);
+        }
+      }
+    });
+    observer.observe({ type: "long-animation-frame", buffered: true });
+  } catch {
+    // "long-animation-frame" isn't supported in every browser; that's fine,
+    // this is an opt-in diagnostic, not required for the motion system to work.
+  }
+}
+
+// One scheduler per real `window` (i.e. exactly one in production; tests
+// that pass their own fake `win` each get an isolated scheduler so tests
+// never bleed into each other).
+const schedulersByWindow = new WeakMap();
+function getScheduler(win) {
+  let scheduler = schedulersByWindow.get(win);
+  if (!scheduler) {
+    scheduler = createScheduler();
+    schedulersByWindow.set(win, scheduler);
+  }
+  return scheduler;
+}
+
+// ---------------------------------------------------------------------------
 // rAF-driven spring runner with cancel + retarget
 // ---------------------------------------------------------------------------
 
 /**
- * Drives a spring from `from` to `to` across animation frames. Returns a
- * controller `{ cancel(), retarget(newTo) }`. If animation shouldn't run
- * (reduced motion, hidden tab, no rAF), it calls onUpdate(to) + onDone()
- * synchronously and returns no-op controls.
+ * Drives a spring from `from` to `to` on the shared scheduler. Returns a
+ * controller `{ cancel(), retarget(newTo), isRunning() }`. If animation
+ * shouldn't run (reduced motion, hidden tab, no rAF), it calls onUpdate(to)
+ * + onDone() synchronously and returns no-op controls. `priority` (default
+ * 0) decides which spring gets snapped first if too many run at once.
  */
 export function animateSpring(from, to, {
   stiffness,
   damping,
   onUpdate,
   onDone,
+  priority = 0,
   win = typeof window !== "undefined" ? window : undefined,
   doc = typeof document !== "undefined" ? document : undefined,
 } = {}) {
@@ -121,58 +290,35 @@ export function animateSpring(from, to, {
     onDone?.();
     return { cancel() {}, retarget() {}, isRunning: () => false };
   }
-  const springOpts = { stiffness, damping };
-  let target = to;
-  let origin = from;
-  let state = { x: from, v: 0 };
-  let last = win.performance && typeof win.performance.now === "function" ? win.performance.now() : Date.now();
-  let raf = 0;
-  let stopped = false;
-
-  const tick = (now) => {
-    if (stopped) return;
-    const dt = (now - last) / 1000;
-    last = now;
-    state = stepSpring(state, target, springOpts, dt);
-    if (springSettled(state.x, state.v, target, origin)) {
-      stopped = true;
-      onUpdate?.(target);
-      onDone?.();
-      return;
-    }
-    onUpdate?.(state.x);
-    raf = win.requestAnimationFrame(tick);
-  };
-  raf = win.requestAnimationFrame(tick);
-
+  const scheduler = getScheduler(win);
+  const now = win.performance && typeof win.performance.now === "function" ? win.performance.now() : Date.now();
+  const entry = { x: from, v: 0, target: to, origin: from, stiffness, damping, onUpdate, onDone, priority, last: now };
+  const id = scheduler.add(entry, { win, doc });
+  if (id == null) return { cancel() {}, retarget() {}, isRunning: () => false };
   return {
-    cancel() {
-      if (stopped) return;
-      stopped = true;
-      win.cancelAnimationFrame?.(raf);
-    },
+    cancel() { scheduler.cancel(id); },
     // Redirects the same in-flight motion toward a new target without
     // restarting from rest, so a new user action never fights the old one.
-    retarget(newTo) {
-      if (stopped) return;
-      origin = state.x;
-      target = newTo;
-    },
-    isRunning: () => !stopped,
+    retarget(newTo, callbacks) { scheduler.retarget(id, newTo, callbacks); },
+    isRunning: () => scheduler.has(id),
   };
 }
 
 /**
  * A small registry so a caller can run several named springs (e.g. one per
- * tab-indicator edge, one per digit column) and have a new call
- * automatically cancel-and-replace whatever was already running under that
- * key, instead of the two animations fighting each other.
+ * tab-indicator edge, one per digit column) keyed by name. Reusing a key
+ * while it's still running retargets that same spring in place (current x
+ * and v preserved) instead of restarting it from rest.
  */
 export function createAnimationGroup() {
   const running = new Map();
   return {
-    run(key, from, to, opts) {
-      running.get(key)?.cancel();
+    run(key, from, to, opts = {}) {
+      const existing = running.get(key);
+      if (existing?.isRunning()) {
+        existing.retarget(to, { onUpdate: opts.onUpdate, onDone: opts.onDone });
+        return existing;
+      }
       const controller = animateSpring(from, to, opts);
       if (controller.isRunning()) running.set(key, controller);
       else running.delete(key);
