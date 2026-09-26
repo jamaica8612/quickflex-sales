@@ -562,24 +562,34 @@ body:not([data-theme="dark"]) .theme-toggle button:not(.active) {
   padding: 0 14px 12px;
   background: transparent;
 }
-/* A thin sliding accent underneath a segmented control's own (instant)
-   active-state background — additive, never replacing that background, so
-   it can't fight the shared `.active` rule other pill toggles rely on. */
+/* The selected pill slides between segments (motion.createTabIndicator sets
+   top/height/width/transform). Buttons in a control that has one drop their
+   own active surface so there is exactly one pill. */
 .tab-indicator {
   position: absolute;
   left: 0;
-  bottom: 4px;
-  width: 1px;
-  height: 3px;
+  top: 0;
+  width: 0;
+  height: 0;
   border-radius: var(--r-full);
-  background: var(--gold);
-  transform-origin: left center;
+  background: var(--panel3);
+  box-shadow: inset 0 0 0 1px var(--line-strong), 0 1px 3px rgba(0,0,0,.22);
   opacity: 0;
   pointer-events: none;
-  z-index: 2;
+  z-index: 0;
+}
+html:not([data-theme="dark"]) .tab-indicator {
+  background: #FFFFFF;
+  box-shadow: inset 0 0 0 1px var(--line-strong), 0 1px 3px rgba(16,24,40,.12);
 }
 .stats-range-tabs { position: relative; }
-.stats-range-tabs .tab-indicator { bottom: 2px; }
+.stats-range-tabs:has(> .tab-indicator) > button,
+.mode-toggle:has(> .tab-indicator) > .mode-btn { position: relative; z-index: 1; }
+html .stats-range-tabs:has(> .tab-indicator) > button.active,
+html .mode-toggle:has(> .tab-indicator) > .mode-btn.active {
+  background: transparent;
+  box-shadow: none;
+}
 .mode-btn {
   height: 44px;
   border-radius: var(--r-full);
@@ -774,7 +784,7 @@ body[data-theme="dark"] .day-cell.selected.today-cell.holiday .day-number {
   box-shadow: 0 -4px 16px rgba(0,0,0,.05);
 }
 .day-dock div { flex: 1; min-width: 0; }
-.day-dock span:not([data-mo-digit]):not(.home-off-wide-label) { display: block; color: var(--muted); font-size: var(--fs-caption); }
+.day-dock span:not([data-mo-digit]):not(.home-off-wide-label):not(.number-unit) { display: block; color: var(--muted); font-size: var(--fs-caption); }
 .day-dock strong {
   display: inline-block;
   color: var(--gold);
@@ -2988,7 +2998,7 @@ body:not([data-theme="dark"]) .view-home {
    부 버튼까지 전부 44px이라 무엇이 주된 행동인지 크기로 드러나지 않았다. */
 .day-dock { padding: 12px 16px 13px; }
 .day-dock strong { font-size: var(--fs-display-s); letter-spacing: -.028em; }
-.day-dock span:not([data-mo-digit]) { font-family: var(--font-code); font-size: var(--fs-caption); }
+.day-dock span:not([data-mo-digit]):not(.number-unit) { font-family: var(--font-code); font-size: var(--fs-caption); }
 .day-dock .ghost-pill { min-height: 40px; font-size: var(--fs-label); color: var(--muted); }
 .day-dock .primary-pill { min-height: 44px; box-shadow: none; }
 
@@ -4138,7 +4148,7 @@ html:not([data-theme="dark"]) .ledger-switch button.is-on { background: var(--pa
 .summary-period-note {
   order: 6;
   margin: 0 -18px;
-  padding: 11px 18px 2px;
+  padding: 11px 18px 13px;
   border-top: 1px solid var(--line);
   color: var(--soft);
   font-size: var(--fs-caption);
