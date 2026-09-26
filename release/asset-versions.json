@@ -1,0 +1,97 @@
+{
+  "generatedAt": "2026-09-26T00:44:08.125Z",
+  "assets": {
+    "apple-touch-icon.png": {
+      "version": "4",
+      "sha256": "6f97c48072ff7b7b26ef565d95eced823bc5044e3cf942fe16c063ce77787fb7"
+    },
+    "favicon-32.png": {
+      "version": "4",
+      "sha256": "98aa1983fcf42787bd45ccd105967cd3b4980ddbe7eb6c5337af25aac97d83bf"
+    },
+    "icon-192.png": {
+      "version": "4",
+      "sha256": "fba721fae7b84211c3b52d942e7635e1a19d1c68d111fa1d60953ef5af7e52d4"
+    },
+    "icon-512.png": {
+      "version": "4",
+      "sha256": "fb416772945205e1eb03ca826fc35ec7dc90a471b572a73ff8712da258e22ac6"
+    },
+    "icon-maskable-192.png": {
+      "version": "4",
+      "sha256": "471a42bdad9541b521413b5f5130826905ba933058c15fee2e8db82bf7e59771"
+    },
+    "icon-maskable-512.png": {
+      "version": "4",
+      "sha256": "f086364c66ed6cc74d1af7e2d829d8496a620c4a61fcb10f46628509c9f05d10"
+    },
+    "src/config.js": {
+      "version": "11",
+      "sha256": "7446c70f04e5bf17b83560e7854672fa1553dbad6ebdea2f877209819cc8a59e"
+    },
+    "src/lib/agricultural-market-route-map.js": {
+      "version": "2",
+      "sha256": "f8ba4572de463ecb8a80dce742e31f14e37696d86a6d14fc42698d75fe8abcc2"
+    },
+    "src/lib/route-note-icons.js": {
+      "version": "3",
+      "sha256": "eb3e990844cc074ad48d8cc4d0630660481d12bd9bbf67d01d32829deec4601d"
+    },
+    "src/lib/route-note-map-geometry.js": {
+      "version": "3",
+      "sha256": "231bb3150e581dfdfc4437a42faa68bd73aa3e6fdbb2b416dadd31eaeedb69e6"
+    },
+    "src/lib/route-note-map.js": {
+      "version": "10",
+      "sha256": "8bf7287db29873014fdb48ab0dd4a08b5ef2306dd9dc268574e297fde37642d8"
+    },
+    "src/lib/route-notes.js": {
+      "version": "3",
+      "sha256": "6e05d1c9c8afeed7b891414643d178d91cf597f1b182fc376e20553eb15d62ff"
+    },
+    "src/services/route-notes.js": {
+      "version": "3",
+      "sha256": "5e6db008b6b7b8c9188026e98117355fca3b24ac7732094cbfbce3bad888b71c"
+    },
+    "src/ui/noah.js": {
+      "version": "5",
+      "sha256": "af36fde6f19322770b22bc5b5ae63f54667784a6cbd860d60dfd467d00ee6afe"
+    },
+    "src/ui/route-note-zone-editor.js": {
+      "version": "8",
+      "sha256": "c5bbbeda8cfcbd139915ce284a94c0224a314d6509fae813779f95d5eb931376"
+    },
+    "src/ui/route-notes.js": {
+      "version": "16",
+      "sha256": "6efe26755b557d9c9140d9c568a6610ae4c0b2dadfb7bc116007c64576fac0ef"
+    },
+    "styles/agricultural-market-route-map.css": {
+      "version": "2",
+      "sha256": "8c021ed56b234408f5e894287745730f6605e849fd1b123e42f7e56a68797f7c"
+    },
+    "styles/noah.css": {
+      "version": "6",
+      "sha256": "59ae87afba0d8ce1ecf056dcb195a341989b5abf90eeebc84542473137574834"
+    },
+    "styles/route-note-map.css": {
+      "version": "7",
+      "sha256": "2914b6bfa9e39dd6358db38eb3947fa7f9a53d8b5b131fb5df825ab26e74981e"
+    },
+    "styles/route-note-share.css": {
+      "version": "1",
+      "sha256": "2850f0d2f5eeb10a92820ecb15b1b9df287d7b6ec819baa9e8f833f637b29d53"
+    },
+    "styles/route-note-zone-editor.css": {
+      "version": "3",
+      "sha256": "9969972dfe3580739af460193e2f024e07c04278f120c44a3d6bacccfdb0c57a"
+    },
+    "styles/route-notes.css": {
+      "version": "10",
+      "sha256": "33050fedbccd7eccb20bf5af2f22c6a8b6928175e0e8840d8b538a2147662a3b"
+    },
+    "styles/startup.css": {
+      "version": "3",
+      "sha256": "a60020d795ab5e69e2cb307db21af266c528032cead15d74e392cf2a37d9b7d2"
+    }
+  }
+}
