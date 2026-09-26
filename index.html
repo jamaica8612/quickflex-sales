@@ -117,7 +117,7 @@
           <div class="summary-card">
             <div class="summary-row">
               <span>정산 예상액</span>
-              <span class="summary-period-badge">이번 정산기간</span>
+              <span class="summary-period-badge" id="summaryPeriodBadge">이번 정산기간</span>
               <strong id="periodRevenue">0원</strong>
             </div>
             <p class="meter-label" id="meterLabel">목표 600만원 대비 진행률</p>
@@ -132,6 +132,7 @@
               <div><span>근무일</span><strong id="workDaysHome">0일</strong></div>
             </div>
             <div class="summary-ledger" id="summaryLedger" hidden><span id="summaryExpense">지출 -</span><span>남는 돈 <b id="summaryNet">-</b></span></div>
+            <p class="summary-period-note" id="summaryPeriodNote" hidden></p>
           </div>
         </header>
 
