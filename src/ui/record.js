@@ -154,6 +154,11 @@ export function bindRecordEvents(ctx) {
     });
   });
   el.saveRecord.addEventListener("click", () => handleSaveRecordClick(ctx));
+  const calendarModeIndicator = el.calendarModeToggle && el.calendarModeIndicator
+    ? motion.createTabIndicator(el.calendarModeToggle, el.calendarModeIndicator)
+    : null;
+  const activeModeBtn = () => [...el.modeBtns].find((btn) => btn.dataset.mode === state.mode) || el.modeBtns[0];
+  calendarModeIndicator?.moveTo(activeModeBtn(), { instant: true });
   el.modeBtns.forEach((button) => button.addEventListener("click", () => {
     state.mode = button.dataset.mode;
     el.modeBtns.forEach((target) => {
@@ -161,6 +166,7 @@ export function bindRecordEvents(ctx) {
       target.classList.toggle("active", selected);
       target.setAttribute("aria-pressed", String(selected));
     });
+    calendarModeIndicator?.moveTo(button);
     renderMonth();
   }));
   el.saveRate.addEventListener("click", async () => {

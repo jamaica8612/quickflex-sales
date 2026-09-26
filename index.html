@@ -144,7 +144,8 @@
             <strong id="monthTitle" aria-live="polite">-</strong>
             <button class="round-btn" id="nextMonth" aria-label="다음 달"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
             <button class="today-btn" id="todayButton">오늘</button>
-            <div class="mode-toggle" role="group" aria-label="달력 표시 기준">
+            <div class="mode-toggle" id="calendarModeToggle" role="group" aria-label="달력 표시 기준">
+              <span class="tab-indicator" id="calendarModeIndicator" aria-hidden="true"></span>
               <button class="mode-btn active" data-mode="amount" type="button" aria-pressed="true">매출</button>
               <button class="mode-btn" data-mode="count" type="button" aria-pressed="false">건수</button>
             </div>
@@ -378,6 +379,7 @@
               <button class="stats-custom-toggle" id="statsRangeCustomToggle" data-range="custom" type="button" aria-pressed="false" aria-expanded="false" aria-controls="statsRangeCustom">직접입력</button>
             </div>
             <div class="stats-range-tabs" id="statsRangeTabs" role="group" aria-label="빠른 조회 기간">
+              <span class="tab-indicator" id="statsRangeIndicator" aria-hidden="true"></span>
               <button data-range="thisMonth" class="active" type="button" aria-pressed="true">이번 정산</button>
               <button data-range="lastMonth" type="button" aria-pressed="false">지난 정산</button>
               <button data-range="last3" type="button" aria-pressed="false">3개월</button>
