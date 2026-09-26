@@ -582,11 +582,14 @@ html:not([data-theme="dark"]) .tab-indicator {
   background: #FFFFFF;
   box-shadow: inset 0 0 0 1px var(--line-strong), 0 1px 3px rgba(16,24,40,.12);
 }
-.stats-range-tabs { position: relative; }
+.stats-range-tabs, .ledger-switch { position: relative; }
 .stats-range-tabs:has(> .tab-indicator) > button,
+.ledger-switch:has(> .tab-indicator) > button,
 .mode-toggle:has(> .tab-indicator) > .mode-btn { position: relative; z-index: 1; }
 html .stats-range-tabs:has(> .tab-indicator) > button.active,
-html .mode-toggle:has(> .tab-indicator) > .mode-btn.active {
+html .mode-toggle:has(> .tab-indicator) > .mode-btn.active,
+html .ledger-switch:has(> .tab-indicator) > button.is-on,
+html:not([data-theme="dark"]) .ledger-switch:has(> .tab-indicator) > button.is-on {
   background: transparent;
   box-shadow: none;
 }
