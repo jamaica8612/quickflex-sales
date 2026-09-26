@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   DURATION,
   SPRING,
+  MAX_CONCURRENT_SPRINGS,
   stepSpring,
   springSettled,
   animateSpring,
@@ -21,12 +22,35 @@ import {
 
 // ---------------------------------------------------------------------------
 // Fake rAF environment for testing the DOM-facing runners without a browser.
+// Each test builds its own fake `window`, which gives it an isolated
+// scheduler (motion.js keys one scheduler per real `window` object), so
+// tests never bleed into each other.
 // ---------------------------------------------------------------------------
+
+// A minimal addEventListener/dispatch pair, just enough to test the
+// scheduler's live matchMedia "change" and document "visibilitychange"
+// listeners without a real browser.
+function createFakeEventTarget() {
+  const listeners = new Map();
+  return {
+    addEventListener(type, handler) {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type).add(handler);
+    },
+    removeEventListener(type, handler) {
+      listeners.get(type)?.delete(handler);
+    },
+    dispatch(type) {
+      listeners.get(type)?.forEach((handler) => handler());
+    },
+  };
+}
 
 function createFakeClock({ reducedMotion = false, hidden = false } = {}) {
   let now = 0;
   let queue = [];
   let nextId = 1;
+  const mediaQuery = { matches: reducedMotion, ...createFakeEventTarget() };
   const win = {
     performance: { now: () => now },
     requestAnimationFrame(cb) {
@@ -37,9 +61,9 @@ function createFakeClock({ reducedMotion = false, hidden = false } = {}) {
     cancelAnimationFrame(id) {
       queue = queue.filter((entry) => entry.id !== id);
     },
-    matchMedia: (query) => ({ matches: query.includes("reduce") ? reducedMotion : false }),
+    matchMedia: (query) => (query.includes("reduce") ? mediaQuery : { matches: false }),
   };
-  const doc = { hidden };
+  const doc = { hidden, ...createFakeEventTarget() };
   function tick(deltaMs = 16) {
     now += deltaMs;
     const due = queue;
@@ -49,7 +73,20 @@ function createFakeClock({ reducedMotion = false, hidden = false } = {}) {
   function frames(count, deltaMs = 16) {
     for (let i = 0; i < count; i += 1) tick(deltaMs);
   }
-  return { win, doc, tick, frames, pendingCount: () => queue.length };
+  function triggerReducedMotionChange(matches) {
+    mediaQuery.matches = matches;
+    mediaQuery.dispatch("change");
+  }
+  function triggerVisibilityChange(isHidden) {
+    doc.hidden = isHidden;
+    doc.dispatch("visibilitychange");
+  }
+  return {
+    win, doc, tick, frames,
+    pendingCount: () => queue.length,
+    triggerReducedMotionChange,
+    triggerVisibilityChange,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -333,4 +370,103 @@ test("shakeOffset is a pure function of time", () => {
 
 test("DURATION exposes exactly the three agreed values", () => {
   assert.deepEqual(DURATION, { fast: 150, normal: 250, emphasis: 400 });
+});
+
+// ---------------------------------------------------------------------------
+// Single shared scheduler: sleeps when idle, caps concurrency, and reacts
+// live to reduced-motion / visibility changes.
+// ---------------------------------------------------------------------------
+
+test("the scheduler sleeps (no pending rAF) once every spring has settled", () => {
+  const { win, doc, frames, pendingCount } = createFakeClock();
+  animateSpring(0, 100, { win, doc, onUpdate() {} });
+  frames(1);
+  assert.ok(pendingCount() > 0, "should be ticking while a spring is active");
+  frames(200); // let it fully settle
+  assert.equal(pendingCount(), 0, "scheduler should stop requesting frames once idle");
+});
+
+test("a capacity overflow snaps the lowest-priority spring to its end instead of queuing indefinitely", () => {
+  const { win, doc, frames } = createFakeClock();
+  const results = [];
+  // Fill the cap with distinct, increasing priorities (0..15).
+  for (let i = 0; i < MAX_CONCURRENT_SPRINGS; i += 1) {
+    animateSpring(0, 100, {
+      win, doc, priority: i,
+      onDone: () => results.push(`done-${i}`),
+    });
+  }
+  frames(2); // nothing should have settled naturally yet
+  assert.deepEqual(results, [], "none of the 16 springs should have finished this quickly on their own");
+  // One more, higher priority than the lowest (0) already running: it must
+  // evict priority 0 immediately rather than growing past the cap.
+  let seventeenthUpdates = 0;
+  animateSpring(0, 50, { win, doc, priority: 5, onUpdate: () => { seventeenthUpdates += 1; } });
+  assert.deepEqual(results, ["done-0"], "the lowest-priority spring (0) must be snapped immediately to make room");
+  frames(1); // admitted springs only report updates once the scheduler ticks
+  assert.ok(seventeenthUpdates >= 1, "the new spring should have been admitted and started updating");
+});
+
+test("a new spring that cannot outrank anything already running is snapped immediately instead of admitted", () => {
+  const { win, doc } = createFakeClock();
+  for (let i = 0; i < MAX_CONCURRENT_SPRINGS; i += 1) {
+    animateSpring(0, 100, { win, doc, priority: 10, onUpdate() {} });
+  }
+  let updates = 0;
+  let done = false;
+  const controller = animateSpring(0, 100, {
+    win, doc, priority: 0,
+    onUpdate: () => { updates += 1; },
+    onDone: () => { done = true; },
+  });
+  assert.equal(updates, 1, "should receive exactly one update: the final value");
+  assert.equal(done, true);
+  assert.equal(controller.isRunning(), false);
+});
+
+test("a live prefers-reduced-motion change snaps every active spring to its target", () => {
+  const { win, doc, frames, triggerReducedMotionChange } = createFakeClock();
+  const a = [];
+  const b = [];
+  animateSpring(0, 100, { win, doc, onUpdate: (v) => a.push(v) });
+  animateSpring(0, -40, { win, doc, onUpdate: (v) => b.push(v) });
+  frames(3);
+  assert.ok(a.length > 0 && b.length > 0, "both springs should be mid-flight");
+  triggerReducedMotionChange(true);
+  assert.equal(a.at(-1), 100, "spring a should have jumped straight to its target");
+  assert.equal(b.at(-1), -40, "spring b should have jumped straight to its target");
+  const countA = a.length;
+  const countB = b.length;
+  frames(50);
+  assert.equal(a.length, countA, "no further updates once snapped");
+  assert.equal(b.length, countB, "no further updates once snapped");
+});
+
+test("the document going hidden snaps every active spring to its target", () => {
+  const { win, doc, frames, triggerVisibilityChange } = createFakeClock();
+  const updates = [];
+  let done = false;
+  animateSpring(0, 200, { win, doc, onUpdate: (v) => updates.push(v), onDone: () => { done = true; } });
+  frames(3);
+  assert.equal(done, false);
+  triggerVisibilityChange(true);
+  assert.equal(updates.at(-1), 200);
+  assert.equal(done, true);
+});
+
+test("retargeting through createAnimationGroup preserves the spring's current position (no reset to `from`)", () => {
+  const { win, doc, frames } = createFakeClock();
+  const group = createAnimationGroup();
+  const updates = [];
+  group.run("x", 0, 100, { win, doc, onUpdate: (v) => updates.push(v) });
+  frames(5);
+  const midFlight = updates.at(-1);
+  assert.ok(midFlight > 0 && midFlight < 100, "should be mid-flight, not at either end");
+  // Retarget with a stale/irrelevant `from` — the scheduler must ignore it
+  // and continue from wherever the spring actually is.
+  group.run("x", 999999, -20, { win, doc, onUpdate: (v) => updates.push(v) });
+  const justAfterRetarget = updates.at(-1);
+  assert.ok(Math.abs(justAfterRetarget - midFlight) < 5, "retargeting must not jump back to the stale `from` value");
+  frames(120);
+  assert.ok(Math.abs(updates.at(-1) - -20) < 0.5, "should settle at the new target");
 });
