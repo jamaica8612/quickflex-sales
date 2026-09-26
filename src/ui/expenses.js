@@ -35,6 +35,7 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
   let rows=[],period=settlementPeriodFor(),filter='all',generation=0,disposed=false;
   let saveOperation=null,creationInput=null,cleanupPath=null;
   let draft=null,pendingFiles=[],busy=false,dialog=null,previewUrls=[];
+  let previousRowIds=null;
   const alive = (token) => !disposed && token===generation;
   function bounds() { return settlementPeriodBounds(period.year,period.month); }
   const report = (message) => { const status=dialog?.querySelector('[data-status]'); if(status)status.textContent=message; };
@@ -88,6 +89,31 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
       return `<button class="expense-row" type="button" data-expense="${esc(r.id)}"><span class="expense-row-copy"><strong>${esc(r.merchant||label(r.category))}</strong><small>${meta.join(' · ')}</small></span><span class="expense-row-amount">${amount}</span><span class="expense-row-chevron" aria-hidden="true">›</span></button>`;
     };
     showFrame(visible.length ? visible.map(row).join('') : `<div class="expense-empty"><span class="expense-empty-icon" aria-hidden="true">＋</span><strong>${emptyTitle}</strong><p>영수증을 먼저 남기면<br>날짜와 금액은 나중에 채워도 됩니다.</p><button class="expense-empty-action" type="button" data-inbox>영수증 남기기</button></div>`, counts);
+    // Rows are rebuilt via innerHTML every render (no persistent nodes), so a
+    // genuine exit animation isn't reachable here — the old node is already
+    // gone by the time a removal could be detected. New rows are: compare
+    // ids against the last render and give ones that weren't there before a
+    // staggered fade+rise (capped at 6, so a big first load doesn't cascade
+    // for a full second).
+    const nextRowIds=new Set(visible.map((r)=>r.id));
+    if (previousRowIds && motion.shouldAnimate()) {
+      const rowEls=[...host.querySelectorAll('.expense-row')];
+      let staggerSlot=0;
+      rowEls.forEach((rowEl)=>{
+        const id=rowEl.dataset.expense;
+        if (previousRowIds.has(id) || staggerSlot>=6) return;
+        const slot=staggerSlot; staggerSlot+=1;
+        rowEl.style.opacity='0';
+        rowEl.style.transform='translateY(6px)';
+        setTimeout(() => {
+          motion.animateSpring(0,1,{...motion.SPRING,onUpdate:(v)=>{
+            rowEl.style.opacity=String(Math.min(1,v));
+            rowEl.style.transform=`translateY(${(6*(1-v)).toFixed(2)}px)`;
+          },onDone:()=>{rowEl.style.opacity='';rowEl.style.transform='';}});
+        }, slot*30);
+      });
+    }
+    previousRowIds=nextRowIds;
     const footnote=[`지출 ${confirmed.length}건`];
     if (refunds) footnote.push(`환불 ${money(refunds)}원 차감`);
     if (reimbursements) footnote.push(`비용 보전 ${money(reimbursements)}원`);
