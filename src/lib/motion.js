@@ -659,7 +659,7 @@ export function updateRollingNumber(el, formatted, { units = DEFAULT_UNIT_SUFFIX
       ...SPRING,
       win,
       doc,
-      onUpdate: (v) => { strip.style.transform = `translateY(${(-v * 100).toFixed(2)}%)`; },
+      onUpdate: (v) => { strip.style.transform = `translateY(${(-v * 10).toFixed(2)}%)`; },
     });
   });
   prevEntry.tokens = tokens;
@@ -701,7 +701,7 @@ function buildRollingNumber(el, tokens, unit) {
     const strip = document.createElement("span");
     strip.style.display = "block";
     strip.dataset.moValue = slot.value;
-    strip.style.transform = `translateY(${-Number(slot.value) * 100}%)`;
+    strip.style.transform = `translateY(${-Number(slot.value) * 10}%)`;
     for (let i = 0; i < 10; i += 1) {
       const digitChar = document.createElement("span");
       digitChar.style.display = "block";
