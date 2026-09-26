@@ -173,6 +173,7 @@ import { toNum } from "./lib/revenue.js";
 import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.101";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
+import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
 const LEGACY_USER_NAMES = new Map([["kim-gwanhyun", "김관현"]]);
@@ -235,6 +236,7 @@ const state = {
   workDateScheduleDates: new Set(),
   activeMeasurementLease: null,
   statsRangeMode: "thisMonth",
+  statsRangeModeUserSet: false,
   statsRangeCustom: { from: "", to: "" },
   revenueVisibility: (() => {
     try { return JSON.parse(localStorage.getItem("quickflex-revenue-vis") || "{}") || {}; }
@@ -253,7 +255,24 @@ function syncStatsToCurrentPeriod() {
   const changed = state.statsYear !== current.year || state.statsMonth !== current.month;
   state.statsYear = current.year;
   state.statsMonth = current.month;
+  applyDefaultStatsRangeMode();
   return changed;
+}
+// 새 정산기간이 막 시작해 이번 기간에 기록된 근무일이 없으면, 사용자가 이번 세션에서
+// 직접 기간을 고른 적이 없는 한 정산노트의 기본 선택을 "지난 정산"으로 둔다.
+// 근무 기록이 생기거나 사용자가 직접 다른 기간을 고르면 더 이상 손대지 않는다.
+// statsYear/statsMonth가 실제 "이번 정산기간"을 가리킬 때만 판단한다 — 사용자가
+// "이번 정산" 탭에서 화살표로 다른 달을 보고 있을 때는 그 탐색을 건드리지 않는다.
+function applyDefaultStatsRangeMode() {
+  if (state.statsRangeModeUserSet) return;
+  if (state.statsRangeMode !== "thisMonth" && state.statsRangeMode !== "lastMonth") return;
+  const real = currentSettlementPeriod();
+  if (state.statsYear !== real.year || state.statsMonth !== real.month) return;
+  const prev = prevPeriod(state.statsYear, state.statsMonth);
+  state.statsRangeMode = shouldShowPreviousPeriod({
+    currentWorkDays: summarizePeriod(state.statsYear, state.statsMonth).workDays,
+    previousWorkDays: summarizePeriod(prev.year, prev.month).workDays,
+  }) ? "lastMonth" : "thisMonth";
 }
 
 let ocrDraftMap = null;
@@ -430,6 +449,8 @@ const el = {
   salesOverrideSave: $("salesOverrideSave"),
   salesOverrideClose: $("salesOverrideClose"),
   periodRange: $("periodRange"),
+  summaryPeriodBadge: $("summaryPeriodBadge"),
+  summaryPeriodNote: $("summaryPeriodNote"),
   periodRevenue: $("periodRevenue"),
   periodCount: $("periodCount"),
   averageCountHome: $("averageCountHome"),
@@ -3933,32 +3954,58 @@ function renderAll() {
   renderSettingsSummary();
 
 }
+// 새 정산기간이 막 시작해 이번 기간에 근무 기록이 아직 없으면, 헤드라인 카드는
+// 방금 끝난 정산기간의 결과를 대신 보여준다(운전자가 지금 실제로 궁금한 숫자는
+// 이미 끝난 정산이 얼마인지이다). 근무 기록이 하루라도 생기면 바로 원래대로 돌아온다.
 function renderSummary() {
   const { start, end } = periodBounds();
   const total = summarizePeriod();
   el.monthTitle.textContent = `${state.year}년 ${String(state.month).padStart(2, "0")}월`;
   el.periodRange.textContent = `정산기간 ${formatPeriodRangeSimple(start, end)}`;
-  renderNumberWithUnit(el.periodRevenue, fmtWon(total.revenue));
-  renderNumberWithUnit(el.periodCount, fmtCount(total.count));
-  renderNumberWithUnit(el.averageCountHome, fmtCount(Math.round(total.averageCount || 0)));
-  renderNumberWithUnit(el.dailyAverage, formatCompactWonWithUnit(total.average));
-  renderNumberWithUnit(el.workDaysHome, `${total.workDays}일`);
+
+  const prev = prevPeriod(state.year, state.month);
+  const previousTotal = summarizePeriod(prev.year, prev.month);
+  const showPreviousPeriod = shouldShowPreviousPeriod({
+    currentWorkDays: total.workDays,
+    previousWorkDays: previousTotal.workDays,
+  });
+  const headline = showPreviousPeriod ? previousTotal : total;
+  const headlineBounds = showPreviousPeriod ? periodBounds(prev.year, prev.month) : { start, end };
+
+  if (el.summaryPeriodBadge) {
+    el.summaryPeriodBadge.textContent = showPreviousPeriod
+      ? `지난 정산 · ${formatPeriodRangeSimple(headlineBounds.start, headlineBounds.end)}`
+      : "이번 정산기간";
+  }
+  if (el.summaryPeriodNote) {
+    el.summaryPeriodNote.hidden = !showPreviousPeriod;
+    el.summaryPeriodNote.textContent = showPreviousPeriod
+      ? `이번 정산(${formatPeriodRangeSimple(start, end)})은 첫 근무를 기록하면 시작돼요`
+      : "";
+  }
+
+  renderNumberWithUnit(el.periodRevenue, fmtWon(headline.revenue));
+  renderNumberWithUnit(el.periodCount, fmtCount(headline.count));
+  renderNumberWithUnit(el.averageCountHome, fmtCount(Math.round(headline.averageCount || 0)));
+  renderNumberWithUnit(el.dailyAverage, formatCompactWonWithUnit(headline.average));
+  renderNumberWithUnit(el.workDaysHome, `${headline.workDays}일`);
   const goal = getGoal();
-  const pct = goal > 0 ? total.revenue / goal * 100 : 0;
+  const pct = goal > 0 ? headline.revenue / goal * 100 : 0;
   const cappedPct = Math.min(100, Math.max(0, pct));
   el.meterFill.style.width = `${cappedPct}%`;
   el.meterPct.textContent = `${Math.round(pct)}%`;
-  const overGoal = goal > 0 && total.revenue > goal;
+  const overGoal = goal > 0 && headline.revenue > goal;
   el.meterLabel.textContent = overGoal
-    ? `목표 ${fmtWon(goal)} 대비 +${fmtWon(total.revenue - goal)}`
+    ? `목표 ${fmtWon(goal)} 대비 +${fmtWon(headline.revenue - goal)}`
     : `목표 ${fmtWon(goal)} 대비 진행률`;
-  renderSummaryLedger(total.revenue);
+  renderSummaryLedger(headline.revenue, headlineBounds.start, headlineBounds.end);
 }
 // 정산 카드 아래 한 줄: 이 정산기간의 확정 지출과 남는 돈. 지출은 서버에서 한 번 읽어 기간별로 기억한다.
+// start/end를 넘기지 않으면 지금 보고 있는(state.year/month) 정산기간을 쓴다 — 헤드라인이
+// 지난 정산으로 대체된 상태에서는 renderSummary가 그 기간의 start/end를 명시적으로 넘긴다.
 const summaryLedgerCache = { key: "", total: null, loading: "" };
-function renderSummaryLedger(revenue) {
+function renderSummaryLedger(revenue, start = periodBounds().start, end = periodBounds().end) {
   if (!el.summaryLedger) return;
-  const { start, end } = periodBounds();
   const from = toDateKey(start), to = toDateKey(end);
   const key = `${currentUserId() || ""}:${from}:${to}`;
   if (summaryLedgerCache.key === key && summaryLedgerCache.total !== null) {
@@ -4750,6 +4797,7 @@ function renderDriverInsights(report) {
 }
 
 function renderStats() {
+  applyDefaultStatsRangeMode();
   const mode = state.statsRangeMode || "thisMonth";
   const report = buildStatsReport({
     dailyRecords: statsDailyRecords(),
@@ -5917,6 +5965,7 @@ function openNoahLink(link) {
   } else if (link.kind === "stats" && validDate(target.from) && validDate(target.to)
       && target.from <= target.to && dateRangeDayCount(target.from, target.to) <= MAX_CUSTOM_RANGE_DAYS) {
     state.statsRangeMode = "custom";
+    state.statsRangeModeUserSet = true;
     state.statsRangeCustom = { from: target.from, to: target.to };
     showView("stats");
   } else if (link.kind === "expenses" || link.kind === "settings") {
