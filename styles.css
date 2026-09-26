@@ -774,7 +774,7 @@ body[data-theme="dark"] .day-cell.selected.today-cell.holiday .day-number {
   box-shadow: 0 -4px 16px rgba(0,0,0,.05);
 }
 .day-dock div { flex: 1; min-width: 0; }
-.day-dock span:not([data-mo-digit]) { display: block; color: var(--muted); font-size: var(--fs-caption); }
+.day-dock span:not([data-mo-digit]):not(.home-off-wide-label) { display: block; color: var(--muted); font-size: var(--fs-caption); }
 .day-dock strong {
   display: inline-block;
   color: var(--gold);
