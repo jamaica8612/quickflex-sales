@@ -479,6 +479,7 @@ const el = {
   prevMonth: $("prevMonth"),
   nextMonth: $("nextMonth"),
   todayButton: $("todayButton"),
+  homeDayDockInfo: $("homeDayDockInfo"),
   homeSelectedDate: $("homeSelectedDate"),
   homeSelectedTotal: $("homeSelectedTotal"),
   homeDayPanel: $("homeDayPanel"),
@@ -4144,6 +4145,68 @@ function applyGoalMeterMotion() {
     // else: still reached from an earlier crossing this period — leave the chip as already shown.
   }
 }
+// One persistent overlay ring, moved with a spring between whichever cell is
+// selected — renderMonth() rebuilds all 42-ish day cells from scratch on
+// every call (unrelated to this effect), so the ring can't live inside that
+// markup; it's created once and re-appended after each rebuild instead.
+let daySelectionRing = null;
+function getDaySelectionRing() {
+  if (!daySelectionRing) {
+    daySelectionRing = document.createElement("div");
+    daySelectionRing.className = "day-selection-ring";
+    daySelectionRing.setAttribute("aria-hidden", "true");
+  }
+  return daySelectionRing;
+}
+const daySelectionRingGroup = motion.createAnimationGroup();
+let daySelectionRingPos = null; // { x, y } in #monthCalendar-relative px, once placed
+function positionDaySelectionRing(cell, previousRect, animate) {
+  const ring = getDaySelectionRing();
+  if (!cell) {
+    ring.style.opacity = "0";
+    daySelectionRingGroup.cancelAll();
+    daySelectionRingPos = null;
+    return;
+  }
+  const panelRect = el.monthCalendar.getBoundingClientRect();
+  const cellRect = cell.getBoundingClientRect();
+  const targetX = cellRect.left - panelRect.left;
+  const targetY = cellRect.top - panelRect.top;
+  ring.style.width = `${cellRect.width}px`;
+  ring.style.height = `${cellRect.height}px`;
+  ring.style.opacity = "1";
+  if (!animate || !previousRect || !daySelectionRingPos || !motion.shouldAnimate()) {
+    daySelectionRingGroup.cancelAll();
+    daySelectionRingPos = { x: targetX, y: targetY };
+    ring.style.transform = `translate(${targetX}px, ${targetY}px)`;
+    return;
+  }
+  const place = () => { ring.style.transform = `translate(${daySelectionRingPos.x}px, ${daySelectionRingPos.y}px)`; };
+  daySelectionRingGroup.run("x", daySelectionRingPos.x, targetX, {
+    ...motion.SPRING,
+    onUpdate: (x) => { daySelectionRingPos.x = x; place(); },
+  });
+  daySelectionRingGroup.run("y", daySelectionRingPos.y, targetY, {
+    ...motion.SPRING,
+    onUpdate: (y) => { daySelectionRingPos.y = y; place(); },
+  });
+}
+// renderMonth() is run in isolation (its own text sliced out and executed in
+// a fresh VM sandbox) by a regression test, with only a minimal { el, state,
+// ... } fixture — no closure over this file's other functions or imports.
+// So renderMonth() itself only ever touches `el`/`state` (safe there) and,
+// at the very end, calls the optional el.monthCalendar.__moAfterRender()
+// hook — a plain property that's simply undefined in that test's fixture
+// (a no-op via `?.()`) and is wired up once, below, in the real app.
+function applyCalendarRingMotion() {
+  const container = el.monthCalendar;
+  if (!container || typeof container.getBoundingClientRect !== "function") return;
+  container.appendChild(getDaySelectionRing());
+  const newSelectedCell = container.querySelector(".day-cell.selected");
+  positionDaySelectionRing(newSelectedCell, container.__moPreviousSelectedRect, container.__moSameMonth);
+}
+if (el.monthCalendar) el.monthCalendar.__moAfterRender = applyCalendarRingMotion;
+
 function renderMonth() {
   const todayWorkDate = isNightShift() ? currentWorkDates().nextWorkDate : "";
   el.modeBtns.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.mode === state.mode)));
@@ -4153,6 +4216,19 @@ function renderMonth() {
   const last = new Date(end);
   last.setDate(last.getDate() + (6 - last.getDay()));
   const cellCount = Math.max(35, Math.ceil((last - first) / 86400000) + 1);
+  // The ring overlay needs a real element (getBoundingClientRect, querySelector);
+  // a minimal test double for el.monthCalendar (just { appendChild }) skips it
+  // entirely rather than crashing — the cell-building loop below is unaffected.
+  // Everything the ring needs is stashed as plain expandos on el.monthCalendar
+  // itself (never a module-level variable) so this function keeps working
+  // when its source is sliced out and run alone with a bare { el, state }.
+  const ringCapable = typeof el.monthCalendar.getBoundingClientRect === "function"
+    && typeof el.monthCalendar.querySelector === "function";
+  const previousSelectedCell = ringCapable ? el.monthCalendar.querySelector(".day-cell.selected") : null;
+  el.monthCalendar.__moPreviousSelectedRect = previousSelectedCell ? previousSelectedCell.getBoundingClientRect() : null;
+  const periodKey = `${state.year}-${state.month}`;
+  el.monthCalendar.__moSameMonth = el.monthCalendar.__moLastPeriod === periodKey;
+  el.monthCalendar.__moLastPeriod = periodKey;
   el.monthCalendar.innerHTML = "";
   for (let i = 0; i < cellCount; i += 1) {
     const date = new Date(first);
@@ -4197,6 +4273,7 @@ function renderMonth() {
     cell.addEventListener("click", () => selectDate(dateKey));
     el.monthCalendar.appendChild(cell);
   }
+  el.monthCalendar.__moAfterRender?.();
 }
 function hasAutomaticSalesOverride(dateKey) {
   return Object.prototype.hasOwnProperty.call(state.automaticSalesOverrides, dateKey);
@@ -4314,9 +4391,16 @@ function renderHomeSelection() {
   const record = getRecord(state.selectedDate, false);
   const calc = calcRecord(record);
   const automatic = hasAutomaticEntries(record);
-  el.homeSelectedDate.textContent = formatMonthDay(state.selectedDate);
-  if (record.off) el.homeSelectedTotal.textContent = "휴무";
-  else renderNumberWithUnit(el.homeSelectedTotal, fmtWon(calc.revenue));
+  const dayChanged = el.homeDayDockInfo && el.homeDayDockInfo.__moDate !== state.selectedDate;
+  if (el.homeDayDockInfo) el.homeDayDockInfo.__moDate = state.selectedDate;
+  const paintDayDock = () => {
+    el.homeSelectedDate.textContent = formatMonthDay(state.selectedDate);
+    if (record.off) el.homeSelectedTotal.textContent = "휴무";
+    else renderNumberWithUnit(el.homeSelectedTotal, fmtWon(calc.revenue));
+  };
+  if (dayChanged && el.homeDayDockInfo.__moPainted) motion.crossfade(el.homeDayDockInfo, paintDayDock);
+  else paintDayDock();
+  el.homeDayDockInfo && (el.homeDayDockInfo.__moPainted = true);
   el.homeOffToggle.classList.toggle("active", record.off);
   el.homeOffToggle.setAttribute("aria-checked", String(record.off));
   el.homeOffToggle.disabled = automatic;
