@@ -185,6 +185,50 @@ import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
 
+// renderStatsChart() draws synchronously onto a <canvas> (nothing persistent
+// to animate inside it) and a regression test runs its exact source in an
+// isolated VM sandbox, so its own body stays untouched. This wrapper — kept
+// well away from any function pair a test slices out by boundary markers —
+// decides from the outside whether the upcoming redraw is: the first time
+// this chart has appeared this session (reveal it left-to-right via a CSS
+// clip-path on the <canvas> itself — "a progress clip", since there's
+// nothing inside a canvas to apply stroke-dashoffset to), the same series
+// redrawing for an unrelated reason (no motion — e.g. a background refresh
+// with identical data), or a real range/metric change (a fast crossfade of
+// the whole canvas).
+let statsChartShownThisSession = false;
+const statsChartMotion = motion.createAnimationGroup();
+function statsChartFingerprint(trend) {
+  return JSON.stringify((Array.isArray(trend?.buckets) ? trend.buckets : []).map((b) => [b.start, b.end, b.revenue, b.workDays]));
+}
+function applyStatsChartMotion(trend) {
+  const canvas = el.statsChart;
+  if (!canvas) { renderStatsChart(trend); return; }
+  const fingerprint = statsChartFingerprint(trend);
+  const previousFingerprint = canvas.__moFingerprint;
+  const isFirstShow = !statsChartShownThisSession;
+  const dataChanged = previousFingerprint !== undefined && previousFingerprint !== fingerprint;
+  canvas.__moFingerprint = fingerprint;
+  statsChartShownThisSession = true;
+
+  if (isFirstShow && motion.shouldAnimate()) {
+    renderStatsChart(trend);
+    canvas.style.clipPath = "inset(0 100% 0 0)";
+    statsChartMotion.run("draw", 0, 1, {
+      stiffness: 260,
+      damping: 1,
+      onUpdate: (v) => { canvas.style.clipPath = `inset(0 ${((1 - v) * 100).toFixed(2)}% 0 0)`; },
+      onDone: () => { canvas.style.clipPath = ""; },
+    });
+    return;
+  }
+  if (dataChanged && motion.shouldAnimate()) {
+    motion.crossfade(canvas, () => renderStatsChart(trend));
+    return;
+  }
+  renderStatsChart(trend);
+}
+
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
 const LEGACY_USER_NAMES = new Map([["kim-gwanhyun", "김관현"]]);
 const INSPECTION_ITEMS = [
@@ -5032,7 +5076,7 @@ function renderStats() {
   }
 
   syncStatsRangeButtons();
-  renderStatsChart(report.trend);
+  applyStatsChartMotion(report.trend);
   renderRevenueList(keys);
   renderRouteStats(keys);
   $("statsRouteDisclosure").hidden = !el.routeStats.querySelector(".route-stat-card");
@@ -5090,7 +5134,8 @@ function renderWeekdayStats(keys) {
     }).join("");
     el.weekdayStats.innerHTML = `<div class="wd-bars">${cols}</div><p class="wd-note"></p>`;
   }
-  const animateFirstPaint = freshBuild && motion.shouldAnimate();
+  const canAnimate = motion.shouldAnimate();
+  let staggerSlot = 0;
   buckets.forEach((bucket, index) => {
     const col = el.weekdayStats.querySelector(`.wd-col[data-weekday="${index}"]`);
     if (!col) return;
@@ -5106,9 +5151,13 @@ function renderWeekdayStats(keys) {
       ...motion.SPRING,
       onUpdate: (v) => { fill.style.transform = `scaleY(${v})`; },
     });
-    if (animateFirstPaint) {
-      fill.style.transform = `scaleY(0)`;
-      setTimeout(start, index * 30);
+    // A small stagger on every real change (first render or a later data
+    // change), not just first paint — only columns that actually move get a
+    // slot, so an unrelated single-day update doesn't wait behind 6 no-ops.
+    if (canAnimate) {
+      if (freshBuild) fill.style.transform = `scaleY(0)`;
+      setTimeout(start, staggerSlot * 20);
+      staggerSlot += 1;
     } else {
       start();
     }
