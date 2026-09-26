@@ -180,7 +180,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.107";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.108";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -6433,9 +6433,32 @@ function bindEvents() {
     showView("settings");
     if (button.hasAttribute("data-open-admin")) { const panel = $("operationSettings"); if (panel) panel.open = true; }
   }));
+  // 매출/지출 are two views, each with its own switch: on arrival the pill in the
+  // destination switch slides over from the side the user came from.
+  const ledgerIndicators = new Map();
+  document.querySelectorAll(".ledger-switch").forEach((group) => {
+    const pill = document.createElement("span");
+    pill.className = "tab-indicator";
+    pill.setAttribute("aria-hidden", "true");
+    group.prepend(pill);
+    ledgerIndicators.set(group, motion.createTabIndicator(group, pill));
+  });
   document.querySelectorAll("[data-ledger]").forEach((button) => button.addEventListener("click", () => {
-    motion.pressPop(button);
+    const target = button.dataset.ledger;
+    const from = button.closest(".ledger-switch")?.querySelector(".is-on");
     showView(button.dataset.ledger);
+    requestAnimationFrame(() => {
+      ledgerIndicators.forEach((ctl, group) => {
+        if (!group.offsetParent) return;
+        const start = group.querySelector(`[data-ledger="${from?.dataset.ledger || target}"]`);
+        const end = group.querySelector(`[data-ledger="${target}"]`);
+        ctl.moveTo(start, { instant: true });
+        ctl.moveTo(end);
+      });
+    });
+  }));
+  requestAnimationFrame(() => ledgerIndicators.forEach((ctl, group) => {
+    if (group.offsetParent) ctl.moveTo(group.querySelector(".is-on"), { instant: true });
   }));
   el.pendingSignupsBanner?.addEventListener("click", () => openPendingSignupsApproval());
   document.querySelectorAll("[data-usage-window]").forEach((button) => button.addEventListener("click", () => {
