@@ -9,6 +9,7 @@ export function bindAdminEvents(ctx) {
     saveAdminProfile,
     renderAdminProfiles,
     renderAdminBundles,
+    renderAdminUsageSummary,
     toast,
   } = ctx;
 
@@ -17,6 +18,9 @@ export function bindAdminEvents(ctx) {
   });
   document.getElementById("bundleSettings")?.addEventListener("toggle", (event) => {
     if (event.currentTarget.open && state.profile?.role === "admin") renderAdminBundles().catch((error) => toast(error.message, "error"));
+  });
+  document.getElementById("usageSettings")?.addEventListener("toggle", (event) => {
+    if (event.currentTarget.open && state.profile?.role === "admin") renderAdminUsageSummary();
   });
   el.saveAdminBundle.addEventListener("click", () => addAdminBundleFromInputs().catch((error) => toast(`묶음 저장 실패: ${error.message}`, "error")));
   el.importAdminBundles.addEventListener("click", () => importAdminBundles().catch((error) => toast(`초안 저장 실패: ${error.message}`, "error")));

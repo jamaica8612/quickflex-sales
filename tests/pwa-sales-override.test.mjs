@@ -307,13 +307,16 @@ test("account reset clears every new sales surface and force-closes an open edit
     salesOverrideDraft: { rows: [1] }, inspections: {}, inspectionSignature: "x", inspectionDate: "",
     inspectionDraft: {}, rateOfferPrompted: true, statsDetailDate: "x", adminStatsDetailUser: "x",
     recordDraftDate: "x", recordDraft: {}, recordDraftSalesRequestId: "request", recordDraftSalesPayload: "payload", measurementDate: "x", measurementDateAuto: true,
+    adminUsageWindowDays: 7, pendingSignupsNotice: { pendingCount: 2, oldestWaitingDays: 4 },
   };
   const el = {
     salesOverrideOverlay: { classList: { contains: () => true } },
     scheduleDraftSection: emptyNode(), scheduleDraftCards: emptyNode(),
     salesOverrideRows: emptyNode(), salesOverrideReason: emptyNode(), salesOverrideStatus: emptyNode(),
     adminRevenueList: emptyNode(), adminRouteList: emptyNode(), adminBundleList: emptyNode(), adminProfiles: emptyNode(),
+    adminUsageSummary: emptyNode(),
   };
+  let pendingSignupsNoticeCleared = null;
   const sandbox = {
     state, el, $: () => null, setSaveFeedback: () => {}, expensesController: null, noahController: null, exportsController: null, calendarSyncController: null, routeNotesController: null, routeNotesService: null,
     routeNoteShareDialog: { reset() { shareReset = true; } },
@@ -325,6 +328,8 @@ test("account reset clears every new sales surface and force-closes an open edit
     profileSignaturePad: { clear() {} },
     ocrDraftMap: {},
     accountBootTask: {},
+    USAGE_SCREEN_SUMMARY_DEFAULT_WINDOW: 30,
+    applyPendingSignupsNotice: (data) => { pendingSignupsNoticeCleared = data; },
   };
   const { clearUserScopedState } = loadFunctions(["clearUserScopedState"], sandbox);
   clearUserScopedState();
@@ -341,6 +346,10 @@ test("account reset clears every new sales surface and force-closes an open edit
   assert.equal(state.salesOverrideDraft, null);
   assert.equal(state.recordDraftSalesRequestId, "");
   assert.equal(state.recordDraftSalesPayload, "");
+  // An account switch must also drop the admin usage window back to its default and hide any pending sign-up notice.
+  assert.equal(state.adminUsageWindowDays, 30);
+  assert.equal(el.adminUsageSummary.innerHTML, "");
+  assert.equal(pendingSignupsNoticeCleared, null);
 });
 
 test("calendar sales correction opens the normal record editor while the fallback dialog stays accessible", () => {

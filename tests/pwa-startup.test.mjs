@@ -67,6 +67,7 @@ function bootHarness(status='approved'){
     loadProfile:async()=>true,loadFromDb:()=>new Promise(resolve=>{release=resolve;}),
     showAuth:v=>events.push(`auth:${v}`),showPending:v=>events.push(`pending:${v}`),applyProfileUi(){},
     renderAll:()=>events.push('render'),trackApprovedSessionStart(){},maybeOfferRateUpdate:async()=>{},
+    refreshPendingSignupsNotice:()=>events.push('pending-signups:refresh'),
     window:{FlexNoteStartup:{finish:()=>events.push('finish')}}};
   vm.runInNewContext(`${declaration('bootSignedInUser')};globalThis.boot=bootSignedInUser;`,sandbox);
   return {events,boot:sandbox.boot,release:()=>release(true),stale:()=>{current=false;}};
@@ -74,6 +75,7 @@ function bootHarness(status='approved'){
 test('approved account stays behind splash until profile and records render',async()=>{
   const h=bootHarness();const task=h.boot();await new Promise(setImmediate);assert.equal(h.events.includes('finish'),false);
   h.release();await task;assert.ok(h.events.indexOf('render')<h.events.indexOf('finish'));assert.ok(h.events.indexOf('auth:false')<h.events.indexOf('finish'));
+  assert.ok(h.events.includes('pending-signups:refresh'),'boot must refresh the admin pending sign-ups notice once');
 });
 test('pending account opens approval screen before dismissing splash',async()=>{
   const h=bootHarness('pending');await h.boot();assert.deepEqual(h.events,['noah:reset','auth:false','pending:true','finish']);
