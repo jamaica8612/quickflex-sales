@@ -700,11 +700,16 @@ function buildRollingNumber(el, tokens, unit) {
     digitEl.style.verticalAlign = "top";
     const strip = document.createElement("span");
     strip.style.display = "block";
+    // Host label rules such as `.summary-grid span` would otherwise shrink the rows.
+    strip.style.font = "inherit";
+    strip.style.color = "inherit";
     strip.dataset.moValue = slot.value;
     strip.style.transform = `translateY(${-Number(slot.value) * 10}%)`;
     for (let i = 0; i < 10; i += 1) {
       const digitChar = document.createElement("span");
       digitChar.style.display = "block";
+      digitChar.style.font = "inherit";
+      digitChar.style.color = "inherit";
       digitChar.style.height = "1em";
       digitChar.style.lineHeight = "1em";
       digitChar.textContent = String(i);
