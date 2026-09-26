@@ -283,7 +283,12 @@
           </div>
 
           <div class="total-card"><span>합계</span><strong id="selectedDayTotal">0원</strong></div>
-          <button class="full-btn" id="saveRecord">저장</button>
+          <button class="full-btn save-morph" id="saveRecord" type="button">
+            <span class="save-morph-label" id="saveRecordLabel">저장</span>
+            <svg class="save-morph-spin" id="saveRecordSpin" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a9 9 0 1 1-9 9"/></svg>
+            <svg class="save-morph-check" id="saveRecordCheck" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path id="saveRecordCheckPath" d="M5 12.5 10 17.5 19 7.5" stroke-dasharray="22" stroke-dashoffset="22"/></svg>
+            <span class="sr-only" id="saveRecordStatus" role="status" aria-live="polite"></span>
+          </button>
         </main>
       </section>
 
