@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-
-const require = createRequire(import.meta.url);
-const { PGlite } = require("C:\\Users\\Public\\Documents\\ESTsoft\\CreatorTemp\\quickflex-stats-redesign\\node_modules\\@electric-sql\\pglite");
+import { PGlite } from "@electric-sql/pglite";
 const migration = readFileSync(new URL("../supabase/migrations/20260913030523_expense_privacy_and_receipts.sql", import.meta.url), "utf8");
 const owner = "11111111-1111-4111-8111-111111111111";
 const admin = "22222222-2222-4222-8222-222222222222";
