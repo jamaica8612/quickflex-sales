@@ -5,7 +5,7 @@ import { createRouteNoteShareService } from "./services/route-note-share.js";
 import { createRouteNoteShareDialog } from "./ui/route-note-share.js";
 import { checkBetaMeasurementAccess } from "./services/beta-access.js";
 import { createExpensesController } from "./ui/expenses.js";
-import { createNoahController } from "./ui/noah.js?v=5";
+import { createNoahController } from "./ui/noah.js?v=6";
 import { createNativePullRefresh } from "./ui/native-pull-refresh.js";
 import { isNativeShell } from "./ui/noah-refresh-guard.js";
 import { createExportsController } from "./ui/exports.js";
