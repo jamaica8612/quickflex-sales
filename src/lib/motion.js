@@ -626,7 +626,7 @@ const rollerRegistry = new WeakMap();
  * digit *shape* (count/position) just sets the value instantly. Always keeps
  * `el`'s accessible text correct via aria-label.
  */
-export function updateRollingNumber(el, formatted, { units = DEFAULT_UNIT_SUFFIXES, group, win, doc } = {}) {
+export function updateRollingNumber(el, formatted, { units = DEFAULT_UNIT_SUFFIXES, group, win, doc, rollIn = false } = {}) {
   if (!el) return;
   const text = String(formatted ?? "");
   const { number, unit } = splitTrailingUnit(text, units);
@@ -639,7 +639,14 @@ export function updateRollingNumber(el, formatted, { units = DEFAULT_UNIT_SUFFIX
 
   if (prev && prevEntry.rawText === text) return; // no real change, skip all DOM work
 
-  const animate = shouldAnimate({ win, doc }) && digitSlotsCompatible(prev, tokens);
+  let animate = shouldAnimate({ win, doc }) && digitSlotsCompatible(prev, tokens);
+  if (!animate && rollIn && shouldAnimate({ win, doc })) {
+    // Appear by rolling up from zeros in the new digit layout.
+    const zeros = tokens.map((t) => (t.type === "digit" ? { ...t, value: "0" } : t));
+    buildRollingNumber(el, zeros, unit);
+    prevEntry.tokens = zeros;
+    animate = true;
+  }
   if (!animate) {
     buildRollingNumber(el, tokens, unit);
     prevEntry.tokens = tokens;

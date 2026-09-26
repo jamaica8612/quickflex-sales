@@ -180,7 +180,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.105";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.106";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -1777,8 +1777,8 @@ function renderNumberWithUnit(target, formatted, { sameMetric } = {}) {
   }
   const changed = target.__moText !== text;
   target.__moText = text;
-  if (sameMetric) {
-    motion.updateRollingNumber(target, text);
+  if (sameMetric || target.__moRollIn) {
+    motion.updateRollingNumber(target, text, { rollIn: !sameMetric });
     return;
   }
   if (!changed) {
@@ -4279,6 +4279,8 @@ function applyCalendarRingMotion() {
   positionDaySelectionRing(newSelectedCell, container.__moPreviousSelectedRect, container.__moSameMonth);
 }
 if (el.monthCalendar) el.monthCalendar.__moAfterRender = applyCalendarRingMotion;
+// 정산 예상액은 처음 나타날 때와 기간이 바뀔 때도 0부터 굴러가며 나타난다.
+if (el.periodRevenue) el.periodRevenue.__moRollIn = true;
 
 // applyPendingSignupsNotice() is also run directly by a regression test in
 // an isolated VM sandbox (a bare { classList, textContent } banner double),
