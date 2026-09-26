@@ -33,6 +33,8 @@ export const SPRING_LEADING = Object.freeze({ stiffness: 900, damping: 0.9 });
 export const SPRING_TRAILING = Object.freeze({ stiffness: 380, damping: 0.84 });
 // Critically damped (damping ratio 1): no overshoot, used for fades.
 export const SPRING_FADE = Object.freeze({ stiffness: 600, damping: 1 });
+/** How long the startup splash takes to fade after it starts leaving (startup.js). */
+export const STARTUP_FADE_MS = 180;
 
 // ---------------------------------------------------------------------------
 // Environment checks
@@ -168,8 +170,24 @@ function createScheduler() {
     });
   }
 
+  // Entrance motion that starts under the startup splash waits in its first
+  // frame and plays once the splash has faded (data-startup removed + fade).
+  let startupReleaseAt = null;
+  function heldByStartup(now) {
+    const root = boundWin?.document?.documentElement;
+    if (!root || typeof root.hasAttribute !== "function") return false;
+    if (root.hasAttribute("data-startup")) { startupReleaseAt = null; return true; }
+    if (startupReleaseAt === null) startupReleaseAt = now + STARTUP_FADE_MS;
+    return now < startupReleaseAt;
+  }
+
   function tick(now) {
     rafId = 0;
+    if (heldByStartup(now)) {
+      entries.forEach((entry) => { entry.last = now; });
+      ensureTicking();
+      return;
+    }
     entries.forEach((entry, id) => {
       const dt = (now - entry.last) / 1000;
       entry.last = now;
