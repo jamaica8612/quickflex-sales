@@ -11,6 +11,7 @@ import { isNativeShell } from "./ui/noah-refresh-guard.js";
 import { createExportsController } from "./ui/exports.js";
 import { mountCalendarSync } from "./ui/calendar-sync.js";
 import { buildStatsInsights } from "./lib/stats-insights.js";
+import * as motion from "./lib/motion.js";
 ﻿"use strict";
 
 import {
@@ -470,6 +471,7 @@ const el = {
   meterFill: $("meterFill"),
   meterPct: $("meterPct"),
   meterLabel: $("meterLabel"),
+  goalChip: $("goalChip"),
   goalAmountInput: $("goalAmountInput"),
   saveAppSettings: $("saveAppSettings"),
   monthTitle: $("monthTitle"),
@@ -1672,8 +1674,7 @@ function formatCompactWonWithUnit(value) {
   if (Math.abs(n) >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, "")}만원`;
   return `${n.toLocaleString("ko-KR")}원`;
 }
-function renderNumberWithUnit(target, formatted) {
-  const text = String(formatted ?? "");
+function setPlainNumberWithUnit(target, text) {
   const match = text.match(/^(.*?)(만원|원|건|일)$/);
   if (!match?.[1]) {
     target.textContent = text;
@@ -1683,6 +1684,29 @@ function renderNumberWithUnit(target, formatted) {
   unit.className = "number-unit";
   unit.textContent = match[2];
   target.replaceChildren(document.createTextNode(match[1]), unit);
+}
+// `sameMetric` is only passed by call sites that track period/metric identity
+// (currently renderSummary's headline numbers): true rolls only the digit
+// columns that changed, false crossfades (the number now means something
+// else, e.g. a different settlement period), and omitted keeps the original
+// plain instant behavior every other call site already relies on.
+function renderNumberWithUnit(target, formatted, { sameMetric } = {}) {
+  const text = String(formatted ?? "");
+  if (sameMetric === undefined) {
+    setPlainNumberWithUnit(target, text);
+    return;
+  }
+  const changed = target.__moText !== text;
+  target.__moText = text;
+  if (sameMetric) {
+    motion.updateRollingNumber(target, text);
+    return;
+  }
+  if (!changed) {
+    setPlainNumberWithUnit(target, text);
+    return;
+  }
+  motion.crossfade(target, () => setPlainNumberWithUnit(target, text));
 }
 function aggregateRevenueByItem(keys) {
   const routes = new Map();
@@ -3961,6 +3985,7 @@ function renderSettingsSummary() {
 function renderAll() {
   applyProfileUi();
   renderSummary();
+  applyGoalMeterMotion();
   renderMonth();
   renderHomeSelection();
   renderInspectionEntry();
@@ -4000,33 +4025,54 @@ function renderSummary() {
       : "";
   }
 
-  renderNumberWithUnit(el.periodRevenue, fmtWon(headline.revenue));
-  renderNumberWithUnit(el.periodCount, fmtCount(headline.count));
+  // Same settlement period as last render => this is a live update of the
+  // same figure (roll the digits). A different period => the number means
+  // something else entirely (crossfade instead). Tracked as a plain
+  // expando so this works whether `el.periodRevenue` is a real element or
+  // a test double, without any module-level state.
+  const headlineKey = `${headlineBounds.start.getTime()}_${headlineBounds.end.getTime()}`;
+  const sameMetric = el.periodRevenue.__moKey === headlineKey;
+  el.periodRevenue.__moKey = headlineKey;
+  renderNumberWithUnit(el.periodRevenue, fmtWon(headline.revenue), { sameMetric });
+  renderNumberWithUnit(el.periodCount, fmtCount(headline.count), { sameMetric });
   renderNumberWithUnit(el.averageCountHome, fmtCount(Math.round(headline.averageCount || 0)));
-  renderNumberWithUnit(el.dailyAverage, formatCompactWonWithUnit(headline.average));
-  renderNumberWithUnit(el.workDaysHome, `${headline.workDays}일`);
+  renderNumberWithUnit(el.dailyAverage, formatCompactWonWithUnit(headline.average), { sameMetric });
+  renderNumberWithUnit(el.workDaysHome, `${headline.workDays}일`, { sameMetric });
   const goal = getGoal();
   const pct = goal > 0 ? headline.revenue / goal * 100 : 0;
   const cappedPct = Math.min(100, Math.max(0, pct));
   el.meterFill.style.width = `${cappedPct}%`;
+  el.meterFill.__moSameMetric = sameMetric;
   el.meterPct.textContent = `${Math.round(pct)}%`;
   const overGoal = goal > 0 && headline.revenue > goal;
   el.meterLabel.textContent = overGoal
     ? `목표 ${fmtWon(goal)} 대비 +${fmtWon(headline.revenue - goal)}`
     : `목표 ${fmtWon(goal)} 대비 진행률`;
-  renderSummaryLedger(headline.revenue, headlineBounds.start, headlineBounds.end);
+  renderSummaryLedger(headline.revenue, headlineBounds.start, headlineBounds.end, { sameMetric });
 }
 // 정산 카드 아래 한 줄: 이 정산기간의 확정 지출과 남는 돈. 지출은 서버에서 한 번 읽어 기간별로 기억한다.
 // start/end를 넘기지 않으면 지금 보고 있는(state.year/month) 정산기간을 쓴다 — 헤드라인이
 // 지난 정산으로 대체된 상태에서는 renderSummary가 그 기간의 start/end를 명시적으로 넘긴다.
 const summaryLedgerCache = { key: "", total: null, loading: "" };
-function renderSummaryLedger(revenue, start = periodBounds().start, end = periodBounds().end) {
+function renderSummaryExpenseText(text) {
+  el.summaryExpense.textContent = text;
+}
+function renderSummaryLedger(revenue, start = periodBounds().start, end = periodBounds().end, { sameMetric } = {}) {
   if (!el.summaryLedger) return;
   const from = toDateKey(start), to = toDateKey(end);
   const key = `${currentUserId() || ""}:${from}:${to}`;
   if (summaryLedgerCache.key === key && summaryLedgerCache.total !== null) {
-    el.summaryExpense.textContent = `지출 ${fmtWon(summaryLedgerCache.total)}`;
-    renderNumberWithUnit(el.summaryNet, fmtWon(revenue - summaryLedgerCache.total));
+    const expenseText = `지출 ${fmtWon(summaryLedgerCache.total)}`;
+    if (sameMetric === undefined) {
+      renderSummaryExpenseText(expenseText);
+    } else {
+      const changed = el.summaryExpense.__moText !== expenseText;
+      el.summaryExpense.__moText = expenseText;
+      if (sameMetric) motion.updateRollingNumber(el.summaryExpense, expenseText);
+      else if (changed) motion.crossfade(el.summaryExpense, () => renderSummaryExpenseText(expenseText));
+      else renderSummaryExpenseText(expenseText);
+    }
+    renderNumberWithUnit(el.summaryNet, fmtWon(revenue - summaryLedgerCache.total), { sameMetric });
     el.summaryLedger.hidden = false;
     return;
   }
@@ -4048,6 +4094,47 @@ function renderSummaryLedger(revenue, start = periodBounds().start, end = period
 }
 function invalidateSummaryLedger() {
   Object.assign(summaryLedgerCache, { key: "", total: null, loading: "" });
+}
+// The goal meter fill and its "목표 달성" chip: renderSummary() already set
+// el.meterFill.style.width/el.meterFill.__moSameMetric and el.meterPct's
+// text synchronously (that part stays untouched for test compatibility);
+// this layers the transform-scaled grow animation and the once-per-session
+// crossing chip on top, called after renderSummary() from renderAll().
+const goalMeterMotion = { group: motion.createAnimationGroup(), lastPct: null, reachedThisSession: false };
+function applyGoalMeterMotion() {
+  if (!el.meterFill) return;
+  const targetPct = Math.max(0, Math.min(100, parseFloat(el.meterFill.style.width || "0") || 0));
+  const rawPct = Number(String(el.meterPct?.textContent || "0").replace(/[^\d.-]/g, "")) || 0;
+  const reached = rawPct >= 100;
+  const sameMetric = el.meterFill.__moSameMetric;
+  const firstRender = goalMeterMotion.lastPct === null;
+  const animateGrowth = sameMetric === true && motion.shouldAnimate();
+
+  if (!animateGrowth) {
+    goalMeterMotion.group.cancelAll();
+    el.meterFill.style.transform = "";
+  } else if (goalMeterMotion.lastPct !== targetPct) {
+    const from = targetPct > 0 ? goalMeterMotion.lastPct / targetPct : 1;
+    el.meterFill.style.transform = `scaleX(${from})`;
+    goalMeterMotion.group.run("fill", from, 1, {
+      ...motion.SPRING,
+      onUpdate: (v) => { el.meterFill.style.transform = `scaleX(${v})`; },
+      onDone: () => { el.meterFill.style.transform = ""; },
+    });
+  }
+  goalMeterMotion.lastPct = targetPct;
+
+  const justCrossed = !firstRender && sameMetric === true && reached && !goalMeterMotion.reachedThisSession;
+  goalMeterMotion.reachedThisSession = reached;
+  if (el.goalChip) {
+    if (justCrossed) {
+      el.goalChip.hidden = false;
+      motion.popIn(el.goalChip);
+    } else if (!reached || firstRender || sameMetric === false) {
+      el.goalChip.hidden = true;
+    }
+    // else: still reached from an earlier crossing this period — leave the chip as already shown.
+  }
 }
 function renderMonth() {
   const todayWorkDate = isNightShift() ? currentWorkDates().nextWorkDate : "";

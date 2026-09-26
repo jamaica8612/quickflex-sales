@@ -313,8 +313,24 @@ h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.022em; line
 .meter-wrap { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; order: 2; }
 .meter-wrap .summary-meter { flex: 1; margin: 0; }
 .summary-meter { height: 6px; background: var(--panel3); border-radius: var(--r-full); overflow: hidden; }
-.summary-meter span { display: block; width: 0; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold2)); transition: width .4s ease; }
+.summary-meter span { display: block; width: 100%; height: 100%; transform: scaleX(0); transform-origin: left center; background: linear-gradient(90deg, var(--gold), var(--gold2)); }
 .meter-pct { font-family: var(--font-numeric); font-size: var(--fs-label); font-weight: 700; color: var(--gold); white-space: nowrap; min-width: 38px; text-align: right; flex-shrink: 0; letter-spacing: -.015em; }
+.goal-chip {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0;
+  transform: scale(0.7);
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.goal-chip[hidden] { display: none; }
 .meter-label { font-size: var(--fs-caption); color: var(--soft); text-align: center; margin: 0 0 14px; order: 3; }
 .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); text-align: center; order: 4; }
 .summary-grid div + div { border-left: 1px solid var(--line); }
@@ -3124,22 +3140,9 @@ body[data-theme="dark"] .day-cell.today-cell .day-number { color: #1A1405; }
     0 0 10px -1px color-mix(in srgb, var(--gold) 65%, transparent),
     inset 0 1px 0 rgba(255,255,255,.34);
 }
-/* 광택이 천천히 한 번씩 훑고 지나간다 */
-.summary-meter span::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(104deg, transparent 22%, rgba(255,255,255,.62) 50%, transparent 78%);
-  transform: translateX(-110%);
-  animation: meterSheen 4.2s cubic-bezier(.4,0,.2,1) infinite;
-}
-@keyframes meterSheen {
-  0%, 58% { transform: translateX(-110%); }
-  100%    { transform: translateX(110%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .summary-meter span::after { animation: none; opacity: 0; }
-}
+/* The sheen used to loop forever via ::after + @keyframes meterSheen; the
+   motion system runs nothing on a timer except a loader mid-save, so it was
+   removed. The gradient + box-shadow above stay static (never animated). */
 
 /* ── 14. 달 이름 가운데 정렬 ─────────────────────────────────────
    달 이동은 왼쪽에 짝지어 두고, 오늘·표시기준은 오른쪽에 모은다.
