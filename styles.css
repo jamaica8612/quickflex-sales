@@ -986,6 +986,25 @@ body:not([data-theme="dark"]) .entry-actions .secondary-btn {
 .total-card span { font-size: var(--fs-body-l); font-weight: 700; color: var(--gold); }
 .total-card strong { font-size: 26px; font-weight: 700; letter-spacing: 0; color: var(--gold); font-family: var(--font-amount); font-variant-numeric: tabular-nums; line-height: 1.05; }
 .full-btn { width: 100%; min-height: 44px; border-radius: var(--r-full); font-size: var(--fs-body-l); font-weight: 700; }
+.save-morph { position: relative; display: grid; place-items: center; }
+.save-morph > * { grid-area: 1 / 1; }
+.save-morph-label { transition: opacity .12s ease; }
+.save-morph-spin,
+.save-morph-check {
+  width: 22px;
+  height: 22px;
+  opacity: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.save-morph.is-busy .save-morph-spin { animation: mo-save-spin .7s linear infinite; }
+@keyframes mo-save-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .save-morph.is-busy .save-morph-spin { animation: none; }
+}
 html:not([data-theme="dark"]) #saveRecord,
 body:not([data-theme="dark"]) #saveRecord,
 html:not([data-theme="dark"]) #saveProfile,
