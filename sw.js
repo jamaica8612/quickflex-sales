@@ -39,7 +39,7 @@ const SHELL_FILES = [
   "./src/lib/expenses.js",
   "./src/services/expenses.js",
   "./src/ui/expenses.js",
-  "./src/ui/noah.js?v=5",
+  "./src/ui/noah.js?v=6",
   "./src/services/noah.js",
   "./src/lib/noah-legacy-storage.js",
   "./src/lib/noah-links.js",

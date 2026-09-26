@@ -4,6 +4,17 @@ import { NOAH_NOTICE, NOAH_PRIVACY_URL, noahChips, noahWelcome } from "../lib/no
 import { noahStepDone, noahStepText, noahThinkingSummary } from "../lib/noah-thinking.js";
 import { bindNoahKeyboard } from "./noah-keyboard.js";
 import { bindNoahRefreshGuard } from "./noah-refresh-guard.js";
+import * as motion from "../lib/motion.js";
+
+// Unit tests drive this controller with a plain-object element double (no
+// .style at all), so every motion call here is guarded on that existing
+// first — real elements always have it, the test double never does.
+function popMessage(el) {
+  if (el?.style) motion.popIn(el, { from: 0.9 });
+}
+function fadeInParagraph(el) {
+  if (el?.style) motion.fadeTo(el, 1);
+}
 
 const MAX_HISTORY = 12;
 const REQUEST_TIMEOUT_MS = 85000;
@@ -95,13 +106,14 @@ export function createNoahController({ thread, form, input, suggestions, status,
     wrap.append(picture);
     return wrap;
   }
-  function appendMessage(text, from, className = "", largeAvatar = false) {
+  function appendMessage(text, from, className = "", largeAvatar = false, silent = false) {
     const item = element(doc, "li", `noah-msg from-${from}${className ? ` ${className}` : ""}`);
     if (from === "noah") item.append(avatar(largeAvatar));
     const body = element(doc, "p", "", text);
     item.append(body);
     thread.append(item);
     thread.scrollTop = thread.scrollHeight;
+    if (!silent) popMessage(item);
     return { item, body };
   }
   // 답이 오기 전까지 노아 말풍선 자리에 실제 진행 단계를 보여줘요.
@@ -119,6 +131,7 @@ export function createNoahController({ thread, form, input, suggestions, status,
     item.append(box);
     thread.append(item);
     thread.scrollTop = thread.scrollHeight;
+    popMessage(item);
     return { item, box, list, steps: [], current: null, started: Date.now(), body: null };
   }
   function finishStep(view) {
@@ -154,7 +167,21 @@ export function createNoahController({ thread, form, input, suggestions, status,
     view.item.className = "noah-msg from-noah noah-streaming";
     view.body = element(doc, "p");
     view.item.append(view.body);
+    fadeInParagraph(view.body);
     return view;
+  }
+  // Streamed text appears paragraph by paragraph: a blank-line break in the
+  // incoming delta starts a fresh <p> that fades in, instead of one long
+  // paragraph's textContent silently growing underneath the reader.
+  function appendStreamedText(view, delta) {
+    const parts = String(delta ?? "").split(/\n{2,}/);
+    view.body.textContent += parts[0];
+    for (let index = 1; index < parts.length; index += 1) {
+      const paragraph = element(doc, "p", "", parts[index]);
+      view.item.append(paragraph);
+      view.body = paragraph;
+      fadeInParagraph(paragraph);
+    }
   }
   function button(label, action, className = "") {
     const node = element(doc, "button", className, label);
@@ -191,13 +218,13 @@ export function createNoahController({ thread, form, input, suggestions, status,
     if (!items.length) {
       const brief = getBriefingContext() || {};
       const welcome = freshlyAcknowledged ? { ...brief, phase: "firstUse", closing: false } : brief;
-      appendMessage(noahWelcome(welcome), "noah", "noah-welcome", true);
+      appendMessage(noahWelcome(welcome), "noah", "noah-welcome", true, true);
       if (freshlyAcknowledged) renderChips(welcome);
       freshlyAcknowledged = false;
       return;
     }
     for (const entry of items) {
-      const view = appendMessage(entry.body, entry.role === "user" ? "me" : "noah");
+      const view = appendMessage(entry.body, entry.role === "user" ? "me" : "noah", "", false, true);
       if (entry.role === "assistant") renderLinks(view.item, entry.links);
     }
   }
@@ -273,6 +300,7 @@ export function createNoahController({ thread, form, input, suggestions, status,
     const cancel = button("취소", () => { void decide(proposal.id, "cancel"); }, "noah-cancel");
     actions.append(confirm, cancel); card.append(heading, state, changes, actions);
     thread.append(card); thread.scrollTop = thread.scrollHeight;
+    popMessage(card);
     proposals.set(proposal.id, { proposal, state, confirm, cancel, account: identity(), busy: false });
   }
   async function decide(id, operation) {
@@ -339,7 +367,7 @@ export function createNoahController({ thread, form, input, suggestions, status,
           onDelta(delta) {
             if (!current(start, account)) return;
             if (!thinking) thinking = createThinking();
-            settleThinking(thinking).body.textContent += delta;
+            appendStreamedText(settleThinking(thinking), delta);
             thread.scrollTop = thread.scrollHeight;
           },
           onReset() {
