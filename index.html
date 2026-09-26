@@ -110,6 +110,7 @@
               <button id="openInspection" class="inspection-entry-button" type="button" aria-describedby="inspectionEntryTitle inspectionEntryStatus">일상점검</button>
             </section><button class="tab-settings" type="button" data-open-settings aria-label="설정"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button></div>
           </div>
+          <button type="button" id="pendingSignupsBanner" class="pending-signups-banner hidden" data-open-pending-signups></button>
           <div class="ledger-switch" role="group" aria-label="매출노트 보기">
             <button type="button" data-ledger="home" class="is-on" aria-pressed="true">매출</button>
             <button type="button" data-ledger="expenses" aria-pressed="false">지출</button>
@@ -552,7 +553,7 @@
               <button class="settings-row danger" id="resetData" type="button"><span>내 데이터 초기화</span><em>앱 자동 기록은 유지</em></button>
               <button class="settings-row danger subtle-danger" id="requestAccountDelete" type="button"><span>탈퇴 요청</span><em>계정 삭제</em></button>
             </div>
-          </section></div></details><details class="settings-group admin-only hidden" id="operationSettings"><summary><span class="settings-row-name">운영 관리</span><em class="settings-row-value" data-settings-value="admin">가입 승인 · OCR 보정</em></summary><div class="settings-group-content"><details class="settings-group " id="memberSettings"><summary><span><strong>가입 승인</strong><small>승인 상태와 기사 유형</small></span></summary><div class="settings-group-content"><div id="adminProfiles" class="admin-list"></div></div></details><details class="settings-group " id="bundleSettings"><summary><span><strong>OCR 보정</strong><small>공통 구역 이름 보정</small></span></summary><div class="settings-group-content">
+          </section></div></details><details class="settings-group admin-only hidden" id="operationSettings"><summary><span class="settings-row-name">운영 관리</span><em class="settings-row-value" data-settings-value="admin">가입 승인 · OCR 보정</em></summary><div class="settings-group-content"><details class="settings-group " id="memberSettings"><summary><span><strong>가입 승인</strong><small>승인 상태와 기사 유형</small></span></summary><div class="settings-group-content"><div id="adminProfiles" class="admin-list" tabindex="-1"></div></div></details><details class="settings-group " id="bundleSettings"><summary><span><strong>OCR 보정</strong><small>공통 구역 이름 보정</small></span></summary><div class="settings-group-content">
             <section class="settings-section">
               <h2>OCR 보정 묶음</h2>
               <div class="settings-field">
@@ -571,6 +572,12 @@
               </details>
             </section>
             <div id="adminBundleList" class="admin-list"></div>
+          </div></details><details class="settings-group " id="usageSettings"><summary><span><strong>최근 30일 화면별 사용</strong><small>화면별 이용자 수와 조회수</small></span></summary><div class="settings-group-content">
+            <div class="usage-summary-window" role="group" aria-label="집계 기간">
+              <button type="button" class="usage-window-btn" data-usage-window="7" aria-pressed="false">7일</button>
+              <button type="button" class="usage-window-btn is-on" data-usage-window="30" aria-pressed="true">30일</button>
+            </div>
+            <div id="adminUsageSummary" class="admin-usage-summary" aria-live="polite"><p class="hint">사용 현황을 불러오고 있습니다.</p></div>
           </div></details><details class="settings-group "><summary><span><strong>정산표 단가 계산</strong><small>내 정산표 이미지로 단가 확인</small></span></summary><div class="settings-group-content">
             <section class="settings-section">
               <h2>정산표 이미지 → 단가 계산</h2>
