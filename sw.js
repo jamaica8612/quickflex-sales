@@ -35,6 +35,7 @@ const SHELL_FILES = [
   "./assets/fonts/WantedSansVariable.woff2",
   "./app.js",
   "./src/main.js",
+  "./src/lib/motion.js",
   "./src/lib/expenses.js",
   "./src/services/expenses.js",
   "./src/ui/expenses.js",
