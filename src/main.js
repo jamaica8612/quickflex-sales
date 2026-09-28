@@ -180,7 +180,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.110";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.111";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -1757,6 +1757,7 @@ function formatCompactWonWithUnit(value) {
   return `${n.toLocaleString("ko-KR")}원`;
 }
 function setPlainNumberWithUnit(target, text) {
+  target.setAttribute("aria-label", text);
   const match = text.match(/^(.*?)(만원|원|건|일)$/);
   if (!match?.[1]) {
     target.textContent = text;
@@ -1774,6 +1775,9 @@ function setPlainNumberWithUnit(target, text) {
 // plain instant behavior every other call site already relies on.
 function renderNumberWithUnit(target, formatted, { sameMetric } = {}) {
   const text = String(formatted ?? "");
+  const revision = (target.__moNumberRevision || 0) + 1;
+  target.__moNumberRevision = revision;
+  motion.cancelFade(target);
   if (sameMetric === undefined) {
     setPlainNumberWithUnit(target, text);
     return;
@@ -1788,7 +1792,9 @@ function renderNumberWithUnit(target, formatted, { sameMetric } = {}) {
     setPlainNumberWithUnit(target, text);
     return;
   }
-  motion.crossfade(target, () => setPlainNumberWithUnit(target, text));
+  motion.crossfade(target, () => {
+    if (target.__moNumberRevision === revision) setPlainNumberWithUnit(target, text);
+  });
 }
 function aggregateRevenueByItem(keys) {
   const routes = new Map();
@@ -4139,24 +4145,13 @@ function renderSummary() {
 // start/end를 넘기지 않으면 지금 보고 있는(state.year/month) 정산기간을 쓴다 — 헤드라인이
 // 지난 정산으로 대체된 상태에서는 renderSummary가 그 기간의 start/end를 명시적으로 넘긴다.
 const summaryLedgerCache = { key: "", total: null, loading: "" };
-function renderSummaryExpenseText(text) {
-  el.summaryExpense.textContent = text;
-}
 function renderSummaryLedger(revenue, start = periodBounds().start, end = periodBounds().end, { sameMetric } = {}) {
   if (!el.summaryLedger) return;
   const from = toDateKey(start), to = toDateKey(end);
   const key = `${currentUserId() || ""}:${from}:${to}`;
   if (summaryLedgerCache.key === key && summaryLedgerCache.total !== null) {
     const expenseText = `지출 ${fmtWon(summaryLedgerCache.total)}`;
-    if (sameMetric === undefined) {
-      renderSummaryExpenseText(expenseText);
-    } else {
-      const changed = el.summaryExpense.__moText !== expenseText;
-      el.summaryExpense.__moText = expenseText;
-      if (sameMetric) motion.updateRollingNumber(el.summaryExpense, expenseText);
-      else if (changed) motion.crossfade(el.summaryExpense, () => renderSummaryExpenseText(expenseText));
-      else renderSummaryExpenseText(expenseText);
-    }
+    renderNumberWithUnit(el.summaryExpense, expenseText, { sameMetric });
     renderNumberWithUnit(el.summaryNet, fmtWon(revenue - summaryLedgerCache.total), { sameMetric });
     el.summaryLedger.hidden = false;
     return;
