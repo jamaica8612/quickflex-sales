@@ -586,6 +586,15 @@ export function pressPop(el, { from = 0.94, win, doc } = {}) {
 
 const fadeRegistry = new WeakMap();
 
+/** A new renderer owns the element now; a pending fade must not swap old content. */
+export function cancelFade(el) {
+  const cancel = el && fadeRegistry.get(el);
+  if (!cancel) return;
+  cancel();
+  fadeRegistry.delete(el);
+  el.style.opacity = "";
+}
+
 /** Fades `el`'s opacity from its current value to `to` with no overshoot. */
 export function fadeTo(el, to, { win, doc, onDone } = {}) {
   if (!el) return;
@@ -646,12 +655,18 @@ const rollerRegistry = new WeakMap();
  */
 export function updateRollingNumber(el, formatted, { units = DEFAULT_UNIT_SUFFIXES, group, win, doc, rollIn = false } = {}) {
   if (!el) return;
+  cancelFade(el);
   const text = String(formatted ?? "");
   const { number, unit } = splitTrailingUnit(text, units);
   const tokens = tokenizeDigits(number);
   const grp = group || getRoller(el).group;
   const prevEntry = getRoller(el);
-  const prev = prevEntry.tokens;
+  // A period crossfade or plain renderer may have replaced the entire number.
+  // Cached text is only usable while this renderer still owns those DOM nodes.
+  const domIntact = prevEntry.nodes?.length === el.childNodes.length
+    && prevEntry.nodes.every((node, index) => node === el.childNodes[index]);
+  let prev = domIntact && prevEntry.unit === unit ? prevEntry.tokens : null;
+  if (!prev) grp.cancelAll();
 
   el.setAttribute("aria-label", text);
 
@@ -661,14 +676,20 @@ export function updateRollingNumber(el, formatted, { units = DEFAULT_UNIT_SUFFIX
   if (!animate && rollIn && shouldAnimate({ win, doc })) {
     // Appear by rolling up from zeros in the new digit layout.
     const zeros = tokens.map((t) => (t.type === "digit" ? { ...t, value: "0" } : t));
+    grp.cancelAll();
     buildRollingNumber(el, zeros, unit);
-    prevEntry.tokens = zeros;
+    prev = zeros;
+    prevEntry.nodes = Array.from(el.childNodes);
+    prevEntry.unit = unit;
     animate = true;
   }
   if (!animate) {
+    grp.cancelAll();
     buildRollingNumber(el, tokens, unit);
     prevEntry.tokens = tokens;
     prevEntry.rawText = text;
+    prevEntry.nodes = Array.from(el.childNodes);
+    prevEntry.unit = unit;
     return;
   }
   const changed = diffDigitSlots(prev, tokens);
@@ -703,7 +724,7 @@ function digitIndexToDomIndex(tokens, index) {
 function getRoller(el) {
   let entry = rollerRegistry.get(el);
   if (!entry) {
-    entry = { tokens: null, rawText: "", group: createAnimationGroup() };
+    entry = { tokens: null, rawText: "", nodes: null, unit: "", group: createAnimationGroup() };
     rollerRegistry.set(el, entry);
   }
   return entry;
