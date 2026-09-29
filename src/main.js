@@ -180,7 +180,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.111";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.112";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -5784,7 +5784,7 @@ function renderDraftCards() {
   el.scheduleDraftCards.innerHTML = Object.keys(ocrDraftMap).sort().map((dateKey) => {
     const routes = ocrDraftMap[dateKey];
     const readableDate = formatLongShort(dateKey);
-    const chips = (routes || []).map((route) => {
+    const chips = [...(routes || [])].sort().map((route) => {
       const safeRoute = escapeAttr(route);
       return `<span class="draft-chip">${safeRoute}<button type="button" data-action="remove" data-date="${dateKey}" data-route="${safeRoute}" aria-label="${escapeAttr(`${readableDate} ${route} 구역 삭제`)}">×</button></span>`;
     }).join("");
