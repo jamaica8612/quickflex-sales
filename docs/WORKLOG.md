@@ -1645,3 +1645,10 @@ Browser checks:
 - Added one regression that failed on the previous renderer's ABDC output and passes after the change. It exercises the real correction and rendering functions, frozen draft arrays, added/removed route render states, unresolved workdays and off days. This is generated-markup validation, not a real-browser button or original-image OCR test.
 - Validation: after `npm ci`, the full Node suite passed **648/648**; focused schedule/bundle checks passed **19/19**; syntax checks passed for **64** application JavaScript files. `node scripts/release.mjs --check` and `git diff --check` passed. A read-only secondary review found no blocker.
 - Release helper advances the manifest, shell cache and entry URLs to **1.0.112**. No new shell file, Android build, database write or Edge Function deployment is required.
+
+## 2026-09-29 - Android release labels and download links (PWA 1.0.113)
+
+- The Android APK had been published and installed as Beta 1.31, but the PWA settings footer, in-app installation guide and standalone `install.html` still advertised Beta 1.28 and linked to that old APK. Update every current-release label, APK link and release-information link on those pages to Beta 1.31. Preserve historical screenshot-version notes in the usage guide.
+- Use `scripts/release.mjs --pwa 1.0.113 --android 1.31` to update the manifest, shell cache, entry URLs and existing release assertions together. No new shell assets or application data/API changes.
+- Add an Android/PWA synchronization step to `docs/DEPLOYMENT.md`: publishing an APK alone does not update the site's labels and installation links; verify both public pages after Pages deployment.
+- Validation: full Node suite **648/648** passes, syntax checks pass for **65** first-party JavaScript files, `scripts/release.mjs --check` passes for all 23 tracked assets, and `git diff --check` passes. Verify the deployed footer, install page, manifest and shell cache against this release. No Android rebuild, database write or Edge Function deployment is required.
