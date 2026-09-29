@@ -24,6 +24,34 @@ test('mixed valid and OCR-confused tokens both survive correction',()=>{
  const c=correctionContext();
  assert.deepEqual(Array.from(c.correctRouteList(['316A','3O3C'])),['316A','303C']);
 });
+test('OCR review orders corrected and edited route chips without mutating the draft',()=>{
+ const cards={innerHTML:''};
+ const c=load([...correctionNames,'escapeAttr','setOcrDraft','renderDraftCards'],{
+  DEFAULT_ROUTE_BUNDLES,DEFAULT_ROUTE_MASTER,fixedRoutes:()=>[],state:{routeBundles:[],rates:[]},
+  el:{scheduleDraftCards:cards,scheduleDraftSection:{classList:{toggle(){}}}},
+  ocrDraftMap:null,formatLongShort:date=>date,draftWorkRoutes:()=>[],
+ });
+ const date='2026-09-29';
+ const recognized=Object.freeze(['319A','319B','319D']);
+ const chipRoutes=()=>[...cards.innerHTML.matchAll(/data-route="([^"]+)"/g)].map(match=>match[1]);
+ c.setOcrDraft({[date]:recognized},{preserveUnresolved:true});
+ assert.deepEqual(chipRoutes(),['319A','319B','319C','319D']);
+ assert.deepEqual(Array.from(c.ocrDraftMap[date]),['319A','319B','319D','319C']);
+ assert.deepEqual(recognized,['319A','319B','319D']);
+ for(const [draft,displayed] of [
+  [['319A','319B','319D','319C','318B'],['318B','319A','319B','319C','319D']],
+  [['319A','319D','319C','318B'],['318B','319A','319C','319D']],
+ ]){
+  c.ocrDraftMap[date]=Object.freeze([...draft]);
+  c.renderDraftCards();
+  assert.deepEqual(chipRoutes(),displayed);
+  assert.deepEqual(Array.from(c.ocrDraftMap[date]),draft);
+ }
+ c.setOcrDraft({[date]:[], '2026-09-30':null},{preserveUnresolved:true});
+ assert.deepEqual(chipRoutes(),[]);
+ assert.match(cards.innerHTML,/구역 확인이 필요합니다/);
+ assert.match(cards.innerHTML,/aria-pressed="true"/);
+});
 test('CSV compact groups and JSON compact arrays preserve every explicit route',async()=>{
  const saved=[];
  const c=load(['routesFromCell','extractScheduleJson','parseScheduleCsv'],{
