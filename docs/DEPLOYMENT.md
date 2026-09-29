@@ -134,6 +134,17 @@ const CACHE_NAME = "quickflex-shell-v2";
 
 Increase the `vN` number on each release (`v2`, `v3`, ...), and keep `SHELL_FILES` updated with new module files under `src/`.
 
+### Android Release Labels And Download Links
+
+Publishing an Android APK does not update the PWA's displayed Android version or its download links. When a new APK becomes the current public version, also update the PWA footer, in-app install guide and `install.html` using the release helper. For example (choose new versions for subsequent releases):
+
+```powershell
+node scripts/release.mjs --pwa 1.0.113 --android 1.31
+node scripts/release.mjs --check
+```
+
+The helper also aligns the manifest, service-worker cache, entry URLs and existing release assertions. After publishing Pages, check the actual public `index.html` and `install.html` labels and APK links as well as the Android release asset. A version printed in the PWA is release guidance, not a reading of the APK installed on a particular phone.
+
 ## Release Checklist
 
 - [ ] `supabase-schema.sql` reviewed and applied in Supabase SQL Editor if schema changed.
