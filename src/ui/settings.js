@@ -4,7 +4,6 @@ export function bindSettingsEvents(ctx) {
   const {
     el,
     state,
-    applyRateUpdateOffer,
     applyTheme,
     closeSheet,
     connectDb,
@@ -69,7 +68,6 @@ export function bindSettingsEvents(ctx) {
     }
     if (saved) ctx.closeSignatureEditor();
   });
-  el.applyRateUpdate?.addEventListener("click", () => applyRateUpdateOffer().catch((error) => toast(`단가 업데이트 실패: ${error.message}`, "error")));
   el.goalAmountInput.addEventListener("input", () => {
     const pos = el.goalAmountInput.selectionStart;
     const prevLen = el.goalAmountInput.value.length;

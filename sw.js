@@ -1,4 +1,4 @@
-const CACHE_NAME = "quickflex-shell-v1.0.115-usage-guide-1";
+const CACHE_NAME = "quickflex-shell-v1.0.116-usage-guide-1";
 const SHELL_FILES = [
   "./src/vendor/supabase-2.116.0.js",
   "./",
@@ -72,7 +72,7 @@ const SHELL_FILES = [
   "./styles/agricultural-market-route-map.css?v=2",
   "./styles/route-note-share.css?v=1",
   "./route-share.html",
-  "./route-share.js?v=1.0.115",
+  "./route-share.js?v=1.0.116",
   "./src/lib/export-records.js",
   "./src/ui/exports.js",
   "./src/lib/calendar-sync.js",
@@ -81,7 +81,7 @@ const SHELL_FILES = [
   "./styles/exports.css",
   "./styles/calendar-sync.css",
   "./src/config.js",
-  "./src/config.js?v=11",
+  "./src/config.js?v=12",
   "./src/state.js",
   "./src/services/auth.js",
   "./src/services/beta-access.js",
@@ -93,6 +93,7 @@ const SHELL_FILES = [
   "./src/ui/record.js",
   "./src/ui/stats.js",
   "./src/ui/settings.js",
+  "./src/ui/settings.js?v=5",
   "./src/ui/account-deletion.js",
   "./src/ui/admin.js",
   "./src/ui/ocr.js",
@@ -103,9 +104,9 @@ const SHELL_FILES = [
   "./src/lib/period-fallback.js",
   "./src/lib/revenue.js",
   "./src/lib/format.js",
-  "./src/lib/work-date.js?v=1.0.115",
+  "./src/lib/work-date.js?v=1.0.116",
   "./src/lib/measurement-app-launch.js",
-  "./manifest.webmanifest?v=1.0.115",
+  "./manifest.webmanifest?v=1.0.116",
   "./icon-192.png?v=4",
   "./icon-512.png?v=4",
   "./icon-maskable-192.png?v=4",

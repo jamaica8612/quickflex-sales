@@ -1229,18 +1229,6 @@ body:not([data-theme="dark"]) .mode-option input[type="radio"]:checked + span sm
   font-weight: 700;
 }
 .rate-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; }
-.rate-update-offer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid var(--warn-border);
-  border-radius: var(--r-md);
-  background: var(--warn-bg);
-}
-.rate-update-offer .hint { margin: 4px 0 0; }
-.rate-update-offer button { flex: 0 0 auto; }
 .rate-list > .daily-card { grid-column: 1 / -1; }
 .rate-chip {
   position: relative;
