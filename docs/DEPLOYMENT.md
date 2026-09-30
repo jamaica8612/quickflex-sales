@@ -122,7 +122,7 @@ Cost guard: only authenticated users can call the function (`verify_jwt = true`)
 - Use one current default unit price per Route in `quickflex_route_rates`.
 - Do not use period-based rate history.
 - Daily entries preserve the price used that day in `unit_snapshot`, so old revenue remains stable after changing the default route price.
-- Admin rate edits must not be copied to other users automatically. Each driver accepts the offered rate set, and the acceptance-day write becomes that account's new default.
+- Admin rate edits must not be copied to other users automatically. Each driver maintains their own current defaults in the manual route-rate editor; the preset rate-update offer is no longer available.
 
 ## Service Worker And PWA
 

@@ -23,12 +23,11 @@ import {
   GOAL,
   PUBLIC_SITE_URL,
   PUBLIC_SUPABASE_CONFIG,
-  RATE_UPDATE_OFFER,
   ROUTE_NOTES_CONFIG,
   RPC,
   SAMPLE_SETTLEMENT,
   TABLES,
-} from "./config.js?v=11";
+} from "./config.js?v=12";
 import {
   addDays,
   eunNeunParticle,
@@ -73,7 +72,7 @@ import { bindCalendarEvents } from "./ui/calendar.js";
 import { bindInspectionEvents } from "./ui/inspection.js";
 import { bindOcrEvents } from "./ui/ocr.js";
 import { bindRecordEvents } from "./ui/record.js?v=2";
-import { bindSettingsEvents } from "./ui/settings.js?v=4";
+import { bindSettingsEvents } from "./ui/settings.js?v=5";
 import { bindStatsEvents } from "./ui/stats.js";
 
 const THEME_KEY = "quickflex-theme";
@@ -180,7 +179,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.115";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.116";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -676,9 +675,6 @@ const el = {
   rateUnit: $("rateUnit"),
   saveRate: $("saveRate"),
   rateList: $("rateList"),
-  rateUpdateOffer: $("rateUpdateOffer"),
-  rateUpdateHint: $("rateUpdateHint"),
-  applyRateUpdate: $("applyRateUpdate"),
   scheduleImage: $("scheduleImage"),
   runScheduleOcr: $("runScheduleOcr"),
   ocrStatus: $("ocrStatus"),
@@ -3062,66 +3058,6 @@ async function persistRates(context = captureAccountContext()) {
   if (upsertError) throw upsertError;
   return true;
 }
-function pendingRateOfferChanges() {
-  if (!state.profile || state.profile.role === "admin") return [];
-  const currentByRoute = new Map(state.rates.map((rate) => [normalizeRoute(rate.route), toNum(rate.unit)]));
-  return RATE_UPDATE_OFFER.rates.filter((rate) => currentByRoute.get(rate.route) !== rate.unit);
-}
-function renderRateUpdateOffer() {
-  if (!el.rateUpdateOffer) return;
-  const changes = pendingRateOfferChanges();
-  el.rateUpdateOffer.classList.toggle("hidden", !changes.length);
-  if (el.rateUpdateHint) {
-    el.rateUpdateHint.textContent = changes.length
-      ? `새 단가 ${changes.length}개가 대기 중입니다. 적용한 날짜 이후 새 기록부터 사용됩니다.`
-      : "새 단가가 적용되어 있습니다.";
-  }
-}
-async function refreshFutureZeroCountUnits(fromDate = todayKey(), context = captureAccountContext()) {
-  if (!isAccountContextCurrent(context)) return false;
-  const changedDates = [];
-  Object.entries(state.entries).forEach(([dateKey, record]) => {
-    if (dateKey < fromDate || record.off) return;
-    let changed = false;
-    record.rows.forEach((row) => {
-      if (isAutomaticRow(row) || !row.route || toNum(row.count) > 0) return;
-      const nextUnit = sharedRateForRoutes(row.route);
-      if (!nextUnit || toNum(row.unit) === nextUnit) return;
-      row.unit = nextUnit;
-      changed = true;
-    });
-    if (changed) changedDates.push(dateKey);
-  });
-  for (const dateKey of changedDates) {
-    if (!await persistDay(dateKey, context)) return false;
-  }
-  return changedDates;
-}
-async function applyRateUpdateOffer({ ask = true, context = captureAccountContext() } = {}) {
-  if (!isAccountContextCurrent(context)) return false;
-  const changes = pendingRateOfferChanges();
-  if (!changes.length) {
-    renderRateUpdateOffer();
-    return toast("이미 새 단가가 적용되어 있습니다.", "success");
-  }
-  if (ask && !window.confirm(`구역 일부 단가가 업데이트되었습니다.\n\n새 단가 ${changes.length}개를 오늘부터 적용할까요?\n완료했거나 건수를 입력한 기존 기록의 단가는 유지됩니다.`)) return;
-  if (!isAccountContextCurrent(context)) return false;
-  const byRoute = new Map(state.rates.map((rate) => [normalizeRoute(rate.route), rate]));
-  RATE_UPDATE_OFFER.rates.forEach((rate) => {
-    const existing = byRoute.get(rate.route);
-    if (existing) existing.unit = rate.unit;
-    else state.rates.push({ ...rate, count: 0, amount: 0 });
-  });
-  state.rates.sort((a, b) => a.route.localeCompare(b.route));
-  if (!await persistRates(context)) return false;
-  const refreshedDates = await refreshFutureZeroCountUnits(todayKey(), context);
-  if (refreshedDates === false || !isAccountContextCurrent(context)) return false;
-  renderRates();
-  renderAll();
-  toast(refreshedDates.length
-    ? `새 단가와 미입력 예정 기록 ${refreshedDates.length}일을 함께 반영했습니다.`
-    : "새 단가를 오늘부터 적용했습니다.", "success");
-}
 function appNoticeStorageKey(userId) {
   return `${APP_NOTICE_LOCAL_KEY_PREFIX}${String(userId || "")}`;
 }
@@ -4802,7 +4738,6 @@ function renderRates() {
       deleteRate(button.dataset.route).catch((error) => toast(`구역 삭제 실패: ${error.message}`, "error"));
     });
   });
-  renderRateUpdateOffer();
 }
 function mergeDefaultRatesForDisplay() {
   const byRoute = new Map();
@@ -6495,7 +6430,6 @@ function bindEvents() {
     applySchedule,
     applySettlementRows,
     applyTheme,
-    applyRateUpdateOffer,
     clearProfileSignature: () => profileSignaturePad?.clear(),
     openSignatureEditor,
     closeSignatureEditor,

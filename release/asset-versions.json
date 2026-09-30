@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-26T06:01:19.469Z",
+  "generatedAt": "2026-09-30T14:41:01.810Z",
   "assets": {
     "apple-touch-icon.png": {
       "version": "4",
@@ -26,8 +26,8 @@
       "sha256": "f086364c66ed6cc74d1af7e2d829d8496a620c4a61fcb10f46628509c9f05d10"
     },
     "src/config.js": {
-      "version": "11",
-      "sha256": "7446c70f04e5bf17b83560e7854672fa1553dbad6ebdea2f877209819cc8a59e"
+      "version": "12",
+      "sha256": "19cf62052a6cace92a3010f57a02b1e9cb507bf6cacc1418a7a54655fa360b49"
     },
     "src/lib/agricultural-market-route-map.js": {
       "version": "2",
@@ -64,6 +64,10 @@
     "src/ui/route-notes.js": {
       "version": "16",
       "sha256": "6efe26755b557d9c9140d9c568a6610ae4c0b2dadfb7bc116007c64576fac0ef"
+    },
+    "src/ui/settings.js": {
+      "version": "5",
+      "sha256": "98d000c570b595f0ba3b1ac344e0f21c5d9d7cfda128fc00a1a05651ebefc012"
     },
     "styles/agricultural-market-route-map.css": {
       "version": "2",
