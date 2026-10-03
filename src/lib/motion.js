@@ -978,3 +978,121 @@ export function attachSheetDrag(panel, handle, {
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// On-screen gating
+// ---------------------------------------------------------------------------
+
+/**
+ * Holds motion until its card is actually on screen. whenVisible(card, key, fn)
+ * runs fn now when the card is visible (or animation is off); otherwise it keeps
+ * the newest fn per key and runs it once the card scrolls into view, so a value
+ * that changed several times off screen animates once, to its latest state.
+ * A card inside a hidden tab counts as off screen. onEnter(card) runs on every
+ * entry, for one-time reveal styling.
+ */
+export function createVisibilityQueue({
+  win = typeof window !== "undefined" ? window : undefined,
+  doc = typeof document !== "undefined" ? document : undefined,
+  threshold = 0.2,
+  onEnter,
+} = {}) {
+  const Observer = win?.IntersectionObserver;
+  if (typeof Observer !== "function") {
+    return { supported: false, observe() {}, isVisible: () => true, whenVisible: (card, key, fn) => fn() };
+  }
+  const visible = new WeakSet();
+  const observed = new WeakSet();
+  const queues = new WeakMap();
+  const observer = new Observer((entries) => {
+    entries.forEach((entry) => {
+      const card = entry.target;
+      if (!entry.isIntersecting) {
+        visible.delete(card);
+        return;
+      }
+      visible.add(card);
+      onEnter?.(card);
+      const queue = queues.get(card);
+      if (!queue) return;
+      queues.delete(card);
+      queue.forEach((fn) => fn());
+    });
+  }, { threshold });
+  const observe = (card) => {
+    if (!card || observed.has(card)) return;
+    observed.add(card);
+    observer.observe(card);
+  };
+  return {
+    supported: true,
+    observe,
+    isVisible: (card) => visible.has(card),
+    whenVisible(card, key, fn) {
+      if (!card || !shouldAnimate({ win, doc })) {
+        queues.get(card)?.delete(key);
+        fn();
+        return;
+      }
+      observe(card);
+      if (visible.has(card)) {
+        queues.get(card)?.delete(key);
+        fn();
+        return;
+      }
+      const queue = queues.get(card) || new Map();
+      queue.set(key, fn);
+      queues.set(card, queue);
+    },
+  };
+}
+
+/** A short confetti burst from the centre of `origin`, drawn on a fixed full-screen canvas that removes itself. */
+export function confettiBurst(origin, {
+  win = typeof window !== "undefined" ? window : undefined,
+  doc = typeof document !== "undefined" ? document : undefined,
+  colors = [],
+  count = 80,
+  duration = 1400,
+} = {}) {
+  if (!origin || !doc?.body || !shouldAnimate({ win, doc })) return;
+  const canvas = doc.createElement("canvas");
+  canvas.setAttribute("aria-hidden", "true");
+  canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999";
+  doc.body.appendChild(canvas);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) { canvas.remove(); return; }
+  const width = win.innerWidth, height = win.innerHeight, dpr = win.devicePixelRatio || 1;
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+  ctx.scale(dpr, dpr);
+  const rect = origin.getBoundingClientRect();
+  const x0 = rect.left + rect.width / 2, y0 = rect.top + rect.height / 2;
+  const palette = colors.filter(Boolean).length ? colors.filter(Boolean) : ["#888"];
+  const parts = Array.from({ length: count }, () => {
+    const angle = Math.random() * Math.PI * 2, speed = 3 + Math.random() * 6;
+    return {
+      x: x0, y: y0, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 4,
+      size: 3 + Math.random() * 4, turn: Math.random() * 6, spin: (Math.random() - 0.5) * 0.4,
+      color: palette[Math.floor(Math.random() * palette.length)],
+    };
+  });
+  const start = win.performance?.now?.() ?? Date.now();
+  const frame = (now) => {
+    const elapsed = now - start;
+    ctx.clearRect(0, 0, width, height);
+    parts.forEach((p) => {
+      p.vy += 0.22; p.vx *= 0.985; p.x += p.vx; p.y += p.vy; p.turn += p.spin;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - elapsed / duration);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.turn);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+      ctx.restore();
+    });
+    if (elapsed < duration) win.requestAnimationFrame(frame);
+    else canvas.remove();
+  };
+  win.requestAnimationFrame(frame);
+}
