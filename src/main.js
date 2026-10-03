@@ -12,6 +12,8 @@ import { createExportsController } from "./ui/exports.js";
 import { mountCalendarSync } from "./ui/calendar-sync.js";
 import { buildStatsInsights } from "./lib/stats-insights.js";
 import { buildPersonalRecords, defaultRemainingDaysOff, projectRemainingDays, recentOffRatio } from "./lib/stats-highlights.js";
+import { buildHourlyStats } from "./lib/stats-hourly.js";
+import { fetchWorkTimings } from "./services/work-timings.js";
 import * as motion from "./lib/motion.js";
 ﻿"use strict";
 
@@ -272,6 +274,7 @@ const state = {
   receiptEntries: {},
   automaticSalesOverrides: {},
   workRouteDetails: {},
+  workTimings: [],
   salesOverrideContractAvailable: false,
   workRouteDetailsContractAvailable: false,
   salesOverrideDraft: null,
@@ -1061,6 +1064,7 @@ function clearUserScopedState() {
   state.receiptEntries = {};
   state.automaticSalesOverrides = {};
   state.workRouteDetails = {};
+  state.workTimings = [];
   state.salesOverrideContractAvailable = false;
   state.workRouteDetailsContractAvailable = false;
   state.salesOverrideDraft = null;
@@ -3001,12 +3005,15 @@ async function loadFromDb(context = captureAccountContext()) {
       state.db.from(TABLES.inspections).select("*").eq("user_id", userId).order("inspection_date"),
       state.db.from(TABLES.inspectionSignatures).select("signature_data").eq("user_id", userId).maybeSingle(),
       fetchActiveMeasurementLease(userId),
+      // Timing is optional metadata; a missing migration or failed timing read
+      // must not prevent the verified sales ledger from loading.
+      fetchWorkTimings(state.db, userId).catch(() => ({ rows: [], available: false })),
     ]);
   } catch (error) {
     if (!isAccountContextCurrent(context)) return false;
     throw error;
   }
-  const [ratesResult, defaultRatesResult, daysResult, itemsResult, ledger, overridesResult, bundlesResult, inspectionsResult, signatureResult, activeLease] = loaded;
+  const [ratesResult, defaultRatesResult, daysResult, itemsResult, ledger, overridesResult, bundlesResult, inspectionsResult, signatureResult, activeLease, timingResult] = loaded;
   if (!isAccountContextCurrent(context)) return false;
   if (state.pendingDates.size || state.pendingRates || state.flushPromise || state.recordDraft) return false;
   if (ratesResult.error) throw ratesResult.error;
@@ -3027,6 +3034,7 @@ async function loadFromDb(context = captureAccountContext()) {
   state.salesOverrideContractAvailable = overridesResult.available;
   state.workRouteDetails = workRouteDetailsByDate(ledger.workResults, ledger.workRouteDetails);
   state.workRouteDetailsContractAvailable = ledger.workRouteDetailsAvailable;
+  state.workTimings = timingResult.rows;
   state.receiptEntries = entriesFromDb(daysResult.data, itemsResult.data, ledger.workResults, ledger.workRoutes);
   state.entries = applyAutomaticSalesOverrides(state.receiptEntries, state.automaticSalesOverrides);
   state.workDateDataLoaded = true;
@@ -4956,6 +4964,24 @@ function statsDailyRecords() {
   });
 }
 
+function statsHourlyDays() {
+  return statsDailyRecords().map((day) => {
+    const record = normalizeRecordShape(state.entries[day.dateKey]);
+    const backup = record.driverType === "backup" ? toNum(defaultBackupUnit(record.backupUnit)) : 0;
+    const routes = record.rows.flatMap((row) => {
+      const codes = splitStoredRoutes(row.route);
+      // A bundled/manual count has no measured time for each route. Keep it in
+      // daily totals, but never manufacture an hourly route split.
+      if (codes.length !== 1 || !/^\d{3}[A-Z]$/.test(codes[0]) || !isAutomaticRow(row)) return [];
+      const count = toNum(row.count);
+      const unit = Math.max(0, effectiveUnit(row) - backup);
+      return [{ route: codes[0], count, revenue: count * unit, workId: row.workId }];
+    });
+    const workIds = [...new Set([...(record.automaticWorks || []).map((work) => work.workId), ...routes.map((row) => row.workId)].filter(Boolean))];
+    return { ...day, routes, workIds };
+  });
+}
+
 function statsModeTitle(mode) {
   return ({
     thisMonth: "이번 정산",
@@ -5054,6 +5080,7 @@ function renderDriverInsights(report) {
   $("statsReview").innerHTML = outlook.reviewDates.length ? `<details class="stats-disclosure"><summary>일정은 있지만 실적이 없는 ${outlook.reviewDates.length}일</summary><p class="stats-reading-note">미입력·일정 변경·실제 0건 근무일 수 있습니다. 날짜별 기록에서 확인하세요.</p><p>${outlook.reviewDates.map(formatMonthDay).join(" · ")}</p></details>` : "";
   $("statsDailyTitle").textContent = `날짜별 기록 보기 · ${report.summary.recordDays}일`;
   renderStatsNet(report.summary.revenue, report.range.start, report.range.end);
+  renderStatsHourly(report);
   renderStatsRecords(days);
   renderStatsPlan(report, outlook, days);
   renderStatsCauses(drivers.decomposition);
@@ -5077,6 +5104,37 @@ function statsRecordDate(dateKey) {
   return `${sameYear ? "" : `${dateKey.slice(2, 4)}.`}${Number(dateKey.slice(5, 7))}.${Number(dateKey.slice(8, 10))}`;
 }
 
+function renderStatsHourly(report) {
+  const section = $("statsHourlySection");
+  const content = $("statsHourlyContent");
+  if (!section || !content) return;
+  const stats = buildHourlyStats({ days: statsHourlyDays(), timings: state.workTimings, range: report.range, asOfDate: todayKey() });
+  section.hidden = !stats.hasTimings;
+  if (section.hidden) { content.innerHTML = ""; return; }
+  if (!stats.ready) {
+    content.innerHTML = '<p id="statsHourlyTitle" class="stats-reading-note">측정한 날이 3일 이상 쌓이면 보입니다</p>';
+    return;
+  }
+  const minutes = Math.round(stats.averageNonDeliverySeconds / 60);
+  content.innerHTML = `<div class="stats-report-section-head"><div><span>내 시급</span><h2 id="statsHourlyTitle">하루 업무 시간으로 본 수익</h2></div></div>
+    <div class="stats-hourly-pair"><div class="is-primary"><span>실제 시급</span><strong id="statsActualHourly"></strong><small>대기·상차·이동 포함</small></div><div><span>배송 시급</span><strong id="statsDeliveryHourly"></strong><small>측정 중 일시정지 제외</small></div></div>
+    <p class="stats-hourly-outside">하루 평균 <strong>${Math.floor(minutes / 60)}시간 ${minutes % 60}분</strong>은 배송 외 시간</p>
+    ${stats.routes.length ? '<h3 class="stats-pattern-title">구역별 시간당 수익</h3><div class="stats-hourly-routes" id="statsHourlyRoutes"></div>' : ''}
+    ${stats.comparison ? `<p class="stats-reading-note">개수는 ${escapeAttr(stats.comparison.countRoute.route)}가 가장 많지만 시간당으로는 ${escapeAttr(stats.comparison.hourlyRoute.route)}가 더 나아요.</p>` : ''}
+    <p class="stats-reading-note stats-hourly-basis">측정한 ${stats.measuredDays}일 기준, 측정이 없거나 부족한 ${stats.excludedDays}일 제외</p>`;
+  renderStatsRollingAmount($("statsActualHourly"), stats.actualHourly);
+  renderStatsRollingAmount($("statsDeliveryHourly"), stats.deliveryHourly);
+  const routes = $("statsHourlyRoutes");
+  if (routes) {
+    const max = stats.routes[0].hourly;
+    routes.innerHTML = stats.routes.map((row, index) => `<div class="stats-hourly-route${index === 0 ? ' is-best' : ''}"><span>${escapeAttr(row.route)}<small>${row.days}일 측정</small></span><div class="stats-hourly-track" aria-hidden="true"><i data-width="${max > 0 ? row.hourly / max * 100 : 0}"></i></div><strong>${statsMetric(Math.round(row.hourly))}</strong></div>`).join("");
+    statsMotion.whenVisible(section, "hourly-bars", () => {
+      const fill = () => routes.querySelectorAll("i[data-width]").forEach((bar) => { bar.style.width = `${bar.dataset.width}%`; });
+      if (motion.shouldAnimate()) requestAnimationFrame(fill); else fill();
+    });
+  }
+}
+
 function renderStatsRecords(days) {
   const section = $("statsRecordsSection");
   if (!section) return;
@@ -5084,11 +5142,14 @@ function renderStatsRecords(days) {
   section.hidden = !records || records.workedDays < 3;
   if (section.hidden) return;
   const weekday = (dateKey) => WEEKDAY_LABELS[parseDateKey(dateKey).getDay()];
+  const hourly = buildHourlyStats({ days: statsHourlyDays(), timings: state.workTimings, asOfDate: todayKey() });
   const tiles = [
     { key: "revenue", label: "최고 매출", value: statsMetric(records.revenue.value), when: `${statsRecordDate(records.revenue.dateKey)} (${weekday(records.revenue.dateKey)})`, record: records.revenue, id: records.revenue.dateKey },
     records.count && { key: "count", label: "최다 배송", value: statsMetric(records.count.value, "건"), when: `${statsRecordDate(records.count.dateKey)} (${weekday(records.count.dateKey)})`, record: records.count, id: records.count.dateKey },
     { key: "settlement", label: "최고 정산", value: statsMetric(records.settlement.value), when: `${records.settlement.period.month}월 정산`, record: records.settlement, id: records.settlement.period.id },
-    { key: "streak", label: "최장 연속 근무", value: statsMetric(records.streak.value, "일"), when: `${statsRecordDate(records.streak.start)} - ${statsRecordDate(records.streak.end)}`, record: records.streak, id: records.streak.end },
+    hourly.ready && hourly.bestActual
+      ? { key: "hourly", label: "최고 시급", value: statsMetric(Math.round(hourly.bestActual.value)), when: `${statsRecordDate(hourly.bestActual.dateKey)} (${weekday(hourly.bestActual.dateKey)})`, record: hourly.bestActual, id: hourly.bestActual.dateKey }
+      : { key: "streak", label: "최장 연속 근무", value: statsMetric(records.streak.value, "일"), when: `${statsRecordDate(records.streak.start)} - ${statsRecordDate(records.streak.end)}`, record: records.streak, id: records.streak.end },
   ].filter(Boolean);
   $("statsRecordsSince").textContent = `${statsRecordDate(records.since)}부터`;
   $("statsRecords").innerHTML = tiles.map((tile) => `<div class="stats-record${tile.record.isNew ? " is-new" : ""}" data-record="${tile.key}">

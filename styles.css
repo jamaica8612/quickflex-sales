@@ -4244,6 +4244,28 @@ html:not([data-theme="dark"]) .ledger-switch button.is-on { background: var(--pa
 .stats-sim-track > i { position: absolute; top: -5px; bottom: -5px; left: 0; width: 2px; border-radius: 2px; background: var(--text); transition: left .5s cubic-bezier(.2,.8,.2,1); }
 .stats-sim-track > i b { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); color: var(--muted); font-size: 10.5px; font-style: normal; font-weight: 500; white-space: nowrap; }
 
+.stats-hourly #statsHourlyContent { display: grid; gap: 14px; }
+.stats-hourly .stats-report-section-head { margin-bottom: 0; }
+.stats-hourly-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.stats-hourly-pair > div { display: grid; gap: 6px; padding: 12px; border-radius: var(--r-md); background: var(--panel2); }
+.stats-hourly-pair > div > span { color: var(--muted); font-size: var(--fs-label); font-weight: 500; }
+.stats-hourly-pair strong { font-family: var(--font-numeric); font-size: 24px; font-weight: 700; letter-spacing: -.025em; white-space: nowrap; }
+.stats-hourly-pair .is-primary strong { color: var(--gold); }
+.stats-hourly-pair small { color: var(--muted); font-size: var(--fs-caption); }
+.stats-hourly-pair .stats-unit { margin-left: 3px; font-weight: 500; }
+.stats-hourly-outside { margin: 0; color: var(--text); font-size: var(--fs-body); line-height: 1.6; }
+.stats-hourly-outside strong { font-family: var(--font-numeric); font-weight: 700; }
+.stats-hourly-routes { display: grid; gap: 14px; }
+.stats-hourly-route { display: grid; grid-template-columns: 64px minmax(0, 1fr) 82px; align-items: center; gap: 10px; }
+.stats-hourly-route > span { display: grid; gap: 3px; font-family: var(--font-code); font-size: var(--fs-label); font-weight: 600; }
+.stats-hourly-route > span small { color: var(--muted); font-family: var(--font-ui); font-size: var(--fs-caption); font-weight: 500; }
+.stats-hourly-route > strong { text-align: right; font-family: var(--font-numeric); font-size: var(--fs-body); font-weight: 700; white-space: nowrap; }
+.stats-hourly-track { height: 10px; overflow: hidden; border-radius: var(--r-full); background: var(--panel3); }
+.stats-hourly-track > i { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--muted); transition: width .7s cubic-bezier(.2,.8,.2,1); }
+.stats-hourly-route.is-best .stats-hourly-track > i { background: var(--gold); }
+.stats-hourly-route.is-best > strong { color: var(--gold); }
+.stats-hourly-basis { margin-bottom: 0; }
+
 .stats-causes { display: grid; gap: 10px; }
 .stats-causes .stats-pattern-title { margin: 0; }
 .stats-cause-rows { display: grid; gap: 10px; }
@@ -4260,5 +4282,5 @@ html:not([data-theme="dark"]) .ledger-switch button.is-on { background: var(--pa
 @media (prefers-reduced-motion: reduce) {
   .stats-driver-report .stats-reveal { opacity: 1; transform: none; }
   .stats-record.is-popping { animation: none; }
-  .stats-sim-track > span, .stats-sim-track > i, .stats-cause-track > i, .stats-driver-report .ssc-meter-bar > span { transition: none; }
+  .stats-sim-track > span, .stats-sim-track > i, .stats-cause-track > i, .stats-hourly-track > i, .stats-driver-report .ssc-meter-bar > span { transition: none; }
 }

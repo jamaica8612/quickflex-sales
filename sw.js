@@ -36,6 +36,8 @@ const SHELL_FILES = [
   "./app.js",
   "./src/main.js",
   "./src/lib/motion.js",
+  "./src/lib/stats-hourly.js",
+  "./src/services/work-timings.js",
   "./src/lib/expenses.js",
   "./src/services/expenses.js",
   "./src/ui/expenses.js",
