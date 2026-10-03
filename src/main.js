@@ -11,7 +11,7 @@ import { isNativeShell } from "./ui/noah-refresh-guard.js";
 import { createExportsController } from "./ui/exports.js";
 import { mountCalendarSync } from "./ui/calendar-sync.js";
 import { buildStatsInsights } from "./lib/stats-insights.js";
-import { buildPersonalRecords, projectDayOffChange } from "./lib/stats-highlights.js";
+import { buildPersonalRecords, defaultRemainingDaysOff, projectRemainingDays, recentOffRatio } from "./lib/stats-highlights.js";
 import * as motion from "./lib/motion.js";
 ﻿"use strict";
 
@@ -180,7 +180,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.119";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.120";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -5055,7 +5055,7 @@ function renderDriverInsights(report) {
   $("statsDailyTitle").textContent = `날짜별 기록 보기 · ${report.summary.recordDays}일`;
   renderStatsNet(report.summary.revenue, report.range.start, report.range.end);
   renderStatsRecords(days);
-  renderStatsPlan(report, outlook);
+  renderStatsPlan(report, outlook, days);
   renderStatsCauses(drivers.decomposition);
 }
 
@@ -5118,32 +5118,43 @@ function celebrateStatsRecords(section, recordKeys) {
   }), 250);
 }
 
-// Day-off planner: moves remaining scheduled workdays to days off (or the reverse) and re-projects the settlement.
-let statsPlanShift = 0;
+// Day-off planner: the rest of the settlement in calendar days, with an adjustable number of days off.
+// It works without a full schedule: the default fills open days with the recent day-off share.
+let statsPlanOffDays = null;
 let statsPlanContext = null;
 let statsPlanBound = false;
-function renderStatsPlan(report, outlook) {
+function renderStatsPlan(report, outlook, days) {
   const section = $("statsPlanSection");
   if (!section) return;
-  const usable = outlook.applicable && outlook.projectedRevenue !== null && outlook.averageRevenue !== null;
+  const usable = outlook.applicable && outlook.workedDays >= 3 && outlook.averageRevenue !== null && outlook.remainingDays > 0;
   section.hidden = !usable;
   if (!statsPlanBound) {
     statsPlanBound = true;
-    $("statsSimMinus")?.addEventListener("click", () => { statsPlanShift -= 1; updateStatsPlan(); });
-    $("statsSimPlus")?.addEventListener("click", () => { statsPlanShift += 1; updateStatsPlan(); });
+    $("statsSimMinus")?.addEventListener("click", () => { statsPlanOffDays = (statsPlanOffDays ?? statsPlanContext?.defaultOffDays ?? 0) - 1; updateStatsPlan(); });
+    $("statsSimPlus")?.addEventListener("click", () => { statsPlanOffDays = (statsPlanOffDays ?? statsPlanContext?.defaultOffDays ?? 0) + 1; updateStatsPlan(); });
   }
   if (!usable) {
     statsPlanContext = null;
     return;
   }
   const periodId = report.period.id;
-  if (statsPlanContext?.periodId !== periodId) statsPlanShift = 0;
+  const offRatio = recentOffRatio(days, todayKey());
+  const defaultOffDays = defaultRemainingDaysOff({
+    remainingDays: outlook.remainingDays,
+    registeredOffDays: outlook.offDaysAhead,
+    unknownDays: outlook.openDays,
+    offRatio,
+  });
+  if (statsPlanContext?.periodId !== periodId || statsPlanContext?.remainingDays !== outlook.remainingDays) statsPlanOffDays = null;
   statsPlanContext = {
     periodId,
     revenue: report.summary.revenue,
     averageRevenue: outlook.averageRevenue,
-    plannedDays: outlook.plannedDays,
-    offDaysAhead: outlook.offDaysAhead,
+    remainingDays: outlook.remainingDays,
+    registeredOffDays: outlook.offDaysAhead,
+    openDays: outlook.openDays,
+    offRatio,
+    defaultOffDays,
     target: outlook.target,
     workedDays: outlook.workedDays,
   };
@@ -5152,25 +5163,27 @@ function renderStatsPlan(report, outlook) {
 function updateStatsPlan() {
   const context = statsPlanContext;
   if (!context) return;
-  const plan = projectDayOffChange({ ...context, shift: statsPlanShift });
-  statsPlanShift = plan.shift;
-  $("statsSimMinus").disabled = plan.shift <= plan.min;
-  $("statsSimPlus").disabled = plan.shift >= plan.max;
-  const headline = plan.shift === 0 ? "근무표대로" : (plan.shift > 0 ? `휴무 ${plan.shift}일 더` : `휴무일 ${-plan.shift}일 출근`);
-  $("statsSimLabel").innerHTML = `${headline}<small>남은 근무 ${plan.workDays}일</small>`;
+  const plan = projectRemainingDays({ ...context, offDays: statsPlanOffDays ?? context.defaultOffDays });
+  if (statsPlanOffDays !== null) statsPlanOffDays = plan.offDays;
+  $("statsSimMinus").disabled = plan.offDays <= 0;
+  $("statsSimPlus").disabled = plan.offDays >= plan.remainingDays;
+  $("statsSimLabel").innerHTML = `남은 ${plan.remainingDays}일 중 휴무 ${plan.offDays}일<small>근무 ${plan.workDays}일${plan.offDays === context.defaultOffDays ? " · 예상 휴무" : ` · 예상 휴무 ${context.defaultOffDays}일`}</small>`;
   renderStatsRollingAmount($("statsSimTotal"), plan.projectedRevenue);
   const target = context.target;
   const gap = target ? plan.projectedRevenue - target : null;
   $("statsSimGoal").textContent = gap === null ? "목표 미설정"
     : (gap >= 0 ? `목표보다 ${fmtWon(Math.round(gap))} 많습니다` : `목표까지 ${fmtWon(Math.round(-gap))} 모자랍니다`);
-  const scale = Math.max(target || 0, context.revenue + context.averageRevenue * (plan.max - plan.min), 1) * 1.04;
+  const scale = Math.max(target || 0, context.revenue + context.averageRevenue * plan.remainingDays, 1) * 1.04;
   const mark = $("statsSimGoalMark");
   mark.hidden = !target;
   statsMotion.whenVisible($("statsPlanSection"), "sim-bar", () => requestAnimationFrame(() => {
     $("statsSimFill").style.width = `${Math.min(100, plan.projectedRevenue / scale * 100)}%`;
     if (target) mark.style.left = `calc(${Math.min(100, target / scale * 100)}% - 1px)`;
   }));
-  $("statsSimNote").textContent = `휴무 하루는 평소 근무일당 매출 ${fmtWon(Math.round(context.averageRevenue))}입니다. 이번 정산 근무 ${context.workedDays}일 평균으로 계산했습니다.`;
+  const basis = context.openDays
+    ? `예상 휴무는 등록된 휴무 ${context.registeredOffDays}일에, 근무표가 빈 ${context.openDays}일은 최근 휴무 비율(${Math.round(context.offRatio * 100)}%)을 적용한 값입니다.`
+    : `예상 휴무는 근무표에 등록된 휴무 ${context.registeredOffDays}일입니다.`;
+  $("statsSimNote").textContent = `휴무 하루는 평소 근무일당 매출 ${fmtWon(Math.round(context.averageRevenue))}입니다(이번 정산 근무 ${context.workedDays}일 평균). ${basis}`;
 }
 
 // Why the same-workday revenue moved: parcel volume, average unit price (route mix) and extra pay.

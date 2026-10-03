@@ -1701,3 +1701,8 @@ Browser checks:
 - Motion starts when a card is on screen: cards rise in once, numbers roll and bars fill when seen, and a value that changed off screen animates once to its latest state. A new record is celebrated once per account (UI-only localStorage key). Reduced motion shows final values at once. DESIGN-RULES 5 and 6-10 updated to match.
 - Pure logic lives in `src/lib/stats-highlights.js` (added to the shell cache); `createVisibilityQueue` and `confettiBurst` were added to `src/lib/motion.js`.
 - Validation: full Node suite **659/659**, `release --check` passed for all 24 tracked assets. A local browser run of the real app against a fake Supabase client with one year of synthetic records (no network) checked 390px light/dark, scrolling, the planner, the 1-year range and reduced motion with no console errors. No database or Edge Function changes.
+
+## 2026-10-03 - 휴무 계획 without a full schedule (PWA 1.0.120)
+
+- User feedback: drivers cannot register the whole remaining schedule, so the 1.0.119 planner (shown only when every remaining day had a workday or day off) never appeared. The planner now uses the remaining calendar days (today included until recorded) and an adjustable number of days off; it needs 3 worked days in the running settlement. The default days off are the registered days off plus the open days times the recent 56-day day-off share (one a week with fewer than 7 recorded days), and the note states that basis. The strict schedule projection in the hero disclosure is unchanged.
+- Validation: full Node suite, `release --check`, and a local fake-backend browser run with the schedule registered only through 10/10 (22 remaining days, default 4 off, +2 off re-projects) with no console errors. No database or Edge Function changes.

@@ -93,6 +93,14 @@ export function buildStatsInsights({ days = [], report, asOfDate } = {}) {
       if (day?.worked !== true) unknownDays += 1;
     });
   }
+  // Days still ahead in the settlement, including today until it is recorded,
+  // and how many of them the schedule leaves open (no workday or day off yet).
+  const remainingDays = applicable
+    ? dateKeysBetween(asOfKey, period.end).length - 1 + (pendingToday ? 1 : 0)
+    : 0;
+  const openDays = applicable
+    ? unknownDays + (pendingToday && dayByDate.get(asOfKey)?.planned !== true ? 1 : 0)
+    : 0;
 
   const target = applicable ? (report.goal?.target ?? null) : null;
   const remainingAmount = target === null
@@ -141,6 +149,8 @@ export function buildStatsInsights({ days = [], report, asOfDate } = {}) {
       plannedDays,
       unknownDays,
       offDaysAhead,
+      remainingDays,
+      openDays,
       requiredDailyRevenue,
       projectedRevenue,
       workedDays,

@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   buildPersonalRecords,
   decomposeRevenueChange,
-  projectDayOffChange,
+  defaultRemainingDaysOff,
+  projectRemainingDays,
+  recentOffRatio,
   settlementPeriodForDate,
 } from "../src/lib/stats-highlights.js";
 import { buildStatsInsights } from "../src/lib/stats-insights.js";
@@ -76,13 +78,25 @@ test("the split is withheld without matching parcel counts", () => {
   assert.equal(decomposeRevenueChange([{ ...known, count: 0 }], [known]), null);
 });
 
-test("the day-off planner stays within the remaining schedule", () => {
-  const base = { revenue: 1000, averageRevenue: 100, plannedDays: 5, offDaysAhead: 2 };
-  assert.deepEqual(projectDayOffChange({ ...base, shift: 0 }), { shift: 0, min: -2, max: 5, workDays: 5, projectedRevenue: 1500 });
-  assert.equal(projectDayOffChange({ ...base, shift: 2 }).projectedRevenue, 1300);
-  assert.equal(projectDayOffChange({ ...base, shift: -2 }).projectedRevenue, 1700);
-  assert.equal(projectDayOffChange({ ...base, shift: -9 }).shift, -2);
-  assert.equal(projectDayOffChange({ ...base, shift: 9 }).workDays, 0);
+test("the day-off planner works on remaining calendar days", () => {
+  const base = { revenue: 1000, averageRevenue: 100, remainingDays: 10 };
+  assert.deepEqual(projectRemainingDays({ ...base, offDays: 2 }), { remainingDays: 10, offDays: 2, workDays: 8, projectedRevenue: 1800 });
+  assert.equal(projectRemainingDays({ ...base, offDays: -3 }).offDays, 0);
+  assert.equal(projectRemainingDays({ ...base, offDays: 99 }).workDays, 0);
+  assert.equal(defaultRemainingDaysOff({ remainingDays: 22, registeredOffDays: 1, unknownDays: 14, offRatio: 1 / 7 }), 3);
+  assert.equal(defaultRemainingDaysOff({ remainingDays: 2, registeredOffDays: 3, unknownDays: 0, offRatio: 0.2 }), 2);
+});
+
+test("the default day-off share comes from recent recorded days", () => {
+  const days = [];
+  let key = "2026-09-01";
+  for (let index = 0; index < 28; index += 1) {
+    days.push(index % 4 === 0 ? { dateKey: key, off: true } : { dateKey: key, worked: true, revenue: 1 });
+    key = addDays(key, 1);
+  }
+  assert.equal(recentOffRatio(days, "2026-09-29"), 7 / 28);
+  assert.equal(recentOffRatio(days.slice(0, 5), "2026-09-29"), 1 / 7, "too few recorded days fall back to one a week");
+  assert.equal(recentOffRatio(days, "2026-12-31"), 1 / 7, "old records are outside the window");
 });
 
 function history(start, count, revenueFor, skip = () => false) {
@@ -157,6 +171,8 @@ test("insights count future days off and split a same-workday change", () => {
   const report = buildStatsReport({ dailyRecords: days, currentPeriod: { year: 2026, month: 10 }, mode: "thisSettlement", asOfDate: "2026-09-28", goal: 1000 });
   const insights = buildStatsInsights({ days, report, asOfDate: "2026-09-28" });
   assert.equal(insights.outlook.offDaysAhead, 2);
+  assert.equal(insights.outlook.remainingDays, 27);
+  assert.equal(insights.outlook.openDays, 0);
   assert.equal(insights.outlook.plannedDays, 25);
   assert.equal(insights.drivers.decomposition.volume, 60000);
   assert.equal(insights.drivers.decomposition.unit, 0);
@@ -201,4 +217,17 @@ test("stats motion waits for its card and keeps only the newest pending run", as
   unsupported.whenVisible({}, "bar", () => { ran = true; });
   assert.equal(unsupported.supported, false);
   assert.equal(ran, true);
+});
+
+test("open schedule days and an unrecorded today still count as remaining days", () => {
+  const worked = ["2026-09-26", "2026-09-27", "2026-09-28"].map((dateKey) => ({ dateKey, worked: true, revenue: 100 }));
+  const days = [...worked, { dateKey: "2026-09-30", off: true }, { dateKey: "2026-10-01", planned: true }];
+  const report = buildStatsReport({ dailyRecords: days, currentPeriod: { year: 2026, month: 10 }, mode: "thisSettlement", asOfDate: "2026-09-29", goal: 1000 });
+  const { outlook } = buildStatsInsights({ days, report, asOfDate: "2026-09-29" });
+  assert.equal(outlook.pendingToday, true);
+  assert.equal(outlook.remainingDays, 27, "9/29 through 10/25");
+  assert.equal(outlook.offDaysAhead, 1);
+  assert.equal(outlook.plannedDays, 1);
+  assert.equal(outlook.openDays, 25, "today plus 24 future days without a schedule");
+  assert.equal(outlook.projectedRevenue, null, "the strict schedule projection stays unavailable");
 });
