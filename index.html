@@ -407,10 +407,27 @@
             <div id="statsOutlookPlan" class="stats-outlook-plan"></div>
             <div class="ssc-meter" id="statsGoalMeter"><div class="ssc-meter-bar"><span id="statsMeterFill"></span></div><div class="ssc-meter-foot"><span id="statsMeterPct">0%</span><span id="statsMeterLabel">목표 미설정</span></div></div>
             <dl class="stats-hero-support"><div><dt>근무일당 매출</dt><dd id="statsAverage">0원</dd></div><div><dt>기록된 근무</dt><dd id="statsWorkDays">0일</dd></div></dl>
+            <div class="stats-net" id="statsNet" hidden><span>지출 <span id="statsNetExpense">0원</span> 빼면 남는 돈</span><strong id="statsNetValue">0원</strong></div>
+          </section>
+          <section class="stats-report-section" id="statsRecordsSection" aria-labelledby="statsRecordsTitle" hidden>
+            <div class="stats-report-section-head"><div><span>내 최고 기록</span><h2 id="statsRecordsTitle">지금까지 가장 잘한 날</h2></div><small class="stats-records-since" id="statsRecordsSince"></small></div>
+            <div class="stats-records" id="statsRecords"></div>
+          </section>
+          <section class="stats-report-section" id="statsPlanSection" aria-labelledby="statsPlanTitle" hidden>
+            <div class="stats-report-section-head"><div><span>이번 정산 계획</span><h2 id="statsPlanTitle">휴무를 바꾸면 정산이 얼마가 될까</h2></div></div>
+            <div class="stats-sim">
+              <button class="stats-sim-step" id="statsSimMinus" type="button" aria-label="휴무 하루 줄이기">−</button>
+              <output id="statsSimLabel" aria-live="polite"></output>
+              <button class="stats-sim-step" id="statsSimPlus" type="button" aria-label="휴무 하루 늘리기">+</button>
+            </div>
+            <div class="stats-sim-result"><strong id="statsSimTotal"></strong><span id="statsSimGoal"></span></div>
+            <div class="stats-sim-track" aria-hidden="true"><span id="statsSimFill"></span><i id="statsSimGoalMark"><b>목표</b></i></div>
+            <p class="stats-reading-note" id="statsSimNote"></p>
           </section>
           <section class="stats-report-section" id="statsChangeSection" aria-labelledby="statsChangeTitle">
             <div class="stats-report-section-head"><div><span>지난 정산과 비교</span><h2 id="statsChangeTitle">같은 날수 일했을 때</h2></div></div>
             <div class="stats-compare" id="statsComparison" aria-live="polite"><span id="statsCompareLabel"></span><strong id="statsCompareValue"></strong><small id="statsCompareMeta"></small></div>
+            <div id="statsCauses" class="stats-causes" hidden><h3 class="stats-pattern-title">왜 달라졌나</h3><div id="statsCauseRows" class="stats-cause-rows"></div><p id="statsCauseNote" class="stats-reading-note"></p></div>
             <details id="statsDriverDisclosure" class="stats-disclosure"><summary>물량·단가·수당 비교</summary><div id="statsDrivers" class="stats-driver-grid"></div><p id="statsDriversNote" class="stats-reading-note"></p></details>
           </section>
           <section class="stats-sparkline-card" aria-labelledby="statsTrendTitle">

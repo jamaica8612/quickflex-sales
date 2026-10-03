@@ -11,6 +11,7 @@ import { isNativeShell } from "./ui/noah-refresh-guard.js";
 import { createExportsController } from "./ui/exports.js";
 import { mountCalendarSync } from "./ui/calendar-sync.js";
 import { buildStatsInsights } from "./lib/stats-insights.js";
+import { buildPersonalRecords, projectDayOffChange } from "./lib/stats-highlights.js";
 import * as motion from "./lib/motion.js";
 ﻿"use strict";
 
@@ -197,6 +198,13 @@ import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
 // the whole canvas).
 let statsChartShownThisSession = false;
 const statsChartMotion = motion.createAnimationGroup();
+// 정산노트 motion runs when its card is actually on screen, not when the data
+// arrives: a card below the fold (or inside the hidden tab) keeps its latest
+// pending motion until it scrolls into view, and rises in the first time.
+const statsMotion = motion.createVisibilityQueue({ onEnter: (card) => card.classList.add("is-shown") });
+function statsCard(node) {
+  return node?.closest?.(".stats-report-hero, .stats-report-section, .stats-sparkline-card") || null;
+}
 function statsChartFingerprint(trend) {
   return JSON.stringify((Array.isArray(trend?.buckets) ? trend.buckets : []).map((b) => [b.start, b.end, b.revenue, b.workDays]));
 }
@@ -205,23 +213,21 @@ function applyStatsChartMotion(trend) {
   if (!canvas) { renderStatsChart(trend); return; }
   const fingerprint = statsChartFingerprint(trend);
   const previousFingerprint = canvas.__moFingerprint;
-  // Only a chart the user can actually see counts as shown; a render behind
-  // another tab keeps the draw-on for when 정산노트 is opened.
-  const visible = Boolean(canvas.offsetParent);
-  const isFirstShow = visible && !statsChartShownThisSession;
+  const isFirstShow = !statsChartShownThisSession;
   const dataChanged = previousFingerprint !== undefined && previousFingerprint !== fingerprint;
   canvas.__moFingerprint = fingerprint;
-  if (visible) statsChartShownThisSession = true;
 
   if (isFirstShow && motion.shouldAnimate()) {
+    statsChartShownThisSession = true;
     renderStatsChart(trend);
     canvas.style.clipPath = "inset(0 100% 0 0)";
-    statsChartMotion.run("draw", 0, 1, {
+    // The draw-on waits until the chart card is on screen.
+    statsMotion.whenVisible(statsCard(canvas), "chart-draw", () => statsChartMotion.run("draw", 0, 1, {
       stiffness: 260,
       damping: 1,
       onUpdate: (v) => { canvas.style.clipPath = `inset(0 ${((1 - v) * 100).toFixed(2)}% 0 0)`; },
       onDone: () => { canvas.style.clipPath = ""; },
-    });
+    }));
     return;
   }
   if (dataChanged && motion.shouldAnimate()) {
@@ -4098,8 +4104,7 @@ function renderSummaryLedger(revenue, start = periodBounds().start, end = period
   (async () => {
     try {
       const rows = await ownExpenseService().list({ from, to, includeDrafts: true, includeTrashed: false });
-      const total = (rows || []).filter((row) => row.status === "confirmed" && row.actual_date >= from && row.actual_date <= to)
-        .reduce((sum, row) => sum + Number(row.gross_amount || 0) - (row.adjustments || []).filter((item) => item.kind === "refund").reduce((amount, item) => amount + Number(item.amount || 0), 0), 0);
+      const total = confirmedExpenseTotal(rows, from, to);
       if (summaryLedgerCache.loading !== key) return;
       Object.assign(summaryLedgerCache, { key, total, loading: "" });
       renderSummary();
@@ -4110,6 +4115,40 @@ function renderSummaryLedger(revenue, start = periodBounds().start, end = period
 }
 function invalidateSummaryLedger() {
   Object.assign(summaryLedgerCache, { key: "", total: null, loading: "" });
+  Object.assign(statsLedgerCache, { key: "", total: null, loading: "" });
+}
+// Confirmed expenses dated inside the range, net of refunds.
+function confirmedExpenseTotal(rows, from, to) {
+  return (rows || []).filter((row) => row.status === "confirmed" && row.actual_date >= from && row.actual_date <= to)
+    .reduce((sum, row) => sum + Number(row.gross_amount || 0) - (row.adjustments || []).filter((item) => item.kind === "refund").reduce((amount, item) => amount + Number(item.amount || 0), 0), 0);
+}
+// 정산노트's "남는 돈" line: the selected range's revenue minus its expenses, shown once they load.
+const statsLedgerCache = { key: "", total: null, loading: "" };
+const statsNetShown = { key: "", revenue: 0 };
+function renderStatsNet(revenue, from, to) {
+  const box = $("statsNet");
+  if (!box) return;
+  const key = `${currentUserId() || ""}:${from}:${to}`;
+  Object.assign(statsNetShown, { key, revenue });
+  if (statsLedgerCache.key === key && statsLedgerCache.total !== null) {
+    $("statsNetExpense").textContent = fmtWon(statsLedgerCache.total);
+    $("statsNetValue").textContent = fmtWon(revenue - statsLedgerCache.total);
+    box.hidden = false;
+    return;
+  }
+  box.hidden = true;
+  if (statsLedgerCache.loading === key || !currentUserId()) return;
+  statsLedgerCache.loading = key;
+  (async () => {
+    try {
+      const rows = await ownExpenseService().list({ from, to, includeDrafts: true, includeTrashed: false });
+      if (statsLedgerCache.loading !== key) return;
+      Object.assign(statsLedgerCache, { key, total: confirmedExpenseTotal(rows, from, to), loading: "" });
+      if (statsNetShown.key === key) renderStatsNet(statsNetShown.revenue, from, to);
+    } catch {
+      if (statsLedgerCache.loading === key) statsLedgerCache.loading = "";
+    }
+  })();
 }
 // The goal meter fill and its "목표 달성" chip: renderSummary() already set
 // el.meterFill.style.width/el.meterFill.__moSameMetric and el.meterPct's
@@ -4975,7 +5014,7 @@ function renderDriverInsights(report) {
   if (!value) return;
   const current = outlook.applicable;
   heading.textContent = `${statsModeTitle(state.statsRangeMode)} 누적 매출`;
-  value.innerHTML = statsMetric(report.summary.revenue);
+  renderStatsRollingAmount(value, report.summary.revenue);
   if (!current) {
     message.textContent = `${report.summary.workDays}일의 근무 기록을 모았습니다.`;
     plan.innerHTML = "";
@@ -4990,8 +5029,8 @@ function renderDriverInsights(report) {
     if (!outlook.plannedDays) caveats.push("등록된 남은 근무일이 없습니다.");
     if (!outlook.pendingToday && outlook.plannedDays && report.summary.workDays < 3) caveats.push("3일 이상 기록이 쌓이면 예상액을 보여드립니다.");
     if (outlook.requiredDailyRevenue !== null && outlook.unknownDays) caveats.push("필요 매출은 등록된 일정만 기준으로 합니다.");
+    // The projection itself lives in the day-off planner below; this keeps the inputs and caveats.
     plan.innerHTML = !outlook.plannedDays ? "" : `<details class="stats-disclosure"><summary>남은 일정으로 전망 보기</summary><div class="stats-plan-pair"><div><span>등록된 남은 근무</span><strong>${statsMetric(outlook.plannedDays, "일")}</strong></div><div><span>근무일당 필요한 매출</span><strong>${outlook.target ? required : "목표 미설정"}</strong></div></div>`
-      + (outlook.projectedRevenue !== null ? `<p class="stats-projection">이 평균이 이어지면 <strong>${statsMetric(Math.round(outlook.projectedRevenue))}</strong><small>현재 근무일당 평균 × 남은 등록 일정 · 예상값</small></p>` : "")
       + (caveats.length ? `<p class="stats-reading-note">${caveats.join(" ")}</p>` : "") + "</details>";
   }
   if (planWasOpen) plan.querySelector("details")?.setAttribute("open", "");
@@ -5014,6 +5053,152 @@ function renderDriverInsights(report) {
   $("statsTypical").innerHTML = typical.days ? `<div><span>기록된 하루 매출의 중간값</span><strong>${statsMetric(Math.round(typical.medianRevenue))}</strong></div><p>${typical.days}일 기록${typical.days < 4 ? " · 표본이 적어 참고만 해주세요." : ` · 가운데 절반은 ${fmtWon(Math.round(typical.lowRevenue))}~${fmtWon(Math.round(typical.highRevenue))}`}</p>` : `<p>근무 기록이 쌓이면 나의 평소 매출을 확인할 수 있습니다.</p>`;
   $("statsReview").innerHTML = outlook.reviewDates.length ? `<details class="stats-disclosure"><summary>일정은 있지만 실적이 없는 ${outlook.reviewDates.length}일</summary><p class="stats-reading-note">미입력·일정 변경·실제 0건 근무일 수 있습니다. 날짜별 기록에서 확인하세요.</p><p>${outlook.reviewDates.map(formatMonthDay).join(" · ")}</p></details>` : "";
   $("statsDailyTitle").textContent = `날짜별 기록 보기 · ${report.summary.recordDays}일`;
+  renderStatsNet(report.summary.revenue, report.range.start, report.range.end);
+  renderStatsRecords(days);
+  renderStatsPlan(report, outlook);
+  renderStatsCauses(drivers.decomposition);
+}
+
+// Rolling digits for a won amount; the roll waits until its card is on screen.
+function renderStatsRollingAmount(node, amount) {
+  if (!node) return;
+  let digits = node.querySelector(":scope > .stats-numeric[data-roll]");
+  if (!digits) {
+    node.innerHTML = `<span class="stats-numeric" data-roll></span><small class="stats-unit">원</small>`;
+    digits = node.firstElementChild;
+  }
+  const text = Math.round(amount || 0).toLocaleString("ko-KR");
+  node.setAttribute("aria-label", `${text}원`);
+  statsMotion.whenVisible(statsCard(node), `roll-${node.id}`, () => motion.updateRollingNumber(digits, text, { rollIn: true }));
+}
+
+function statsRecordDate(dateKey) {
+  const sameYear = dateKey.slice(0, 4) === todayKey().slice(0, 4);
+  return `${sameYear ? "" : `${dateKey.slice(2, 4)}.`}${Number(dateKey.slice(5, 7))}.${Number(dateKey.slice(8, 10))}`;
+}
+
+function renderStatsRecords(days) {
+  const section = $("statsRecordsSection");
+  if (!section) return;
+  const records = buildPersonalRecords(days, { asOfDate: todayKey() });
+  section.hidden = !records || records.workedDays < 3;
+  if (section.hidden) return;
+  const weekday = (dateKey) => WEEKDAY_LABELS[parseDateKey(dateKey).getDay()];
+  const tiles = [
+    { key: "revenue", label: "최고 매출", value: statsMetric(records.revenue.value), when: `${statsRecordDate(records.revenue.dateKey)} (${weekday(records.revenue.dateKey)})`, record: records.revenue, id: records.revenue.dateKey },
+    records.count && { key: "count", label: "최다 배송", value: statsMetric(records.count.value, "건"), when: `${statsRecordDate(records.count.dateKey)} (${weekday(records.count.dateKey)})`, record: records.count, id: records.count.dateKey },
+    { key: "settlement", label: "최고 정산", value: statsMetric(records.settlement.value), when: `${records.settlement.period.month}월 정산`, record: records.settlement, id: records.settlement.period.id },
+    { key: "streak", label: "최장 연속 근무", value: statsMetric(records.streak.value, "일"), when: `${statsRecordDate(records.streak.start)} - ${statsRecordDate(records.streak.end)}`, record: records.streak, id: records.streak.end },
+  ].filter(Boolean);
+  $("statsRecordsSince").textContent = `${statsRecordDate(records.since)}부터`;
+  $("statsRecords").innerHTML = tiles.map((tile) => `<div class="stats-record${tile.record.isNew ? " is-new" : ""}" data-record="${tile.key}">
+    ${tile.record.isNew ? '<span class="stats-record-new">NEW</span>' : ""}<span class="stats-record-label">${tile.label}</span><strong>${tile.value}</strong><small class="stats-record-date">${tile.when}</small></div>`).join("");
+  const fresh = tiles.filter((tile) => tile.record.isNew).map((tile) => `${tile.key}:${tile.id}:${Math.round(tile.record.value)}`);
+  if (fresh.length) statsMotion.whenVisible(section, "celebrate", () => celebrateStatsRecords(section, fresh));
+}
+
+// Each new record is celebrated once per account, the first time its card is seen.
+function celebrateStatsRecords(section, recordKeys) {
+  const storageKey = `quickflex-stats-celebrated:${currentUserId() || "local"}`;
+  let seen = [];
+  try { seen = JSON.parse(localStorage.getItem(storageKey) || "[]"); } catch (_) { seen = []; }
+  if (!Array.isArray(seen)) seen = [];
+  const unseen = recordKeys.filter((key) => !seen.includes(key));
+  if (!unseen.length) return;
+  try { localStorage.setItem(storageKey, JSON.stringify([...seen, ...unseen].slice(-24))); } catch (_) {}
+  const tiles = [...section.querySelectorAll(".stats-record.is-new")];
+  tiles.forEach((tile) => {
+    tile.classList.remove("is-popping");
+    void tile.offsetWidth;
+    tile.classList.add("is-popping");
+  });
+  const css = getComputedStyle(document.documentElement);
+  setTimeout(() => motion.confettiBurst(tiles[0], {
+    colors: ["--gold", "--gold2", "--muted", "--text"].map((name) => css.getPropertyValue(name).trim()),
+  }), 250);
+}
+
+// Day-off planner: moves remaining scheduled workdays to days off (or the reverse) and re-projects the settlement.
+let statsPlanShift = 0;
+let statsPlanContext = null;
+let statsPlanBound = false;
+function renderStatsPlan(report, outlook) {
+  const section = $("statsPlanSection");
+  if (!section) return;
+  const usable = outlook.applicable && outlook.projectedRevenue !== null && outlook.averageRevenue !== null;
+  section.hidden = !usable;
+  if (!statsPlanBound) {
+    statsPlanBound = true;
+    $("statsSimMinus")?.addEventListener("click", () => { statsPlanShift -= 1; updateStatsPlan(); });
+    $("statsSimPlus")?.addEventListener("click", () => { statsPlanShift += 1; updateStatsPlan(); });
+  }
+  if (!usable) {
+    statsPlanContext = null;
+    return;
+  }
+  const periodId = report.period.id;
+  if (statsPlanContext?.periodId !== periodId) statsPlanShift = 0;
+  statsPlanContext = {
+    periodId,
+    revenue: report.summary.revenue,
+    averageRevenue: outlook.averageRevenue,
+    plannedDays: outlook.plannedDays,
+    offDaysAhead: outlook.offDaysAhead,
+    target: outlook.target,
+    workedDays: outlook.workedDays,
+  };
+  updateStatsPlan();
+}
+function updateStatsPlan() {
+  const context = statsPlanContext;
+  if (!context) return;
+  const plan = projectDayOffChange({ ...context, shift: statsPlanShift });
+  statsPlanShift = plan.shift;
+  $("statsSimMinus").disabled = plan.shift <= plan.min;
+  $("statsSimPlus").disabled = plan.shift >= plan.max;
+  const headline = plan.shift === 0 ? "근무표대로" : (plan.shift > 0 ? `휴무 ${plan.shift}일 더` : `휴무일 ${-plan.shift}일 출근`);
+  $("statsSimLabel").innerHTML = `${headline}<small>남은 근무 ${plan.workDays}일</small>`;
+  renderStatsRollingAmount($("statsSimTotal"), plan.projectedRevenue);
+  const target = context.target;
+  const gap = target ? plan.projectedRevenue - target : null;
+  $("statsSimGoal").textContent = gap === null ? "목표 미설정"
+    : (gap >= 0 ? `목표보다 ${fmtWon(Math.round(gap))} 많습니다` : `목표까지 ${fmtWon(Math.round(-gap))} 모자랍니다`);
+  const scale = Math.max(target || 0, context.revenue + context.averageRevenue * (plan.max - plan.min), 1) * 1.04;
+  const mark = $("statsSimGoalMark");
+  mark.hidden = !target;
+  statsMotion.whenVisible($("statsPlanSection"), "sim-bar", () => requestAnimationFrame(() => {
+    $("statsSimFill").style.width = `${Math.min(100, plan.projectedRevenue / scale * 100)}%`;
+    if (target) mark.style.left = `calc(${Math.min(100, target / scale * 100)}% - 1px)`;
+  }));
+  $("statsSimNote").textContent = `휴무 하루는 평소 근무일당 매출 ${fmtWon(Math.round(context.averageRevenue))}입니다. 이번 정산 근무 ${context.workedDays}일 평균으로 계산했습니다.`;
+}
+
+// Why the same-workday revenue moved: parcel volume, average unit price (route mix) and extra pay.
+function renderStatsCauses(decomposition) {
+  const box = $("statsCauses");
+  if (!box) return;
+  box.hidden = !decomposition;
+  if (!decomposition) return;
+  const signed = (value, unit) => `${value > 0 ? "+" : (value < 0 ? "−" : "")}${Math.abs(Math.round(value)).toLocaleString("ko-KR")}${unit}`;
+  const rows = [
+    { label: "물량", sub: signed(decomposition.countDelta, "건"), value: decomposition.volume },
+    { label: "평균단가", sub: `건당 ${signed(decomposition.unitDelta, "원")}`, value: decomposition.unit },
+    { label: "프레시백·백업", sub: `프레시백 ${signed(decomposition.freshCountDelta, "건")}`, value: decomposition.extra },
+  ];
+  if (Math.abs(decomposition.other) >= 1000) rows.push({ label: "기타", sub: "직접 고친 매출 등", value: decomposition.other });
+  const largest = Math.max(...rows.map((row) => Math.abs(row.value)), 1);
+  $("statsCauseRows").innerHTML = rows.map((row) => `<div class="stats-cause"><span class="stats-cause-label">${row.label}<small>${row.sub}</small></span>
+    <div class="stats-cause-track"><i class="${row.value < 0 ? "is-down" : "is-up"}" data-share="${(Math.abs(row.value) / largest * 50).toFixed(2)}"></i></div>
+    <strong>${signed(row.value, "원")}</strong></div>`).join("");
+  const main = rows.reduce((a, b) => (Math.abs(b.value) > Math.abs(a.value) ? b : a));
+  $("statsCauseNote").textContent = `같은 ${decomposition.days}일끼리 비교한 차이는 주로 ${main.label} 때문입니다. 평균단가는 단가가 다른 구역을 얼마나 했는지에 따라 달라집니다.`;
+  statsMotion.whenVisible(statsCard(box), "causes", () => requestAnimationFrame(() => {
+    box.querySelectorAll(".stats-cause-track > i").forEach((bar, index) => {
+      bar.style.transitionDelay = `${index * 110}ms`;
+      bar.style.width = `${bar.dataset.share}%`;
+      if (bar.classList.contains("is-down")) bar.style.left = `${50 - Number(bar.dataset.share)}%`;
+    });
+  }));
 }
 
 function renderStats() {
@@ -5051,18 +5236,38 @@ function renderStats() {
   const showGoal = mode === "thisMonth" && report.goal.target;
   if (el.statsGoalMeter) el.statsGoalMeter.hidden = !showGoal;
   if (showGoal) {
-    el.statsMeterFill.style.width = `${report.goal.cappedProgressPct}%`;
+    const width = `${report.goal.cappedProgressPct}%`;
+    statsMotion.whenVisible(statsCard(el.statsMeterFill), "meter", () => requestAnimationFrame(() => { el.statsMeterFill.style.width = width; }));
     el.statsMeterPct.textContent = `${Math.round(report.goal.progressPct)}%`;
     el.statsMeterLabel.textContent = `목표 ${fmtWon(report.goal.target)}`;
   }
 
   syncStatsRangeButtons();
+  prepareStatsReveal();
   applyStatsChartMotion(report.trend);
   renderRevenueList(keys);
-  renderRouteStats(keys);
+  renderRouteStats(keys, previousStatsKeys(mode));
   $("statsRouteDisclosure").hidden = !el.routeStats.querySelector(".route-stat-card");
   renderDailyStatsFor(keys);
   renderWeekdayStats(keys);
+}
+// Cards rise in the first time they come on screen (only where motion can run).
+let statsRevealPrepared = false;
+function prepareStatsReveal() {
+  if (statsRevealPrepared || !statsMotion.supported) return;
+  statsRevealPrepared = true;
+  const animate = motion.shouldAnimate();
+  document.querySelectorAll(".stats-driver-report > :is(.stats-report-hero, .stats-report-section, .stats-sparkline-card)").forEach((card) => {
+    if (animate) card.classList.add("stats-reveal");
+    statsMotion.observe(card);
+  });
+}
+// The settlement before the selected one, for per-route trends; null for longer ranges.
+function previousStatsKeys(mode) {
+  if (mode !== "thisMonth" && mode !== "lastMonth") return null;
+  let period = prevPeriod(state.statsYear, state.statsMonth);
+  if (mode === "lastMonth") period = prevPeriod(period.year, period.month);
+  return periodKeysFor(period.year, period.month);
 }
 const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 // Rebuilding these 7 columns from scratch every render (the old innerHTML
@@ -5093,13 +5298,14 @@ function renderWeekdayStats(keys) {
   // 요일마다 근무일수가 다르므로 합계가 아니라 근무일당 평균으로 비교해야 공정하다.
   const averages = buckets.map((bucket) => (bucket.days ? bucket.revenue / bucket.days : 0));
   const max = Math.max(...averages, 1);
-  const best = worked.reduce((a, b) => ((b.revenue / b.days) > (a.revenue / a.days) ? b : a));
-  const bestAverage = best.revenue / best.days;
-  const lowest = worked.reduce((a, b) => ((b.revenue / b.days) < (a.revenue / a.days) ? b : a));
-  const gap = bestAverage - (lowest.revenue / lowest.days);
-  const note = worked.length > 1 && gap > 0
+  // Only weekdays with at least 3 worked days are compared or highlighted.
+  const comparable = worked.filter((bucket) => bucket.days >= 3);
+  const best = comparable.length > 1 ? comparable.reduce((a, b) => ((b.revenue / b.days) > (a.revenue / a.days) ? b : a)) : null;
+  const lowest = comparable.length > 1 ? comparable.reduce((a, b) => ((b.revenue / b.days) < (a.revenue / a.days) ? b : a)) : null;
+  const gap = best ? (best.revenue / best.days) - (lowest.revenue / lowest.days) : 0;
+  const note = best && gap > 0
     ? `${best.label}요일이 ${lowest.label}요일보다 근무일당 ${fmtWon(Math.round(gap))} 많습니다.`
-    : "요일을 비교하려면 근무 기록이 더 필요합니다.";
+    : "요일마다 근무일이 3일 이상 쌓이면 비교합니다. 3개월이나 1년으로 보세요.";
 
   const freshBuild = el.weekdayStats.querySelectorAll(".wd-col").length !== 7;
   if (freshBuild) {
@@ -5120,24 +5326,27 @@ function renderWeekdayStats(keys) {
   buckets.forEach((bucket, index) => {
     const col = el.weekdayStats.querySelector(`.wd-col[data-weekday="${index}"]`);
     if (!col) return;
-    col.classList.toggle("is-best", index === best.index);
+    col.classList.toggle("is-best", best !== null && index === best.index);
     col.querySelector(".wd-avg").textContent = bucket.days ? compactMoneyLabel(averages[index]) : "-";
     col.querySelector(".wd-days").textContent = bucket.days ? bucket.days + "일" : "";
     const fill = col.querySelector(".wd-track > span");
     const target = (bucket.days ? Math.max(4, Math.round((averages[index] / max) * 100)) : 0) / 100;
-    const from = freshBuild ? 0 : Number(fill.dataset.moScale || 0);
+    const previous = freshBuild ? 0 : Number(fill.dataset.moScale || 0);
     fill.dataset.moScale = String(target);
-    if (!freshBuild && Math.abs(from - target) < 0.001) return;
-    const start = () => weekdayBars.run(`wd-${index}`, from, target, {
+    if (!freshBuild && Math.abs(previous - target) < 0.001) return;
+    if (freshBuild) fill.dataset.moShown = "0";
+    // Start from what is on screen, which may lag the last target while the card was off screen.
+    const start = () => weekdayBars.run(`wd-${index}`, Number(fill.dataset.moShown || 0), target, {
       ...motion.SPRING,
-      onUpdate: (v) => { fill.style.transform = `scaleY(${v})`; },
+      onUpdate: (v) => { fill.style.transform = `scaleY(${v})`; fill.dataset.moShown = String(v); },
     });
     // A small stagger on every real change (first render or a later data
     // change), not just first paint — only columns that actually move get a
     // slot, so an unrelated single-day update doesn't wait behind 6 no-ops.
     if (canAnimate) {
       if (freshBuild) fill.style.transform = `scaleY(0)`;
-      setTimeout(start, staggerSlot * 20);
+      const slot = staggerSlot;
+      statsMotion.whenVisible(statsCard(el.weekdayStats), `wd-${index}`, () => setTimeout(start, slot * 20));
       staggerSlot += 1;
     } else {
       start();
@@ -5151,9 +5360,27 @@ function compactMoneyLabel(value) {
   return String(won);
 }
 
-function renderRouteStats(keys) {
+function renderRouteStats(keys, previousKeys = null) {
   if (!el.routeStats) return;
   const routes = new Map();
+  // Per-route parcels per worked day in the previous settlement, for the trend line.
+  const previous = new Map();
+  (previousKeys || []).forEach((dateKey) => {
+    recordRouteAggregates(getRecord(dateKey, false)).forEach((agg, route) => {
+      if (!(agg.count > 0)) return;
+      const entry = previous.get(route) || { count: 0, days: 0 };
+      entry.count += agg.count;
+      entry.days += 1;
+      previous.set(route, entry);
+    });
+  });
+  const trendText = (row) => {
+    const before = previous.get(row.route);
+    if (!before || before.days < 3 || row.days < 3 || !row.count) return "";
+    const change = (row.count / row.days) / (before.count / before.days) - 1;
+    const percent = Math.round(Math.abs(change) * 100);
+    return percent ? `<span>지난 정산보다 하루 ${change > 0 ? "▲" : "▼"}${percent}%</span>` : "<span>지난 정산과 비슷</span>";
+  };
   const rawDetails = rawDetailBreakdown((keys || []).flatMap((dateKey) => state.workRouteDetails[dateKey] || []));
   let workDays = 0;
   (keys || []).forEach((dateKey) => {
@@ -5204,6 +5431,7 @@ function renderRouteStats(keys) {
         <span>평균 ${fmtCount(Math.round(row.count / row.days))}</span>
         <span>적용 평균단가 ${fmtWon(unit)}</span>
         <span>${row.days}일 기록${row.days < 3 ? " · 표본 적음" : ""}</span>
+        ${trendText(row)}
       </div>
       <details class="stats-route-detail"><summary>누적 ${fmtCount(row.count)} · ${fmtWon(row.revenue)}</summary>${detailMarkup}</details>
 

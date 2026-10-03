@@ -3,6 +3,7 @@ import {
   normalizeDateKey,
   shiftSettlementPeriod,
 } from "./stats-report.js";
+import { decomposeRevenueChange } from "./stats-highlights.js";
 
 function number(value) {
   const result = Number(value);
@@ -74,13 +75,17 @@ export function buildStatsInsights({ days = [], report, asOfDate } = {}) {
 
   let plannedDays = 0;
   let unknownDays = 0;
+  let offDaysAhead = 0;
   let pendingToday = false;
   if (applicable) {
     const today = dayByDate.get(asOfKey);
     pendingToday = !today || (today.off !== true && today.worked !== true);
     dateKeysBetween(asOfKey, period.end).slice(1).forEach((dateKey) => {
       const day = dayByDate.get(dateKey);
-      if (day?.off === true) return;
+      if (day?.off === true) {
+        offDaysAhead += 1;
+        return;
+      }
       if (day?.planned === true && day.worked !== true) {
         plannedDays += 1;
         return;
@@ -135,6 +140,7 @@ export function buildStatsInsights({ days = [], report, asOfDate } = {}) {
       target,
       plannedDays,
       unknownDays,
+      offDaysAhead,
       requiredDailyRevenue,
       projectedRevenue,
       workedDays,
@@ -150,6 +156,7 @@ export function buildStatsInsights({ days = [], report, asOfDate } = {}) {
       previous: driversAvailable
         ? driverAverages(previousWorked, volumeAvailable)
         : driverAverages([]),
+      decomposition: volumeAvailable ? decomposeRevenueChange(currentWorked, previousWorked) : null,
     },
     typical: {
       days: typicalRevenues.length,
