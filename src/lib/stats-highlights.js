@@ -60,16 +60,36 @@ export function decomposeRevenueChange(current = [], previous = []) {
   };
 }
 
-/** Projected settlement revenue after moving `shift` remaining workdays to days off (negative: working off days). */
-export function projectDayOffChange({ revenue, averageRevenue, plannedDays, offDaysAhead, shift = 0 }) {
-  const min = -Math.max(0, offDaysAhead || 0);
-  const max = Math.max(0, plannedDays || 0);
-  const applied = Math.min(max, Math.max(min, Math.trunc(shift) || 0));
-  const workDays = max - applied;
+/**
+ * Share of recent recorded days that were days off, from the `lookback` days
+ * before `asOfDate`. Falls back to one day a week with fewer than 7 recorded days.
+ */
+export function recentOffRatio(days = [], asOfDate, lookback = 56) {
+  const asOf = normalizeDateKey(asOfDate);
+  const from = asOf && addDays(asOf, -lookback);
+  if (!asOf) return 1 / 7;
+  const recent = days.filter((day) => day.dateKey >= from && day.dateKey < asOf && (day.off === true || isWorked(day)));
+  if (recent.length < 7) return 1 / 7;
+  return recent.filter((day) => day.off === true).length / recent.length;
+}
+
+/**
+ * Default days off for the rest of the settlement: registered days off, plus the
+ * recent day-off share applied to remaining days the schedule leaves open.
+ */
+export function defaultRemainingDaysOff({ remainingDays, registeredOffDays, unknownDays, offRatio }) {
+  const guess = Math.max(0, registeredOffDays || 0) + Math.round(Math.max(0, unknownDays || 0) * Math.max(0, offRatio || 0));
+  return Math.min(Math.max(0, remainingDays || 0), guess);
+}
+
+/** Projected settlement revenue when `offDays` of the `remainingDays` are days off. */
+export function projectRemainingDays({ revenue, averageRevenue, remainingDays, offDays }) {
+  const total = Math.max(0, Math.trunc(remainingDays) || 0);
+  const off = Math.min(total, Math.max(0, Math.trunc(offDays) || 0));
+  const workDays = total - off;
   return {
-    shift: applied,
-    min,
-    max,
+    remainingDays: total,
+    offDays: off,
     workDays,
     projectedRevenue: number(revenue) + number(averageRevenue) * workDays,
   };
