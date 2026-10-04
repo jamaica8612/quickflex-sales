@@ -188,7 +188,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.126";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.127";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -5917,7 +5917,7 @@ async function renderAdminBundles() {
   el.adminBundleList.innerHTML = `<div class="daily-card"><span>OCR 보정 묶음을 불러오는 중입니다.</span></div>`;
   const bundles = await loadRouteBundles({ includeInactive: true });
   state.routeBundles = bundles.filter((bundle) => bundle.active);
-  el.adminBundleList.innerHTML = bundles.length ? bundles.map((bundle) => `
+  const bundleCards = bundles.length ? bundles.map((bundle) => `
     <div class="admin-card" data-bundle-id="${bundle.id}">
       <div class="admin-card-row">
         <input data-field="label" type="text" value="${escapeAttr(bundle.label)}" aria-label="묶음 이름" />
@@ -5934,6 +5934,7 @@ async function renderAdminBundles() {
       </div>
     </div>
   `).join("") : `<div class="daily-card"><span>등록된 OCR 보정 묶음이 없습니다.</span></div>`;
+  el.adminBundleList.innerHTML = `<div class="daily-card">자동 보정은 중지되어 있어요. 등록된 묶음은 보관됩니다.</div>${bundleCards}`;
 }
 async function addAdminBundleFromInputs() {
   await saveRouteBundle({
@@ -6094,9 +6095,11 @@ function setOcrDraft(map, { preserveUnresolved = false } = {}) {
       if (routes === null) {
         ocrDraftMap[dateKey] = null;
       } else {
-        const corrected = correctRouteList(routes, { allowSubstitution: true });
+        // OCR drafts show only recognized routes; saved correction patterns stay
+        // editable in the admin menu without changing these routes.
+        const recognized = orderScheduleRoutes(parseScheduleRoutes(routes));
         // OCR blanks require confirmation; manual blank workdays may use fixed routes.
-        ocrDraftMap[dateKey] = corrected.length ? corrected
+        ocrDraftMap[dateKey] = recognized.length ? recognized
           : preserveUnresolved || routeListFromText(routes).length ? [] : draftWorkRoutes();
       }
     });
@@ -6829,7 +6832,6 @@ function bindEvents() {
     confirmOffWithExistingCounts,
     confirmLeaveRecordDraft,
     connectDb,
-    correctRouteList,
     currentRecordDraft,
     currentUserId,
     clearNoahHistory: (userId = currentUserId()) => noahController?.clearAccount(userId),

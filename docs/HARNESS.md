@@ -24,7 +24,7 @@ This file is the shared working contract for Codex, Claude Code, and future agen
 - `fixed` drivers use `fixed_routes`, hide backup bonus, and should see only their assigned routes on the record screen.
 - Route rates live in `quickflex_route_rates`.
 - Approved drivers read only their own rates and change their current defaults in the manual route-rate editor. Admin rate changes never propagate automatically. The former preset rate-update offer has been removed.
-- OCR route bundle correction patterns live in `quickflex_route_bundles` and are managed by admins. A pattern may contain one or more routes; DB-managed multi-route patterns can complete missing routes once at least two routes from that pattern are observed.
+- OCR route bundle patterns remain in `quickflex_route_bundles` and remain editable by admins. Automatic schedule-route correction is currently disabled; these stored patterns do not change OCR drafts.
 - Route rate history is not used. Keep one current default unit price per Route in `quickflex_route_rates`.
 - Day records live in `quickflex_day_records`.
 - Route item snapshots live in `quickflex_day_route_items`.
@@ -43,7 +43,7 @@ This file is the shared working contract for Codex, Claude Code, and future agen
 - Users may edit their own display name, driver type, and fixed routes. They must not be able to approve themselves.
 - Admins must not read another driver's rates, sales, expense receipts, inspections, signatures, or route item snapshots. Membership approval uses the narrow admin-member RPC; raw profile reads remain owner-only.
 - Admin writes should stay limited to profile approval/type changes; do not let admins edit another driver's sales records from the admin dashboard.
-- Admins can manage OCR route bundle corrections in `quickflex_route_bundles`; approved drivers can read active bundles for OCR correction.
+- Admins can manage OCR route bundle patterns in `quickflex_route_bundles`; approved drivers can read active bundles, but OCR drafts do not currently apply them.
 
 ## Route Grouping
 
@@ -68,9 +68,8 @@ Client rules:
 - Keep the OCR status focused on server analysis, not client-side table segmentation.
 - Use server-returned OCR row/column coordinates to sample the original image for pink off-day cells; this is simple canvas color sampling, not OpenCV table segmentation.
 - Fixed-driver manual blank workdays may use configured `fixed_routes`. OCR empty/unread cells must remain unresolved (`[]`) until confirmed, and only explicit off days become `null`. Never silently fill an unread OCR result with fixed routes.
-- Backup drivers keep OCR route extraction, correct each single route code against route candidates, then complete DB-managed route bundles when at least two routes from that bundle are observed. Built-in bundles are fallback only and stay conservative: they complete only one missing route.
-- Bundle evidence comes only from the original OCR input. Equivalent DB patterns are deduplicated; competing patterns with identical anchors or different missing suffix sets for the same prefix cannot be combined. An observed conflicting suffix blocks completion. Only an OCR draft may replace one isolated conflicting suffix when exactly one DB pattern matches, exactly one route is missing, and the two observed anchors have a different prefix. Fallback patterns and manual additions never substitute an observed route.
-- The built-in `316AB` fallback completes `313C`. Keep prefix groups in their first-observed order and alphabetize suffixes inside each group before rendering or saving an OCR draft. Manual review additions only normalize/order the explicit input; CSV/JSON inputs keep all explicitly provided routes.
+- OCR drafts retain only recognized route codes. Neither candidate matching nor registered/built-in bundles may add or replace codes. The dormant correction engine and its saved patterns remain available for future evaluation, but no user-facing OCR or manual-add path calls it.
+- Expand explicit compact route groups and keep prefix groups in their first-observed order, alphabetizing suffixes inside each group before rendering or saving. Manual review additions and CSV/JSON imports keep explicitly entered route identities. Invalid nonempty OCR text remains unresolved rather than filling configured fixed routes.
 
 Server rules:
 - Read the API key from `GOOGLE_CLOUD_VISION_API_KEY` (fallback `CLOUD_VISION_API_KEY`); never accept the key from the request body.

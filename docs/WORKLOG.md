@@ -1,5 +1,12 @@
 # QuickFlex Worklog
 
+## 2026-10-04 Schedule OCR without automatic route correction (PWA 1.0.127)
+
+- The OCR review draft and manual additions now parse and order only explicitly read/entered route codes. Registered and built-in bundle rules, fuzzy candidate replacement, and suffix substitution do not run on those paths. `319ABD` remains `319ABD`; `316AB313A` remains `316AB313A`. Explicit compact groups still expand, unread nonempty OCR stays unresolved, and explicit off days remain off.
+- Kept the admin correction menu, stored rules and active flags intact, with a visible notice that automatic correction is paused. The earlier Vision server change that joins split OCR word tokens inside one driver's date cell remains a faithful parse step; it does not infer missing suffixes.
+- Validation before deployment: all 862 Node tests passed with zero failures/skips via `node --test --test-concurrency=1 tests/*.test.mjs`; 38 focused OCR tests, changed JavaScript syntax, release asset consistency and diff checks passed. Full test output: `C:/work/quickflex-ocr-rootcause-20261004/full-tests-no-correction-127.txt`. The original problem image/provider response is unavailable; synthetic inputs cover both reported route shapes and their save path.
+- Prepared PWA 1.0.127 and its service-worker cache. No schema or Android change. Frontend and OCR Edge Function deploy separately.
+
 ## 2026-10-04 Schedule OCR route order and bounded correction (local only)
 
 - Fixed two reproduced post-processing paths: completing OCR `319ABD` now orders the actual draft/save routes as `319ABCD`, and a unique registered `316AB313C` pattern can replace the isolated OCR suffix `313A` with `313C` instead of retaining both. Prefix groups keep their original order. The built-in `316AB` fallback now points to `313C` too; historical stored schedules are not rewritten.
