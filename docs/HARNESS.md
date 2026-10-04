@@ -69,11 +69,14 @@ Client rules:
 - Use server-returned OCR row/column coordinates to sample the original image for pink off-day cells; this is simple canvas color sampling, not OpenCV table segmentation.
 - Fixed-driver manual blank workdays may use configured `fixed_routes`. OCR empty/unread cells must remain unresolved (`[]`) until confirmed, and only explicit off days become `null`. Never silently fill an unread OCR result with fixed routes.
 - Backup drivers keep OCR route extraction, correct each single route code against route candidates, then complete DB-managed route bundles when at least two routes from that bundle are observed. Built-in bundles are fallback only and stay conservative: they complete only one missing route.
+- Bundle evidence comes only from the original OCR input. Equivalent DB patterns are deduplicated; competing patterns with identical anchors or different missing suffix sets for the same prefix cannot be combined. An observed conflicting suffix blocks completion. Only an OCR draft may replace one isolated conflicting suffix when exactly one DB pattern matches, exactly one route is missing, and the two observed anchors have a different prefix. Fallback patterns and manual additions never substitute an observed route.
+- The built-in `316AB` fallback completes `313C`. Keep prefix groups in their first-observed order and alphabetize suffixes inside each group before rendering or saving an OCR draft. Manual review additions only normalize/order the explicit input; CSV/JSON inputs keep all explicitly provided routes.
 
 Server rules:
 - Read the API key from `GOOGLE_CLOUD_VISION_API_KEY` (fallback `CLOUD_VISION_API_KEY`); never accept the key from the request body.
 - For `vision-schedule`, send `languageHints: ["ko", "en"]` and use `DOCUMENT_TEXT_DETECTION`.
 - Use Cloud Vision word bounding boxes to group rows, map date columns, and extract only the requested driver's route codes.
+- Within that driver's date cell, rejoin an adjacent three-digit prefix and letters-only suffix when Vision split them into separate words. Retain other word boundaries; do not join across driver rows or date columns.
 - For legacy `cells`, per-batch failures must not crash the entire response; missing cells return `text: ""`.
 
 Provider contract:

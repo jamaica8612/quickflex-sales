@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T05:23:53.365Z",
+  "generatedAt": "2026-10-04T10:03:49.008Z",
   "assets": {
     "apple-touch-icon.png": {
       "version": "4",
@@ -26,8 +26,8 @@
       "sha256": "f086364c66ed6cc74d1af7e2d829d8496a620c4a61fcb10f46628509c9f05d10"
     },
     "src/config.js": {
-      "version": "12",
-      "sha256": "19cf62052a6cace92a3010f57a02b1e9cb507bf6cacc1418a7a54655fa360b49"
+      "version": "13",
+      "sha256": "874c4e7916a3071fcb1b0db052874e914f4e6c78fdf17be4e0f7e4628c9e6b3a"
     },
     "src/lib/agricultural-market-route-map.js": {
       "version": "2",

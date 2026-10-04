@@ -35,7 +35,7 @@ import {
   RPC,
   SAMPLE_SETTLEMENT,
   TABLES,
-} from "./config.js?v=12";
+} from "./config.js?v=13";
 import {
   addDays,
   eunNeunParticle,
@@ -54,6 +54,7 @@ import {
   formatRouteLabel,
   joinStoredRoutes,
   normalizeRoute,
+  orderScheduleRoutes,
   parseScheduleRoutes,
   routeListFromText,
   splitStoredRoutes,
@@ -966,7 +967,7 @@ function correctRoute(route, candidates = routeCandidateSet()) {
   if (bestScore <= 1) return best;
   return /^\d{3}[A-Z]$/.test(raw) ? raw : "";
 }
-function correctRouteList(routes) {
+function correctRouteList(routes, { completeBundles = true, allowSubstitution = false } = {}) {
   const candidates = routeCandidateSet();
   const seen = new Set();
   const corrected = routeListFromText(routes)
@@ -977,12 +978,19 @@ function correctRouteList(routes) {
     .flatMap(expandRouteText)
     .map((route) => correctRoute(route, candidates))
     .filter((route) => route && !seen.has(route) && seen.add(route));
-  return completeRouteBundles(corrected);
+  return completeBundles ? completeRouteBundles(corrected, { allowSubstitution }) : orderScheduleRoutes(corrected);
 }
 function activeRouteBundles() {
+  const seenBundles = new Set();
   const dbBundles = (state.routeBundles || [])
     .filter((bundle) => bundle.active !== false && Array.isArray(bundle.routes) && bundle.routes.length >= 1)
-    .map((bundle) => ({ routes: parseScheduleRoutes(bundle.routes), trusted: true }));
+    .map((bundle) => ({ routes: parseScheduleRoutes(bundle.routes), trusted: true }))
+    .filter(({ routes }) => {
+      const key = [...routes].sort().join("|");
+      if (!key || seenBundles.has(key)) return false;
+      seenBundles.add(key);
+      return true;
+    });
   const fallback = DEFAULT_ROUTE_BUNDLES
     // Two matching routes are the completion trigger. An administrator's
     // pattern owns that trigger, even when its remaining route differs.
@@ -991,26 +999,60 @@ function activeRouteBundles() {
     .map((bundle) => ({ routes: bundle, trusted: false }));
   return [...dbBundles, ...fallback];
 }
-function completeRouteBundles(routes) {
-  const result = [...routes];
+function completeRouteBundles(routes, { allowSubstitution = false } = {}) {
+  const result = routeListFromText(routes);
   const seen = new Set(result);
-  const observedInput = new Set(routes);
-  activeRouteBundles().forEach(({ routes: bundle, trusted }) => {
-    const observed = bundle.filter((route) => observedInput.has(route));
-    const missing = bundle.filter((route) => !observedInput.has(route));
-    const shouldComplete = trusted
-      ? observed.length >= 2 && missing.length >= 1
-      : observed.length >= 2 && missing.length === 1;
-    if (shouldComplete) {
-      bundle.forEach((route) => {
-        if (!seen.has(route)) {
-          seen.add(route);
-          result.push(route);
-        }
-      });
-    }
+  // All evidence comes from OCR input, never another pattern's inferred routes.
+  const observedInput = new Set(result);
+  const matches = activeRouteBundles().map(({ routes: bundle, trusted }) => ({
+    bundle, trusted,
+    observed: bundle.filter((route) => observedInput.has(route)),
+    missing: bundle.filter((route) => !observedInput.has(route)),
+  })).filter(({ observed }) => observed.length >= 2);
+  const trustedMatches = matches.filter(({ trusted }) => trusted);
+  const candidates = matches.filter(({ trusted, missing }) =>
+    trusted ? missing.length >= 1 : missing.length === 1);
+  const targetsByPrefix = new Map();
+  candidates.forEach(({ missing }) => {
+    const prefixes = new Set(missing.map((route) => route.slice(0, 3)));
+    prefixes.forEach((prefix) => {
+      const signature = missing.filter((route) => route.startsWith(prefix)).sort().join("|");
+      if (!targetsByPrefix.has(prefix)) targetsByPrefix.set(prefix, new Set());
+      targetsByPrefix.get(prefix).add(signature);
+    });
   });
-  return result;
+  candidates.forEach(({ bundle, trusted, observed, missing }) => {
+    // Different anchors can still propose incompatible suffixes for one prefix.
+    if (missing.some((route) => targetsByPrefix.get(route.slice(0, 3)).size > 1)) return;
+    // Equal observed anchors cannot choose between two different DB patterns.
+    const anchorKey = [...observed].sort().join("|");
+    if (trusted && trustedMatches.filter((match) =>
+      [...match.observed].sort().join("|") === anchorKey).length > 1) return;
+
+    const extras = [...observedInput].filter((route) => !bundle.includes(route));
+    const conflicts = extras.filter((route) =>
+      missing.some((target) => target.slice(0, 3) === route.slice(0, 3)));
+    if (conflicts.length) {
+      // Only an OCR draft may replace one isolated suffix in a unique DB pattern.
+      // Manual input, fallback guesses and ambiguous/multiple conflicts stay intact.
+      const canReplace = allowSubstitution && trusted && trustedMatches.length === 1
+        && missing.length === 1 && extras.length === 1 && conflicts.length === 1
+        && observed.every((route) => route.slice(0, 3) !== missing[0].slice(0, 3));
+      if (canReplace) {
+        result[result.indexOf(conflicts[0])] = missing[0];
+        seen.delete(conflicts[0]);
+        seen.add(missing[0]);
+      }
+      return;
+    }
+    missing.forEach((route) => {
+      if (!seen.has(route)) {
+        seen.add(route);
+        result.push(route);
+      }
+    });
+  });
+  return orderScheduleRoutes(result);
 }
 function currentUserId() { return state.session?.user?.id || ""; }
 function captureAccountContext() {
@@ -6052,7 +6094,7 @@ function setOcrDraft(map, { preserveUnresolved = false } = {}) {
       if (routes === null) {
         ocrDraftMap[dateKey] = null;
       } else {
-        const corrected = correctRouteList(routes);
+        const corrected = correctRouteList(routes, { allowSubstitution: true });
         // OCR blanks require confirmation; manual blank workdays may use fixed routes.
         ocrDraftMap[dateKey] = corrected.length ? corrected
           : preserveUnresolved || routeListFromText(routes).length ? [] : draftWorkRoutes();
@@ -6070,7 +6112,7 @@ function renderDraftCards() {
   el.scheduleDraftCards.innerHTML = Object.keys(ocrDraftMap).sort().map((dateKey) => {
     const routes = ocrDraftMap[dateKey];
     const readableDate = formatLongShort(dateKey);
-    const chips = [...(routes || [])].sort().map((route) => {
+    const chips = orderScheduleRoutes(routes || []).map((route) => {
       const safeRoute = escapeAttr(route);
       return `<span class="draft-chip">${safeRoute}<button type="button" data-action="remove" data-date="${dateKey}" data-route="${safeRoute}" aria-label="${escapeAttr(`${readableDate} ${route} 구역 삭제`)}">×</button></span>`;
     }).join("");

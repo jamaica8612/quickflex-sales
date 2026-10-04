@@ -273,6 +273,25 @@ function columnBounds(dates: HeaderDate[], index: number): { left: number; right
   return { left, right };
 }
 
+function cellText(words: OcrWord[]): string {
+  const ordered = [...words].sort((a, b) => a.x - b.x);
+  const parts: string[] = [];
+  for (let index = 0; index < ordered.length; index += 1) {
+    const current = ordered[index].text.trim();
+    const next = ordered[index + 1]?.text.trim();
+    // Vision sometimes reports a three-digit route prefix and its letter suffix
+    // as separate words. Join only that explicit prefix/suffix pair; keep other
+    // word boundaries so unrelated text cannot become a route suffix.
+    if (/^\d{3}$/.test(current) && next && /^[A-Za-z]+$/.test(next)) {
+      parts.push(`${current}${next}`);
+      index += 1;
+    } else {
+      parts.push(current);
+    }
+  }
+  return parts.join(" ");
+}
+
 function buildSchedule(
   ownerRow: OcrRow,
   dates: HeaderDate[],
@@ -286,17 +305,15 @@ function buildSchedule(
     && dates.every((date, index) => index === 0 || date.day > dates[index - 1].day);
   dates.forEach((date, index) => {
     const { left, right } = columnBounds(dates, index);
-    const text = ownerRow.words
-      .filter((word) => word.cx >= left && word.cx < right)
-      .map((word) => word.text)
-      .join(" ");
+    const words = ownerRow.words.filter((word) => word.cx >= left && word.cx < right);
+    const cell = cellText(words);
     const key = dateKeyForHeader(year, month, date, fullCalendar);
     columns.push({ date: key, left, right });
-    if (OFF_PATTERN.test(normalizeText(text))) {
+    if (OFF_PATTERN.test(normalizeText(cell))) {
       schedule[key] = null;
       return;
     }
-    const routes = parseScheduleRoutes(text);
+    const routes = parseScheduleRoutes(cell);
     schedule[key] = routes;
   });
   return { schedule, columns };
