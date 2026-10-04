@@ -37,6 +37,18 @@ export function parseScheduleRoutes(value) {
     (group.match(/\d{3}[A-Z]+/g) || []).flatMap(expandRouteText)))];
 }
 
+// Keep the schedule's prefix order (316AB 313C), but order suffixes within it.
+// This returns a copy and does not rewrite historical stored route groups.
+export function orderScheduleRoutes(routes) {
+  const groups = new Map();
+  routeListFromText(routes).forEach((route) => {
+    const prefix = route.slice(0, 3);
+    if (!groups.has(prefix)) groups.set(prefix, []);
+    groups.get(prefix).push(route);
+  });
+  return [...groups.values()].flatMap((group) => group.sort());
+}
+
 export function compactRouteList(routes) {
   const groups = new Map();
   routeListFromText(routes).forEach((route) => {

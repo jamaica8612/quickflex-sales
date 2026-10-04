@@ -1,5 +1,13 @@
 # QuickFlex Worklog
 
+## 2026-10-04 Schedule OCR route order and bounded correction (local only)
+
+- Fixed two reproduced post-processing paths: completing OCR `319ABD` now orders the actual draft/save routes as `319ABCD`, and a unique registered `316AB313C` pattern can replace the isolated OCR suffix `313A` with `313C` instead of retaining both. Prefix groups keep their original order. The built-in `316AB` fallback now points to `313C` too; historical stored schedules are not rewritten.
+- Corrections use only original observations. Duplicate patterns are normalized, competing identical-anchor or same-prefix guesses are withheld, and multiple missing/conflicting routes do not authorize substitution. Only the OCR draft opts into the narrowly bounded replacement. Manual review additions bypass bundle inference, and explicit CSV/JSON routes remain intact.
+- The Vision schedule parser rejoins adjacent three-digit/letter fragments only inside the selected driver's date cell. Synthetic bounding-box fixtures verify `319 ABCD`, `316 AB 313 C`, other-driver exclusion, unrelated text, explicit off days and unread cells. No paid OCR request, customer/address/invoice source data, or production write was used. The original failing image/provider response was unavailable, so these tests confirm the reproduced code paths rather than that image's exact OCR output.
+- Validation: all 860 Node tests passed with zero skips via `node --test --test-concurrency=1 tests/*.test.mjs`; 36 focused OCR tests, seven JavaScript syntax checks, release asset consistency and diff checks passed. Independent review found and reproduced a competing-pattern case; it was fixed, regression-tested and re-reviewed without further findings. Full output: `C:/work/quickflex-ocr-rootcause-20261004/full-tests-final.txt`.
+- Updated only the changed config asset cache reference (`?v=12` to `?v=13`) and its tracked hash; PWA/Android release versions are unchanged. No push, Pages/Edge deployment, DB migration or APK change was performed. Frontend and OCR Edge Function require separate deployment to reach users.
+
 ## 2026-10-04 Route notes and settings motion (PWA 1.0.126)
 
 - Route lists, selected tips and tip forms reuse the common element entry spring when their visible destination changes. Search input, favorites, map updates, detail expansion and typing do not replay the entry. The map and draggable sheet keep their coordinate systems. Closing/resetting cancels the effect and releases its DOM reference.

@@ -1,3 +1,5 @@
+import { orderScheduleRoutes } from "../lib/route.js";
+
 export function bindOcrEvents(ctx) {
   const {
     el,
@@ -52,9 +54,9 @@ export function bindOcrEvents(ctx) {
         return;
       }
       if (route) {
-        const corrected = correctRouteList(route);
+        const corrected = correctRouteList(route, { completeBundles: false });
         if (!corrected.length) return toast("구역을 확인해 주세요. 예: 316AB 313C", "error");
-        ocrDraftMap[dateKey] = [...new Set([...(ocrDraftMap[dateKey] || []), ...corrected])];
+        ocrDraftMap[dateKey] = orderScheduleRoutes([...(ocrDraftMap[dateKey] || []), ...corrected]);
         if (input) input.value = "";
       }
     }

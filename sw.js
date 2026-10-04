@@ -94,7 +94,7 @@ const SHELL_FILES = [
   "./styles/exports.css",
   "./styles/calendar-sync.css",
   "./src/config.js",
-  "./src/config.js?v=12",
+  "./src/config.js?v=13",
   "./src/state.js",
   "./src/services/auth.js",
   "./src/services/beta-access.js",

@@ -3,12 +3,12 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 import { DEFAULT_ROUTE_BUNDLES } from '../src/config.js';
-import { routeListFromText, joinStoredRoutes, compactRouteList, parseScheduleRoutes } from '../src/lib/route.js';
+import { routeListFromText, joinStoredRoutes, compactRouteList, parseScheduleRoutes, orderScheduleRoutes } from '../src/lib/route.js';
 
 const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 const source = main.slice(main.indexOf('function activeRouteBundles()'), main.indexOf('function currentUserId()'));
 function complete(input, bundles = []) {
-  const context = vm.createContext({ DEFAULT_ROUTE_BUNDLES, routeListFromText, joinStoredRoutes, parseScheduleRoutes,
+  const context = vm.createContext({ DEFAULT_ROUTE_BUNDLES, routeListFromText, joinStoredRoutes, parseScheduleRoutes, orderScheduleRoutes,
     state: { routeBundles: bundles } });
   vm.runInContext(source, context);
   return Array.from(context.completeRouteBundles(input));
@@ -27,7 +27,7 @@ test('registered two-route pattern suppresses old three-route completion', () =>
 });
 test('inactive or missing correction retains default completion', () => {
   for (const bundles of [[], [{ ...correction, active: false }]]) {
-    assert.deepEqual(complete(['316A', '316B'], bundles), ['316A', '316B', '313A']);
+    assert.deepEqual(complete(['316A', '316B'], bundles), ['316A', '316B', '313C']);
   }
 });
 test('unrelated fallback remains available even with one shared route', () => {
@@ -39,7 +39,7 @@ test('trusted completion still requires two observed routes', () => {
     ['316A', '316B', '313C', '999Z']);
 });
 test('explicitly observed routes are preserved instead of deleting user data', () => {
-  assert.deepEqual(complete(['316A', '316B', '313A'], [correction]), ['316A', '316B', '313A', '313C']);
+  assert.deepEqual(complete(['316A', '316B', '313A'], [correction]), ['316A', '316B', '313A']);
 });
 
 test('registered 405AC correction suppresses fallback 410B', () => {

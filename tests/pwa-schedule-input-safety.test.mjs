@@ -36,11 +36,11 @@ test('OCR review orders corrected and edited route chips without mutating the dr
  const chipRoutes=()=>[...cards.innerHTML.matchAll(/data-route="([^"]+)"/g)].map(match=>match[1]);
  c.setOcrDraft({[date]:recognized},{preserveUnresolved:true});
  assert.deepEqual(chipRoutes(),['319A','319B','319C','319D']);
- assert.deepEqual(Array.from(c.ocrDraftMap[date]),['319A','319B','319D','319C']);
+ assert.deepEqual(Array.from(c.ocrDraftMap[date]),['319A','319B','319C','319D']);
  assert.deepEqual(recognized,['319A','319B','319D']);
  for(const [draft,displayed] of [
-  [['319A','319B','319D','319C','318B'],['318B','319A','319B','319C','319D']],
-  [['319A','319D','319C','318B'],['318B','319A','319C','319D']],
+  [['319A','319B','319D','319C','318B'],['319A','319B','319C','319D','318B']],
+  [['319A','319D','319C','318B'],['319A','319C','319D','318B']],
  ]){
   c.ocrDraftMap[date]=Object.freeze([...draft]);
   c.renderDraftCards();
