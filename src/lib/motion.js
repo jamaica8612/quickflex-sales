@@ -33,6 +33,12 @@ export const SPRING_LEADING = Object.freeze({ stiffness: 900, damping: 0.9 });
 export const SPRING_TRAILING = Object.freeze({ stiffness: 380, damping: 0.84 });
 // Critically damped (damping ratio 1): no overshoot, used for fades.
 export const SPRING_FADE = Object.freeze({ stiffness: 600, damping: 1 });
+// One entry feel across cards, rows and dialogs. Card CSS samples this same
+// spring so it runs natively; small elements use the existing shared scheduler.
+export const ENTRY_MOTION = Object.freeze({
+  stiffness: 256, damping: .7, durationMs: 640,
+  cardDistance: 52, elementDistance: 24, headerDistance: 12, disclosureDistance: 16,
+});
 /** How long the startup splash takes to fade after it starts leaving (startup.js). */
 export const STARTUP_FADE_MS = 180;
 
@@ -334,6 +340,99 @@ export function animateSpring(from, to, {
     retarget(newTo, callbacks) { scheduler.retarget(id, newTo, callbacks); },
     isRunning: () => scheduler.has(id),
   };
+}
+
+// Small, reusable entrance treatment for newly inserted rows and screens.
+// It owns only inline opacity/transform while running and restores the exact
+// prior inline values on every completion/cancellation path.
+const elementEntrances = new WeakMap();
+export function enterElement(el, {
+  distance = ENTRY_MOTION.elementDistance,
+  delay = 0,
+  win = typeof window !== "undefined" ? window : undefined,
+  doc = typeof document !== "undefined" ? document : undefined,
+} = {}) {
+  if (!el || typeof el !== "object") return () => {};
+  elementEntrances.get(el)?.cancel();
+  const original = { opacity: el?.style?.opacity ?? "", transform: el?.style?.transform ?? "" };
+  const restore = () => {
+    if (!el?.style) return;
+    el.style.opacity = original.opacity;
+    el.style.transform = original.transform;
+  };
+  if (!el?.style || !shouldAnimate({ win, doc }) || el.isConnected === false) {
+    restore();
+    return () => {};
+  }
+
+  let timer = 0;
+  let spring = null;
+  let unwatch = () => {};
+  let finished = false;
+  let staged = false;
+  let targetOpacity = 1;
+  const record = { cancel };
+  elementEntrances.set(el, record);
+
+  function finish() {
+    if (finished) return;
+    finished = true;
+    if (timer) (win?.clearTimeout || clearTimeout)(timer);
+    timer = 0;
+    spring?.cancel();
+    spring = null;
+    unwatch();
+    unwatch = () => {};
+    restore();
+    if (elementEntrances.get(el) === record) elementEntrances.delete(el);
+  }
+  function cancel() { finish(); }
+  const checkEnvironment = () => {
+    if (!shouldAnimate({ win, doc }) || el.isConnected === false) finish();
+  };
+  unwatch = watchMotionEnvironment(win, doc, checkEnvironment);
+
+  const stage = () => {
+    if (staged || finished) return;
+    if (!shouldAnimate({ win, doc }) || el.isConnected === false) { finish(); return; }
+    try {
+      const computed = win?.getComputedStyle?.(el)?.opacity;
+      if (computed != null && Number.isFinite(Number(computed))) targetOpacity = Number(computed);
+    } catch { /* computed styles are optional in lightweight DOMs */ }
+    el.style.opacity = "0";
+    el.style.transform = `translateY(${Number(distance) || 0}px)${original.transform ? ` ${original.transform}` : ""}`;
+    staged = true;
+  };
+
+  const start = () => {
+    timer = 0;
+    if (finished) return;
+    if (!shouldAnimate({ win, doc }) || el.isConnected === false) { finish(); return; }
+    stage();
+    if (finished) return;
+    spring = animateSpring(0, 1, {
+      stiffness: ENTRY_MOTION.stiffness,
+      damping: ENTRY_MOTION.damping,
+      win,
+      doc,
+      onUpdate: (value) => {
+        if (finished) return;
+        if (!shouldAnimate({ win, doc }) || el.isConnected === false) { finish(); return; }
+        const progress = Math.max(0, Math.min(1, value));
+        el.style.opacity = String(targetOpacity * progress);
+        el.style.transform = `translateY(${((Number(distance) || 0) * (1 - value)).toFixed(2)}px)${original.transform ? ` ${original.transform}` : ""}`;
+      },
+      onDone: finish,
+    });
+  };
+
+  const wait = Math.max(0, Number(delay) || 0);
+  if (wait) {
+    stage();
+    if (!finished) timer = win?.setTimeout ? win.setTimeout(start, wait) : setTimeout(start, wait);
+  }
+  else start();
+  return cancel;
 }
 
 /**

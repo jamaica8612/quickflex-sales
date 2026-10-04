@@ -34,7 +34,7 @@ export function settlementPeriodLabel(year,month) {
 export function createExpensesController({host,getService,toast=()=>{}}) {
   let rows=[],period=settlementPeriodFor(),filter='all',generation=0,disposed=false;
   let saveOperation=null,creationInput=null,cleanupPath=null;
-  let draft=null,pendingFiles=[],busy=false,dialog=null,previewUrls=[];
+  let draft=null,pendingFiles=[],busy=false,dialog=null,dialogEnterCancel=null,previewUrls=[];
   let previousRowIds=null;
   const alive = (token) => !disposed && token===generation;
   function bounds() { return settlementPeriodBounds(period.year,period.month); }
@@ -42,6 +42,7 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
   function revoke() { previewUrls.forEach((url)=>URL.revokeObjectURL(url)); previewUrls=[]; }
   function close(force=false) {
     if (busy&&!force) return false;
+    dialogEnterCancel?.();dialogEnterCancel=null;
     revoke(); dialog?.close(); dialog?.remove(); dialog=null; draft=null; pendingFiles=[];
     return true;
   }
@@ -103,14 +104,7 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
         const id=rowEl.dataset.expense;
         if (previousRowIds.has(id) || staggerSlot>=6) return;
         const slot=staggerSlot; staggerSlot+=1;
-        rowEl.style.opacity='0';
-        rowEl.style.transform='translateY(6px)';
-        setTimeout(() => {
-          motion.animateSpring(0,1,{...motion.SPRING,onUpdate:(v)=>{
-            rowEl.style.opacity=String(Math.min(1,v));
-            rowEl.style.transform=`translateY(${(6*(1-v)).toFixed(2)}px)`;
-          },onDone:()=>{rowEl.style.opacity='';rowEl.style.transform='';}});
-        }, slot*30);
+        motion.enterElement(rowEl, { delay: slot * 30 });
       });
     }
     previousRowIds=nextRowIds;
@@ -168,6 +162,7 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
     });
     dialog.querySelector('form').addEventListener('submit',(event)=>{event.preventDefault();save('confirmed');});
     renderFiles();dialog.showModal();
+    dialogEnterCancel=motion.enterElement(dialog.querySelector('.expense-dialog-body'));
     if(inbox)dialog.querySelector('[data-upload]').focus();
   }
   function readInput(status) {

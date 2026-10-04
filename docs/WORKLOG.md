@@ -1,5 +1,13 @@
 # QuickFlex Worklog
 
+## 2026-10-04 Shared entry motion and softer settling (PWA 1.0.125)
+
+- Promoted settlement-only card motion into a shared card controller and a presentation-only view coordinator. Home, delivery, record and settings reuse card entry; settings disclosures, newly added record/expense rows and account/guide/export/expense/share dialogs reuse the element entry runner. Map gestures, calendar selection and chat scroll coordinates remain independent.
+- Tuned entry after inspecting the actual 390px renderer: cards rise 52px, rebound approximately 2.4px and settle over 640ms. Opacity and travel share the same spring progress (stiffness 256, damping .70), replacing the early independent fade and long tail. Native CSS card frames are checked against the shared JavaScript spring. Common button presses respond immediately with scale .97.
+- Removed duplicate record/expense spring loops and export-dialog keyframes. Screen entry never moves a reveal card with its parent; home animates only the title group, and boxless `display:contents` wrappers cannot hide the day's actions. Same-view refreshes and repeated modal opens do not replay entry. Delayed rows stage immediately to prevent a flash; interruption, detach, focus, backgrounding and reduced motion restore visible content.
+- Validation: all 846 Node tests passed without skips; changed JavaScript syntax, release consistency and diff checks passed. Synthetic browser checks covered 390px light/dark, 1100px home, rapid tab changes, settings disclosures, guide focus return and reduced motion. A 4x CPU slowdown was used during interaction checks; no physical phone frame-rate measurement was made.
+- Evidence: `C:/work/quickflex-settlement-preview-20261004/unified-motion-test-results.txt` and `screenshots/unified-motion-{light,dark}-390.png`. The loopback-only fixture has no authenticated client and blocks external requests/writes. Counting, revenue, owner-scoped data access, save rules and Android are unchanged.
+
 ## 2026-10-04 Settlement chart accent correction (PWA 1.0.124)
 
 - Replaced the unexpected green in the daily revenue chart with the existing `--gold` accent: blue in light mode and brass in dark mode. Bars, selected dates, averages, insight amounts, detail totals and keyboard focus share the same theme token. Calculations and motion are unchanged.

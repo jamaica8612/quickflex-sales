@@ -102,9 +102,5 @@
   .exports-kind { grid-template-columns: 1fr; }
   .exports-range-presets button { font-size: var(--fs-caption); }
 }
-@media (prefers-reduced-motion: no-preference) {
-  .exports-dialog { animation: exports-enter .18s ease-out; }
-  @keyframes exports-enter { from { opacity: 0; transform: translateY(10px); } }
-}
 
 html[data-theme="dark"] .exports-dialog .exports-download { color: var(--primary-dark); }

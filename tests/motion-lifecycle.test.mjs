@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   updateCountingNumber, cancelCountingNumber, createVisibilityQueue,
   shouldAnimate, shake, confettiBurst, createTabIndicator, crossfade,
+  enterElement,
 } from "../src/lib/motion.js";
 
 function eventTarget() {
@@ -224,6 +225,91 @@ test("counter releases a detached element without writing to it again", () => {
   assert.equal(el.textContent, before);
   assert.equal(env.pending(), 0);
   assert.equal(env.doc.listenerCount() + env.media.listenerCount(), 0);
+});
+
+test("enterElement rises and fades, then restores prior inline styles", () => {
+  const env = clock();
+  const el = { style: { opacity: "0.7", transform: "scale(1.02)" }, isConnected: true };
+  enterElement(el, { ...env, distance: 24 });
+  assert.equal(el.style.opacity, "0");
+  assert.match(el.style.transform, /^translateY\(24px\) scale\(1\.02\)$/);
+  for (let i = 0; env.pending() && i < 240; i++) env.tick(16);
+  assert.equal(el.style.opacity, "0.7");
+  assert.equal(el.style.transform, "scale(1.02)");
+  assert.equal(env.pending(), 0);
+});
+
+test("entry uses one soft rebound while opacity stays bounded and the final position is exact", () => {
+  const env = clock();
+  const el = {style: {opacity: "", transform: ""}, isConnected: true};
+  enterElement(el, env);
+  let smallest = 0;
+  for (let i = 0; env.pending() && i < 160; i++) {
+    env.tick(16);
+    const y = Number(el.style.transform.match(/translateY\(([-\d.]+)px\)/)?.[1] || 0);
+    smallest = Math.min(smallest, y);
+    if (el.style.opacity) assert.ok(Number(el.style.opacity) >= 0 && Number(el.style.opacity) <= 1);
+  }
+  assert.ok(smallest < -.5 && smallest > -1.5, "small elements have a visible, restrained rebound");
+  assert.equal(el.style.transform, "");
+  assert.equal(el.style.opacity, "");
+  assert.equal(env.pending(), 0);
+});
+
+test("enterElement safely replaces and cancels a previous entrance", () => {
+  const env = clock();
+  const el = { style: { opacity: "", transform: "" }, isConnected: true };
+  const cancelFirst = enterElement(el, { ...env, distance: 32 });
+  env.tick(32);
+  const secondStart = el.style.transform;
+  const cancelSecond = enterElement(el, { ...env, distance: 12 });
+  assert.notEqual(el.style.transform, secondStart);
+  cancelFirst();
+  assert.equal(el.style.transform, "translateY(12px)", "stale cancellation must not clear the replacement");
+  cancelSecond();
+  env.tick(); // the shared scheduler drains its already-requested frame
+  assert.equal(el.style.opacity, "");
+  assert.equal(el.style.transform, "");
+  assert.equal(env.pending(), 0);
+});
+
+test("enterElement stages delayed rows immediately and restores them if hidden before start", () => {
+  const env = clock();
+  const el = { style: { opacity: "", transform: "" }, isConnected: true };
+  enterElement(el, { ...env, delay: 60_000 });
+  assert.equal(el.style.opacity, "0", "the new node is hidden before the stagger timer can fire");
+  assert.equal(el.style.transform, "translateY(24px)", "default rise distance is staged immediately");
+  assert.equal(env.pending(), 0, "staging does not start a spring before the delay");
+  env.hide();
+  assert.equal(el.style.opacity, "");
+  assert.equal(el.style.transform, "");
+  assert.equal(env.pending(), 0);
+});
+
+for (const change of ["hide", "reduce"]) {
+  test(`enterElement ${change} transition restores styles and stops its spring`, () => {
+    const env = clock();
+    const el = { style: { opacity: "", transform: "" }, isConnected: true };
+    enterElement(el, { ...env });
+    env.tick(32);
+    env[change]();
+    assert.equal(el.style.opacity, "");
+    assert.equal(el.style.transform, "");
+    assert.equal(env.pending(), 0);
+  });
+}
+
+test("enterElement immediately restores styles when motion is unavailable or element detached", () => {
+  const env = clock();
+  const noRaf = { ...env, win: { matchMedia: env.win.matchMedia } };
+  const detached = { style: { opacity: "0.4", transform: "scale(.9)" }, isConnected: false };
+  enterElement(detached, { ...env });
+  assert.equal(detached.style.opacity, "0.4");
+  assert.equal(detached.style.transform, "scale(.9)");
+  const staticEl = { style: { opacity: "", transform: "" }, isConnected: true };
+  enterElement(staticEl, noRaf);
+  assert.equal(staticEl.style.opacity, "");
+  assert.equal(staticEl.style.transform, "");
 });
 
 test("a motion-setting event cannot overwrite DOM already taken by another renderer", () => {

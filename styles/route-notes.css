@@ -70,9 +70,6 @@ body:has([data-route-notes-fullscreen="true"]) .fixture-nav { display:none !impo
   font:600 var(--fs-label) var(--font-ui);
   cursor:pointer;
 }
-.route-notes-button:active,.route-notes-icon-button:active {
-  opacity:.72;
-}
 .route-notes-button:disabled,.route-notes-icon-button:disabled {
   opacity:.45;
   cursor:not-allowed;

@@ -64,6 +64,7 @@ test("cancelled route-note navigation does not re-enable native pull to refresh"
   const context = vm.createContext({
     el: { app, navTabs: [] }, state: {}, currentUserId: () => "driver",
     routeNotesController: { canClose: () => allowClose, close() {} },
+    document: { querySelector: () => null }, viewMotion: { show() {} },
     postNativeMessage: (message) => messages.push(message), queueUsageEvent() {},
   });
   vm.runInContext(`${extractFunction("syncNativeRouteNotesState")}\n${extractFunction("showView")}\nglobalThis.show = showView;`, context);
