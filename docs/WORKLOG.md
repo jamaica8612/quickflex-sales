@@ -1,5 +1,14 @@
 # QuickFlex Worklog
 
+## 2026-10-04 Calendar and settlement motion (PWA 1.0.122)
+
+- Added immediate calendar press feedback, continuous selected-date ring movement, directional month entry with row staging, and a short amount/count transition. Selected-date data paints synchronously; presentation no longer owns a stale date callback. Real buttons and keyboard focus remain intact.
+- Home and settlement amounts now interpolate the whole value over 750ms, continue from the current displayed value on interruption, and preserve settled values on unrelated refreshes. Hourly-card nodes are retained; route bars use 800ms with 90ms row intervals. Weekday bars cancel stale stagger timers and use a damped spring with 55ms intervals.
+- Revenue flow traces the existing canvas geometry with a temporary SVG line (900ms), then its area (600ms after 350ms). Failure, cancellation, hidden documents, reduced motion and detached elements restore the static canvas and remove temporary work.
+- Counting, revenue calculations, date selection, authentication and storage rules are unchanged. Registered both new motion modules and calendar CSS in the shell cache, and advanced only the PWA version/cache to 1.0.122 following the user's deployment instruction.
+- Validation: `node --test --test-concurrency=1 tests/*.test.mjs` passed 793/793 with no skips; release consistency (24 tracked assets), changed JavaScript syntax and `git diff --check` passed. Synthetic real-renderer browser checks covered 390px light/dark and 1100px calendars, rapid dates/months, amount/count, off days, focus, repeated same-value updates, and reduced-motion changes during an active SVG trace. No phone frame-rate measurement was made.
+- Local evidence: `C:/work/quickflex-motion-enhancement-20261004/` contains the isolated preview harness, test logs, light/dark calendar and settlement captures, and the SVG/reduced-motion trace. Preview data is synthetic, with remote requests and write controls disabled. No sample data is shipped.
+
 ## 2026-09-22 Beta 1.21 download links (PWA 1.0.88)
 
 - Updated the current Android installation and in-app guide links to Beta 1.21 (`versionCode 143`) and its GitHub release asset.

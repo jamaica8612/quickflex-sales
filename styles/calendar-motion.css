@@ -1,0 +1,31 @@
+/* Calendar presentation only. Date buttons remain the real interaction layer. */
+.calendar-panel { overflow: clip; }
+.calendar-grid.is-calendar-entering { will-change: transform; }
+.calendar-grid .day-cell > .day-number,
+.calendar-grid .day-cell > .day-value,
+.calendar-grid .day-cell > .day-routes {
+  transform: translateY(var(--calendar-row-y, 0px));
+  opacity: var(--calendar-row-opacity, 1);
+}
+.calendar-grid .day-cell > .day-number {
+  transform: translateY(var(--calendar-row-y, 0px)) scale(var(--calendar-press-scale, 1));
+  transition: transform 110ms ease-out;
+}
+.calendar-grid.is-calendar-entering .day-cell > .day-number { transition: none; }
+.calendar-grid .day-cell:active,
+.calendar-grid .day-cell.is-calendar-pressed { --calendar-press-scale: .86; }
+.calendar-grid .day-cell:active .day-number,
+.calendar-grid .day-cell.is-calendar-pressed .day-number { transition-duration: 0s; }
+.calendar-grid .day-cell:focus-visible { outline: 2px solid var(--blue); outline-offset: -3px; }
+.calendar-grid > .day-selection-ring { border-radius: 7px; transform-origin: top left; }
+.is-calendar-selection-moving { will-change: transform, opacity; }
+
+@media (prefers-reduced-motion: reduce) {
+  .calendar-grid,
+  .is-calendar-selection-moving { transform: none !important; opacity: 1 !important; }
+  .calendar-grid .day-cell > .day-number,
+  .calendar-grid .day-cell > .day-value,
+  .calendar-grid .day-cell > .day-routes { transform: none !important; opacity: 1 !important; transition: none !important; }
+  .calendar-grid .day-cell:active .day-number,
+  .calendar-grid .day-cell.is-calendar-pressed .day-number { background: var(--gold); color: var(--gold-ink); }
+}

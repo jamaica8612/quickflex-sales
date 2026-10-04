@@ -15,6 +15,8 @@ import { buildPersonalRecords, defaultRemainingDaysOff, projectRemainingDays, re
 import { buildHourlyStats } from "./lib/stats-hourly.js";
 import { fetchWorkTimings } from "./services/work-timings.js";
 import * as motion from "./lib/motion.js";
+import { createCalendarMotion, paintCalendarSelection } from "./lib/calendar-motion.js";
+import { drawStatsChart, cancelStatsChartDraw } from "./lib/stats-chart-motion.js";
 ﻿"use strict";
 
 import {
@@ -182,24 +184,13 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.121";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.122";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
 
-// renderStatsChart() draws synchronously onto a <canvas> (nothing persistent
-// to animate inside it) and a regression test runs its exact source in an
-// isolated VM sandbox, so its own body stays untouched. This wrapper — kept
-// well away from any function pair a test slices out by boundary markers —
-// decides from the outside whether the upcoming redraw is: the first time
-// this chart has appeared this session (reveal it left-to-right via a CSS
-// clip-path on the <canvas> itself — "a progress clip", since there's
-// nothing inside a canvas to apply stroke-dashoffset to), the same series
-// redrawing for an unrelated reason (no motion — e.g. a background refresh
-// with identical data), or a real range/metric change (a fast crossfade of
-// the whole canvas).
-let statsChartShownThisSession = false;
-const statsChartMotion = motion.createAnimationGroup();
+// The existing canvas supplies the final image, exact geometry and accessible
+// description. A temporary SVG traces that same line, then reveals its area.
 // 정산노트 motion runs when its card is actually on screen, not when the data
 // arrives: a card below the fold (or inside the hidden tab) keeps its latest
 // pending motion until it scrolls into view, and rises in the first time.
@@ -215,28 +206,15 @@ function applyStatsChartMotion(trend) {
   if (!canvas) { renderStatsChart(trend); return; }
   const fingerprint = statsChartFingerprint(trend);
   const previousFingerprint = canvas.__moFingerprint;
-  const isFirstShow = !statsChartShownThisSession;
-  const dataChanged = previousFingerprint !== undefined && previousFingerprint !== fingerprint;
   canvas.__moFingerprint = fingerprint;
-
-  if (isFirstShow && motion.shouldAnimate()) {
-    statsChartShownThisSession = true;
-    renderStatsChart(trend);
-    canvas.style.clipPath = "inset(0 100% 0 0)";
-    // The draw-on waits until the chart card is on screen.
-    statsMotion.whenVisible(statsCard(canvas), "chart-draw", () => statsChartMotion.run("draw", 0, 1, {
-      stiffness: 260,
-      damping: 1,
-      onUpdate: (v) => { canvas.style.clipPath = `inset(0 ${((1 - v) * 100).toFixed(2)}% 0 0)`; },
-      onDone: () => { canvas.style.clipPath = ""; },
-    }));
-    return;
-  }
-  if (dataChanged && motion.shouldAnimate()) {
-    motion.crossfade(canvas, () => renderStatsChart(trend));
-    return;
-  }
+  motion.cancelFade(canvas);
+  cancelStatsChartDraw(canvas);
   renderStatsChart(trend);
+  if (previousFingerprint !== fingerprint && !canvas.hidden) {
+    statsMotion.whenVisible(statsCard(canvas), "chart-draw", () => {
+      if (canvas.__moFingerprint === fingerprint) drawStatsChart(canvas);
+    });
+  }
 }
 
 const isLocalRuntime = ["localhost", "127.0.0.1", ""].includes(location.hostname) || location.protocol === "file:";
@@ -1784,6 +1762,28 @@ function renderNumberWithUnit(target, formatted, { sameMetric } = {}) {
   const revision = (target.__moNumberRevision || 0) + 1;
   target.__moNumberRevision = revision;
   motion.cancelFade(target);
+  if (target.__moCountUp) {
+    const match = text.match(/^(-?[\d,]+(?:\.\d+)?)(만원|원|건|일)$/);
+    if (match) {
+      let number = target.__moCountNode;
+      if (!number || number.parentNode !== target || target.__moCountUnit !== match[2]) {
+        number = document.createElement("span");
+        number.className = "counting-number";
+        const unit = document.createElement("span");
+        unit.className = "number-unit";
+        unit.textContent = match[2];
+        target.replaceChildren(number, unit);
+        target.__moCountNode = number;
+        target.__moCountUnit = match[2];
+      }
+      target.setAttribute("aria-label", text);
+      const digits = match[1].includes(".") ? 1 : 0;
+      motion.updateCountingNumber(number, Number(match[1].replaceAll(",", "")), {
+        format: (value) => value.toLocaleString("ko-KR", { minimumFractionDigits: digits, maximumFractionDigits: digits }),
+      });
+      return;
+    }
+  }
   if (sameMetric === undefined) {
     setPlainNumberWithUnit(target, text);
     return;
@@ -4202,67 +4202,20 @@ function applyGoalMeterMotion() {
     // else: still reached from an earlier crossing this period — leave the chip as already shown.
   }
 }
-// One persistent overlay ring, moved with a spring between whichever cell is
-// selected — renderMonth() rebuilds all 42-ish day cells from scratch on
-// every call (unrelated to this effect), so the ring can't live inside that
-// markup; it's created once and re-appended after each rebuild instead.
-let daySelectionRing = null;
-function getDaySelectionRing() {
-  if (!daySelectionRing) {
-    daySelectionRing = document.createElement("div");
-    daySelectionRing.className = "day-selection-ring";
-    daySelectionRing.setAttribute("aria-hidden", "true");
-  }
-  return daySelectionRing;
-}
-const daySelectionRingGroup = motion.createAnimationGroup();
-let daySelectionRingPos = null; // { x, y } in #monthCalendar-relative px, once placed
-function positionDaySelectionRing(cell, previousRect, animate) {
-  const ring = getDaySelectionRing();
-  if (!cell) {
-    ring.style.opacity = "0";
-    daySelectionRingGroup.cancelAll();
-    daySelectionRingPos = null;
-    return;
-  }
-  const panelRect = el.monthCalendar.getBoundingClientRect();
-  const cellRect = cell.getBoundingClientRect();
-  const targetX = cellRect.left - panelRect.left;
-  const targetY = cellRect.top - panelRect.top;
-  ring.style.width = `${cellRect.width}px`;
-  ring.style.height = `${cellRect.height}px`;
-  ring.style.opacity = "1";
-  if (!animate || !previousRect || !daySelectionRingPos || !motion.shouldAnimate()) {
-    daySelectionRingGroup.cancelAll();
-    daySelectionRingPos = { x: targetX, y: targetY };
-    ring.style.transform = `translate(${targetX}px, ${targetY}px)`;
-    return;
-  }
-  const place = () => { ring.style.transform = `translate(${daySelectionRingPos.x}px, ${daySelectionRingPos.y}px)`; };
-  daySelectionRingGroup.run("x", daySelectionRingPos.x, targetX, {
-    ...motion.SPRING,
-    onUpdate: (x) => { daySelectionRingPos.x = x; place(); },
-  });
-  daySelectionRingGroup.run("y", daySelectionRingPos.y, targetY, {
-    ...motion.SPRING,
-    onUpdate: (y) => { daySelectionRingPos.y = y; place(); },
-  });
-}
 // renderMonth() is run in isolation (its own text sliced out and executed in
 // a fresh VM sandbox) by a regression test, with only a minimal { el, state,
 // ... } fixture — no closure over this file's other functions or imports.
-// So renderMonth() itself only ever touches `el`/`state` (safe there) and,
-// at the very end, calls the optional el.monthCalendar.__moAfterRender()
-// hook — a plain property that's simply undefined in that test's fixture
-// (a no-op via `?.()`) and is wired up once, below, in the real app.
-function applyCalendarRingMotion() {
-  const container = el.monthCalendar;
-  if (!container || typeof container.getBoundingClientRect !== "function") return;
-  container.appendChild(getDaySelectionRing());
-  const newSelectedCell = container.querySelector(".day-cell.selected");
-  positionDaySelectionRing(newSelectedCell, container.__moPreviousSelectedRect, container.__moSameMonth);
+// Optional hooks keep its date/quantity renderer usable in that minimal VM.
+if (el.monthCalendar && typeof el.monthCalendar.getBoundingClientRect === "function") {
+  const calendarMotion = createCalendarMotion(el.monthCalendar, { onModeChange: () => renderHomeSelection() });
+  el.monthCalendar.__moBeforeRender = () => calendarMotion.beforeRender();
+  el.monthCalendar.__moAfterRender = () => calendarMotion.afterRender({
+    periodKey: `${state.year}-${state.month}`, mode: state.mode,
+  });
 }
-if (el.monthCalendar) el.monthCalendar.__moAfterRender = applyCalendarRingMotion;
+[el.periodRevenue, el.periodCount, el.averageCountHome, el.dailyAverage,
+  el.workDaysHome, el.homeDayValue, el.homeSelectedTotal]
+  .filter(Boolean).forEach((node) => { node.__moCountUp = true; });
 // 정산 예상액은 처음 나타날 때와 기간이 바뀔 때도 0부터 굴러가며 나타난다.
 if (el.periodRevenue) el.periodRevenue.__moRollIn = true;
 
@@ -4281,6 +4234,7 @@ if (el.pendingSignupsBanner) {
 }
 
 function renderMonth() {
+  el.monthCalendar.__moBeforeRender?.();
   const todayWorkDate = isNightShift() ? currentWorkDates().nextWorkDate : "";
   el.modeBtns.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.mode === state.mode)));
   const { start, end } = periodBounds();
@@ -4289,19 +4243,8 @@ function renderMonth() {
   const last = new Date(end);
   last.setDate(last.getDate() + (6 - last.getDay()));
   const cellCount = Math.max(35, Math.ceil((last - first) / 86400000) + 1);
-  // The ring overlay needs a real element (getBoundingClientRect, querySelector);
-  // a minimal test double for el.monthCalendar (just { appendChild }) skips it
-  // entirely rather than crashing — the cell-building loop below is unaffected.
-  // Everything the ring needs is stashed as plain expandos on el.monthCalendar
-  // itself (never a module-level variable) so this function keeps working
-  // when its source is sliced out and run alone with a bare { el, state }.
-  const ringCapable = typeof el.monthCalendar.getBoundingClientRect === "function"
-    && typeof el.monthCalendar.querySelector === "function";
-  const previousSelectedCell = ringCapable ? el.monthCalendar.querySelector(".day-cell.selected") : null;
-  el.monthCalendar.__moPreviousSelectedRect = previousSelectedCell ? previousSelectedCell.getBoundingClientRect() : null;
-  const periodKey = `${state.year}-${state.month}`;
-  el.monthCalendar.__moSameMonth = el.monthCalendar.__moLastPeriod === periodKey;
-  el.monthCalendar.__moLastPeriod = periodKey;
+  // The optional motion hooks own presentation and focus; this loop continues
+  // to create the same dates, values and accessible labels in a minimal VM.
   el.monthCalendar.innerHTML = "";
   for (let i = 0; i < cellCount; i += 1) {
     const date = new Date(first);
@@ -4314,6 +4257,7 @@ function renderMonth() {
     const holidayName = koreanHoliday(dateKey);
     const cell = document.createElement("button");
     cell.type = "button";
+    cell.setAttribute("data-calendar-date", dateKey);
     cell.className = `day-cell${inPeriod ? "" : " outside"}${dateKey === state.selectedDate ? " selected" : ""}${dateKey === todayKey() ? " today-cell" : ""}${record.off ? " off" : ""}${holidayName ? " holiday" : ""}${dateKey === todayWorkDate ? " work-date-cell" : ""}`;
     const routeText = record.off || !shouldShowCalendarRoutes() ? "" : formatRecordRoutes(record.rows);
     const displayValue = record.off ? "휴무" : state.mode === "count" ? (calc.count ? fmtCount(calc.count) : "") : formatCalendarWon(calc.revenue);
@@ -4464,22 +4408,17 @@ function renderHomeSelection() {
   const record = getRecord(state.selectedDate, false);
   const calc = calcRecord(record);
   const automatic = hasAutomaticEntries(record);
-  const dayChanged = el.homeDayDockInfo && el.homeDayDockInfo.__moDate !== state.selectedDate;
-  if (el.homeDayDockInfo) el.homeDayDockInfo.__moDate = state.selectedDate;
-  const paintDayDock = () => {
+  paintCalendarSelection([el.homeDayPanel, el.homeDayDockInfo], `${state.selectedDate}:${state.mode}`, () => {
     el.homeSelectedDate.textContent = formatMonthDay(state.selectedDate);
     if (record.off) el.homeSelectedTotal.textContent = "휴무";
     else renderNumberWithUnit(el.homeSelectedTotal, fmtWon(calc.revenue));
-  };
-  if (dayChanged && el.homeDayDockInfo.__moPainted) motion.crossfade(el.homeDayDockInfo, paintDayDock);
-  else paintDayDock();
-  el.homeDayDockInfo && (el.homeDayDockInfo.__moPainted = true);
-  el.homeOffToggle.classList.toggle("active", record.off);
-  el.homeOffToggle.setAttribute("aria-checked", String(record.off));
-  el.homeOffToggle.disabled = automatic;
-  el.homeOffToggle.title = automatic ? "앱 자동 기록이 있는 날짜는 휴무로 바꿀 수 없습니다." : "";
-  renderHomeDayOverview(record, calc, automatic);
-  renderSelectedDateBreakdown(record);
+    el.homeOffToggle.classList.toggle("active", record.off);
+    el.homeOffToggle.setAttribute("aria-checked", String(record.off));
+    el.homeOffToggle.disabled = automatic;
+    el.homeOffToggle.title = automatic ? "앱 자동 기록이 있는 날짜는 휴무로 바꿀 수 없습니다." : "";
+    renderHomeDayOverview(record, calc, automatic);
+    renderSelectedDateBreakdown(record);
+  });
 }
 function renderHomeDayOverview(record, calc, automatic) {
   const routeLinks = el.homeRouteNotes;
@@ -5096,7 +5035,9 @@ function renderStatsRollingAmount(node, amount) {
   }
   const text = Math.round(amount || 0).toLocaleString("ko-KR");
   node.setAttribute("aria-label", `${text}원`);
-  statsMotion.whenVisible(statsCard(node), `roll-${node.id}`, () => motion.updateRollingNumber(digits, text, { rollIn: true }));
+  statsMotion.whenVisible(statsCard(node), `roll-${node.id}`, () => motion.updateCountingNumber(digits, amount || 0, {
+    format: (value) => Math.round(value).toLocaleString("ko-KR"),
+  }));
 }
 
 function statsRecordDate(dateKey) {
@@ -5110,26 +5051,50 @@ function renderStatsHourly(report) {
   if (!section || !content) return;
   const stats = buildHourlyStats({ days: statsHourlyDays(), timings: state.workTimings, range: report.range, asOfDate: todayKey() });
   section.hidden = !stats.hasTimings;
-  if (section.hidden) { content.innerHTML = ""; return; }
+  if (section.hidden) { content.innerHTML = ""; delete content.__moHourlyLayout; return; }
   if (!stats.ready) {
+    delete content.__moHourlyLayout;
     content.innerHTML = '<p id="statsHourlyTitle" class="stats-reading-note">측정한 날이 3일 이상 쌓이면 보입니다</p>';
     return;
   }
   const minutes = Math.round(stats.averageNonDeliverySeconds / 60);
-  content.innerHTML = `<div class="stats-report-section-head"><div><span>내 시급</span><h2 id="statsHourlyTitle">하루 업무 시간으로 본 수익</h2></div></div>
+  const layoutKey = `${Boolean(stats.routes.length)}:${Boolean(stats.comparison)}`;
+  if (content.__moHourlyLayout !== layoutKey || !$('statsActualHourly')) {
+    content.__moHourlyLayout = layoutKey;
+    content.innerHTML = `<div class="stats-report-section-head"><div><span>내 시급</span><h2 id="statsHourlyTitle">하루 업무 시간으로 본 수익</h2></div></div>
     <div class="stats-hourly-pair"><div class="is-primary"><span>실제 시급</span><strong id="statsActualHourly"></strong><small>대기·상차·이동 포함</small></div><div><span>배송 시급</span><strong id="statsDeliveryHourly"></strong><small>측정 중 일시정지 제외</small></div></div>
-    <p class="stats-hourly-outside">하루 평균 <strong>${Math.floor(minutes / 60)}시간 ${minutes % 60}분</strong>은 배송 외 시간</p>
+    <p class="stats-hourly-outside" id="statsHourlyOutside">하루 평균 <strong>${Math.floor(minutes / 60)}시간 ${minutes % 60}분</strong>은 배송 외 시간</p>
     ${stats.routes.length ? '<h3 class="stats-pattern-title">구역별 시간당 수익</h3><div class="stats-hourly-routes" id="statsHourlyRoutes"></div>' : ''}
-    ${stats.comparison ? `<p class="stats-reading-note">개수는 ${escapeAttr(stats.comparison.countRoute.route)}가 가장 많지만 시간당으로는 ${escapeAttr(stats.comparison.hourlyRoute.route)}가 더 나아요.</p>` : ''}
-    <p class="stats-reading-note stats-hourly-basis">측정한 ${stats.measuredDays}일 기준, 측정이 없거나 부족한 ${stats.excludedDays}일 제외</p>`;
+    ${stats.comparison ? `<p class="stats-reading-note" id="statsHourlyComparison">개수는 ${escapeAttr(stats.comparison.countRoute.route)}가 가장 많지만 시간당으로는 ${escapeAttr(stats.comparison.hourlyRoute.route)}가 더 나아요.</p>` : ''}
+    <p class="stats-reading-note stats-hourly-basis" id="statsHourlyBasis">측정한 ${stats.measuredDays}일 기준, 측정이 없거나 부족한 ${stats.excludedDays}일 제외</p>`;
+  }
+  const outside = $("statsHourlyOutside");
+  if (outside) outside.innerHTML = `하루 평균 <strong>${Math.floor(minutes / 60)}시간 ${minutes % 60}분</strong>은 배송 외 시간`;
+  const basis = $("statsHourlyBasis");
+  if (basis) basis.textContent = `측정한 ${stats.measuredDays}일 기준, 측정이 없거나 부족한 ${stats.excludedDays}일 제외`;
+  const comparison = $("statsHourlyComparison");
+  if (comparison && stats.comparison) comparison.textContent = `개수는 ${stats.comparison.countRoute.route}가 가장 많지만 시간당으로는 ${stats.comparison.hourlyRoute.route}가 더 나아요.`;
   renderStatsRollingAmount($("statsActualHourly"), stats.actualHourly);
   renderStatsRollingAmount($("statsDeliveryHourly"), stats.deliveryHourly);
   const routes = $("statsHourlyRoutes");
   if (routes) {
-    const max = stats.routes[0].hourly;
-    routes.innerHTML = stats.routes.map((row, index) => `<div class="stats-hourly-route${index === 0 ? ' is-best' : ''}"><span>${escapeAttr(row.route)}<small>${row.days}일 측정</small></span><div class="stats-hourly-track" aria-hidden="true"><i data-width="${max > 0 ? row.hourly / max * 100 : 0}"></i></div><strong>${statsMetric(Math.round(row.hourly))}</strong></div>`).join("");
+    const max = stats.routes[0]?.hourly || 0;
+    const routeKey = stats.routes.map((row) => `${row.route}:${row.days}`).join("|");
+    if (routes.__moRouteKey !== routeKey) {
+      routes.__moRouteKey = routeKey;
+      routes.innerHTML = stats.routes.map((row, index) => `<div class="stats-hourly-route${index === 0 ? ' is-best' : ''}"><span>${escapeAttr(row.route)}<small>${row.days}일 측정</small></span><div class="stats-hourly-track" aria-hidden="true"><i data-width="${max > 0 ? row.hourly / max * 100 : 0}"></i></div><strong>${statsMetric(Math.round(row.hourly))}</strong></div>`).join("");
+    } else {
+      routes.querySelectorAll(".stats-hourly-route").forEach((node, index) => {
+        const row = stats.routes[index];
+        node.querySelector("i").dataset.width = String(max > 0 ? row.hourly / max * 100 : 0);
+        node.querySelector("strong").innerHTML = statsMetric(Math.round(row.hourly));
+      });
+    }
     statsMotion.whenVisible(section, "hourly-bars", () => {
-      const fill = () => routes.querySelectorAll("i[data-width]").forEach((bar) => { bar.style.width = `${bar.dataset.width}%`; });
+      const fill = () => routes.querySelectorAll("i[data-width]").forEach((bar, index) => {
+        bar.style.transitionDelay = motion.shouldAnimate() ? `${index * 90}ms` : "0ms";
+        bar.style.width = `${bar.dataset.width}%`;
+      });
       if (motion.shouldAnimate()) requestAnimationFrame(fill); else fill();
     });
   }
@@ -5237,10 +5202,13 @@ function updateStatsPlan() {
   const scale = Math.max(target || 0, context.revenue + context.averageRevenue * plan.remainingDays, 1) * 1.04;
   const mark = $("statsSimGoalMark");
   mark.hidden = !target;
-  statsMotion.whenVisible($("statsPlanSection"), "sim-bar", () => requestAnimationFrame(() => {
-    $("statsSimFill").style.width = `${Math.min(100, plan.projectedRevenue / scale * 100)}%`;
-    if (target) mark.style.left = `calc(${Math.min(100, target / scale * 100)}% - 1px)`;
-  }));
+  statsMotion.whenVisible($("statsPlanSection"), "sim-bar", () => {
+    const fill = () => {
+      $("statsSimFill").style.width = `${Math.min(100, plan.projectedRevenue / scale * 100)}%`;
+      if (target) mark.style.left = `calc(${Math.min(100, target / scale * 100)}% - 1px)`;
+    };
+    if (motion.shouldAnimate()) requestAnimationFrame(fill); else fill();
+  });
   const basis = context.openDays
     ? `예상 휴무는 등록된 휴무 ${context.registeredOffDays}일에, 근무표가 빈 ${context.openDays}일은 최근 휴무 비율(${Math.round(context.offRatio * 100)}%)을 적용한 값입니다.`
     : `예상 휴무는 근무표에 등록된 휴무 ${context.registeredOffDays}일입니다.`;
@@ -5266,13 +5234,16 @@ function renderStatsCauses(decomposition) {
     <strong>${signed(row.value, "원")}</strong></div>`).join("");
   const main = rows.reduce((a, b) => (Math.abs(b.value) > Math.abs(a.value) ? b : a));
   $("statsCauseNote").textContent = `같은 ${decomposition.days}일끼리 비교한 차이는 주로 ${main.label} 때문입니다. 평균단가는 단가가 다른 구역을 얼마나 했는지에 따라 달라집니다.`;
-  statsMotion.whenVisible(statsCard(box), "causes", () => requestAnimationFrame(() => {
+  statsMotion.whenVisible(statsCard(box), "causes", () => {
+    const fill = () => {
     box.querySelectorAll(".stats-cause-track > i").forEach((bar, index) => {
-      bar.style.transitionDelay = `${index * 110}ms`;
+      bar.style.transitionDelay = motion.shouldAnimate() ? `${index * 110}ms` : "0ms";
       bar.style.width = `${bar.dataset.share}%`;
       if (bar.classList.contains("is-down")) bar.style.left = `${50 - Number(bar.dataset.share)}%`;
     });
-  }));
+    };
+    if (motion.shouldAnimate()) requestAnimationFrame(fill); else fill();
+  });
 }
 
 function renderStats() {
@@ -5311,7 +5282,10 @@ function renderStats() {
   if (el.statsGoalMeter) el.statsGoalMeter.hidden = !showGoal;
   if (showGoal) {
     const width = `${report.goal.cappedProgressPct}%`;
-    statsMotion.whenVisible(statsCard(el.statsMeterFill), "meter", () => requestAnimationFrame(() => { el.statsMeterFill.style.width = width; }));
+    statsMotion.whenVisible(statsCard(el.statsMeterFill), "meter", () => {
+      const fill = () => { el.statsMeterFill.style.width = width; };
+      if (motion.shouldAnimate()) requestAnimationFrame(fill); else fill();
+    });
     el.statsMeterPct.textContent = `${Math.round(report.goal.progressPct)}%`;
     el.statsMeterLabel.textContent = `목표 ${fmtWon(report.goal.target)}`;
   }
@@ -5350,8 +5324,30 @@ const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 // then only their text and fill transform are ever updated, so a data
 // change can animate from the old value instead of jumping.
 const weekdayBars = motion.createAnimationGroup();
+const weekdayBarTimers = new Map();
+let weekdayBarsRevision = 0;
+function settleWeekdayBars() {
+  weekdayBarTimers.forEach((timer) => clearTimeout(timer));
+  weekdayBarTimers.clear();
+  weekdayBars.cancelAll();
+  el.weekdayStats?.querySelectorAll(".wd-track > span").forEach((fill) => {
+    const target = Number(fill.dataset.moScale || 0);
+    fill.style.transform = `scaleY(${target})`;
+    fill.dataset.moShown = String(target);
+  });
+}
+const weekdayMotionPreference = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+weekdayMotionPreference?.addEventListener?.("change", () => {
+  if (weekdayMotionPreference.matches) settleWeekdayBars();
+});
+document.addEventListener?.("visibilitychange", () => {
+  if (document.hidden) settleWeekdayBars();
+});
 function renderWeekdayStats(keys) {
   if (!el.weekdayStats) return;
+  const revision = ++weekdayBarsRevision;
+  weekdayBarTimers.forEach((timer) => clearTimeout(timer));
+  weekdayBarTimers.clear();
   const buckets = WEEKDAY_LABELS.map((label, index) => ({ label, index, revenue: 0, count: 0, days: 0 }));
   (keys || []).forEach((dateKey) => {
     const record = getRecord(dateKey, false);
@@ -5407,20 +5403,28 @@ function renderWeekdayStats(keys) {
     const target = (bucket.days ? Math.max(4, Math.round((averages[index] / max) * 100)) : 0) / 100;
     const previous = freshBuild ? 0 : Number(fill.dataset.moScale || 0);
     fill.dataset.moScale = String(target);
-    if (!freshBuild && Math.abs(previous - target) < 0.001) return;
+    if (!freshBuild && Math.abs(previous - target) < 0.001 && Math.abs(Number(fill.dataset.moShown || 0) - target) < 0.001) return;
     if (freshBuild) fill.dataset.moShown = "0";
     // Start from what is on screen, which may lag the last target while the card was off screen.
-    const start = () => weekdayBars.run(`wd-${index}`, Number(fill.dataset.moShown || 0), target, {
-      ...motion.SPRING,
+    const start = () => {
+      weekdayBarTimers.delete(index);
+      if (revision !== weekdayBarsRevision || fill.isConnected === false) return;
+      weekdayBars.run(`wd-${index}`, Number(fill.dataset.moShown || 0), target, {
+      stiffness: 180, damping: 1,
       onUpdate: (v) => { fill.style.transform = `scaleY(${v})`; fill.dataset.moShown = String(v); },
-    });
+      });
+    };
     // A small stagger on every real change (first render or a later data
     // change), not just first paint — only columns that actually move get a
     // slot, so an unrelated single-day update doesn't wait behind 6 no-ops.
     if (canAnimate) {
       if (freshBuild) fill.style.transform = `scaleY(0)`;
       const slot = staggerSlot;
-      statsMotion.whenVisible(statsCard(el.weekdayStats), `wd-${index}`, () => setTimeout(start, slot * 20));
+      statsMotion.whenVisible(statsCard(el.weekdayStats), `wd-${index}`, () => {
+        if (revision !== weekdayBarsRevision) return;
+        if (motion.shouldAnimate()) weekdayBarTimers.set(index, setTimeout(start, slot * 55));
+        else start();
+      });
       staggerSlot += 1;
     } else {
       start();
@@ -5641,6 +5645,7 @@ function renderRevenueList(keys) {
 function renderStatsChart(trend) {
   const canvas = el.statsChart;
   if (!canvas) return;
+  delete canvas.__moPlot;
   // Omit non-working buckets entirely, preserving genuine zero-revenue work.
   const series = (Array.isArray(trend?.buckets) ? trend.buckets : [])
     .filter((bucket) => bucket.workDays > 0 || bucket.revenue > 0);
@@ -5702,6 +5707,7 @@ function renderStatsChart(trend) {
     y: baseline - (item.revenue / maxRevenue) * (cssH - 20),
   }));
   const primaryColor = getComputedStyle(document.documentElement).getPropertyValue("--gold").trim();
+  canvas.__moPlot = { points, baseline, width: cssW, height: cssH, color: primaryColor };
   const trace = () => {
     ctx.beginPath();
     ctx.moveTo(points[0].x, points[0].y);

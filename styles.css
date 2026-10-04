@@ -4261,7 +4261,7 @@ html:not([data-theme="dark"]) .ledger-switch button.is-on { background: var(--pa
 .stats-hourly-route > span small { color: var(--muted); font-family: var(--font-ui); font-size: var(--fs-caption); font-weight: 500; }
 .stats-hourly-route > strong { text-align: right; font-family: var(--font-numeric); font-size: var(--fs-body); font-weight: 700; white-space: nowrap; }
 .stats-hourly-track { height: 10px; overflow: hidden; border-radius: var(--r-full); background: var(--panel3); }
-.stats-hourly-track > i { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--muted); transition: width .7s cubic-bezier(.2,.8,.2,1); }
+.stats-hourly-track > i { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--muted); transition: width .8s cubic-bezier(.2,.8,.2,1); }
 .stats-hourly-route.is-best .stats-hourly-track > i { background: var(--gold); }
 .stats-hourly-route.is-best > strong { color: var(--gold); }
 .stats-hourly-basis { margin-bottom: 0; }
@@ -4280,7 +4280,13 @@ html:not([data-theme="dark"]) .ledger-switch button.is-on { background: var(--pa
 .stats-driver-report .stats-cause > strong { font-family: var(--font-numeric); font-size: var(--fs-body); font-weight: 700; text-align: right; white-space: nowrap; }
 
 @media (prefers-reduced-motion: reduce) {
-  .stats-driver-report .stats-reveal { opacity: 1; transform: none; }
+  .stats-driver-report .stats-reveal,
+  .stats-driver-report .stats-reveal.is-shown { opacity: 1; transform: none; transition: none; }
   .stats-record.is-popping { animation: none; }
   .stats-sim-track > span, .stats-sim-track > i, .stats-cause-track > i, .stats-hourly-track > i, .stats-driver-report .ssc-meter-bar > span { transition: none; }
 }
+.stats-chart-stage { position: relative; }
+.stats-chart-stage canvas { display: block; width: 100%; }
+.stats-chart-stage canvas[hidden] { display: none; }
+.stats-chart-trace { position: absolute; inset: 0; width: 100%; height: 112px; pointer-events: none; }
+.counting-number { display: inline !important; font: inherit !important; color: inherit !important; letter-spacing: inherit !important; margin: 0 !important; }
