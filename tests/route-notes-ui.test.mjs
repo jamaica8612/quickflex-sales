@@ -102,7 +102,7 @@ function setup({ confirm = () => true, mapFactory, extraTips = [], shareDialog, 
     { id: "tip-b", zone_id: "zone-b", created_by: "user", title: "B 메모", memo: "B 내용", marker_type: "note", lat: 39.5, lng: 129.5, photos: [] },
   ];
   tips.push(...extraTips);
-  const calls = { loadZone: [], saveTip: [], saveZone: [], deleteZone: [], maps: [], zoneEditors: [], marketRouteMaps: [] };
+  const calls = { loadZone: [], saveTip: [], saveZone: [], deleteZone: [], maps: [], zoneEditors: [], marketRouteMaps: [], entries: [] };
   const service = {
     async load() { return { company: { id: "company", name: "회사" }, membership: { company_id: "company", role: "member" }, zones, favorites: [] }; },
     async loadZone(id) { calls.loadZone.push(id); return { zone: zones.find((zone) => zone.id === id), tips: tips.filter((tip) => tip.zone_id === id), zonePhotos: [] }; },
@@ -128,6 +128,7 @@ function setup({ confirm = () => true, mapFactory, extraTips = [], shareDialog, 
     return editor;
   };
   const context = { document, window, AbortController, Promise, URL, console, CSS: { escape: (value) => value },
+    enterElement: (element) => { const effect = { element, canceled: false }; calls.entries.push(effect); return () => { effect.canceled = true; }; },
     MARKER_ICONS, ALERT_MARKERS, createRouteNoteIcon, createRouteNoteMapIcon, routeNoteZoneNameKey, formatRouteNoteZoneLabel, isPointInRouteNoteZone, appendAgriculturalMarketTip, isAgriculturalMarketTip, isAgriculturalMarketZone,
     openAgriculturalMarketRouteMap: (options = {}) => { const entry = { options, closed: false }; calls.marketRouteMaps.push(entry); return { close() { entry.closed = true; options.onClose?.(); } }; },
     createRouteNoteZoneEditor, createRouteNoteMap, hasPolygon: (polygon) => Boolean(polygon?.coordinates?.length), ROUTE_NOTE_MARKER_TYPES: ["note", "parking"], parseScheduleRoutes: () => [] };
@@ -152,6 +153,54 @@ async function openTipForm(view) {
   assert.ok(form, "tip form is visible");
   return form;
 }
+
+test("route content enters on navigation, without moving the map or replaying search and favorites", async () => {
+  const view = setup(); await view.controller.open(); await flush();
+  assert.equal(view.calls.entries.length, 1);
+  assert.equal(view.calls.entries[0].element, byClass(view.root, "route-notes-sheet-body"));
+  const search = view.root.querySelector("input");
+  search.value = "A"; await search.dispatch("input"); await flush();
+  search.value = ""; await search.dispatch("input"); await flush();
+  await click(byClass(view.root, "route-notes-star"));
+  assert.equal(view.calls.entries.length, 1, "same list must stay visible during refresh");
+  await click(byClass(view.root, "route-notes-zone-main"));
+  assert.ok(view.calls.entries[0].canceled, "hidden list entry stops before map navigation");
+  assert.equal(view.calls.entries.length, 1, "hidden sheet and async zone load do not animate");
+  const tip = view.calls.mapRenders.at(-1).tips[0];
+  view.calls.maps[0][0].onTipSelect(tip); await flush();
+  assert.equal(view.calls.entries.length, 2);
+  await click(button(view.root, "자세히"));
+  assert.equal(view.calls.entries.length, 2, "expanding the same tip must not flash its existing content");
+  assert.ok(view.calls.entries.every(effect => effect.element.className === "route-notes-sheet-body"));
+});
+
+test("route tip changes cancel previous motion, and closing cleans up before reopening", async () => {
+  const view = setup({ extraTips: [{ id: "tip-a2", zone_id: "zone-a", title: "예시 팁", memo: "합성 안내", lat: 37.6, lng: 127.6, photos: [] }] });
+  await openZone(view);
+  const tips = view.calls.mapRenders.at(-1).tips;
+  view.calls.maps[0][0].onTipSelect(tips[0]); await flush();
+  const first = view.calls.entries.at(-1);
+  view.calls.maps[0][0].onTipSelect(tips[1]); await flush();
+  assert.ok(first.canceled);
+  const last = view.calls.entries.at(-1);
+  view.controller.close();
+  assert.ok(last.canceled);
+  const count = view.calls.entries.length;
+  await view.controller.open(); await flush();
+  assert.equal(view.calls.entries.length, count + 1);
+});
+
+test("route form entry does not replay or discard a draft while typing and resizing", async () => {
+  const view = setup(); await openZone(view);
+  const form = await openTipForm(view), count = view.calls.entries.length;
+  const title = form.elements.routeNoteTipTitle;
+  title.value = "합성 초안"; await title.dispatch("input");
+  view.windowListeners.get("resize")?.(); await flush();
+  assert.equal(view.calls.entries.length, count);
+  assert.equal(byClass(view.root, "route-notes-form"), form);
+  assert.equal(form.elements.routeNoteTipTitle.value, "합성 초안");
+  assert.equal(view.calls.saveTip.length, 0);
+});
 
 test("selecting a zone defaults to peek and sends only its zone and tips to the map", async () => {
   const view = setup();

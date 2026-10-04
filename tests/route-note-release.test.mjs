@@ -7,7 +7,7 @@ test("new route editor exports and postcode service bypass pre-1.0.86 cached mod
   const sw = read("sw.js"), main = read("src/main.js"), ui = read("src/ui/route-notes.js");
   const edges = [
     [main, "./services/route-notes.js?v=3", "./src/services/route-notes.js?v=3"],
-    [main, "./ui/route-notes.js?v=16", "./src/ui/route-notes.js?v=16"],
+    [main, "./ui/route-notes.js?v=18", "./src/ui/route-notes.js?v=18"],
     [ui, "../lib/agricultural-market-route-map.js?v=2", "./src/lib/agricultural-market-route-map.js?v=2"],
     [ui, "./route-note-zone-editor.js?v=8", "./src/ui/route-note-zone-editor.js?v=8"],
     [read("src/ui/route-notes.js"), "../lib/route-note-map.js?v=10", "./src/lib/route-note-map.js?v=10"],

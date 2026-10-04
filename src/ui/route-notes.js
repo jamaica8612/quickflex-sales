@@ -5,6 +5,7 @@ import { ROUTE_NOTE_MARKER_TYPES, formatRouteNoteZoneLabel } from "../lib/route-
 import { isPointInRouteNoteZone } from "../lib/route-note-rules.js";
 import { createRouteNoteZoneEditor } from "./route-note-zone-editor.js?v=8";
 import { parseScheduleRoutes } from "../lib/route.js";
+import { enterElement } from "../lib/motion.js";
 
 const MARKER_TYPES = ROUTE_NOTE_MARKER_TYPES;
 const MARKER_LABELS = {
@@ -103,6 +104,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
   let fullscreen = false, marketRouteMap = null;
   let map = null, mapRequest = 0, mapMode = null, zoneDraft = null, tipDraft = null, formDirty = false, saving = false;
   let workspace = null, sheetSnap = "half", suggestOpen = false, searchOpen = false, workspaceAbort = null, workspaceResize = null, mapFocusZoneId = null;
+  let contentMotionKey = null, cancelContentMotion = () => {};
   const abort = new AbortController();
   const isCurrent = (token) => !disposed && token === generation;
   const membershipRole = () => data?.membership?.role || "member";
@@ -113,7 +115,10 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
   const canManageTip = (tip) => Boolean(userId() && tip?.created_by === userId());
   const isWide = () => Boolean(window.matchMedia?.(WIDE_LAYOUT)?.matches);
 
-  function clearMap() { zoneEditor?.destroy(); zoneEditor = null; workspaceAbort?.abort(); workspaceAbort = null; workspaceResize?.disconnect(); workspaceResize = null; marketRouteMap?.close?.(); marketRouteMap = null; mapRequest += 1; try { map?.destroy(); } catch { /* Optional map cleanup must not block notes. */ } map = null; mapMode = null; mapFocusZoneId = null; workspace = null; }
+  function clearMap() {
+    cancelContentMotion(); cancelContentMotion = () => {}; contentMotionKey = null;
+    zoneEditor?.destroy(); zoneEditor = null; workspaceAbort?.abort(); workspaceAbort = null; workspaceResize?.disconnect(); workspaceResize = null; marketRouteMap?.close?.(); marketRouteMap = null; mapRequest += 1; try { map?.destroy(); } catch { /* Optional map cleanup must not block notes. */ } map = null; mapMode = null; mapFocusZoneId = null; workspace = null;
+  }
   function showAgriculturalMarketRouteMap() {
     if (marketRouteMap) return;
     marketRouteMap = openAgriculturalMarketRouteMap({ onClose: () => { marketRouteMap = null; } });
@@ -457,6 +462,19 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     }
     if (selected && !workspace.mapStarted) { workspace.mapStarted = true; mountOverviewMap(workspace.mapHost); }
     renderOverviewMap({ zone, tips: selected?.tips || [], preserveViewport, padding: overviewMapPadding() });
+    // Enter a new destination once. Search, favorites, typing and map updates
+    // keep the same key, so they never hide the content again. The map and
+    // draggable sheet stay in their original coordinate systems.
+    const nextMotionKey = workspace.sheet.hidden || (selected && sheetSnap === "peek") ? null
+      : !selected ? `list:${tab}`
+      : tipDraft ? `form:${selected.id}:${tipDraft.id || "new"}`
+      : locationMenuOpen ? `placement:${selected.id}`
+      : selectedTipId ? `tip:${selected.id}:${selectedTipId}` : `zone:${selected.id}`;
+    if (nextMotionKey !== contentMotionKey) {
+      cancelContentMotion();
+      contentMotionKey = nextMotionKey;
+      cancelContentMotion = nextMotionKey ? enterElement(workspace.sheetBody) : () => {};
+    }
   }
   function renderSuggestions() {
     const results = suggestOpen ? searchResults() : [];

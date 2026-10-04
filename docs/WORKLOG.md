@@ -1,5 +1,13 @@
 # QuickFlex Worklog
 
+## 2026-10-04 Route notes and settings motion (PWA 1.0.126)
+
+- Route lists, selected tips and tip forms reuse the common element entry spring when their visible destination changes. Search input, favorites, map updates, detail expansion and typing do not replay the entry. The map and draggable sheet keep their coordinate systems. Closing/resetting cancels the effect and releases its DOM reference.
+- Settings now expand and collapse their actual content height over 360ms, with matching chevrons and the existing gentle content entry. Native details semantics, keyboard activation and automatic sizing remain intact; feature detection leaves older browsers on native disclosure, and reduced motion disables the transition. Implementation follows the native details-content pattern documented at https://developer.chrome.com/blog/styling-details.
+- Validation: all 849 Node tests passed with no skips; release asset consistency, changed JavaScript syntax and diff checks passed. The first full run exposed the release-contract test's old route-module cache version; its expected version was updated, then the entire suite passed. Added behavioral coverage for non-replay, rapid tip changes, cleanup/reopen and draft retention. Independent read-only review found no concrete defect.
+- Synthetic browser checks at 390px covered light/dark, keyboard opening/closing, repeated reversal, reduced motion and tip detail non-replay. Recorded settings height progresses to its natural size and back to 52px; focus stays on the summary. A 4x CPU slowdown was used for interaction checks, not a physical-phone FPS measurement. No browser console errors or horizontal overflow were observed.
+- Evidence: `C:/work/quickflex-settlement-preview-20261004/route-settings-motion-test-results.txt`, `route-settings-disclosure-trace.json`, `route-content-motion-trace.json`, and `screenshots/route-settings-motion-{light,dark}-390.png`, `screenshots/route-tip-motion-light-390.png`. The local fixture uses synthetic data and a labeled mock map, blocks network/writes, and is not shipped. Data, counting, persistence, DB, Edge Functions and Android remain unchanged.
+
 ## 2026-10-04 Shared entry motion and softer settling (PWA 1.0.125)
 
 - Promoted settlement-only card motion into a shared card controller and a presentation-only view coordinator. Home, delivery, record and settings reuse card entry; settings disclosures, newly added record/expense rows and account/guide/export/expense/share dialogs reuse the element entry runner. Map gestures, calendar selection and chat scroll coordinates remain independent.
