@@ -14,17 +14,17 @@ function extract(name){
 function load(names,extra={}){const c=vm.createContext({...routes,...extra});vm.runInContext(names.map(extract).join('\n'),c);return c;}
 const correctionNames=['routeCandidateSet','routeDistance','correctRoute','correctRouteList','activeRouteBundles','completeRouteBundles'];
 const correctionContext=()=>load(correctionNames,{DEFAULT_ROUTE_BUNDLES,DEFAULT_ROUTE_MASTER,fixedRoutes:()=>[],state:{routeBundles:[],rates:[]}});
-test('valid unlisted routes survive both tied and unique fuzzy candidates',()=>{
+test('dormant correction engine preserves valid unlisted routes through fuzzy candidates',()=>{
  const c=correctionContext();
  assert.equal(c.correctRoute('303E',new Set(['303A','303B'])),'303E');
  assert.equal(c.correctRoute('305A',new Set(['304A'])),'305A');
  assert.equal(c.correctRoute('3168',new Set(['316B'])),'316B');
 });
-test('mixed valid and OCR-confused tokens both survive correction',()=>{
+test('dormant correction engine handles mixed valid and OCR-confused tokens',()=>{
  const c=correctionContext();
  assert.deepEqual(Array.from(c.correctRouteList(['316A','3O3C'])),['316A','303C']);
 });
-test('OCR review orders corrected and edited route chips without mutating the draft',()=>{
+test('OCR review preserves recognized routes and orders edited chips without mutating the draft',()=>{
  const cards={innerHTML:''};
  const c=load([...correctionNames,'escapeAttr','setOcrDraft','renderDraftCards'],{
   DEFAULT_ROUTE_BUNDLES,DEFAULT_ROUTE_MASTER,fixedRoutes:()=>[],state:{routeBundles:[],rates:[]},
@@ -35,8 +35,8 @@ test('OCR review orders corrected and edited route chips without mutating the dr
  const recognized=Object.freeze(['319A','319B','319D']);
  const chipRoutes=()=>[...cards.innerHTML.matchAll(/data-route="([^"]+)"/g)].map(match=>match[1]);
  c.setOcrDraft({[date]:recognized},{preserveUnresolved:true});
- assert.deepEqual(chipRoutes(),['319A','319B','319C','319D']);
- assert.deepEqual(Array.from(c.ocrDraftMap[date]),['319A','319B','319C','319D']);
+ assert.deepEqual(chipRoutes(),['319A','319B','319D']);
+ assert.deepEqual(Array.from(c.ocrDraftMap[date]),['319A','319B','319D']);
  assert.deepEqual(recognized,['319A','319B','319D']);
  for(const [draft,displayed] of [
   [['319A','319B','319D','319C','318B'],['319A','319B','319C','319D','318B']],
@@ -67,7 +67,7 @@ test('admin bulk draft expands compact stored routes',()=>{
  assert.deepEqual(JSON.parse(JSON.stringify(c.parseBundleDraft('보정=316AB313C')))[0].routes,['316A','316B','313C']);
 });
 test('failed nonempty OCR never silently becomes configured fixed routes',()=>{
- const c=load(['setOcrDraft'],{correctRouteList:()=>[],draftWorkRoutes:()=>['425B'],renderDraftCards:()=>{},
+ const c=load(['setOcrDraft'],{correctRouteList:()=>assert.fail('OCR must not invoke the correction engine'),draftWorkRoutes:()=>['425B'],renderDraftCards:()=>{},
   el:{scheduleDraftSection:{classList:{toggle(){}}}},ocrDraftMap:null});
  c.setOcrDraft({'2026-09-16':['???'],'2026-09-17':[],'2026-09-18':null});
  assert.deepEqual(JSON.parse(JSON.stringify(c.ocrDraftMap)),{'2026-09-16':[],'2026-09-17':['425B'],'2026-09-18':null});

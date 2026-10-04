@@ -1,4 +1,4 @@
-import { orderScheduleRoutes } from "../lib/route.js";
+import { orderScheduleRoutes, parseScheduleRoutes } from "../lib/route.js";
 
 export function bindOcrEvents(ctx) {
   const {
@@ -6,7 +6,6 @@ export function bindOcrEvents(ctx) {
     ocrDraftState,
     applySchedule,
     applySettlementRows,
-    correctRouteList,
     draftWorkRoutes,
     parseScheduleCsv,
     parseSettlementCsv,
@@ -54,9 +53,9 @@ export function bindOcrEvents(ctx) {
         return;
       }
       if (route) {
-        const corrected = correctRouteList(route, { completeBundles: false });
-        if (!corrected.length) return toast("구역을 확인해 주세요. 예: 316AB 313C", "error");
-        ocrDraftMap[dateKey] = orderScheduleRoutes([...(ocrDraftMap[dateKey] || []), ...corrected]);
+        const addedRoutes = orderScheduleRoutes(parseScheduleRoutes(route));
+        if (!addedRoutes.length) return toast("구역을 확인해 주세요. 예: 316AB 313C", "error");
+        ocrDraftMap[dateKey] = orderScheduleRoutes([...(ocrDraftMap[dateKey] || []), ...addedRoutes]);
         if (input) input.value = "";
       }
     }

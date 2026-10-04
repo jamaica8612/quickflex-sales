@@ -27,21 +27,34 @@ function harness(bundles = [correction], extra = {}) {
 }
 const plain = value => JSON.parse(JSON.stringify(value));
 
-test('missing 319C is ordered in the OCR draft, not just its displayed chips', () => {
+test('OCR draft preserves missing 319C rather than completing its bundle', () => {
   const { context: c } = harness([]);
   const observed = Object.freeze(['319A', '319B', '319D']);
   c.setOcrDraft({ '2026-10-04': observed }, { preserveUnresolved: true });
-  assert.deepEqual(plain(c.ocrDraftMap['2026-10-04']), ['319A', '319B', '319C', '319D']);
-  assert.equal(routeHelpers.compactRouteList(c.ocrDraftMap['2026-10-04']), '319ABCD');
+  assert.deepEqual(plain(c.ocrDraftMap['2026-10-04']), ['319A', '319B', '319D']);
+  assert.equal(routeHelpers.compactRouteList(c.ocrDraftMap['2026-10-04']), '319ABD');
   assert.deepEqual(observed, ['319A', '319B', '319D']);
 });
 
-test('one unambiguous registered OCR suffix correction replaces A with C instead of adding C', () => {
+test('OCR draft preserves 313A even with one unambiguous active registered correction', () => {
   const { context: c, cards } = harness();
   c.setOcrDraft({ '2026-10-04': ['316A', '316B', '313A'] }, { preserveUnresolved: true });
-  assert.deepEqual(plain(c.ocrDraftMap['2026-10-04']), ['316A', '316B', '313C']);
-  assert.equal(routeHelpers.compactRouteList(c.ocrDraftMap['2026-10-04']), '316AB 313C');
-  assert.deepEqual([...cards.innerHTML.matchAll(/data-route="([^"]+)"/g)].map(m => m[1]), ['316A', '316B', '313C']);
+  assert.deepEqual(plain(c.ocrDraftMap['2026-10-04']), ['316A', '316B', '313A']);
+  assert.equal(routeHelpers.compactRouteList(c.ocrDraftMap['2026-10-04']), '316AB 313A');
+  assert.deepEqual([...cards.innerHTML.matchAll(/data-route="([^"]+)"/g)].map(m => m[1]), ['316A', '316B', '313A']);
+});
+
+test('OCR draft expands explicit compact groups and sorts suffixes without fuzzy or bundle inference', () => {
+  const { context: c } = harness();
+  for (const [observed, expected] of [
+    [['316AB'], ['316A', '316B']],
+    [['319DBA'], ['319A', '319B', '319D']],
+    [['316BA313A'], ['316A', '316B', '313A']],
+    [['3168', '3O3C', '316A'], ['316A']],
+  ]) {
+    c.setOcrDraft({ '2026-10-04': observed }, { preserveUnresolved: true });
+    assert.deepEqual(plain(c.ocrDraftMap['2026-10-04']), expected);
+  }
 });
 
 test('competing registered corrections never union different guesses or depend on database order', () => {
@@ -55,10 +68,10 @@ test('competing registered corrections never union different guesses or depend o
   }
 });
 
-test('equivalent compact registered patterns are one correction, not an ambiguity', () => {
+test('equivalent compact registered patterns do not rewrite the OCR draft', () => {
   const { context: c } = harness([correction, { routes: ['316AB313C'], active: true }]);
   c.setOcrDraft({ '2026-10-04': ['316A', '316B', '313A'] }, { preserveUnresolved: true });
-  assert.deepEqual(plain(c.ocrDraftMap['2026-10-04']), ['316A', '316B', '313C']);
+  assert.deepEqual(plain(c.ocrDraftMap['2026-10-04']), ['316A', '316B', '313A']);
 });
 
 test('different observed anchors cannot combine competing guesses for the same route prefix', () => {
@@ -71,7 +84,7 @@ test('different observed anchors cannot combine competing guesses for the same r
   }
 });
 
-test('fallback agrees with 316AB313C and never adds a conflicting suffix', () => {
+test('dormant correction engine fallback agrees with 316AB313C and never adds a conflicting suffix', () => {
   for (const bundles of [[], [{ ...correction, active: false }]]) {
     const { context: c } = harness(bundles);
     for (const observed of [['316A', '316B'], ['316A', '316B', '313C']]) {
@@ -81,10 +94,10 @@ test('fallback agrees with 316AB313C and never adds a conflicting suffix', () =>
   }
 });
 
-test('OCR suffix correction preserves independent routes and does not guess through multiple conflicts', () => {
+test('OCR draft preserves independent routes and orders suffixes without applying rules', () => {
   const { context: c } = harness();
   const cases = [
-    [['316A', '316B', '999Z'], ['316A', '316B', '999Z', '313C']],
+    [['316A', '316B', '999Z'], ['316A', '316B', '999Z']],
     [['316A', '316B', '313A', '999Z'], ['316A', '316B', '313A', '999Z']],
     [['316A', '316B', '313A', '313D'], ['316A', '316B', '313A', '313D']],
     [['316A', '316B', '313C', '313A'], ['316A', '316B', '313A', '313C']],
@@ -106,7 +119,7 @@ test('multiple missing routes and same-prefix bundles do not authorize replacing
   }
 });
 
-test('manual review additions keep explicit routes, skip bundle inference, and order edited suffixes', () => {
+test('manual review additions parse explicit routes and order suffixes without fuzzy or bundle inference', () => {
   const { context: c } = harness();
   const handlers = {};
   const date = '2026-10-04';
@@ -116,24 +129,30 @@ test('manual review additions keep explicit routes, skip bundle inference, and o
   const el = Object.fromEntries(['parseCsv', 'scheduleImage', 'runScheduleOcr', 'settlementImage',
     'runSettlementOcr', 'scheduleDraftCards', 'parseSchedule', 'parseScheduleCsv'].map(n => [n, node(n)]));
   Object.assign(el.scheduleDraftCards, { querySelector: () => input, querySelectorAll: () => [] });
-  bindOcrEvents({ el, ocrDraftState: { get: () => state }, correctRouteList: (...args) => c.correctRouteList(...args),
-    renderDraftCards() {}, toast: message => assert.fail(message) });
+  const warnings = [];
+  bindOcrEvents({ el, ocrDraftState: { get: () => state }, parseScheduleRoutes: routeHelpers.parseScheduleRoutes,
+    correctRouteList: () => assert.fail('manual add must not invoke the correction engine'),
+    renderDraftCards() {}, toast: message => warnings.push(message) });
   for (const [value, before, expected] of [
     ['316AB313A', [], ['316A', '316B', '313A']],
     ['316AB', [], ['316A', '316B']],
     ['319C', ['319A', '319B', '319D'], ['319A', '319B', '319C', '319D']],
+    ['319DBA', [], ['319A', '319B', '319D']],
+    ['3168', ['316A'], ['316A']],
+    ['3O3C', [], []],
   ]) {
     state[date] = before;
     input.value = value;
     handlers.scheduleDraftCards({ target: { closest: () => ({ dataset: { date, action: 'add' } }) } });
     assert.deepEqual(plain(state[date]), expected);
   }
+  assert.equal(warnings.length, 2);
 });
 
-test('the corrected draft reaches schedule saving with the same route identities and order', async () => {
+test('the uncorrected OCR draft reaches saving with the same explicit route identities and order', async () => {
   const records = new Map();
   const received = [];
-  const { context: c } = harness([], {
+  const { context: c } = harness([correction], {
     getRecord: date => records.get(date) || { rows: [] }, hasEnteredCounts: () => false,
     mergeScheduleRowsWithExisting: (_rows, routes) => { received.push(plain(routes)); return routes.map(route => ({ route })); },
     setRecord: (date, record) => records.set(date, record), scheduleSave() {}, renderAll() {},
@@ -141,7 +160,40 @@ test('the corrected draft reaches schedule saving with the same route identities
   });
   c.el.app = { dataset: { view: 'settings' } };
   vm.runInContext(extract('applySchedule'), c);
-  c.setOcrDraft({ '2026-10-04': ['319A', '319B', '319D'] }, { preserveUnresolved: true });
+  c.setOcrDraft({
+    '2026-10-04': ['319D', '319A', '319B'],
+    '2026-10-05': ['316AB313A'],
+    '2026-10-06': ['316AB'],
+  }, { preserveUnresolved: true });
   assert.equal(await c.applySchedule(c.ocrDraftMap), true);
-  assert.deepEqual(received, [['319A', '319B', '319C', '319D']]);
+  assert.deepEqual(received, [['319A', '319B', '319D'], ['316A', '316B', '313A'], ['316A', '316B']]);
+  assert.deepEqual([...records.values()].map(record => record.rows.map(row => row.route)), received);
+});
+
+test('manual additions reach schedule saving without activating registered or fallback rules', async () => {
+  const received = [];
+  const { context: c } = harness([correction], {
+    getRecord: () => ({ rows: [] }), hasEnteredCounts: () => false,
+    mergeScheduleRowsWithExisting: (_rows, routes) => { received.push(plain(routes)); return []; },
+    setRecord() {}, scheduleSave() {}, renderAll() {}, ensurePendingSavesFlushed: async () => {}, toast() {},
+  });
+  c.el.app = { dataset: { view: 'settings' } };
+  vm.runInContext(extract('applySchedule'), c);
+  const handlers = {};
+  const draft = { '2026-10-04': [], '2026-10-05': [] };
+  const input = { value: '', focus() {} };
+  const node = name => ({ addEventListener: (_, fn) => { handlers[name] = fn; } });
+  const el = Object.fromEntries(['parseCsv', 'scheduleImage', 'runScheduleOcr', 'settlementImage',
+    'runSettlementOcr', 'scheduleDraftCards', 'parseSchedule', 'parseScheduleCsv'].map(n => [n, node(n)]));
+  Object.assign(el.scheduleDraftCards, { querySelector: () => input, querySelectorAll: () => [] });
+  bindOcrEvents({ el, ocrDraftState: { get: () => draft }, parseScheduleRoutes: routeHelpers.parseScheduleRoutes,
+    correctRouteList: () => assert.fail('manual save must not activate the correction engine'),
+    applySchedule: map => c.applySchedule(map), setOcrDraft() {}, renderDraftCards() {},
+    toast: message => assert.fail(message) });
+  for (const [date, value] of [['2026-10-04', '319DBA'], ['2026-10-05', '316BA313A']]) {
+    input.value = value;
+    handlers.scheduleDraftCards({ target: { closest: () => ({ dataset: { date, action: 'add' } }) } });
+  }
+  await handlers.parseSchedule();
+  assert.deepEqual(received, [['319A', '319B', '319D'], ['316A', '316B', '313A']]);
 });
