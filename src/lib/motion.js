@@ -1117,6 +1117,7 @@ export function createVisibilityQueue({
   doc = typeof document !== "undefined" ? document : undefined,
   threshold = 0.2,
   onEnter,
+  finishWhenHidden = true,
 } = {}) {
   const Observer = win?.IntersectionObserver;
   if (typeof Observer !== "function") {
@@ -1137,6 +1138,8 @@ export function createVisibilityQueue({
     const pending = [...queues.keys()];
     pending.forEach(runQueued);
   };
+  const shouldFinishQueued = () => !shouldAnimate({ win, doc })
+    && (finishWhenHidden || !doc?.hidden || prefersReducedMotion(win));
   const observer = new Observer((entries) => {
     if (destroyed) return;
     entries.forEach((entry) => {
@@ -1155,12 +1158,15 @@ export function createVisibilityQueue({
         runQueued(card);
       }
     });
-    if (!shouldAnimate({ win, doc })) finishQueued();
+    if (shouldFinishQueued()) finishQueued();
   }, { threshold: minimumRatio });
   let wasHidden = Boolean(doc?.hidden);
   const unwatch = watchMotionEnvironment(win, doc, () => {
-    if (!shouldAnimate({ win, doc })) finishQueued();
-    if (wasHidden && !doc?.hidden) visible.forEach((card) => onEnter?.(card));
+    if (shouldFinishQueued()) finishQueued();
+    if (wasHidden && !doc?.hidden) visible.forEach((card) => {
+      onEnter?.(card);
+      runQueued(card);
+    });
     wasHidden = Boolean(doc?.hidden);
   });
   const observe = (card) => {
@@ -1186,13 +1192,13 @@ export function createVisibilityQueue({
     isVisible: (card) => !doc?.hidden && visible.has(card),
     whenVisible(card, key, fn) {
       if (destroyed) return;
-      if (!card || !shouldAnimate({ win, doc })) {
+      if (!card || shouldFinishQueued()) {
         forgetQueued(card, key);
         fn();
         return;
       }
       observe(card);
-      if (visible.has(card)) {
+      if (!doc?.hidden && visible.has(card)) {
         forgetQueued(card, key);
         fn();
         return;

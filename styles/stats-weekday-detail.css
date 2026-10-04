@@ -1,0 +1,17 @@
+.stats-driver-report .wd-col[role="button"] { cursor: pointer; border: 1px solid transparent; border-radius: 10px; padding: 8px 2px; }
+.stats-driver-report .wd-col.is-selected { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 8%, transparent); }
+.stats-driver-report .wd-col[role="button"]:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.stats-driver-report .weekday-record-details { margin-top: 12px; border-top: 1px solid var(--line); }
+.stats-driver-report .weekday-record-details > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; padding: 10px 0; color: var(--text); cursor: pointer; list-style: none; font-size: var(--fs-label); font-weight: 600; }
+.stats-driver-report .weekday-record-details > summary::-webkit-details-marker { display: none; }
+.stats-driver-report .weekday-record-details > summary::after { content: "+"; color: var(--muted); font-size: 20px; font-weight: 400; }
+.stats-driver-report .weekday-record-details[open] > summary::after { content: "−"; }
+.stats-driver-report .weekday-record-details > summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 6px; }
+.stats-driver-report .weekday-record-list { margin: 0; padding: 0; list-style: none; }
+.stats-driver-report .weekday-record-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.stats-driver-report .weekday-record-row > div { display: grid; gap: 4px; min-width: 0; }
+.stats-driver-report .weekday-record-row time { font-size: var(--fs-label); color: var(--text); }
+.stats-driver-report .weekday-record-row span, .stats-driver-report .weekday-record-row small { font-size: var(--fs-caption); color: var(--muted); font-weight: 400; }
+.stats-driver-report .weekday-record-row strong { font-family: var(--font-numeric); font-size: var(--fs-body); white-space: nowrap; }
+.stats-driver-report .weekday-record-row small { margin-left: 3px; }
+.stats-driver-report .weekday-record-empty { margin: 0 0 12px; color: var(--muted); font-size: var(--fs-label); line-height: 1.6; }
