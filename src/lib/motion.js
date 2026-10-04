@@ -66,6 +66,20 @@ export function shouldAnimate({
   return Boolean(win && typeof win.requestAnimationFrame === "function");
 }
 
+// Short-lived DOM effects clean up their listeners when they finish; the
+// shared spring scheduler keeps its existing window-level listeners.
+function watchMotionEnvironment(win, doc, onChange) {
+  const media = safeMatchMedia(win, "(prefers-reduced-motion: reduce)");
+  if (media?.addEventListener) media.addEventListener("change", onChange);
+  else media?.addListener?.(onChange);
+  doc?.addEventListener?.("visibilitychange", onChange);
+  return () => {
+    if (media?.removeEventListener) media.removeEventListener("change", onChange);
+    else media?.removeListener?.(onChange);
+    doc?.removeEventListener?.("visibilitychange", onChange);
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Pure spring integrator
 // ---------------------------------------------------------------------------
@@ -506,24 +520,30 @@ export function shake(el, {
   let start = null;
   let raf = 0;
   let stopped = false;
+  let unwatch = () => {};
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    win.cancelAnimationFrame?.(raf);
+    el.style.transform = "";
+    unwatch();
+    if (shakeRegistry.get(el) === stop) shakeRegistry.delete(el);
+  };
   const tick = (now) => {
     if (stopped) return;
+    if (!shouldAnimate({ win, doc })) { stop(); return; }
     if (start === null) start = now;
     const t = (now - start) / 1000;
     if (t >= durationSeconds) {
-      el.style.transform = "";
-      shakeRegistry.delete(el);
+      stop();
       return;
     }
     el.style.transform = `translateX(${shakeOffset(t, { duration: durationSeconds, distance }).toFixed(2)}px)`;
     raf = win.requestAnimationFrame(tick);
   };
+  unwatch = watchMotionEnvironment(win, doc, () => { if (!shouldAnimate({ win, doc })) stop(); });
+  shakeRegistry.set(el, stop);
   raf = win.requestAnimationFrame(tick);
-  shakeRegistry.set(el, () => {
-    stopped = true;
-    win.cancelAnimationFrame?.(raf);
-    el.style.transform = "";
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -641,6 +661,106 @@ export function crossfade(el, swap, { win, doc } = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// Whole-value counter (sample-style cubic ease-out, one rAF per number)
+// ---------------------------------------------------------------------------
+
+const countingRegistry = new WeakMap();
+
+/** Stops a counter before another renderer takes ownership of its element. */
+export function cancelCountingNumber(el) {
+  const entry = el && countingRegistry.get(el);
+  if (!entry) return;
+  entry.cancel();
+  countingRegistry.delete(el);
+}
+
+function ownsCountingDom(el, entry) {
+  if (el.textContent !== entry.text) return false;
+  const nodes = Array.from(el.childNodes || []);
+  return nodes.length === entry.nodes.length && nodes.every((node, index) => node === entry.nodes[index]);
+}
+
+/**
+ * Interpolates the whole numeric value using the sample's 750ms cubic
+ * ease-out. Retargeting starts at the last painted value; an unchanged target
+ * leaves the current motion alone. Replaced DOM is repaired without trusting
+ * its old value cache. Hidden/reduced-motion transitions paint the final value
+ * immediately and release the frame and event listeners.
+ */
+export function updateCountingNumber(el, number, {
+  format = String,
+  duration = 750,
+  win = typeof window !== "undefined" ? window : undefined,
+  doc = typeof document !== "undefined" ? document : undefined,
+} = {}) {
+  if (!el || !Number.isFinite(number)) return;
+  cancelFade(el);
+  rollerRegistry.get(el)?.group.cancelAll();
+  let entry = countingRegistry.get(el);
+  const intact = entry && ownsCountingDom(el, entry);
+  const finalText = String(format(number));
+  el.setAttribute?.("aria-label", finalText);
+  if (intact && entry.target === number) {
+    entry.format = format;
+    if (entry.text !== String(format(entry.current))) entry.paint(entry.current);
+    if (!shouldAnimate({ win, doc }) && entry.running) entry.finish();
+    return;
+  }
+
+  const repair = Boolean(entry && !intact);
+  const from = intact ? entry.current : 0;
+  entry?.cancel();
+  entry = { current: from, target: number, format, text: "", nodes: [], running: false };
+  let raf = null;
+  let unwatch = () => {};
+  entry.paint = (value) => {
+    entry.current = value;
+    entry.text = String(entry.format(value));
+    el.textContent = entry.text;
+    entry.nodes = Array.from(el.childNodes || []);
+  };
+  entry.cancel = () => {
+    entry.running = false;
+    if (raf !== null) win?.cancelAnimationFrame?.(raf);
+    raf = null;
+    unwatch();
+    unwatch = () => {};
+  };
+  entry.finish = () => { entry.cancel(); entry.paint(entry.target); };
+  countingRegistry.set(el, entry);
+  const milliseconds = Number.isFinite(duration) ? Math.max(0, duration) : 750;
+  if (repair || !shouldAnimate({ win, doc }) || milliseconds === 0 || from === number) {
+    entry.finish();
+    return;
+  }
+  entry.paint(from);
+  entry.running = true;
+  const start = win.performance?.now?.() ?? Date.now();
+  const tick = (now) => {
+    raf = null;
+    if (!entry.running) return;
+    if (el.isConnected === false || !ownsCountingDom(el, entry)) {
+      entry.cancel();
+      if (countingRegistry.get(el) === entry) countingRegistry.delete(el);
+      return;
+    }
+    if (!shouldAnimate({ win, doc })) { entry.finish(); return; }
+    const progress = Math.min(1, Math.max(0, (now - start) / milliseconds));
+    if (progress === 1) { entry.finish(); return; }
+    entry.paint(from + (number - from) * (1 - (1 - progress) ** 3));
+    raf = win.requestAnimationFrame(tick);
+  };
+  unwatch = watchMotionEnvironment(win, doc, () => {
+    if (shouldAnimate({ win, doc })) return;
+    if (el.isConnected === false || !ownsCountingDom(el, entry)) {
+      entry.cancel();
+      if (countingRegistry.get(el) === entry) countingRegistry.delete(el);
+    } else entry.finish();
+  });
+  raf = win.requestAnimationFrame(tick);
+}
+
+// ---------------------------------------------------------------------------
 // Rolling number renderer (DOM)
 // ---------------------------------------------------------------------------
 
@@ -655,6 +775,7 @@ const rollerRegistry = new WeakMap();
  */
 export function updateRollingNumber(el, formatted, { units = DEFAULT_UNIT_SUFFIXES, group, win, doc, rollIn = false } = {}) {
   if (!el) return;
+  cancelCountingNumber(el);
   cancelFade(el);
   const text = String(formatted ?? "");
   const { number, unit } = splitTrailingUnit(text, units);
@@ -836,12 +957,12 @@ export function createTabIndicator(container, indicator, { win, doc } = {}) {
     // The edge in the direction of travel is the "leading" edge (stiff);
     // the other edge lags behind (soft) before catching up.
     group.run("l", edge.l, to.l, {
-      ...(movingForward ? springs.trailing : springs.leading),
+      ...springs.trailing,
       win, doc,
       onUpdate: (x) => { edge.l = x; place(); },
     });
     group.run("r", edge.r, to.r, {
-      ...(movingForward ? springs.leading : springs.trailing),
+      ...springs.leading,
       win, doc,
       onUpdate: (x) => { edge.r = x; place(); },
     });
@@ -999,44 +1120,80 @@ export function createVisibilityQueue({
 } = {}) {
   const Observer = win?.IntersectionObserver;
   if (typeof Observer !== "function") {
-    return { supported: false, observe() {}, isVisible: () => true, whenVisible: (card, key, fn) => fn() };
+    return { supported: false, observe() {}, destroy() {}, isVisible: () => true, whenVisible: (card, key, fn) => fn() };
   }
-  const visible = new WeakSet();
+  const visible = new Set();
   const observed = new WeakSet();
-  const queues = new WeakMap();
+  const queues = new Map();
+  const minimumRatio = Number.isFinite(threshold) ? Math.min(1, Math.max(0, threshold)) : 0.2;
+  let destroyed = false;
+  const runQueued = (card) => {
+    const queue = queues.get(card);
+    if (!queue) return;
+    queues.delete(card);
+    queue.forEach((fn) => fn());
+  };
+  const finishQueued = () => {
+    const pending = [...queues.keys()];
+    pending.forEach(runQueued);
+  };
   const observer = new Observer((entries) => {
+    if (destroyed) return;
     entries.forEach((entry) => {
       const card = entry.target;
-      if (!entry.isIntersecting) {
+      // Real IntersectionObserver entries always provide intersectionRatio;
+      // the fallback preserves compatibility with minimal older test doubles.
+      const ratio = entry.intersectionRatio ?? (entry.isIntersecting ? 1 : 0);
+      if (!entry.isIntersecting || ratio < minimumRatio) {
         visible.delete(card);
         return;
       }
+      const entering = !visible.has(card);
       visible.add(card);
-      onEnter?.(card);
-      const queue = queues.get(card);
-      if (!queue) return;
-      queues.delete(card);
-      queue.forEach((fn) => fn());
+      if (!doc?.hidden) {
+        if (entering) onEnter?.(card);
+        runQueued(card);
+      }
     });
-  }, { threshold });
+    if (!shouldAnimate({ win, doc })) finishQueued();
+  }, { threshold: minimumRatio });
+  let wasHidden = Boolean(doc?.hidden);
+  const unwatch = watchMotionEnvironment(win, doc, () => {
+    if (!shouldAnimate({ win, doc })) finishQueued();
+    if (wasHidden && !doc?.hidden) visible.forEach((card) => onEnter?.(card));
+    wasHidden = Boolean(doc?.hidden);
+  });
   const observe = (card) => {
-    if (!card || observed.has(card)) return;
+    if (destroyed || !card || observed.has(card)) return;
     observed.add(card);
     observer.observe(card);
+  };
+  const forgetQueued = (card, key) => {
+    const queue = queues.get(card);
+    queue?.delete(key);
+    if (queue?.size === 0) queues.delete(card);
   };
   return {
     supported: true,
     observe,
-    isVisible: (card) => visible.has(card),
+    destroy() {
+      destroyed = true;
+      unwatch();
+      observer.disconnect?.();
+      visible.clear();
+      queues.clear();
+    },
+    isVisible: (card) => !doc?.hidden && visible.has(card),
     whenVisible(card, key, fn) {
+      if (destroyed) return;
       if (!card || !shouldAnimate({ win, doc })) {
-        queues.get(card)?.delete(key);
+        forgetQueued(card, key);
         fn();
         return;
       }
       observe(card);
       if (visible.has(card)) {
-        queues.get(card)?.delete(key);
+        forgetQueued(card, key);
         fn();
         return;
       }
@@ -1047,7 +1204,9 @@ export function createVisibilityQueue({
   };
 }
 
-/** A short confetti burst from the centre of `origin`, drawn on a fixed full-screen canvas that removes itself. */
+const confettiRegistry = new WeakMap();
+
+/** A short confetti burst on a self-removing canvas; a new burst replaces the old one. */
 export function confettiBurst(origin, {
   win = typeof window !== "undefined" ? window : undefined,
   doc = typeof document !== "undefined" ? document : undefined,
@@ -1055,12 +1214,14 @@ export function confettiBurst(origin, {
   count = 80,
   duration = 1400,
 } = {}) {
+  if (win) confettiRegistry.get(win)?.();
   if (!origin || !doc?.body || !shouldAnimate({ win, doc })) return;
   const canvas = doc.createElement("canvas");
   canvas.setAttribute("aria-hidden", "true");
   canvas.style.cssText = "position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999";
   doc.body.appendChild(canvas);
-  const ctx = canvas.getContext("2d");
+  let ctx;
+  try { ctx = canvas.getContext("2d"); } catch { canvas.remove(); return; }
   if (!ctx) { canvas.remove(); return; }
   const width = win.innerWidth, height = win.innerHeight, dpr = win.devicePixelRatio || 1;
   canvas.width = Math.round(width * dpr);
@@ -1078,7 +1239,22 @@ export function confettiBurst(origin, {
     };
   });
   const start = win.performance?.now?.() ?? Date.now();
+  let raf = null;
+  let stopped = false;
+  let unwatch = () => {};
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    if (raf !== null) win.cancelAnimationFrame?.(raf);
+    raf = null;
+    unwatch();
+    canvas.remove();
+    if (confettiRegistry.get(win) === stop) confettiRegistry.delete(win);
+  };
   const frame = (now) => {
+    raf = null;
+    if (stopped) return;
+    if (!shouldAnimate({ win, doc })) { stop(); return; }
     const elapsed = now - start;
     ctx.clearRect(0, 0, width, height);
     parts.forEach((p) => {
@@ -1091,8 +1267,10 @@ export function confettiBurst(origin, {
       ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
       ctx.restore();
     });
-    if (elapsed < duration) win.requestAnimationFrame(frame);
-    else canvas.remove();
+    if (elapsed < duration) raf = win.requestAnimationFrame(frame);
+    else stop();
   };
-  win.requestAnimationFrame(frame);
+  unwatch = watchMotionEnvironment(win, doc, () => { if (!shouldAnimate({ win, doc })) stop(); });
+  confettiRegistry.set(win, stop);
+  raf = win.requestAnimationFrame(frame);
 }
