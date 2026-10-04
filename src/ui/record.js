@@ -141,17 +141,7 @@ export function bindRecordEvents(ctx) {
       : { route: firstRate?.route || "", count: "", unit: baseUnit, draft: !firstRate });
     renderEntryForm();
     const newRow = el.entryRows.lastElementChild;
-    if (newRow) {
-      newRow.style.opacity = "0";
-      motion.animateSpring(0, 1, {
-        ...motion.SPRING,
-        onUpdate: (v) => {
-          newRow.style.opacity = String(Math.min(1, v));
-          newRow.style.transform = `translateX(${(-16 * (1 - v)).toFixed(2)}px) scale(${(0.9 + 0.1 * v).toFixed(3)})`;
-        },
-        onDone: () => { newRow.style.opacity = ""; newRow.style.transform = ""; },
-      });
-    }
+    if (newRow) motion.enterElement(newRow);
   });
   [el.freshCount, el.freshUnit, el.backupUnit].forEach((input) => input.addEventListener("input", () => {
     refreshTotals();

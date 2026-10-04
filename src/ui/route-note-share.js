@@ -1,4 +1,5 @@
 import { buildRouteNoteShareUrl, normalizeRouteNoteShareDays } from "../services/route-note-share.js";
+import { enterElement } from "../lib/motion.js";
 
 function node(tag, attrs = {}, children = []) {
   const element = document.createElement(tag);
@@ -36,9 +37,11 @@ async function copyText(value) {
 export function createRouteNoteShareDialog({ service, getShareBaseUrl = () => globalThis.location?.href, onChanged = () => {} } = {}) {
   if (!service?.create || !service?.list || !service?.update) throw new Error("공유 링크 서비스를 찾을 수 없습니다.");
   let overlay = null, zone = null, openedBy = null, loading = false, generation = 0, keyHandler = null, latestUrl = "";
+  let cancelEntry = null;
   const close = () => {
     generation += 1;
     loading = false;
+    cancelEntry?.(); cancelEntry = null;
     if (!overlay) return;
     document.removeEventListener("keydown", keyHandler);
     overlay.remove(); overlay = null; zone = null; latestUrl = "";
@@ -125,6 +128,7 @@ export function createRouteNoteShareDialog({ service, getShareBaseUrl = () => gl
       ]),
     ]);
     document.body.append(overlay); overlay.querySelector(".route-notes-share-dialog")?.focus(); refresh();
+    cancelEntry = enterElement(overlay.querySelector(".route-notes-share-dialog"));
     keyHandler = (event) => {
       if (event.key === "Escape") { event.preventDefault(); close(); return; }
       if (event.key !== "Tab") return;

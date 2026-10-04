@@ -2384,7 +2384,6 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
   font-weight: 600;
 }
 .measurement-guide-trigger svg { width: 19px; height: 19px; color: var(--gold); }
-.measurement-guide-trigger:active { opacity: .72; }
 .measurement-guide-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .measurement-guide-actions > * { min-width: 0; }
 .measurement-guide-actions .measurement-guide-trigger { margin-top: 10px; }
@@ -2406,7 +2405,6 @@ body:not([data-theme="dark"]) .settings-section .upload-row .secondary-btn {
 }
 .measurement-guide-link small { color: var(--muted); font-size: var(--fs-caption); font-weight: 600; }
 .measurement-guide-link svg { width: 17px; height: 17px; color: var(--gold); flex: 0 0 auto; }
-.measurement-guide-link:active { opacity: .72; }
 .settings-guide-row { text-decoration: none; }
 .settings-guide-row em { font-style: normal; font-size: var(--fs-label); white-space: nowrap; }
 .settings-guide-row strong { display: block; color: var(--text); font-size: var(--fs-body-l); }
@@ -4226,7 +4224,6 @@ html:not([data-theme="dark"]) .ledger-switch button.is-on { background: var(--pa
 
 .stats-sim { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 10px; }
 .stats-sim-step { width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: var(--panel2); color: var(--text); font-size: 22px; font-weight: 600; line-height: 1; cursor: pointer; transition: transform .12s; }
-.stats-sim-step:active { transform: scale(.94); }
 .stats-sim-step:disabled { opacity: .35; cursor: default; }
 .stats-sim output { display: grid; text-align: center; color: var(--text); font-size: var(--fs-title); font-weight: 700; }
 .stats-sim output small { color: var(--muted); font-size: var(--fs-caption); font-weight: 500; }

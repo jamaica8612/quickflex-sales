@@ -17,7 +17,7 @@ import { fetchWorkTimings } from "./services/work-timings.js";
 import * as motion from "./lib/motion.js";
 import { createCalendarMotion, paintCalendarSelection } from "./lib/calendar-motion.js";
 import { drawStatsChart, cancelStatsChartDraw } from "./lib/stats-chart-motion.js";
-import { createStatsCardMotion } from "./lib/stats-card-motion.js";
+import { createViewMotion } from "./lib/view-motion.js";
 import { createStatsNotebookCharts } from "./lib/stats-notebook-charts.js";
 import { createStatsWeekdayDetail } from "./lib/stats-weekday-detail.js";
 ﻿"use strict";
@@ -187,7 +187,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.124";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.125";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -198,7 +198,7 @@ import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
 // arrives: a card below the fold (or inside the hidden tab) keeps its latest
 // pending motion until it scrolls into view, and rises in the first time.
 const statsMotion = motion.createVisibilityQueue({ finishWhenHidden: false });
-const statsCardMotion = createStatsCardMotion();
+const viewMotion = createViewMotion();
 function statsCard(node) {
   return node?.closest?.(".stats-report-hero, .stats-report-section, .stats-sparkline-card") || null;
 }
@@ -766,6 +766,7 @@ function syncModalBackground() {
 
 function updateModalLayer(layer, open, initialFocus) {
   if (!layer) return;
+  viewMotion.modal(layer, open);
   if (open) {
     const current = document.activeElement;
     if (current instanceof HTMLElement && current !== document.body && !layer.contains(current)) {
@@ -3726,6 +3727,7 @@ function showView(view, options = {}) {
   if (view === "settings") {
     renderRates();
   }
+  viewMotion.show(document.querySelector(`.view-${view}`), document.querySelector(`.view-${previousView}`));
   if (view !== previousView) queueUsageEvent("screen_viewed", { screen: view });
 }
 
@@ -4038,7 +4040,7 @@ function renderAll() {
   renderRates();
   renderStats();
   renderSettingsSummary();
-
+  viewMotion.prepare(document.querySelector(".view-home"));
 }
 // 새 정산기간이 막 시작해 이번 기간에 근무 기록이 아직 없으면, 헤드라인 카드는
 // 방금 끝난 정산기간의 결과를 대신 보여준다(운전자가 지금 실제로 궁금한 숫자는
@@ -5354,7 +5356,7 @@ function renderStats() {
 }
 // Cards rise in the first time they come on screen (only where motion can run).
 function prepareStatsReveal() {
-  statsCardMotion.prepare(document.querySelectorAll(".stats-driver-report > :is(.stats-report-hero, .stats-report-section, .stats-sparkline-card)"));
+  viewMotion.prepare(document.querySelector(".view-stats"));
 }
 // The settlement before the selected one, for per-route trends; null for longer ranges.
 function previousStatsKeys(mode) {
@@ -6491,7 +6493,6 @@ function openSalesOverride(dateKey = state.selectedDate) {
   if (motion.shouldAnimate()) {
     el.salesOverrideOverlay.style.opacity = "0";
     motion.fadeTo(el.salesOverrideOverlay, 1, { onDone: () => { el.salesOverrideOverlay.style.opacity = ""; } });
-    motion.popIn(el.salesOverrideOverlay.querySelector(".modal-card"), { from: 0.92 });
   }
   return true;
 }

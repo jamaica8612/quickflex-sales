@@ -1,4 +1,5 @@
 import { downloadRecordsExport, expenseReview, ExportCancelledError, ExportSizeLimitError } from "../lib/export-records.js";
+import * as motion from "../lib/motion.js";
 
 function formatWon(value) {
   return `${new Intl.NumberFormat("ko-KR").format(value)}원`;
@@ -110,6 +111,7 @@ export function createExportsController({ host, getExportInput, fetchReceipt, on
   const previewPanel = root.querySelector("[data-export-preview-panel]");
   let returnFocus = null;
   let loadSequence = 0;
+  let cancelDialogEnter = null;
 
   function setFormBusy(value) {
     form.toggleAttribute("aria-busy", value);
@@ -169,6 +171,8 @@ export function createExportsController({ host, getExportInput, fetchReceipt, on
 
   function close() {
     loadSequence += 1;
+    cancelDialogEnter?.();
+    cancelDialogEnter = null;
     overlay.hidden = true;
     document.body.classList.remove("exports-open");
     setFormBusy(false);
@@ -190,6 +194,7 @@ export function createExportsController({ host, getExportInput, fetchReceipt, on
     else selectRange("month", presetRange("month"));
     overlay.hidden = false;
     document.body.classList.add("exports-open");
+    cancelDialogEnter = motion.enterElement(dialog);
     requestAnimationFrame(() => form.elements.from.focus());
   }
 

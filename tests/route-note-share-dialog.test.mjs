@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
+import { enterElement } from '../src/lib/motion.js';
 import { buildRouteNoteShareUrl, normalizeRouteNoteShareDays } from '../src/services/route-note-share.js';
 const source=readFileSync(new URL('../src/ui/route-note-share.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export function createRouteNoteShareDialog','function createRouteNoteShareDialog');
 function dom(){
@@ -28,7 +29,7 @@ function dom(){
 const zone={id:'20000000-0000-4000-8000-000000000001',name:'예시 구역'};
 const share={id:'30000000-0000-4000-8000-000000000001',token:'a'.repeat(64),expires_at:'2026-10-01T00:00:00Z'};
 function dialog({create=async()=>share,clipboard}={}){
- const document=dom(),context={document,navigator:clipboard?{clipboard}: {},window:{confirm:()=>true},URL,Intl,buildRouteNoteShareUrl,normalizeRouteNoteShareDays};
+ const document=dom(),context={document,navigator:clipboard?{clipboard}: {},window:{confirm:()=>true},URL,Intl,buildRouteNoteShareUrl,normalizeRouteNoteShareDays,enterElement};
  runInNewContext(source,context);
  const controller=context.createRouteNoteShareDialog({service:{create,list:async()=>[],update:async()=>share},getShareBaseUrl:()=> 'https://example.invalid/app/index.html'});
  controller.open({zone});return {document,controller,button:text=>document.body.all().find(e=>e.tag==='button'&&e.textContent===text)};
