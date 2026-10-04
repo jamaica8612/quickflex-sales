@@ -13,7 +13,7 @@
 .stats-driver-report .snb-goal-tip { fill: var(--panel); stroke: var(--snb-blue); stroke-width: 2.5; }
 .stats-driver-report .snb-goal-chart .snb-goal-value { fill: var(--snb-blue); font-weight: 700; font-size: 11px; }
 .stats-driver-report .snb-note { margin: 12px 0 0; font-size: 11px; line-height: 1.75; color: var(--muted); }
-.stats-driver-report .stats-notebook-daily { --snb-blue: var(--green); min-width: 0; }
+.stats-driver-report .stats-notebook-daily { --snb-blue: var(--gold); min-width: 0; }
 .stats-driver-report .snb-daily-insight { padding: 15px 17px; border-radius: 14px; background: color-mix(in srgb, var(--snb-blue) 7%, var(--panel)); margin-bottom: 20px; }
 .stats-driver-report .snb-daily-insight p { font-size: 12px; margin: 0; color: var(--muted); }
 .stats-driver-report .snb-daily-insight > strong { display: block; font-size: 35px; font-weight: 700; letter-spacing: -.04em; font-variant-numeric: tabular-nums; line-height: 1.35; color: var(--snb-blue); margin: 5px 0; }
@@ -61,8 +61,6 @@
 .stats-driver-report .snb-day-bar:focus-visible, .stats-driver-report .snb-day-controls button:focus-visible { outline: 3px solid var(--snb-blue); outline-offset: 3px; }
 html[data-theme=dark] .stats-driver-report .stats-notebook-goal,
 body[data-theme=dark] .stats-driver-report .stats-notebook-goal { --snb-blue: var(--gold); }
-html[data-theme=dark] .stats-driver-report .stats-notebook-daily,
-body[data-theme=dark] .stats-driver-report .stats-notebook-daily { --snb-blue: color-mix(in srgb, var(--green) 60%, var(--text)); }
 @media(max-width: 350px) {
   .stats-driver-report .snb-daily-axis { width: 36px; font-size: 8px; }
   .stats-driver-report .snb-daily-chart { gap: 5px; }
