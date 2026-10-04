@@ -1,5 +1,11 @@
 # QuickFlex Worklog
 
+## 2026-10-04 Settlement chart accent correction (PWA 1.0.124)
+
+- Replaced the unexpected green in the daily revenue chart with the existing `--gold` accent: blue in light mode and brass in dark mode. Bars, selected dates, averages, insight amounts, detail totals and keyboard focus share the same theme token. Calculations and motion are unchanged.
+- Validation: all 825 Node tests passed without skips; release consistency, bootstrap/service-worker syntax and diff checks passed. At 390px, browser checks confirmed the daily value, average line and detail total use the correct theme accent with no horizontal overflow.
+- Local screenshots: `C:/work/quickflex-settlement-preview-20261004/screenshots/color-fix-light-390.png` and `color-fix-dark-390.png`; synthetic data only. Full test output is `color-fix-test-results.txt` in the same evidence directory.
+
 ## 2026-10-04 Settlement notebook prototype integration (PWA 1.0.123)
 
 - Applied the approved notebook prototype to the authenticated PWA while retaining personal records, day-off planning, equal-workday comparisons and causes, hourly earnings, median/route statistics and the settlement ledger. The existing report still supplies period boundaries and canonical, historically priced totals.
