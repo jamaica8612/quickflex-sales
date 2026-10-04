@@ -10,7 +10,7 @@
     <meta name="application-name" content="플렉스노트" />
     <meta name="apple-mobile-web-app-title" content="플렉스노트" />
     <meta name="description" content="배송의 기록부터 매출·지출까지" />
-    <link rel="manifest" href="./manifest.webmanifest?v=1.0.122" />
+    <link rel="manifest" href="./manifest.webmanifest?v=1.0.123" />
     <link rel="icon" href="./favicon-32.png?v=4" type="image/png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=4" />
     <script>
@@ -40,11 +40,15 @@
     </style>
     <style>html[data-startup] #app{visibility:hidden;pointer-events:none}</style>
     <link rel="stylesheet" href="./styles/startup.css?v=3" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.122" />
-  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.122" />
-<link rel="stylesheet" href="./styles/exports.css?v=1.0.122" />
-<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.122" />
-<link rel="stylesheet" href="./styles/calendar-motion.css?v=1.0.122" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.123" />
+  <link rel="stylesheet" href="./styles/stats-card-motion.css?v=1.0.123" />
+  <link rel="stylesheet" href="./styles/stats-notebook-charts.css?v=1.0.123" />
+  <link rel="stylesheet" href="./styles/stats-weekday-detail.css?v=1.0.123" />
+  <link rel="stylesheet" href="./styles/settlement-notebook.css?v=1.0.123" />
+  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.123" />
+<link rel="stylesheet" href="./styles/exports.css?v=1.0.123" />
+<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.123" />
+<link rel="stylesheet" href="./styles/calendar-motion.css?v=1.0.123" />
 <link rel="stylesheet" href="./styles/noah.css?v=6" />
 <link rel="stylesheet" href="./styles/route-note-map.css?v=7" />
 <link rel="stylesheet" href="./styles/route-notes.css?v=10" />
@@ -402,9 +406,10 @@
 
 
           <section class="stats-summary-card stats-report-hero" aria-labelledby="statsHeroLabel">
-            <div class="stats-hero-heading"><span class="ssc-label" id="statsHeroLabel">이번 정산 누적</span><strong class="ssc-range" id="statsSummaryRange">-</strong></div>
+            <div class="stats-hero-heading"><span class="ssc-label" id="statsHeroLabel">이번 정산 누적</span><strong class="ssc-range" id="statsSummaryRange">-</strong><button class="stats-goal-edit" id="statsGoalEdit" type="button">목표 수정 ›</button></div>
             <strong class="stats-outlook-value" id="statsOutlookValue">-</strong>
             <p id="statsOutlookMessage" class="stats-outlook-message"></p>
+            <div id="statsNotebookGoal"></div>
             <div id="statsOutlookPlan" class="stats-outlook-plan"></div>
             <div class="ssc-meter" id="statsGoalMeter"><div class="ssc-meter-bar"><span id="statsMeterFill"></span></div><div class="ssc-meter-foot"><span id="statsMeterPct">0%</span><span id="statsMeterLabel">목표 미설정</span></div></div>
             <dl class="stats-hero-support"><div><dt>근무일당 매출</dt><dd id="statsAverage">0원</dd></div><div><dt>기록된 근무</dt><dd id="statsWorkDays">0일</dd></div></dl>
@@ -434,17 +439,24 @@
           <section class="stats-report-section stats-hourly" id="statsHourlySection" aria-labelledby="statsHourlyTitle" hidden>
             <div id="statsHourlyContent"></div>
           </section>
-          <section class="stats-sparkline-card" aria-labelledby="statsTrendTitle">
-            <div class="stats-sparkline-head"><h2 id="statsTrendTitle">매출 흐름</h2><span id="statsChartChange" class="stats-sparkline-change"></span></div>
+          <section class="stats-report-section" id="statsDailyChartSection" aria-label="날짜별 매출"></section>
+          <section class="stats-sparkline-card" id="statsPeriodChartSection" aria-labelledby="statsTrendTitle">
+            <div class="stats-sparkline-head"><h2 id="statsTrendTitle">선택 기간 전체 흐름</h2><span id="statsChartChange" class="stats-sparkline-change"></span></div>
             <div class="stats-chart-stage"><canvas id="statsChart" height="112" role="img" aria-describedby="statsChartSummary"></canvas></div>
             <div class="stats-sparkline-endpoints" id="statsChartEndpoints"></div>
             <p class="stats-sparkline-description" id="statsChartSummary">근무 기록의 매출 흐름입니다. 휴무·미기록 날짜는 제외합니다.</p>
             <p class="stats-sparkline-empty" id="statsChartEmpty" hidden>기록이 쌓이면 흐름이 표시됩니다.</p>
           </section>
+          <section class="stats-report-section stats-weekday-card" id="statsWeekdaySection" aria-labelledby="statsWeekdayTitle">
+            <div class="stats-report-section-head"><div><span>요일 비교</span><h2 id="statsWeekdayTitle">요일별 근무일당 매출</h2></div></div>
+            <p class="stats-reading-note">휴무를 뺀 근무일당 평균이에요.</p>
+            <div class="stats-weekday-filter"><label for="statsWeekdayPeriod">비교 기간</label><select id="statsWeekdayPeriod"><option value="last3">최근 3개월</option><option value="thisMonth">이번 정산</option><option value="last12">최근 1년</option></select><span id="statsWeekdayRange"></span></div>
+            <div id="statsWeekdayPattern"><div id="weekdayStats" class="weekday-stats"></div><p class="stats-reading-note">3일 이상 기록된 요일끼리 비교해요. 물량과 구역이 다른 날이 섞여 있어요.</p></div>
+            <div id="statsWeekdayRecords"></div>
+          </section>
           <section class="stats-report-section" aria-labelledby="statsPatternsTitle">
             <div class="stats-report-section-head"><div><span>내 매출 패턴</span><h2 id="statsPatternsTitle">보통 하루에 얼마나 벌었나</h2></div></div>
             <div id="statsTypical" class="stats-typical"></div>
-            <div id="statsWeekdayPattern"><h3 id="statsWeekdayTitle" class="stats-pattern-title">요일별 근무일당 매출</h3><div id="weekdayStats" class="weekday-stats"></div><p class="stats-reading-note">요일마다 근무 조건이 다릅니다. 기록 일수가 적으면 참고로만 봐주세요.</p></div>
             <details id="statsRouteDisclosure" class="stats-disclosure" hidden><summary id="statsRoutesTitle">구역 기록 자세히 보기</summary><p class="stats-reading-note">근무일당 배송 매출 · 백업수당·프레시백 제외. 묶음으로 기록한 구역은 균등 배분한 참고값입니다.</p><div id="routeStats" class="route-stats"></div></details>
           </section>
           <section class="stats-report-section" aria-labelledby="statsRevenueTitle"><div class="stats-report-section-head"><div><span>기록 확인</span><h2 id="statsRevenueTitle">정산 내역</h2></div></div>
@@ -844,7 +856,7 @@
     <script src="./src/vendor/supabase-2.116.0.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.122"></script>
+    <script type="module" src="./src/main.js?v=1.0.123"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});

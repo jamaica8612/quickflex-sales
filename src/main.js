@@ -17,6 +17,9 @@ import { fetchWorkTimings } from "./services/work-timings.js";
 import * as motion from "./lib/motion.js";
 import { createCalendarMotion, paintCalendarSelection } from "./lib/calendar-motion.js";
 import { drawStatsChart, cancelStatsChartDraw } from "./lib/stats-chart-motion.js";
+import { createStatsCardMotion } from "./lib/stats-card-motion.js";
+import { createStatsNotebookCharts } from "./lib/stats-notebook-charts.js";
+import { createStatsWeekdayDetail } from "./lib/stats-weekday-detail.js";
 ﻿"use strict";
 
 import {
@@ -184,7 +187,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.122";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.123";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -194,7 +197,8 @@ import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
 // 정산노트 motion runs when its card is actually on screen, not when the data
 // arrives: a card below the fold (or inside the hidden tab) keeps its latest
 // pending motion until it scrolls into view, and rises in the first time.
-const statsMotion = motion.createVisibilityQueue({ onEnter: (card) => card.classList.add("is-shown") });
+const statsMotion = motion.createVisibilityQueue({ finishWhenHidden: false });
+const statsCardMotion = createStatsCardMotion();
 function statsCard(node) {
   return node?.closest?.(".stats-report-hero, .stats-report-section, .stats-sparkline-card") || null;
 }
@@ -5246,7 +5250,54 @@ function renderStatsCauses(decomposition) {
   });
 }
 
+let statsNotebookCharts;
+let statsWeekdayDetail;
+function prepareStatsNotebook() {
+  if (statsNotebookCharts) return;
+  statsNotebookCharts = createStatsNotebookCharts({
+    goalRoot: $("statsNotebookGoal"),
+    dailyRoot: $("statsDailyChartSection"),
+    whenVisible: (node, key, run) => statsMotion.whenVisible(statsCard(node), key, run),
+    shouldAnimate: () => motion.shouldAnimate(),
+    getDayDetail: (dateKey) => {
+      const record = state.entries[dateKey];
+      const details = calcRecordDetails(record);
+      return {
+        routes: [...recordRouteAggregates(record)].map(([route, row]) => ({ route, ...row })),
+        deliveryRevenue: [...recordRouteAggregates(record).values()].reduce((sum, row) => sum + row.revenue, 0),
+        freshRevenue: details.freshRevenue, backupRevenue: details.backupRevenue,
+        returnCount: details.returnCount,
+      };
+    },
+  });
+  statsWeekdayDetail = createStatsWeekdayDetail({ root: el.weekdayStats, recordsRoot: $("statsWeekdayRecords") });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) statsNotebookCharts.settle();
+  });
+  window.matchMedia?.("(prefers-reduced-motion: reduce)")?.addEventListener?.("change", (event) => {
+    if (event.matches) statsNotebookCharts.settle();
+  });
+  $("statsWeekdayPeriod")?.addEventListener("change", renderNotebookWeekdays);
+  $("statsGoalEdit")?.addEventListener("click", () => {
+    showView("settings");
+    const group = el.goalAmountInput.closest("details");
+    if (group) group.open = true;
+    el.goalAmountInput.focus();
+  });
+}
+function renderNotebookWeekdays() {
+  const report = buildStatsReport({
+    dailyRecords: statsDailyRecords(),
+    currentPeriod: { year: state.statsYear, month: state.statsMonth },
+    mode: $("statsWeekdayPeriod")?.value || "last3", asOfDate: todayKey(), goal: getGoal(),
+  });
+  const days = statsDailyRecords().filter((day) => day.dateKey >= report.range.start && day.dateKey <= report.range.end && day.dateKey <= todayKey());
+  $("statsWeekdayRange").textContent = formatRangeLabel(parseDateKey(report.range.start), parseDateKey(report.range.end));
+  renderWeekdayStats(days.map((day) => day.dateKey));
+  statsWeekdayDetail.render({ days });
+}
 function renderStats() {
+  prepareStatsNotebook();
   applyDefaultStatsRangeMode();
   const mode = state.statsRangeMode || "thisMonth";
   const report = buildStatsReport({
@@ -5278,6 +5329,8 @@ function renderStats() {
 
   renderStatsComparison(report);
   renderDriverInsights(report);
+  statsNotebookCharts.render({ report, days: statsDailyRecords(), asOfDate: todayKey() });
+  $("statsPeriodChartSection").hidden = mode === "thisMonth" || mode === "lastMonth";
   const showGoal = mode === "thisMonth" && report.goal.target;
   if (el.statsGoalMeter) el.statsGoalMeter.hidden = !showGoal;
   if (showGoal) {
@@ -5297,18 +5350,11 @@ function renderStats() {
   renderRouteStats(keys, previousStatsKeys(mode));
   $("statsRouteDisclosure").hidden = !el.routeStats.querySelector(".route-stat-card");
   renderDailyStatsFor(keys);
-  renderWeekdayStats(keys);
+  renderNotebookWeekdays();
 }
 // Cards rise in the first time they come on screen (only where motion can run).
-let statsRevealPrepared = false;
 function prepareStatsReveal() {
-  if (statsRevealPrepared || !statsMotion.supported) return;
-  statsRevealPrepared = true;
-  const animate = motion.shouldAnimate();
-  document.querySelectorAll(".stats-driver-report > :is(.stats-report-hero, .stats-report-section, .stats-sparkline-card)").forEach((card) => {
-    if (animate) card.classList.add("stats-reveal");
-    statsMotion.observe(card);
-  });
+  statsCardMotion.prepare(document.querySelectorAll(".stats-driver-report > :is(.stats-report-hero, .stats-report-section, .stats-sparkline-card)"));
 }
 // The settlement before the selected one, for per-route trends; null for longer ranges.
 function previousStatsKeys(mode) {
@@ -5391,7 +5437,6 @@ function renderWeekdayStats(keys) {
     }).join("");
     el.weekdayStats.innerHTML = `<div class="wd-bars">${cols}</div><p class="wd-note"></p>`;
   }
-  const canAnimate = motion.shouldAnimate();
   let staggerSlot = 0;
   buckets.forEach((bucket, index) => {
     const col = el.weekdayStats.querySelector(`.wd-col[data-weekday="${index}"]`);
@@ -5417,18 +5462,14 @@ function renderWeekdayStats(keys) {
     // A small stagger on every real change (first render or a later data
     // change), not just first paint — only columns that actually move get a
     // slot, so an unrelated single-day update doesn't wait behind 6 no-ops.
-    if (canAnimate) {
-      if (freshBuild) fill.style.transform = `scaleY(0)`;
-      const slot = staggerSlot;
-      statsMotion.whenVisible(statsCard(el.weekdayStats), `wd-${index}`, () => {
-        if (revision !== weekdayBarsRevision) return;
-        if (motion.shouldAnimate()) weekdayBarTimers.set(index, setTimeout(start, slot * 55));
-        else start();
-      });
-      staggerSlot += 1;
-    } else {
-      start();
-    }
+    if (freshBuild) fill.style.transform = `scaleY(0)`;
+    const slot = staggerSlot;
+    statsMotion.whenVisible(statsCard(el.weekdayStats), `wd-${index}`, () => {
+      if (revision !== weekdayBarsRevision) return;
+      if (motion.shouldAnimate()) weekdayBarTimers.set(index, setTimeout(start, slot * 55));
+      else start();
+    });
+    staggerSlot += 1;
   });
   el.weekdayStats.querySelector(".wd-note").textContent = note;
 }

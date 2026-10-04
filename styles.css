@@ -4205,12 +4205,6 @@ html:not([data-theme="dark"]) .ledger-switch button.is-on { background: var(--pa
 }
 
 /* 23-1. 정산노트 하이라이트: 남는 돈, 최고 기록, 휴무 계획, 변화 원인, 화면에 들어올 때 모션 */
-.stats-driver-report .stats-reveal { opacity: 0; transform: translateY(16px); }
-.stats-driver-report .stats-reveal.is-shown {
-  opacity: 1;
-  transform: none;
-  transition: opacity .45s ease, transform .6s cubic-bezier(.2,.8,.2,1);
-}
 .stats-driver-report .ssc-meter-bar > span { transition: width .9s cubic-bezier(.2,.8,.2,1); }
 .stats-driver-report .stats-outlook-value { color: var(--gold); }
 
@@ -4280,8 +4274,6 @@ html:not([data-theme="dark"]) .ledger-switch button.is-on { background: var(--pa
 .stats-driver-report .stats-cause > strong { font-family: var(--font-numeric); font-size: var(--fs-body); font-weight: 700; text-align: right; white-space: nowrap; }
 
 @media (prefers-reduced-motion: reduce) {
-  .stats-driver-report .stats-reveal,
-  .stats-driver-report .stats-reveal.is-shown { opacity: 1; transform: none; transition: none; }
   .stats-record.is-popping { animation: none; }
   .stats-sim-track > span, .stats-sim-track > i, .stats-cause-track > i, .stats-hourly-track > i, .stats-driver-report .ssc-meter-bar > span { transition: none; }
 }

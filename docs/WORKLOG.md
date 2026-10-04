@@ -1,5 +1,14 @@
 # QuickFlex Worklog
 
+## 2026-10-04 Settlement notebook prototype integration (PWA 1.0.123)
+
+- Applied the approved notebook prototype to the authenticated PWA while retaining personal records, day-off planning, equal-workday comparisons and causes, hourly earnings, median/route statistics and the settlement ledger. The existing report still supplies period boundaries and canonical, historically priced totals.
+- Added cumulative actual revenue and a distinct goal reference on a shared, rounded money axis. Actuals stop at today; the current settlement's goal axis continues to its end. Added eight-day revenue bars with worked/off/missing states, keyboard/date navigation, and selected-day route revenue from the existing route adapter, with fresh/backup amounts shown separately.
+- Kept the original seven vertical weekday bars, added an independent settlement-based comparison-period selector and keyboard-accessible weekday record details. The longer-period aggregate trend remains available in 3-month, 1-year and custom views.
+- Cards stage below the viewport and enter once with a native CSS damped spring (72px rise, approximately 7px overshoot, 760ms). Existing visible cards remain visible. Hidden documents preserve unseen graph callbacks; active animations settle on backgrounding or reduced motion. No permanent animation layers or JavaScript card frame loops were introduced.
+- Validation: all 825 Node tests passed without skips; 75 JavaScript syntax checks, release consistency and diff checks passed. Pure tests distinguish genuine zero-revenue work from off/missing dates. Synthetic real-renderer browser checks covered 390px light/dark, rapid period changes, eight-day boundaries, missing/off states, historical route totals, weekday period isolation, keyboard navigation, and reduced motion. A 4x CPU slowdown was used for interaction checks; physical phone frame rate was not measured.
+- Local evidence: `C:/work/quickflex-settlement-preview-20261004/` holds the isolated loopback-only harness, complete test output and example screenshots. The fixture has no authenticated client, blocks remote requests and writes, and is not shipped. This release changes only the PWA presentation and shell/version assets.
+
 ## 2026-10-04 Calendar and settlement motion (PWA 1.0.122)
 
 - Added immediate calendar press feedback, continuous selected-date ring movement, directional month entry with row staging, and a short amount/count transition. Selected-date data paints synchronously; presentation no longer owns a stale date callback. Real buttons and keyboard focus remain intact.
