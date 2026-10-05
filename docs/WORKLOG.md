@@ -1809,3 +1809,9 @@ Browser checks:
 - Tapping the row opens 구역노트 on a dated tab with all of that day's zones on the map; a single matching zone opens directly. The old text-search fallback is no longer used for this shortcut.
 - 구역노트 follows RouteNote: it opens map-first (list collapsed), a tap inside the selected zone opens its full shared-tip list, and tip positions are picked only after 지도에서 등록 starts. Favorites are removed from tabs, rows and zone details (stored favorites are untouched).
 - Validation: full Node suite 865/865 (route-note tests updated to the new tap and favorites behaviour), release --check passed. The home row and map behaviour were not exercised in a browser because they need the company zone data and the Naver SDK. No database or Edge Function changes.
+
+## 2026-10-05 - 구역노트 map-first with a tip popup (PWA 1.0.132)
+
+- Opening 구역노트 now shows only the map, like RouteNote; a 구역 목록 button opens the zone list on request, and back closes it.
+- Tapping inside a selected zone opens its shared tips as a compact popup over the map (kind, title, two-line memo; located tips open their pin). The popup offers 지도에서 등록 and 공통 팁 추가; back or 닫기 returns to the map.
+- Validation: full Node suite 865/865 (route-note tests updated for the map-first open and the popup), release --check passed. Not exercised in a browser because it needs the company zone data and the Naver SDK. No database or Edge Function changes.
