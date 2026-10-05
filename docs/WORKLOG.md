@@ -1802,3 +1802,10 @@ Browser checks:
 - 설정: profile, goal and route-rate saves show a brief check beside the save button.
 - New helpers collapseOut and markSaved live in src/lib/motion.js. All of these are off under reduced motion. Route-note asset versions are cascaded by release --bump-assets.
 - Validation: full Node suite 865/865, release --check passed, a local fake-backend browser run of the record total count, row fold and the expense list. Map motion was not exercised in the browser because it needs the Naver SDK. No database or Edge Function changes.
+
+## 2026-10-05 - 구역노트 like RouteNote and one calendar shortcut (PWA 1.0.131)
+
+- Home: the selected day shows one row, 구역노트 · codes ›, instead of a button per route. Only that day's route codes that have a zone note are listed (zone names are parsed into codes the same way as the 내 구역 tab, so 302AB, 302A 302B and 302A·302B all match), and the row hides when none do. The zone-code index loads once per account and refreshes after leaving 구역노트.
+- Tapping the row opens 구역노트 on a dated tab with all of that day's zones on the map; a single matching zone opens directly. The old text-search fallback is no longer used for this shortcut.
+- 구역노트 follows RouteNote: it opens map-first (list collapsed), a tap inside the selected zone opens its full shared-tip list, and tip positions are picked only after 지도에서 등록 starts. Favorites are removed from tabs, rows and zone details (stored favorites are untouched).
+- Validation: full Node suite 865/865 (route-note tests updated to the new tap and favorites behaviour), release --check passed. The home row and map behaviour were not exercised in a browser because they need the company zone data and the Naver SDK. No database or Edge Function changes.

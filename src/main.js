@@ -1,6 +1,6 @@
 import { createExpenseService } from "./services/expenses.js";
 import { createRouteNotesService } from "./services/route-notes.js?v=3";
-import { createRouteNotesController } from "./ui/route-notes.js?v=19";
+import { createRouteNotesController } from "./ui/route-notes.js?v=20";
 import { createRouteNoteShareService } from "./services/route-note-share.js";
 import { createRouteNoteShareDialog } from "./ui/route-note-share.js";
 import { checkBetaMeasurementAccess } from "./services/beta-access.js";
@@ -188,7 +188,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.130";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.131";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -3745,6 +3745,7 @@ function showView(view, options = {}) {
   if (previousView === "routes" && view !== "routes") {
     if (routeNotesController?.canClose && !routeNotesController.canClose()) return;
     routeNotesController?.close();
+    if (typeof invalidateHomeZoneCodes === "function") invalidateHomeZoneCodes();
   }
   if (previousView === "record" && view !== "record" && state.recordDraft) {
     if (!confirmLeaveRecordDraft()) return;
@@ -4498,19 +4499,51 @@ function renderHomeSelection() {
     renderSelectedDateBreakdown(record);
   });
 }
+// Route codes that have a 구역노트 zone, read once per account and refreshed after visiting 구역노트.
+const homeZoneCodes = { epoch: -1, status: "idle", codes: new Set() };
+function loadHomeZoneCodes() {
+  if (!currentUserId() || state.profile?.status !== "approved") return;
+  if (homeZoneCodes.epoch === accountEpoch && homeZoneCodes.status !== "idle") return;
+  const epoch = accountEpoch;
+  Object.assign(homeZoneCodes, { epoch, status: "loading", codes: new Set() });
+  ensureRouteNotesService().load().then((data) => {
+    if (homeZoneCodes.epoch !== epoch) return;
+    const codes = new Set((data?.zones || []).flatMap((zone) => parseScheduleRoutes(zone?.name || "")));
+    Object.assign(homeZoneCodes, { status: "ready", codes });
+    renderHomeSelection();
+  }).catch(() => {
+    if (homeZoneCodes.epoch === epoch) Object.assign(homeZoneCodes, { status: "unavailable", codes: new Set() });
+  });
+}
+function invalidateHomeZoneCodes() { Object.assign(homeZoneCodes, { epoch: -1, status: "idle", codes: new Set() }); }
 function renderHomeDayOverview(record, calc, automatic) {
   const routeLinks = el.homeRouteNotes;
   if (routeLinks) {
-    const routes = [...new Set(record.rows.flatMap((row) => splitStoredRoutes(row.route)).filter(Boolean))];
-    routeLinks.replaceChildren(...routes.map((route) => {
+    // One quiet row for the whole day, listing only routes that have a zone note.
+    const dayCodes = [...new Set(parseScheduleRoutes(record.rows.flatMap((row) => splitStoredRoutes(row.route)).filter(Boolean)))];
+    if (dayCodes.length) loadHomeZoneCodes();
+    const linked = record.off ? [] : dayCodes.filter((code) => homeZoneCodes.codes.has(code));
+    routeLinks.replaceChildren();
+    if (linked.length) {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "secondary-btn";
-      button.dataset.openRouteNote = route;
-      button.textContent = `${route} 구역노트`;
-      return button;
-    }));
-    routeLinks.hidden = record.off || routes.length === 0;
+      button.className = "home-route-note-link";
+      button.dataset.openRouteNotes = linked.join(",");
+      button.setAttribute("aria-label", `${linked.join(", ")} 구역노트 열기`);
+      const title = document.createElement("span");
+      title.className = "home-route-note-title";
+      title.textContent = "구역노트";
+      const codes = document.createElement("span");
+      codes.className = "home-route-note-codes";
+      codes.textContent = linked.join(" · ");
+      const chevron = document.createElement("span");
+      chevron.className = "home-route-note-chevron";
+      chevron.setAttribute("aria-hidden", "true");
+      chevron.textContent = "›";
+      button.append(title, codes, chevron);
+      routeLinks.append(button);
+    }
+    routeLinks.hidden = linked.length === 0;
   }
   const recorded = automatic || calc.revenue !== 0 || hasEnteredCounts(record);
   const planned = !recorded && record.rows.some((row) => Boolean(row.route));
@@ -6800,8 +6833,8 @@ function bindNoah() {
 
 function bindEvents() {
   $("homeRouteNotes")?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-open-route-note]");
-    if (button) showView("routes", { route: button.dataset.openRouteNote });
+    const button = event.target.closest("[data-open-route-notes]");
+    if (button) showView("routes", { routes: button.dataset.openRouteNotes.split(","), label: `${formatMonthDay(state.selectedDate)} 구역` });
   });
   document.querySelectorAll("[data-open-expenses]").forEach((button) => button.addEventListener("click", () => showView("expenses")));
   document.querySelectorAll("[data-open-stats]").forEach((button) => button.addEventListener("click", () => showView("stats")));
@@ -7078,10 +7111,14 @@ let routeNotesService = null;
 let routeNoteShareService = null;
 let routeNoteShareDialog = null;
 
-function ensureRouteNotesController() {
+function ensureRouteNotesService() {
   if (!routeNotesService) routeNotesService = createRouteNotesService({
     getContext: () => ({ client: state.db, user: state.session?.user, profile: state.profile, epoch: accountEpoch }),
   });
+  return routeNotesService;
+}
+function ensureRouteNotesController() {
+  ensureRouteNotesService();
   if (!routeNoteShareService) routeNoteShareService = createRouteNoteShareService({
     getContext: () => ({ client: state.db, user: state.session?.user, profile: state.profile, epoch: accountEpoch }),
   });

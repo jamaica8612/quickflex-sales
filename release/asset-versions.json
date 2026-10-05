@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-05T07:32:23.419Z",
+  "generatedAt": "2026-10-05T07:45:19.221Z",
   "assets": {
     "apple-touch-icon.png": {
       "version": "4",
@@ -62,8 +62,8 @@
       "sha256": "c77f42d3239d043d994e8efdf8947a37b419996cee22411ecdfaba4c2a93c967"
     },
     "src/ui/route-notes.js": {
-      "version": "19",
-      "sha256": "298b02aa9b59b389ea63e85b24c2714610fbf83370cb816cac73bb12f9cf8cb4"
+      "version": "20",
+      "sha256": "287d0e599d177cd054f9376312d5538e979bc0c9d963d46c85d652411b13005c"
     },
     "src/ui/settings.js": {
       "version": "5",
