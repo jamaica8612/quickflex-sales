@@ -128,10 +128,11 @@ export function buildStatsInsights({ days = [], report, asOfDate } = {}) {
 
   const driversAvailable = applicable && report.comparison?.available === true;
   let previousWorked = [];
+  let previousAll = [];
   if (driversAvailable) {
     const previousPeriod = shiftSettlementPeriod(period, -1);
-    previousWorked = workedDaysInRange(days, previousPeriod.start, previousPeriod.end)
-      .slice(0, currentWorked.length);
+    previousAll = workedDaysInRange(days, previousPeriod.start, previousPeriod.end);
+    previousWorked = previousAll.slice(0, currentWorked.length);
   }
   const volumeAvailable = driversAvailable
     && currentWorked.every((day) => day.volumeKnown === true)
@@ -167,6 +168,11 @@ export function buildStatsInsights({ days = [], report, asOfDate } = {}) {
         ? driverAverages(previousWorked, volumeAvailable)
         : driverAverages([]),
       decomposition: volumeAvailable ? decomposeRevenueChange(currentWorked, previousWorked) : null,
+      // Revenue per worked day in order, for the lead chart; the previous list runs to its settlement's end.
+      series: driversAvailable ? {
+        current: currentWorked.map((day) => number(day.revenue)),
+        previous: previousAll.map((day) => number(day.revenue)),
+      } : null,
     },
     typical: {
       days: typicalRevenues.length,
