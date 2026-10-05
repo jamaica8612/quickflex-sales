@@ -214,5 +214,6 @@ test("drivers stay unavailable when the as-of date is outside the current settle
       averageExtraRevenue: null,
     },
     decomposition: null,
+    series: null,
   });
 });

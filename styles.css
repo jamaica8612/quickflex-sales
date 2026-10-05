@@ -4228,7 +4228,7 @@ html:not([data-theme="dark"]) .ledger-switch button.is-on { background: var(--pa
 .stats-record-date { color: var(--muted); font-family: var(--font-code); font-size: var(--fs-caption); }
 .stats-record.is-new { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--gold) 60%, transparent); }
 .stats-driver-report .stats-record.is-new strong { color: var(--gold); }
-.stats-record-new { position: absolute; top: 9px; right: 9px; padding: 2px 6px; border-radius: var(--r-full); background: var(--gold); color: var(--panel); font-size: 9px; font-weight: 700; letter-spacing: .1em; }
+.stats-record-new { position: absolute; top: 9px; right: 9px; padding: 2px 7px; border-radius: var(--r-full); background: var(--gold); color: var(--panel); font-size: 10px; font-weight: 700; }
 .stats-record.is-popping { animation: stats-record-pop .7s cubic-bezier(.2,1.4,.4,1); }
 @keyframes stats-record-pop { 0% { transform: scale(.92); } 60% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
@@ -4289,3 +4289,81 @@ html:not([data-theme="dark"]) .ledger-switch button.is-on { background: var(--pa
 .stats-chart-stage canvas[hidden] { display: none; }
 .stats-chart-trace { position: absolute; inset: 0; width: 100%; height: 112px; pointer-events: none; }
 .counting-number { display: inline !important; font: inherit !important; color: inherit !important; letter-spacing: inherit !important; margin: 0 !important; }
+
+/* 23-2. 정산노트 정리: 지난 정산 비교, 이번 정산 전망, 정산별 표, 순수익·지출 연결 */
+.stats-compare-card { gap: 12px; }
+.stats-compare-eyebrow { color: var(--muted); font-size: var(--fs-caption); font-weight: 500; }
+.stats-driver-report .stats-verdict { margin: -4px 0 0; font-size: 21px; font-weight: 700; line-height: 1.35; letter-spacing: -.025em; text-wrap: balance; }
+.stats-verdict .is-up { color: var(--green); }
+.stats-verdict .is-down { color: var(--red); }
+.stats-verdict-sub { margin: -8px 0 0; color: var(--muted); font-size: var(--fs-label); font-weight: 600; }
+.stats-lead { min-height: 164px; }
+.stats-lead-chart { display: block; width: 100%; height: 164px; overflow: visible; }
+.stats-lead-zero { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 4 4; }
+.stats-lead-area.is-up { fill: var(--green); fill-opacity: .14; }
+.stats-lead-area.is-down { fill: var(--red); fill-opacity: .12; }
+.stats-lead-line { fill: none; stroke: var(--gold); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: stroke-dashoffset .9s cubic-bezier(.2,.8,.2,1); }
+.stats-lead-point { fill: var(--gold); }
+.stats-lead-dot { fill: var(--panel); stroke: var(--gold); stroke-width: 2.4; }
+.stats-lead-value { font-family: var(--font-numeric); font-size: 12px; font-weight: 700; }
+.stats-lead-value.is-up { fill: var(--green); }
+.stats-lead-value.is-down { fill: var(--red); }
+.stats-lead-tick { fill: var(--muted); font-size: 10.5px; }
+/* Lead chart motion: the line traces in, points follow it, then the shading, dot and value. */
+.stats-lead-chart.is-waiting :is(.stats-lead-area, .stats-lead-point, .stats-lead-dot, .stats-lead-value) { opacity: 0; }
+.stats-lead-chart.is-drawing .stats-lead-point { animation: stats-fade-in .2s ease backwards; }
+.stats-lead-chart.is-drawing .stats-lead-point { animation-delay: calc(var(--i, 0) * 90ms + 100ms); }
+.stats-lead-chart.is-drawing .stats-lead-area { animation: stats-fade-in .45s ease .55s backwards; }
+.stats-lead-chart.is-drawing :is(.stats-lead-dot, .stats-lead-value) { animation: stats-fade-in .25s ease .9s backwards; }
+@keyframes stats-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.stats-compare3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.stats-compare3 > div { display: grid; gap: 3px; min-width: 0; padding: 11px 10px; border-radius: var(--r-md); background: var(--panel2); }
+.stats-compare3 span { color: var(--muted); font-size: var(--fs-caption); font-weight: 600; }
+.stats-driver-report .stats-compare3 strong { font-family: var(--font-numeric); font-size: var(--fs-title-m); font-weight: 700; letter-spacing: -.02em; white-space: nowrap; }
+.stats-compare3 em, .stats-compare-final em { font-style: normal; font-size: var(--fs-caption); font-weight: 700; white-space: nowrap; }
+:is(.stats-compare3, .stats-compare-final) .is-up { color: var(--green); }
+:is(.stats-compare3, .stats-compare-final) .is-down { color: var(--red); }
+:is(.stats-compare3, .stats-compare-final) .is-even { color: var(--muted); }
+.stats-compare-final { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 10px 12px; border-radius: var(--r-md); background: var(--panel2); color: var(--text-sub); font-size: var(--fs-label); }
+.stats-compare-final b { color: var(--text); font-family: var(--font-numeric); font-weight: 700; }
+.stats-compare-card #statsCausesDisclosure .stats-causes { padding-bottom: 6px; }
+
+/* Settlement-by-settlement rows (3개월·1년); bars grow in order once the card is seen. */
+.stats-settle-rows { display: grid; gap: 2px; }
+.stats-settle-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 48px; transition: opacity .35s ease, transform .45s cubic-bezier(.2,.8,.2,1); transition-delay: calc(var(--row, 0) * 45ms); }
+.stats-settle-month { display: grid; font-size: var(--fs-body); font-weight: 700; }
+.stats-settle-month small { color: var(--muted); font-size: var(--fs-caption); font-weight: 600; }
+.stats-settle-row.is-best .stats-settle-month small { color: var(--gold); }
+.stats-settle-bar { height: 8px; border-radius: var(--r-full); background: var(--panel3); overflow: hidden; }
+.stats-settle-bar > i { display: block; width: var(--share); height: 100%; border-radius: inherit; background: color-mix(in srgb, var(--gold) 38%, transparent); transition: width .7s cubic-bezier(.2,.8,.2,1); transition-delay: calc(var(--row, 0) * 45ms + 120ms); }
+.stats-settle-row.is-best .stats-settle-bar > i { background: var(--gold); }
+.stats-settle-row.is-running .stats-settle-bar > i { background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--gold) 38%, transparent) 0 6px, transparent 6px 9px); }
+.stats-settle-amount { display: grid; justify-items: end; text-align: right; }
+.stats-driver-report .stats-settle-amount strong { font-family: var(--font-numeric); font-size: var(--fs-body-l); font-weight: 700; white-space: nowrap; }
+.stats-settle-amount small { color: var(--muted); font-size: var(--fs-caption); white-space: nowrap; }
+.stats-settle-rows.is-waiting .stats-settle-row { opacity: 0; transform: translateY(8px); }
+.stats-settle-rows.is-waiting .stats-settle-bar > i { width: 0; }
+
+/* 순수익 opens 지출노트; the expense summary sits under 정산 내역. */
+button.stats-net { width: 100%; border: 0; font: inherit; text-align: left; cursor: pointer; }
+.stats-net-chevron { color: var(--muted); font-style: normal; font-size: var(--fs-title-m); margin-left: 4px; }
+.stats-expense-summary { display: grid; margin-top: 8px; border-top: 1px solid var(--line); }
+.stats-expense-head { display: flex; justify-content: space-between; align-items: center; min-height: 40px; padding: 0; border: 0; background: transparent; color: var(--text-sub); font: inherit; font-weight: 600; cursor: pointer; }
+.stats-expense-head i { color: var(--muted); font-style: normal; font-size: var(--fs-label); }
+.stats-weekday-basis { margin: -4px 0 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stats-lead-chart * { animation: none !important; transition: none !important; }
+  .stats-settle-row, .stats-settle-bar > i { transition: none; }
+}
+button.stats-net { font-size: var(--fs-label); }
+button.stats-net > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stats-expense-summary .rev-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
+.stats-expense-summary .rev-label { color: var(--text-sub); font-size: var(--fs-body); }
+.stats-driver-report .stats-expense-summary .rev-amount { font-family: var(--font-numeric); font-size: var(--fs-body-l); font-weight: 700; }
+.stats-settle-row { grid-template-columns: 52px minmax(0, 1fr) 156px; }
+.stats-settle-row.is-running .stats-settle-bar > i { background: color-mix(in srgb, var(--gold) 22%, transparent); }
+/* The long-range flow line sits in a card like its neighbours. */
+.stats-driver-report .stats-sparkline-card { padding: 20px; border-radius: var(--r-lg); background: var(--panel); box-shadow: var(--shadow-card); }
+.stats-settle-row { grid-template-columns: 52px minmax(0, 1fr) 96px; row-gap: 2px; padding: 6px 0; }
+.stats-settle-meta { grid-column: 2 / -1; color: var(--muted); font-size: var(--fs-caption); }

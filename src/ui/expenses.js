@@ -298,3 +298,6 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
   });
   return {refresh,open,handleBack:()=>dialog?close():false,reset(){generation++;rows=[];close(true);host.innerHTML='';},dispose(){disposed=true;generation++;close(true);host.innerHTML='';}};
 }
+
+/** Display name for an expense category code. */
+export function expenseCategoryLabel(code) { return label(code); }

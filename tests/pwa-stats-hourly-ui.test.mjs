@@ -33,17 +33,15 @@ test("no timing history hides the card and fewer than three days shows only guid
   assert.deepEqual(few.rolling, []);
 });
 
-test("three measured days render agreed work and active hourly figures and route comparison", () => {
+test("three measured days render work and active hourly figures without per-route bars", () => {
   const { nodes, rolling, jobs } = run(timings);
   assert.equal(nodes.statsHourlySection.hidden, false);
   assert.deepEqual(rolling, [["statsActualHourly", 20000], ["statsDeliveryHourly", 100000 / 3]]);
   assert.match(nodes.statsHourlyContent.innerHTML, /2시간 0분/);
-  assert.match(nodes.statsHourlyContent.innerHTML, /개수는 310C가 가장 많지만 시간당으로는 310D/);
+  assert.match(nodes.statsHourlyContent.innerHTML, /시간은 업무 시작부터 종료까지로 계산합니다/);
   assert.match(nodes.statsHourlyContent.innerHTML, /측정한 3일 기준.*0일 제외/);
-  assert.match(nodes.statsHourlyRoutes.innerHTML, /is-best.*310D/);
-  assert.equal(jobs.length, 1);
-  assert.equal(jobs[0][0], nodes.statsHourlySection);
-  assert.equal(jobs[0][1], "hourly-bars");
+  assert.doesNotMatch(nodes.statsHourlyContent.innerHTML, /구역별 시간당 수익|statsHourlyRoutes/, "the first route absorbs the commute, so routes are not compared");
+  assert.equal(jobs.length, 0);
 });
 
 test("insufficient coverage never contributes to card amounts or best hourly days", () => {

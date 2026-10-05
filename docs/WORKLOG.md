@@ -1815,3 +1815,11 @@ Browser checks:
 - Opening 구역노트 now shows only the map, like RouteNote; a 구역 목록 button opens the zone list on request, and back closes it.
 - Tapping inside a selected zone opens its shared tips as a compact popup over the map (kind, title, two-line memo; located tips open their pin). The popup offers 지도에서 등록 and 공통 팁 추가; back or 닫기 returns to the map.
 - Validation: full Node suite 865/865 (route-note tests updated for the map-first open and the popup), release --check passed. Not exercised in a browser because it needs the company zone data and the Naver SDK. No database or Edge Function changes.
+
+## 2026-10-05 - 정산노트 reorganised (PWA 1.0.133)
+
+- Order: for one settlement, the goal chart card, then the new 지난 정산 비교 card, the outlook (휴무 계획 renamed 이번 정산 전망), hourly, daily bars, records, weekday/typical and the ledger. For 3개월·1년, a new settlement-by-settlement table and the flow line replace the daily bars, comparison and outlook.
+- 지난 정산 비교: a verdict line, a lead/behind line per worked day around a dashed zero (green above, red below) that draws in when seen, three small comparisons, the previous settlement's final total against the current pace, and the causes collapsed under 왜 달라졌나. stats-insights now returns the per-workday revenue series.
+- Removed duplication: the hero goal bar and the 남은 일정으로 전망 보기 disclosure (both covered by the goal chart and the outlook card). The weekday card no longer has its own period picker and states its 3-month basis. The long-range flow line ends at the last finished settlement instead of dropping at the running one.
+- Additions: the settlement table (revenue bar, worked days, per day, 순수익 when expenses are loaded; best and running settlements marked; rows rise and bars grow when seen), the 순수익 line and a top-3 expense category summary under 정산 내역 that open 지출노트, the hourly card without per-route bars plus the basis line, and the records badge reads 신기록.
+- Validation: full Node suite 865/865 (hourly UI test updated for the removed route bars), release --check passed, local fake-backend browser run at 390px light and dark for 이번 정산 and 1년 with no console errors. No database or Edge Function changes.
