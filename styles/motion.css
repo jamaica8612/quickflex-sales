@@ -27,7 +27,19 @@
 /* Expense-based lines hold their place with a soft placeholder until expenses load. */
 :is(.summary-ledger,.stats-net).is-loading :is(b,strong,#statsNetExpense,#summaryExpense){color:transparent;border-radius:6px;background:linear-gradient(90deg,var(--panel3) 0%,color-mix(in srgb,var(--panel3) 55%,var(--panel)) 50%,var(--panel3) 100%) 0 0/200% 100%;animation:ledger-wait 1.2s ease-in-out infinite}
 @keyframes ledger-wait{0%{background-position:100% 0}100%{background-position:-100% 0}}
+/* A just-saved expense row glows once. */
+.expense-row.is-fresh{animation:row-fresh-glow 1s cubic-bezier(.2,.8,.2,1)}
+@keyframes row-fresh-glow{0%,30%{background-color:color-mix(in srgb,var(--gold) 14%,transparent)}100%{background-color:transparent}}
+/* A newly saved tip pin settles onto the map. */
+.route-notes-map-tip-marker.is-dropping{animation:tip-drop .42s cubic-bezier(.2,.8,.2,1) backwards}
+@keyframes tip-drop{0%{transform:translateY(-14px);opacity:0}60%{opacity:1}100%{opacity:1;transform:none}}
+/* Save buttons show a brief check after a successful save. */
+.save-tick{display:inline-block;margin-left:6px;font-weight:700;animation:save-tick 1.2s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes save-tick{0%{opacity:0;transform:scale(.6)}18%{opacity:1;transform:scale(1)}80%{opacity:1}100%{opacity:0}}
 @media(prefers-reduced-motion:reduce){
+  .save-tick{animation:none}
+  .route-notes-map-tip-marker.is-dropping{animation:none}
+  .expense-row.is-fresh{animation:none}
   :is(.summary-ledger,.stats-net).is-loading :is(b,strong,#statsNetExpense,#summaryExpense){animation:none}
   .day-cell.is-just-saved::after{display:none}
   .settings-group::details-content,.settings-group > summary::after{transition:none}

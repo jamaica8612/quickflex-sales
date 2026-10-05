@@ -190,6 +190,7 @@ export function bindRecordEvents(ctx) {
     try {
       await ensurePendingSavesFlushed();
       toast("내 단가를 저장했습니다.", "success");
+      motion.markSaved(el.saveRate);
     } catch (error) {
       if (error?.quickflexHandled) return;
       toast(`단가 저장 실패: ${error.message}`, "error");

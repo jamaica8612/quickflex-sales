@@ -1387,3 +1387,34 @@ export function confettiBurst(origin, {
   confettiRegistry.set(win, stop);
   raf = win.requestAnimationFrame(frame);
 }
+
+/**
+ * Folds a row away (height, spacing and opacity to zero) and resolves when it is gone.
+ * Without animation, or without the Web Animations API, it resolves at once.
+ */
+export function collapseOut(el, {
+  duration = 220,
+  win = typeof window !== "undefined" ? window : undefined,
+  doc = typeof document !== "undefined" ? document : undefined,
+} = {}) {
+  if (!el || typeof el.animate !== "function" || !shouldAnimate({ win, doc })) return Promise.resolve();
+  const height = el.getBoundingClientRect().height;
+  el.style.overflow = "hidden";
+  const animation = el.animate([
+    { height: `${height}px`, opacity: 1 },
+    { height: "0px", opacity: 0, marginTop: "0px", marginBottom: "0px", paddingTop: "0px", paddingBottom: "0px" },
+  ], { duration, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
+  return animation.finished.then(() => undefined, () => undefined);
+}
+
+/** A short check beside a save button's label once its save succeeded. Presentation only. */
+export function markSaved(button, { duration = 1200, doc = typeof document !== "undefined" ? document : undefined } = {}) {
+  if (!button || !doc?.createElement || button.isConnected === false) return;
+  button.querySelector(":scope > .save-tick")?.remove();
+  const tick = doc.createElement("span");
+  tick.className = "save-tick";
+  tick.setAttribute("aria-hidden", "true");
+  tick.textContent = "✓";
+  button.append(tick);
+  setTimeout(() => tick.remove(), duration);
+}

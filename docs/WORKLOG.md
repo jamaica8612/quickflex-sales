@@ -1793,3 +1793,12 @@ Browser checks:
 - Choosing a later date slides the day detail in from the right, an earlier one from the left (10px); other changes keep the 6px rise.
 - Wording: "남는 돈" is now "순수익" (home: 지출 X · 순수익 Y; 정산노트: 순수익 · 지출 X 제외), and the expense tab title reads 지출노트.
 - Validation: full Node suite 863/863, release --check passed, local fake-backend browser check of home, 지출노트 and 정산노트 wording. No database or Edge Function changes.
+
+## 2026-10-05 - Result motion across menus (PWA 1.0.130)
+
+- 지출노트: after a save or delete the list stays on screen while it reloads (no flash to a loading message); remaining rows slide into place, a just-saved row glows once, and the period total counts from its previous value.
+- 기록하기: the day total counts to its new value as counts or units change, and a deleted route row folds away before the draft updates.
+- 구역노트: a newly saved tip pin settles onto the map and a newly drawn zone fills in softly; the first render of the map stays still.
+- 설정: profile, goal and route-rate saves show a brief check beside the save button.
+- New helpers collapseOut and markSaved live in src/lib/motion.js. All of these are off under reduced motion. Route-note asset versions are cascaded by release --bump-assets.
+- Validation: full Node suite 865/865, release --check passed, a local fake-backend browser run of the record total count, row fold and the expense list. Map motion was not exercised in the browser because it needs the Naver SDK. No database or Edge Function changes.
