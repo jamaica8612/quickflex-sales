@@ -154,15 +154,15 @@ async function openTipForm(view) {
   return form;
 }
 
-test("route content enters on navigation, without moving the map or replaying search and favorites", async () => {
+test("route content enters on navigation, without moving the map or replaying search", async () => {
   const view = setup(); await view.controller.open(); await flush();
   assert.equal(view.calls.entries.length, 1);
   assert.equal(view.calls.entries[0].element, byClass(view.root, "route-notes-sheet-body"));
   const search = view.root.querySelector("input");
   search.value = "A"; await search.dispatch("input"); await flush();
   search.value = ""; await search.dispatch("input"); await flush();
-  await click(byClass(view.root, "route-notes-star"));
-  assert.equal(view.calls.entries.length, 1, "same list must stay visible during refresh");
+  assert.equal(byClass(view.root, "route-notes-star"), undefined, "favorites are gone from the zone list");
+  assert.equal(view.calls.entries.length, 1, "same list must stay visible during search");
   await click(byClass(view.root, "route-notes-zone-main"));
   assert.ok(view.calls.entries[0].canceled, "hidden list entry stops before map navigation");
   assert.equal(view.calls.entries.length, 1, "hidden sheet and async zone load do not animate");
@@ -298,12 +298,15 @@ test("zone editor callbacks create and delete member zones; only owned zones exp
   assert.equal(view.root.all().filter((element) => element.getAttribute("aria-label") === "구역 수정" && visible(element)).length, 0);
 });
 
-test("map tap rejects outside points and offers tip registration inside the selected zone", async () => {
+test("a zone tap shows its shared tips; positions are picked only while registering a tip", async () => {
   const view = setup(); await openZone(view);
   const pick = view.calls.maps[0][0].onCoordinatePick;
+  pick({ lat: 37.2, lng: 127.2 }); await flush();
+  assert.equal(button(view.root, "여기에 팁 쓰기"), undefined, "a plain tap inside the zone does not start registration");
+  assert.match(view.root.textContent, /구역 공통 팁/, "the zone's shared tips stay in view");
+  await click(button(view.root, "지도에서 등록"));
   pick({ lat: 40, lng: 130 }); await flush();
   assert.match(view.notifications.at(-1)[0], /경계 안에서/);
-  assert.equal(button(view.root, "여기에 팁 쓰기"), undefined);
   pick({ lat: 37.2, lng: 127.2 }); await flush();
   assert.ok(button(view.root, "여기에 팁 쓰기"));
   await click(button(view.root, "여기에 팁 쓰기"));
