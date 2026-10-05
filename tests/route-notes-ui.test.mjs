@@ -156,6 +156,8 @@ async function openTipForm(view) {
 
 test("route content enters on navigation, without moving the map or replaying search", async () => {
   const view = setup(); await view.controller.open(); await flush();
+  assert.equal(view.calls.entries.length, 0, "구역노트 opens on the map without a list");
+  await click(button(view.root, "구역 목록"));
   assert.equal(view.calls.entries.length, 1);
   assert.equal(view.calls.entries[0].element, byClass(view.root, "route-notes-sheet-body"));
   const search = view.root.querySelector("input");
@@ -187,6 +189,8 @@ test("route tip changes cancel previous motion, and closing cleans up before reo
   assert.ok(last.canceled);
   const count = view.calls.entries.length;
   await view.controller.open(); await flush();
+  assert.equal(view.calls.entries.length, count, "reopening shows the map without replaying content");
+  await click(button(view.root, "구역 목록"));
   assert.equal(view.calls.entries.length, count + 1);
 });
 
@@ -277,6 +281,7 @@ test("searching a tip opens its compact popup and deletion returns to the map", 
 
 test("zone editor callbacks create and delete member zones; only owned zones expose editing", async () => {
   const view = setup(); await view.controller.open(); await flush();
+  await click(button(view.root, "구역 목록"));
   await click(button(view.root, "구역 만들기"));
   const creator = view.calls.zoneEditors.at(-1);
   assert.equal(creator.options.zone, null);
@@ -303,7 +308,8 @@ test("a zone tap shows its shared tips; positions are picked only while register
   const pick = view.calls.maps[0][0].onCoordinatePick;
   pick({ lat: 37.2, lng: 127.2 }); await flush();
   assert.equal(button(view.root, "여기에 팁 쓰기"), undefined, "a plain tap inside the zone does not start registration");
-  assert.match(view.root.textContent, /구역 공통 팁/, "the zone's shared tips stay in view");
+  assert.ok(byClass(view.root, "route-notes-tip-popup"), "the zone's shared tips open as a popup over the map");
+  assert.match(byClass(view.root, "route-notes-tip-popup").textContent, /공용 팁/);
   await click(button(view.root, "지도에서 등록"));
   pick({ lat: 40, lng: 130 }); await flush();
   assert.match(view.notifications.at(-1)[0], /경계 안에서/);

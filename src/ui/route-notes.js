@@ -107,6 +107,8 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
   let selectedTipId = null, tipDetailsOpen = false;
   // A tap inside the selected zone opens its full shared-tip list over the map (RouteNote behaviour).
   let tipListOpen = false;
+  // Like RouteNote the overview is the map itself; the zone list opens only on request.
+  let zoneListOpen = false;
   let pickedPoint = null, locationMenuOpen = false, zoneEditor = null;
   let fullscreen = false, marketRouteMap = null;
   // Opened from a calendar day: that day's route codes and the tab label for them.
@@ -190,6 +192,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     if (!service?.loadZone) return;
     if ((tipDraft || zoneDraft) && !abandonDraft()) return;
     if (selected?.id !== zoneId) { sheetSnap = "peek"; selectedTipId = null; tipListOpen = false; }
+    zoneListOpen = false;
     suggestOpen = false; query = ""; pickedPoint = null; locationMenuOpen = false;
     workspace?.search.blur();
     selected = { id: zoneId, loading: true }; tipDraft = null; zoneDraft = null; formDirty = false; render();
@@ -217,14 +220,15 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     const total = workspace?.shell?.clientHeight || 0;
     const peek = Math.min(SHEET_PEEK, total);
     const full = Math.max(peek, total - (tipDraft ? 8 : 88));
-    const half = (selectedTipId || locationMenuOpen) && !tipDraft ? Math.min(336, Math.round(total * 0.64)) : Math.round(total * 0.64);
+    const half = (selectedTipId || locationMenuOpen || tipListOpen) && !tipDraft ? Math.min(336, Math.round(total * 0.64)) : Math.round(total * 0.64);
     return { peek, half: Math.max(peek, Math.min(full, half)), full };
   }
   function applySnap(snap) {
     sheetSnap = snap;
     if (!workspace) return;
     workspace.sheet.dataset.snap = snap;
-    const mapOnly = Boolean(selected && !tipDraft && !selectedTipId && !locationMenuOpen && !tipListOpen);
+    const mapOnly = Boolean(selected && !tipDraft && !selectedTipId && !locationMenuOpen && !tipListOpen)
+      || Boolean(!selected && !zoneListOpen && !zoneDraft);
     workspace.sheet.hidden = mapOnly;
     workspace.shell.dataset.mapOnly = String(mapOnly);
     workspace.fullscreenNotes.hidden = true;
@@ -366,14 +370,15 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     fullscreenNotes.hidden = true;
     const writeButton = button("팁 쓰기", beginTipPlacement, { class: "route-notes-fab primary route-notes-write", icon: "plus" });
     const shareButton = null;
-    const fabs = node("div", { class: "route-notes-fabs" }, [fullscreenNotes, locate, writeButton]);
+    const listButton = button("구역 목록", () => { if (!prepareWorkspaceChange()) return; zoneListOpen = true; sheetSnap = "half"; updateWorkspace({ preserveViewport: true }); }, { class: "route-notes-fab route-notes-list-fab", icon: "note" });
+    const fabs = node("div", { class: "route-notes-fabs" }, [fullscreenNotes, listButton, locate, writeButton]);
     const statusLine = node("p", { class: "route-notes-status-line", hidden: true });
     const crosshair = node("div", { class: "route-notes-crosshair", role: "img", "aria-label": "팁 위치 조준점", hidden: true }, [node("span")]);
     const fullscreenExit = iconButton("collapse", "전체 화면 닫기", () => setFullscreen(false), { class: "route-notes-fullscreen-exit" });
     fullscreenExit.hidden = true;
 
     const grip = node("button", { type: "button", class: "route-notes-sheet-grip", "aria-label": "구역 목록 크기 조절", "aria-expanded": "true" }, [node("span", { class: "route-notes-grip-bar" })]);
-    const sheetBack = button("구역 변경", () => tipDraft ? handleBack() : selectedTipId || locationMenuOpen ? showAllTips() : showZoneList(), { class: "route-notes-sheet-back", icon: "back" });
+    const sheetBack = button("구역 변경", () => tipDraft ? handleBack() : selectedTipId || locationMenuOpen ? showAllTips() : tipListOpen ? closeTipList() : showZoneList(), { class: "route-notes-sheet-back", icon: "back" });
     sheetBack.hidden = true;
     const sheetTitle = node("strong", { class: "route-notes-sheet-title", text: "구역 목록", tabindex: "-1" });
     const sheetSubtitle = node("small", { class: "route-notes-sheet-subtitle", text: "지도에서 구역을 선택하세요." });
@@ -387,7 +392,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
 
     const shell = node("section", { class: "route-notes-workspace" }, [mapHost, topbar, crosshair, fabs, statusLine, sheet, fullscreenExit]);
     root.append(shell);
-    workspace = { shell, mapHost, search, searchBar, selectedBar, zoneCode, zoneName, zoneChange, zoneEdit, searchToggle, topbar, clear, suggest, filters, fabs, locate, writeButton, shareButton, statusLine, crosshair, fullscreenButton, pickerFullscreenButton, fullscreenNotes, fullscreenExit, sheet, sheetBody, sheetToggle, sheetTitle, sheetSubtitle, sheetBack, grip, mapStarted: false };
+    workspace = { shell, mapHost, listButton, search, searchBar, selectedBar, zoneCode, zoneName, zoneChange, zoneEdit, searchToggle, topbar, clear, suggest, filters, fabs, locate, writeButton, shareButton, statusLine, crosshair, fullscreenButton, pickerFullscreenButton, fullscreenNotes, fullscreenExit, sheet, sheetBody, sheetToggle, sheetTitle, sheetSubtitle, sheetBack, grip, mapStarted: false };
     mapMode = "overview";
     attachSheetDrag(grip, shell);
     document.addEventListener("pointerdown", (event) => {
@@ -442,7 +447,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
       }, { class: tab === id ? "active" : "", pressed: tab === id }));
     });
     workspace.filters.hidden = Boolean(selected);
-    workspace.fabs.hidden = !selected || Boolean(tipDraft);
+    workspace.fabs.hidden = Boolean(tipDraft) || (!selected && zoneListOpen);
     workspace.writeButton.hidden = !selected || Boolean(selected.loading || selected.error || locationMenuOpen || tipDraft);
     workspace.locate.hidden = !selected || Boolean(tipDraft);
     workspace.crosshair.hidden = !locationMenuOpen;
@@ -458,12 +463,13 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     workspace.statusLine.textContent = `팁 ${(selected?.tips || []).length}개 · 공용 ${sharedTips} · 내 ${ownTips}`;
     workspace.statusLine.hidden = !selected || Boolean(selected.loading || selected.error || tipDraft || locationMenuOpen || fullscreen);
     workspace.sheetBack.hidden = !selected;
-    workspace.sheetBack.replaceChildren(icon("back"), node("span", { text: tipDraft ? "지도로" : selectedTipId || locationMenuOpen ? "닫기" : "구역 변경" }));
+    workspace.sheetBack.replaceChildren(icon("back"), node("span", { text: tipDraft ? "지도로" : selectedTipId || locationMenuOpen || tipListOpen ? "닫기" : "구역 변경" }));
+    workspace.listButton.hidden = Boolean(selected) || zoneListOpen;
     const zoneLabel = zone?.name ? formatRouteNoteZoneLabel(zone.name) : "";
     workspace.sheetTitle.textContent = tipDraft ? (tipDraft.id ? "팁 수정" : "팁 쓰기") : locationMenuOpen ? "팁 위치를 지도에서 찍으세요" : selected ? (zoneLabel || "구역 팁") : "구역 선택";
     workspace.sheetTitle.dataset.code = String(named);
     workspace.sheetSubtitle.textContent = tipDraft ? (zoneLabel || "구역 팁") : selected
-      ? (selected.loading ? "팁을 불러오는 중" : locationMenuOpen ? `${zoneLabel} · 지도를 누르거나 움직여 위치를 정하세요` : selectedTipId ? "선택한 현장 팁" : `팁 ${(selected.tips || []).length}개 · 선택한 구역만 표시`)
+      ? (selected.loading ? "팁을 불러오는 중" : locationMenuOpen ? `${zoneLabel} · 지도를 누르거나 움직여 위치를 정하세요` : selectedTipId ? "선택한 현장 팁" : tipListOpen ? `공용 팁 ${(selected.tips || []).length}개` : `팁 ${(selected.tips || []).length}개 · 선택한 구역만 표시`)
       : `${filteredZones().length}개 구역 · 목록에서 하나를 선택하세요.`;
     workspace.sheetBody.replaceChildren();
     if (!selected || sheetSnap !== "peek") {
@@ -545,6 +551,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
       return;
     }
     const selectedTip = selected.tips.find((tip) => tip.id === selectedTipId);
+    if (!selectedTip && tipListOpen) { host.append(renderTipListPopup(zone)); return; }
     if (selectedTip) { host.append(renderPinPopup(selectedTip)); if (tipDetailsOpen) host.append(renderTips([selectedTip], { embedded: true })); return; }
     const detailActions = node("div", { class: "route-notes-detail-actions" });
     if (canManageZone(zone)) detailActions.append(iconButton("edit", "구역 수정", () => { if (!canClose()) return; tipDraft = null; zoneDraft = { ...zone, polygon: zone.polygon || null }; formDirty = false; render(); }));
@@ -639,6 +646,30 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     if (!prepareWorkspaceChange()) return;
     selectedTipId = null; tipDetailsOpen = false; pickedPoint = null; locationMenuOpen = false; tipListOpen = false; expandSheet(); updateWorkspace({ preserveViewport: true });
     workspace?.sheetTitle.focus({ preventScroll: true });
+  }
+  function closeTipList() {
+    tipListOpen = false; updateWorkspace({ preserveViewport: true });
+  }
+  /** The zone's shared tips as a compact popup over the map, as RouteNote shows them. */
+  function renderTipListPopup(zone) {
+    const tips = selected.tips || [];
+    const rows = tips.length ? tips.map((tip) => {
+      const located = tip.lat != null && tip.lng != null;
+      const copy = [node("span", { class: "route-notes-tip-popup-kind", text: MARKER_LABELS[tip.marker_type] || "팁" }),
+        node("span", { class: "route-notes-tip-popup-copy" }, [node("strong", { text: tip.title || "제목 없는 팁" }), node("small", { text: tip.memo || "" })])];
+      return located
+        ? node("button", { type: "button", class: "route-notes-tip-popup-row", onClick: () => selectTip(tip) }, copy)
+        : node("div", { class: "route-notes-tip-popup-row" }, copy);
+    }) : [node("p", { class: "route-notes-empty", text: "공유된 현장 팁이 없습니다." })];
+    const actions = node("div", { class: "route-notes-pin-popup-actions" });
+    if (userId()) {
+      actions.append(button("지도에서 등록", beginTipPlacement, { class: "secondary", icon: "pin", disabled: !hasPolygon(zone.polygon) }));
+      actions.append(button("공통 팁 추가", () => showTipEditor(), { class: "primary", icon: "plus" }));
+    }
+    return node("article", { class: "route-notes-pin-popup route-notes-tip-popup" }, [
+      node("div", { class: "route-notes-tip-popup-list" }, rows),
+      node("footer", { class: "route-notes-pin-popup-footer" }, [node("small", { text: `공용 팁 ${tips.length}개` }), actions]),
+    ]);
   }
   function openTipList() {
     if (!prepareWorkspaceChange()) return;
@@ -861,7 +892,7 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
   function canClose() { if (zoneEditor) return zoneEditor.canClose(); if (saving) { notify("저장 중입니다. 잠시만 기다려 주세요."); return false; } return !isDirty() || window.confirm("저장하지 않은 변경이 있습니다. 닫을까요?"); }
   function showZoneList() {
     if (!prepareWorkspaceChange()) return;
-    selected = null; selectedTipId = null; pickedPoint = null; locationMenuOpen = false; tipListOpen = false; query = ""; suggestOpen = false; sheetSnap = "half"; render();
+    selected = null; selectedTipId = null; pickedPoint = null; locationMenuOpen = false; tipListOpen = false; zoneListOpen = true; query = ""; suggestOpen = false; sheetSnap = "half"; render();
     workspace?.sheetTitle.focus({ preventScroll: true });
   }
   function handleBack() {
@@ -873,9 +904,10 @@ export function createRouteNotesController({ root, service, shareDialog = null, 
     }
     if (suggestOpen) { suggestOpen = false; updateWorkspace({ preserveViewport: true }); return true; }
     if (selectedTipId || locationMenuOpen) { showAllTips(); return true; }
-    if (tipListOpen) { tipListOpen = false; updateWorkspace({ preserveViewport: true }); return true; }
+    if (tipListOpen) { closeTipList(); return true; }
     if (selected && sheetSnap !== "peek") { setSnap("peek"); return true; }
-    if (selected) { showZoneList(); return true; }
+    if (selected) { showZoneList(); zoneListOpen = false; updateWorkspace({ preserveViewport: true }); return true; }
+    if (zoneListOpen) { zoneListOpen = false; updateWorkspace({ preserveViewport: true }); return true; }
     return false;
   }
   return { open, close: reset, reset, destroy, isDirty, canClose, handleBack };

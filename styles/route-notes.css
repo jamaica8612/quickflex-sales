@@ -762,6 +762,16 @@ body:has([data-route-notes-fullscreen="true"]) .fixture-nav { display:none !impo
   padding:14px;
 }
 .route-notes-pin-popup-copy { min-width:0; }
+/* A zone's shared tips as a compact popup over the map (RouteNote style). */
+.route-notes-tip-popup { grid-template-columns:minmax(0,1fr); }
+.route-notes-tip-popup-list { display:grid; max-height:200px; overflow-y:auto; overscroll-behavior:contain; }
+.route-notes-tip-popup-row { display:flex; align-items:flex-start; gap:10px; width:100%; min-height:48px; padding:8px 0; border:0; border-bottom:1px solid var(--line); background:transparent; color:var(--text); text-align:left; }
+.route-notes-tip-popup-row:last-child { border-bottom:0; }
+button.route-notes-tip-popup-row { cursor:pointer; }
+.route-notes-tip-popup-kind { flex:none; margin-top:2px; padding:2px 6px; border-radius:var(--r-full); background:var(--panel2); color:var(--muted); font-size:var(--fs-caption); font-weight:700; }
+.route-notes-tip-popup-copy { display:grid; gap:2px; min-width:0; }
+.route-notes-tip-popup-copy strong { overflow:hidden; font-size:var(--fs-body); text-overflow:ellipsis; white-space:nowrap; }
+.route-notes-tip-popup-copy small { display:-webkit-box; overflow:hidden; color:var(--muted); font-size:var(--fs-label); line-height:1.4; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
 .route-notes-pin-popup-meta { display:flex; align-items:center; gap:6px; margin:0 0 5px; color:var(--muted); font-size:var(--fs-caption); font-weight:700; }
 .route-notes-pin-popup-meta em { padding:2px 6px; border-radius:var(--r-full); background:var(--primary-bg); color:var(--gold); font-style:normal; }
 .route-notes-pin-popup h3 { margin:0; overflow:hidden; font-size:var(--fs-body-l); text-overflow:ellipsis; white-space:nowrap; }
