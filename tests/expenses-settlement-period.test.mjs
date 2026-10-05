@@ -35,13 +35,13 @@ test("settlementPeriodLabel reads like the sales side's period header (short, no
   assert.equal(settlementPeriodLabel(2027, 1), "12/26 - 1/25");
 });
 
-test("the 지출 tab's own header title says 지출 while its subtitle stays, and only that view changes", () => {
+test("the 지출 tab's own header title says 지출노트 while its subtitle stays, and only that view changes", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const start = html.indexOf('<section class="view view-expenses">');
   assert.notEqual(start, -1, "missing view-expenses section");
   const end = html.indexOf("</header>", start);
   const header = html.slice(start, end);
-  assert.match(header, /<h1>지출<\/h1>/);
+  assert.match(header, /<h1>지출노트<\/h1>/);
   assert.match(header, /영수증부터 가볍게 기록하세요/, "subtitle copy is unchanged");
   // The 매출 (home) view keeps its own 매출노트 title untouched.
   const homeStart = html.indexOf('<section class="view view-home">');
