@@ -104,6 +104,13 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
     minZoom: 8, zoomControl: false,
   });
   let drawing = false;
+  // Tips and zones already shown once; anything new after the first render arrives with a short motion.
+  let knownTipIds = null;
+  let knownZoneIds = null;
+  const calm = () => {
+    try { return Boolean(globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) || globalThis.document?.hidden; }
+    catch { return true; }
+  };
   let points = [];
   let overlays = [];
   let overlayListeners = [];
@@ -145,7 +152,7 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
       icon: { content: label, anchor: new maps.Point(0, 0) },
     }));
   }
-  function addTipMarker(tip, selected) {
+  function addTipMarker(tip, selected, fresh = false) {
     const documentRef = element.ownerDocument || globalThis.document;
     const button = documentRef.createElement("button");
     const title = tip.title || "구역 팁";
@@ -156,6 +163,7 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
     button.setAttribute("data-alert", String(ALERT_MARKERS.has(tip.marker_type)));
     button.setAttribute("data-marker-type", tip.marker_type || "note");
     button.append(createRouteNoteMapIcon(documentRef, tip.marker_type));
+    if (fresh) button.classList.add("is-dropping");
     const choose = (event) => {
       event.preventDefault(); event.stopPropagation();
       suppressCoordinatePick = true;
@@ -254,6 +262,11 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
     // Zone labels steer clear of whichever tips actually land on screen, so a busy zone
     // doesn't bury its name under a pin (or a pin under its name).
     const labelTips = tipsWithCoordinates.map((tip) => ({ lat: Number(tip.lat), lng: Number(tip.lng) }));
+    const firstPass = knownTipIds === null;
+    const freshTip = (tip) => !firstPass && !calm() && tip?.id != null && !knownTipIds.has(tip.id);
+    knownTipIds = new Set([...(knownTipIds || []), ...tips.map((tip) => tip?.id).filter((id) => id != null)]);
+    const priorZoneIds = knownZoneIds;
+    knownZoneIds = new Set([...(knownZoneIds || []), ...sourceZones.map((item) => item?.id).filter((id) => id != null)]);
     renderedZones.forEach((item, index) => {
       const selected = item === selectedZone;
       const color = zoneColor(item, index);
@@ -264,6 +277,18 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
           fillColor: color, fillOpacity: selected ? .07 : .035, strokeColor: color, strokeOpacity: display ? 0 : selected ? .85 : .6, strokeWeight: display ? 0 : selected ? 2 : 1,
         });
         overlays.push(polygon);
+        // A newly drawn zone fills in softly instead of appearing at full tint.
+        if (priorZoneIds && !calm() && item?.id != null && !priorZoneIds.has(item.id) && typeof polygon.setOptions === "function") {
+          const target = selected ? .07 : .035;
+          const started = globalThis.performance?.now?.() ?? Date.now();
+          polygon.setOptions({ fillOpacity: 0 });
+          const step = (now) => {
+            const progress = Math.min(1, (now - started) / 500);
+            polygon.setOptions({ fillOpacity: target * (1 - Math.pow(1 - progress, 3)) });
+            if (progress < 1 && overlays.includes(polygon)) globalThis.requestAnimationFrame(step);
+          };
+          globalThis.requestAnimationFrame?.(step);
+        }
         if (canSelectZone) overlayListeners.push(maps.Event.addListener(polygon, "click", (event) => selectZone(item,
           event?.coord ? { lat: event.coord.lat(), lng: event.coord.lng() } : null)));
       });
@@ -281,7 +306,7 @@ export async function createRouteNoteMap({ element, clientId, onCoordinatePick, 
       const bounds = renderedZones.flatMap((item) => polygonPoints(item.polygon)).reduce((result, point) => result.extend(new maps.LatLng(point.lat, point.lng)), new maps.LatLngBounds());
       map.fitBounds(bounds, fitPadding);
     } else if (!preserveViewport && tipsWithCoordinates[0]) map.setCenter(new maps.LatLng(Number(tipsWithCoordinates[0].lat), Number(tipsWithCoordinates[0].lng)));
-    tipsWithCoordinates.forEach((tip) => addTipMarker(tip, tip.id === selectedTipId));
+    tipsWithCoordinates.forEach((tip) => addTipMarker(tip, tip.id === selectedTipId, freshTip(tip)));
     addPickedMarker(pickedPoint);
   }
   return {

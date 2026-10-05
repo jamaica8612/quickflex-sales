@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T10:03:49.008Z",
+  "generatedAt": "2026-10-05T07:32:23.419Z",
   "assets": {
     "apple-touch-icon.png": {
       "version": "4",
@@ -42,8 +42,8 @@
       "sha256": "231bb3150e581dfdfc4437a42faa68bd73aa3e6fdbb2b416dadd31eaeedb69e6"
     },
     "src/lib/route-note-map.js": {
-      "version": "10",
-      "sha256": "8bf7287db29873014fdb48ab0dd4a08b5ef2306dd9dc268574e297fde37642d8"
+      "version": "11",
+      "sha256": "50578156a7bb4e6e22cdc8416d9014b85b1c482b55e2a1160174d33a4acfd424"
     },
     "src/lib/route-notes.js": {
       "version": "3",
@@ -58,12 +58,12 @@
       "sha256": "f24a1f10487af4217d30a3705b0a148c4b5e326220f0d3e195e6670ac234c772"
     },
     "src/ui/route-note-zone-editor.js": {
-      "version": "8",
-      "sha256": "c5bbbeda8cfcbd139915ce284a94c0224a314d6509fae813779f95d5eb931376"
+      "version": "9",
+      "sha256": "c77f42d3239d043d994e8efdf8947a37b419996cee22411ecdfaba4c2a93c967"
     },
     "src/ui/route-notes.js": {
-      "version": "18",
-      "sha256": "5c9492abea985958b339e15f8c843d3bf1ba884ccd6f16432f197eb861cad049"
+      "version": "19",
+      "sha256": "298b02aa9b59b389ea63e85b24c2714610fbf83370cb816cac73bb12f9cf8cb4"
     },
     "src/ui/settings.js": {
       "version": "5",

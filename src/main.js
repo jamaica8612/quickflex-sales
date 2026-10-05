@@ -1,6 +1,6 @@
 import { createExpenseService } from "./services/expenses.js";
 import { createRouteNotesService } from "./services/route-notes.js?v=3";
-import { createRouteNotesController } from "./ui/route-notes.js?v=18";
+import { createRouteNotesController } from "./ui/route-notes.js?v=19";
 import { createRouteNoteShareService } from "./services/route-note-share.js";
 import { createRouteNoteShareDialog } from "./ui/route-note-share.js";
 import { checkBetaMeasurementAccess } from "./services/beta-access.js";
@@ -188,7 +188,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.129";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.130";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -2400,6 +2400,7 @@ async function saveProfile() {
   renderAll();
   if (el.app.dataset.view === "record") renderEntryForm();
   toast("내 정보를 저장했습니다.", "success");
+  motion.markSaved(document.activeElement?.closest?.("button") || el.saveProfile);
   return true;
 }
 async function saveWorkPreferences() {
@@ -2514,6 +2515,7 @@ async function saveGoalAmount() {
   renderStats();
   renderSettingsSummary();
   toast("목표를 저장했습니다.", "success");
+  motion.markSaved(el.saveAppSettings);
   return true;
 }
 async function login() {
@@ -4290,7 +4292,7 @@ if (el.monthCalendar && typeof el.monthCalendar.getBoundingClientRect === "funct
   });
 }
 [el.periodRevenue, el.periodCount, el.averageCountHome, el.dailyAverage,
-  el.workDaysHome, el.homeDayValue, el.homeSelectedTotal]
+  el.workDaysHome, el.homeDayValue, el.homeSelectedTotal, el.selectedDayTotal]
   .filter(Boolean).forEach((node) => { node.__moCountUp = true; });
 // 정산 예상액은 처음 나타날 때와 기간이 바뀔 때도 0부터 굴러가며 나타난다.
 if (el.periodRevenue) el.periodRevenue.__moRollIn = true;
@@ -4671,7 +4673,11 @@ function renderEntryRow(row, index) {
     current.rows[index].unit = storedRouteUnit(current, current.rows[index], unit.value);
     refreshTotals();
   });
-  del.addEventListener("click", () => {
+  del.addEventListener("click", async () => {
+    if (del.disabled) return;
+    del.disabled = true;
+    // The row folds away first; the draft and totals change once it is gone.
+    await motion.collapseOut(node);
     const current = currentRecordDraft();
     current.rows.splice(index, 1);
     renderEntryForm();

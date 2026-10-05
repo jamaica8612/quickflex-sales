@@ -36,6 +36,10 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
   let saveOperation=null,creationInput=null,cleanupPath=null;
   let draft=null,pendingFiles=[],busy=false,dialog=null,dialogEnterCancel=null,previewUrls=[];
   let previousRowIds=null;
+  // Row positions and the shown total from the last render, so a save or delete can
+  // slide remaining rows into place and count the total from its old value.
+  let rowRects=new Map();
+  let shownTotal={key:'',value:null};
   const alive = (token) => !disposed && token===generation;
   function bounds() { return settlementPeriodBounds(period.year,period.month); }
   const report = (message) => { const status=dialog?.querySelector('[data-status]'); if(status)status.textContent=message; };
@@ -78,6 +82,8 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
     const refunds=confirmed.reduce((n,r)=>n+adjustmentSum(r,'refund'),0);
     const reimbursements=confirmed.reduce((n,r)=>n+adjustmentSum(r,'reimbursement'),0);
     const counts={all:confirmed.length,draft:rows.filter((r)=>r.status==='draft').length,missing:confirmed.filter((r)=>!r.receipts?.length).length};
+    const beforeRects=rowRects.size?rowRects:new Map([...host.querySelectorAll('.expense-row')].map((node)=>[node.dataset.expense,node.getBoundingClientRect()]));
+    rowRects=new Map();
     const visible=rows.filter((r)=> filter==='trashed' ? r.status==='trashed' : filter==='draft' ? r.status==='draft' : filter==='missing' ? r.status==='confirmed'&&r.actual_date>=bounds().from&&r.actual_date<=bounds().to&&!r.receipts?.length : r.status==='confirmed'&&r.actual_date>=bounds().from&&r.actual_date<=bounds().to);
     const emptyTitle=filter==='all'?'이번 달 지출을 기록해 보세요':filter==='draft'?'작성 중인 기록이 없습니다':filter==='trashed'?'휴지통이 비어 있습니다':'증빙 미첨부 기록이 없습니다';
     const row=(r)=>{
@@ -105,25 +111,58 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
         if (previousRowIds.has(id) || staggerSlot>=6) return;
         const slot=staggerSlot; staggerSlot+=1;
         motion.enterElement(rowEl, { delay: slot * 30 });
+        rowEl.classList.add('is-fresh');
+        setTimeout(()=>rowEl.classList.remove('is-fresh'),1100);
+      });
+      // Rows that stay slide from where they were, so a removed row closes its gap.
+      rowEls.forEach((rowEl)=>{
+        const before=beforeRects.get(rowEl.dataset.expense);
+        if (before && previousRowIds.has(rowEl.dataset.expense)) motion.flipMove(rowEl, before, { key: 'expense-row' });
       });
     }
     previousRowIds=nextRowIds;
     const footnote=[`지출 ${confirmed.length}건`];
     if (refunds) footnote.push(`환불 ${money(refunds)}원 차감`);
     if (reimbursements) footnote.push(`비용 보전 ${money(reimbursements)}원`);
-    host.querySelector('[data-summary]').innerHTML=`<p class="expense-total">${money(gross-refunds)}<small>원</small></p><p class="expense-summary-note">${footnote.join(' · ')}</p>${categoryBreakdown(confirmed)}`;
+    host.querySelector('[data-summary]').innerHTML=`<p class="expense-total"><span data-total>${money(gross-refunds)}</span><small>원</small></p><p class="expense-summary-note">${footnote.join(' · ')}</p>${categoryBreakdown(confirmed)}`;
+    countTotal(host.querySelector('[data-total]'), gross-refunds);
   }
-  async function refresh() {
+  // Within one period a changed total counts from the value that was on screen.
+  function countTotal(node, total) {
+    const key=bounds().from;
+    const from=shownTotal.key===key?shownTotal.value:null;
+    shownTotal={key,value:total};
+    if (!node || from===null || from===total || !motion.shouldAnimate()) return;
+    const started=performance.now();
+    node.textContent=money(from);
+    const step=(now)=>{
+      if (!node.isConnected) return;
+      const progress=Math.min(1,(now-started)/650), eased=1-Math.pow(1-progress,3);
+      node.textContent=money(Math.round(from+(total-from)*eased));
+      if (progress<1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  // After a save or delete the current list stays on screen while it reloads (keep),
+  // so nothing flashes to a loading message; a new period still shows one.
+  async function refresh({ keep=false }={}) {
     const token=++generation;
-    showFrame('<p class="expense-empty" role="status">지출을 불러오고 있습니다.</p>');
-    host.querySelector('[data-summary]').innerHTML='<p class="expense-total is-waiting" aria-hidden="true">—</p><p class="expense-summary-note">합계를 불러오는 중</p>';
+    if (keep && host.querySelector('.expense-row')) {
+      rowRects=new Map([...host.querySelectorAll('.expense-row')].map((node)=>[node.dataset.expense,node.getBoundingClientRect()]));
+      host.setAttribute('aria-busy','true');
+    } else {
+      rowRects=new Map();
+      showFrame('<p class="expense-empty" role="status">지출을 불러오고 있습니다.</p>');
+      host.querySelector('[data-summary]').innerHTML='<p class="expense-total is-waiting" aria-hidden="true">—</p><p class="expense-summary-note">합계를 불러오는 중</p>';
+    }
     try {
       const service=await getService();
       const result=await service.list({...bounds(),includeDrafts:true,includeTrashed:true});
       if(!alive(token))return;
-      rows=result; render();
+      rows=result; host.removeAttribute('aria-busy'); render();
     } catch(error) {
       if(!alive(token))return;
+      host.removeAttribute('aria-busy');
       showFrame(`<div class="expense-empty"><strong>지출을 불러오지 못했습니다</strong><p>${esc(errorText(error))}</p><button type="button" class="secondary-btn" data-retry>다시 불러오기</button></div>`);
       host.querySelector('[data-summary]').innerHTML='<p class="expense-total is-waiting">—</p><p class="expense-summary-note">합계를 불러오지 못했습니다</p>';
     }
@@ -196,7 +235,7 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
       }
       await service.save({...input,id:draft.id,request_id:saveOperation.requestId});
       if(!alive(token))return;
-      setBusy(false);close();toast(status==='draft'?'작성 중으로 저장했습니다.':'지출을 저장했습니다.','success');await refresh();
+      setBusy(false);close();toast(status==='draft'?'작성 중으로 저장했습니다.':'지출을 저장했습니다.','success');await refresh({keep:true});
     } catch(error) {if(alive(token)&&dialog===activeDialog){if(error.cleanupPath)cleanupPath=error.cleanupPath;report(`저장하지 못했습니다. ${error.message}${draft?.id?' 이미 보관된 파일은 유지됩니다.':''}`);}}
     finally {if(dialog===activeDialog)setBusy(false);}
   }
@@ -232,7 +271,7 @@ export function createExpensesController({host,getService,toast=()=>{}}) {
       if(button.hasAttribute('data-trash')||button.hasAttribute('data-restore')) {
         if(button.hasAttribute('data-trash')&&!window.confirm('이 지출을 휴지통으로 옮길까요? 나중에 복원할 수 있습니다.'))return;
         setBusy(true);const service=await getService();if(!alive(token)||dialog!==activeDialog)return;const updated=await service.setStatus(draft.id,button.hasAttribute('data-trash')?'trashed':'restore');
-        if(!alive(token))return;if(button.hasAttribute('data-restore'))filter=updated.status==='draft'?'draft':'all';setBusy(false);close();await refresh();return;
+        if(!alive(token))return;if(button.hasAttribute('data-restore'))filter=updated.status==='draft'?'draft':'all';setBusy(false);close();await refresh({keep:true});return;
       }
       if(button.hasAttribute('data-adjust')) {
         const amount=Number(dialog.querySelector('[data-adjust-amount]').value),date=dialog.querySelector('[data-adjust-date]').value;
