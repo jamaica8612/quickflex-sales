@@ -10,7 +10,7 @@
     <meta name="application-name" content="플렉스노트" />
     <meta name="apple-mobile-web-app-title" content="플렉스노트" />
     <meta name="description" content="배송의 기록부터 매출·지출까지" />
-    <link rel="manifest" href="./manifest.webmanifest?v=1.0.128" />
+    <link rel="manifest" href="./manifest.webmanifest?v=1.0.129" />
     <link rel="icon" href="./favicon-32.png?v=4" type="image/png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=4" />
     <script>
@@ -40,15 +40,15 @@
     </style>
     <style>html[data-startup] #app{visibility:hidden;pointer-events:none}</style>
     <link rel="stylesheet" href="./styles/startup.css?v=3" />
-    <link rel="stylesheet" href="./styles.css?v=1.0.128" />
-  <link rel="stylesheet" href="./styles/motion.css?v=1.0.128" />
-  <link rel="stylesheet" href="./styles/stats-notebook-charts.css?v=1.0.128" />
-  <link rel="stylesheet" href="./styles/stats-weekday-detail.css?v=1.0.128" />
-  <link rel="stylesheet" href="./styles/settlement-notebook.css?v=1.0.128" />
-  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.128" />
-<link rel="stylesheet" href="./styles/exports.css?v=1.0.128" />
-<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.128" />
-<link rel="stylesheet" href="./styles/calendar-motion.css?v=1.0.128" />
+    <link rel="stylesheet" href="./styles.css?v=1.0.129" />
+  <link rel="stylesheet" href="./styles/motion.css?v=1.0.129" />
+  <link rel="stylesheet" href="./styles/stats-notebook-charts.css?v=1.0.129" />
+  <link rel="stylesheet" href="./styles/stats-weekday-detail.css?v=1.0.129" />
+  <link rel="stylesheet" href="./styles/settlement-notebook.css?v=1.0.129" />
+  <link rel="stylesheet" href="./styles/expenses.css?v=1.0.129" />
+<link rel="stylesheet" href="./styles/exports.css?v=1.0.129" />
+<link rel="stylesheet" href="./styles/calendar-sync.css?v=1.0.129" />
+<link rel="stylesheet" href="./styles/calendar-motion.css?v=1.0.129" />
 <link rel="stylesheet" href="./styles/noah.css?v=6" />
 <link rel="stylesheet" href="./styles/route-note-map.css?v=7" />
 <link rel="stylesheet" href="./styles/route-notes.css?v=11" />
@@ -138,7 +138,7 @@
               <div><span>일평균</span><strong id="dailyAverage">0원</strong></div>
               <div><span>근무일</span><strong id="workDaysHome">0일</strong></div>
             </div>
-            <div class="summary-ledger" id="summaryLedger" hidden><span id="summaryExpense">지출 -</span><span>남는 돈 <b id="summaryNet">-</b></span></div>
+            <div class="summary-ledger" id="summaryLedger" hidden><span id="summaryExpense">지출 -</span><span>순수익 <b id="summaryNet">-</b></span></div>
             <p class="summary-period-note" id="summaryPeriodNote" hidden></p>
           </div>
         </header>
@@ -413,7 +413,7 @@
             <div id="statsOutlookPlan" class="stats-outlook-plan"></div>
             <div class="ssc-meter" id="statsGoalMeter"><div class="ssc-meter-bar"><span id="statsMeterFill"></span></div><div class="ssc-meter-foot"><span id="statsMeterPct">0%</span><span id="statsMeterLabel">목표 미설정</span></div></div>
             <dl class="stats-hero-support"><div><dt>근무일당 매출</dt><dd id="statsAverage">0원</dd></div><div><dt>기록된 근무</dt><dd id="statsWorkDays">0일</dd></div></dl>
-            <div class="stats-net" id="statsNet" hidden><span>지출 <span id="statsNetExpense">0원</span> 빼면 남는 돈</span><strong id="statsNetValue">0원</strong></div>
+            <div class="stats-net" id="statsNet" hidden><span>순수익 · 지출 <span id="statsNetExpense">0원</span> 제외</span><strong id="statsNetValue">0원</strong></div>
           </section>
           <section class="stats-report-section" id="statsRecordsSection" aria-labelledby="statsRecordsTitle" hidden>
             <div class="stats-report-section-head"><div><span>내 최고 기록</span><h2 id="statsRecordsTitle">지금까지 가장 잘한 날</h2></div><small class="stats-records-since" id="statsRecordsSince"></small></div>
@@ -638,7 +638,7 @@
 
       <section class="view view-expenses"><header class="tab-header">
           <div class="tab-head">
-            <div class="tab-head-copy"><h1>지출</h1><p class="tab-head-sub">영수증부터 가볍게 기록하세요</p></div>
+            <div class="tab-head-copy"><h1>지출노트</h1><p class="tab-head-sub">영수증부터 가볍게 기록하세요</p></div>
             <div class="tab-head-actions"><button class="tab-action" type="button" data-open-export>내보내기</button><button class="tab-settings" type="button" data-open-settings aria-label="설정"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button></div>
           </div>
           <div class="ledger-switch" role="group" aria-label="매출노트 보기">
@@ -856,7 +856,7 @@
     <script src="./src/vendor/supabase-2.116.0.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-    <script type="module" src="./src/main.js?v=1.0.128"></script>
+    <script type="module" src="./src/main.js?v=1.0.129"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         navigator.serviceWorker.register("./sw.js").catch(() => {});

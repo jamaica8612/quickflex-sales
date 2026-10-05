@@ -24,7 +24,11 @@
 /* The day a record was just saved glows once on the home calendar. */
 .day-cell.is-just-saved::after{content:"";position:absolute;inset:2px;border-radius:8px;pointer-events:none;background:color-mix(in srgb,var(--gold) 24%,transparent);animation:day-saved-glow .9s cubic-bezier(.2,.8,.2,1) forwards}
 @keyframes day-saved-glow{0%{opacity:0;transform:scale(.92)}25%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}}
+/* Expense-based lines hold their place with a soft placeholder until expenses load. */
+:is(.summary-ledger,.stats-net).is-loading :is(b,strong,#statsNetExpense,#summaryExpense){color:transparent;border-radius:6px;background:linear-gradient(90deg,var(--panel3) 0%,color-mix(in srgb,var(--panel3) 55%,var(--panel)) 50%,var(--panel3) 100%) 0 0/200% 100%;animation:ledger-wait 1.2s ease-in-out infinite}
+@keyframes ledger-wait{0%{background-position:100% 0}100%{background-position:-100% 0}}
 @media(prefers-reduced-motion:reduce){
+  :is(.summary-ledger,.stats-net).is-loading :is(b,strong,#statsNetExpense,#summaryExpense){animation:none}
   .day-cell.is-just-saved::after{display:none}
   .settings-group::details-content,.settings-group > summary::after{transition:none}
   button,.full-btn,.secondary-btn,.measurement-guide-link{scale:1!important;transition-duration:0s!important}
