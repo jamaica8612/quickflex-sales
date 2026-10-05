@@ -1,9 +1,11 @@
+import { ENTRY_MOTION } from "./motion.js";
+
 // Presentation only: stage unseen cards before entry; never hide a visible card.
 export function createCardMotion({
   win = typeof window === "undefined" ? undefined : window,
   doc = typeof document === "undefined" ? undefined : document,
 } = {}) {
-  const cards = new Set(), seen = new Set(), running = new Set();
+  const cards = new Set(), seen = new Set(), running = new Set(), entered = new Set();
   const pending = "ui-card-pending", entering = "ui-card-entering";
   let destroyed = false, observer = null, media = null;
   try { media = win?.matchMedia?.("(prefers-reduced-motion: reduce)"); } catch { /* Static fallback. */ }
@@ -14,13 +16,15 @@ export function createCardMotion({
   const settle = (card) => {
     running.delete(card); seen.add(card); observer?.unobserve?.(card);
     card.classList.remove(pending, entering);
+    if (card.style) card.style.animationDelay = "";
   };
   const release = (card) => {
     observer?.unobserve?.(card);
     card.removeEventListener?.("animationend", finish);
     card.removeEventListener?.("animationcancel", finish);
-    running.delete(card); seen.delete(card); cards.delete(card);
+    running.delete(card); seen.delete(card); cards.delete(card); entered.delete(card);
     card.classList.remove(pending, entering);
+    if (card.style) card.style.animationDelay = "";
   };
   const prune = () => {
     for (const card of cards) if (card.isConnected === false) release(card);
@@ -74,11 +78,13 @@ export function createCardMotion({
         }
       }
     },
-    // Only explicit navigation replays visible cards; refresh/prepare never does.
+    // Explicit navigation enters a visible card the first time only; later visits
+    // and refreshes leave it still. Cards entering together are staggered.
     // The visible card goes straight to its spring, without opacity-zero staging.
     enter(elements) {
       if (destroyed) return;
       prune();
+      let slot = 0;
       for (const card of elements || []) {
         if (!card || !cards.has(card)) continue;
         if (!observer || media?.matches) { settle(card); continue; }
@@ -86,9 +92,12 @@ export function createCardMotion({
           if (running.has(card)) settle(card);
           continue;
         }
-        if (!inViewport(card) || running.has(card)) continue;
+        if (!inViewport(card) || running.has(card) || entered.has(card)) continue;
         if (doc?.activeElement && card.contains(doc.activeElement)) { settle(card); continue; }
+        entered.add(card);
         seen.add(card);
+        if (card.style) card.style.animationDelay = `${Math.min(slot, ENTRY_MOTION.staggerSlots - 1) * ENTRY_MOTION.staggerMs}ms`;
+        slot += 1;
         observer.unobserve?.(card);
         card.classList.remove(pending);
         card.classList.add(entering);

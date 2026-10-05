@@ -36,8 +36,13 @@ export const SPRING_FADE = Object.freeze({ stiffness: 600, damping: 1 });
 // One entry feel across cards, rows and dialogs. Card CSS samples this same
 // spring so it runs natively; small elements use the existing shared scheduler.
 export const ENTRY_MOTION = Object.freeze({
-  stiffness: 256, damping: .7, durationMs: 640,
-  cardDistance: 52, elementDistance: 24, headerDistance: 12, disclosureDistance: 16,
+  // Short and quiet: critically damped (no rebound), settles in about a third of a second.
+  stiffness: 480, damping: 1, durationMs: 340,
+  cardDistance: 12, elementDistance: 8, headerDistance: 0, disclosureDistance: 8,
+  // Cards entering together start this far apart, in at most four slots.
+  staggerMs: 40, staggerSlots: 4,
+  // Numbers and bars inside a card start once the card has nearly settled.
+  contentDelayMs: 150,
 });
 /** How long the startup splash takes to fade after it starts leaving (startup.js). */
 export const STARTUP_FADE_MS = 180;
@@ -1217,6 +1222,7 @@ export function createVisibilityQueue({
   threshold = 0.2,
   onEnter,
   finishWhenHidden = true,
+  enterDelay = 0,
 } = {}) {
   const Observer = win?.IntersectionObserver;
   if (typeof Observer !== "function") {
@@ -1254,7 +1260,9 @@ export function createVisibilityQueue({
       visible.add(card);
       if (!doc?.hidden) {
         if (entering) onEnter?.(card);
-        runQueued(card);
+        if (entering && enterDelay > 0 && queues.has(card)) {
+          (win?.setTimeout || setTimeout)(() => { if (!destroyed && visible.has(card)) runQueued(card); }, enterDelay);
+        } else runQueued(card);
       }
     });
     if (shouldFinishQueued()) finishQueued();

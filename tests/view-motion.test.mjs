@@ -86,7 +86,7 @@ test("settings disclosures animate content only; closing restores it and unrelat
   const toggle = f.handlers.get("toggle");
   toggle({ target: details });
   assert.equal(f.calls[0].node, content);
-  assert.equal(f.calls[0].options.distance, 16);
+  assert.equal(f.calls[0].options.distance, 8);
   details.open = false;
   toggle({ target: details });
   assert.ok(f.calls[0].canceled);

@@ -288,7 +288,7 @@ test("prepare skips disconnected input and observer delivery prunes a newly deta
   assert.equal(f.observer.targets.has(late), false);
 });
 
-test("native card and small-element entry curves share a spring, with a small overshoot and static fallbacks", () => {
+test("native card and small-element entry curves share a spring, without a rebound, with static fallbacks", () => {
   const css = readFileSync(new URL("../styles/motion.css", import.meta.url), "utf8");
   assert.doesNotMatch(css, /stats-driver-report|stats-card-/);
   assert.ok(css.includes(`--motion-card-distance:${ENTRY_MOTION.cardDistance}px`));
@@ -296,7 +296,8 @@ test("native card and small-element entry curves share a spring, with a small ov
   const frames = [...css.matchAll(/(\d+)%\{opacity:([\d.]+);transform:translateY\(([-\d.]+)px\)\}/g)];
   assert.equal(frames.length, 51);
   const offsets = frames.map(frame => Number(frame[3]));
-  assert.ok(Math.min(...offsets) < -1 && Math.min(...offsets) > -3, "one visible soft rebound, without a large bounce");
+  assert.ok(Math.min(...offsets) >= 0, "cards settle without passing their resting place");
+  assert.ok(Math.max(...offsets) <= 12, "cards travel a short distance");
   for (const [percent, opacity, offset] of frames.map(frame => frame.slice(1).map(Number))) {
     if (percent === 100) { assert.equal(offset, 0); assert.equal(opacity, 1); continue; }
     let state = {x: 0, v: 0};
@@ -329,7 +330,7 @@ test("explicit navigation enters prepared visible cards directly and prepare rem
   f.motion.prepare([card]);
   assert.equal(entering(card),false,"refresh leaves a completed visible card settled");
   f.motion.enter([card]);
-  assert.equal(entering(card),true,"a later explicit navigation can enter it again");
+  assert.equal(entering(card),false,"a later visit leaves an already-entered card still");
 });
 
 test("navigation enters newly visible pending cards but preserves offscreen pending state", () => {
@@ -376,4 +377,14 @@ test("navigation skips hidden, disconnected, focused and unprepared cards and ho
   f.motion.destroy();
   f.motion.enter([unknown]);
   assert.equal(entering(unknown),false);
+});
+
+test("cards entering together are staggered in at most four slots", () => {
+  const f = setup();
+  const cards = [1, 2, 3, 4, 5].map((n) => Object.assign(f.card(`c${n}`, visibleRect), { style: { animationDelay: "" } }));
+  f.motion.prepare(cards);
+  f.motion.enter(cards);
+  assert.deepEqual(cards.map((card) => card.style.animationDelay), ["0ms", "40ms", "80ms", "120ms", "120ms"]);
+  cards[0].dispatch("animationend", { target: cards[0], animationName: "ui-card-rise" });
+  assert.equal(cards[0].style.animationDelay, "", "a settled card drops its delay");
 });
