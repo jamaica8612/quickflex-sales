@@ -50,6 +50,10 @@ export function paintCalendarSelection(elements, key, paint, options = {}) {
     return;
   }
   const changed = entry.key !== key;
+  // A later date slides in from the right, an earlier one from the left; other changes rise.
+  const dateOf = (value) => /^(d{4}-d{2}-d{2})(?::|$)/.exec(String(value || ""))?.[1] || "";
+  const before = dateOf(entry.key), after = dateOf(key);
+  const direction = before && after && before !== after ? (after > before ? 1 : -1) : 0;
   entry.key = key;
   const finish = () => {
     panel.style.transform = "";
@@ -66,7 +70,9 @@ export function paintCalendarSelection(elements, key, paint, options = {}) {
   panel.classList.add("is-calendar-selection-moving");
   const place = (progress) => {
     entry.progress = progress;
-    panel.style.transform = `translateY(${(1 - progress) * 6}px)`;
+    panel.style.transform = direction
+      ? `translateX(${(direction * (1 - progress) * 10).toFixed(2)}px)`
+      : `translateY(${(1 - progress) * 6}px)`;
     panel.style.opacity = String(0.86 + progress * 0.14);
   };
   place(entry.progress);

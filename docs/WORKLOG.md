@@ -1785,3 +1785,11 @@ Browser checks:
 - 정산노트 numbers and bars start 150ms after their card comes into view. Small buttons dip to .96 on press; full-width buttons darken instead of shrinking.
 - After a record is saved, the home calendar cell for that date glows once. All of this is off under reduced motion.
 - Validation: full Node suite 863/863 (motion tests updated to the new curve and the first-visit rule; a stagger test added), `release --check` passed. A local fake-backend browser run confirmed that cards enter on the first visit only and that the glow renders in light and dark. No database or Edge Function changes.
+
+## 2026-10-05 - Goal celebration, ledger placeholders, wording (PWA 1.0.129)
+
+- Crossing the settlement goal on the home card keeps the existing chip and adds one confetti burst per settlement per account (UI-only localStorage key).
+- The home and 정산노트 expense lines keep their place with a soft placeholder while expenses load instead of popping in and pushing content down; a failed load hides them.
+- Choosing a later date slides the day detail in from the right, an earlier one from the left (10px); other changes keep the 6px rise.
+- Wording: "남는 돈" is now "순수익" (home: 지출 X · 순수익 Y; 정산노트: 순수익 · 지출 X 제외), and the expense tab title reads 지출노트.
+- Validation: full Node suite 863/863, release --check passed, local fake-backend browser check of home, 지출노트 and 정산노트 wording. No database or Edge Function changes.

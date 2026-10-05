@@ -188,7 +188,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.128";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.129";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -4151,10 +4151,13 @@ function renderSummaryLedger(revenue, start = periodBounds().start, end = period
     const expenseText = `지출 ${fmtWon(summaryLedgerCache.total)}`;
     renderNumberWithUnit(el.summaryExpense, expenseText, { sameMetric });
     renderNumberWithUnit(el.summaryNet, fmtWon(revenue - summaryLedgerCache.total), { sameMetric });
+    setLedgerLoading(el.summaryLedger, false);
     el.summaryLedger.hidden = false;
     return;
   }
-  el.summaryLedger.hidden = true;
+  // While expenses load the line keeps its place as a placeholder, so nothing jumps when it arrives.
+  el.summaryLedger.hidden = !currentUserId();
+  setLedgerLoading(el.summaryLedger, Boolean(currentUserId()));
   if (summaryLedgerCache.loading === key || !currentUserId()) return;
   summaryLedgerCache.loading = key;
   (async () => {
@@ -4166,8 +4169,16 @@ function renderSummaryLedger(revenue, start = periodBounds().start, end = period
       renderSummary();
     } catch {
       if (summaryLedgerCache.loading === key) summaryLedgerCache.loading = "";
+      setLedgerLoading(el.summaryLedger, false);
+      el.summaryLedger.hidden = true;
     }
   })();
+}
+function setLedgerLoading(box, loading) {
+  if (!box) return;
+  box.classList.toggle("is-loading", loading);
+  if (loading) box.setAttribute("aria-busy", "true");
+  else box.removeAttribute("aria-busy");
 }
 function invalidateSummaryLedger() {
   Object.assign(summaryLedgerCache, { key: "", total: null, loading: "" });
@@ -4178,7 +4189,7 @@ function confirmedExpenseTotal(rows, from, to) {
   return (rows || []).filter((row) => row.status === "confirmed" && row.actual_date >= from && row.actual_date <= to)
     .reduce((sum, row) => sum + Number(row.gross_amount || 0) - (row.adjustments || []).filter((item) => item.kind === "refund").reduce((amount, item) => amount + Number(item.amount || 0), 0), 0);
 }
-// 정산노트's "남는 돈" line: the selected range's revenue minus its expenses, shown once they load.
+// 정산노트's "순수익" line: the selected range's revenue minus its expenses, shown once they load.
 const statsLedgerCache = { key: "", total: null, loading: "" };
 const statsNetShown = { key: "", revenue: 0 };
 function renderStatsNet(revenue, from, to) {
@@ -4189,10 +4200,12 @@ function renderStatsNet(revenue, from, to) {
   if (statsLedgerCache.key === key && statsLedgerCache.total !== null) {
     $("statsNetExpense").textContent = fmtWon(statsLedgerCache.total);
     $("statsNetValue").textContent = fmtWon(revenue - statsLedgerCache.total);
+    setLedgerLoading(box, false);
     box.hidden = false;
     return;
   }
-  box.hidden = true;
+  box.hidden = !currentUserId();
+  setLedgerLoading(box, Boolean(currentUserId()));
   if (statsLedgerCache.loading === key || !currentUserId()) return;
   statsLedgerCache.loading = key;
   (async () => {
@@ -4203,6 +4216,8 @@ function renderStatsNet(revenue, from, to) {
       if (statsNetShown.key === key) renderStatsNet(statsNetShown.revenue, from, to);
     } catch {
       if (statsLedgerCache.loading === key) statsLedgerCache.loading = "";
+      setLedgerLoading(box, false);
+      box.hidden = true;
     }
   })();
 }
@@ -4244,11 +4259,24 @@ function applyGoalMeterMotion() {
     if (justCrossed) {
       el.goalChip.hidden = false;
       motion.popIn(el.goalChip);
+      celebrateGoalOnce();
     } else if (!reached || firstRender || sameMetric === false) {
       el.goalChip.hidden = true;
     }
     // else: still reached from an earlier crossing this period — leave the chip as already shown.
   }
+}
+function celebrateGoalOnce() {
+  const storageKey = `quickflex-goal-celebrated:${currentUserId() || "local"}`;
+  const period = `${state.year}-${String(state.month).padStart(2, "0")}`;
+  try {
+    if (localStorage.getItem(storageKey) === period) return;
+    localStorage.setItem(storageKey, period);
+  } catch (_) {}
+  const css = getComputedStyle(document.documentElement);
+  setTimeout(() => motion.confettiBurst(el.meterFill?.parentElement || el.goalChip, {
+    colors: ["--gold", "--gold2", "--muted", "--text"].map((name) => css.getPropertyValue(name).trim()),
+  }), 200);
 }
 // renderMonth() is run in isolation (its own text sliced out and executed in
 // a fresh VM sandbox) by a regression test, with only a minimal { el, state,
