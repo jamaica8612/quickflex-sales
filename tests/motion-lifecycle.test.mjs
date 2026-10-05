@@ -239,7 +239,7 @@ test("enterElement rises and fades, then restores prior inline styles", () => {
   assert.equal(env.pending(), 0);
 });
 
-test("entry uses one soft rebound while opacity stays bounded and the final position is exact", () => {
+test("entry settles without a rebound while opacity stays bounded and the final position is exact", () => {
   const env = clock();
   const el = {style: {opacity: "", transform: ""}, isConnected: true};
   enterElement(el, env);
@@ -250,7 +250,7 @@ test("entry uses one soft rebound while opacity stays bounded and the final posi
     smallest = Math.min(smallest, y);
     if (el.style.opacity) assert.ok(Number(el.style.opacity) >= 0 && Number(el.style.opacity) <= 1);
   }
-  assert.ok(smallest < -.5 && smallest > -1.5, "small elements have a visible, restrained rebound");
+  assert.ok(smallest >= 0, "entries are critically damped and never pass their resting place");
   assert.equal(el.style.transform, "");
   assert.equal(el.style.opacity, "");
   assert.equal(env.pending(), 0);
@@ -278,7 +278,7 @@ test("enterElement stages delayed rows immediately and restores them if hidden b
   const el = { style: { opacity: "", transform: "" }, isConnected: true };
   enterElement(el, { ...env, delay: 60_000 });
   assert.equal(el.style.opacity, "0", "the new node is hidden before the stagger timer can fire");
-  assert.equal(el.style.transform, "translateY(24px)", "default rise distance is staged immediately");
+  assert.equal(el.style.transform, "translateY(8px)", "default rise distance is staged immediately");
   assert.equal(env.pending(), 0, "staging does not start a spring before the delay");
   env.hide();
   assert.equal(el.style.opacity, "");

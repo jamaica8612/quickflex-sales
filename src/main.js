@@ -188,7 +188,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.127";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.128";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -198,7 +198,7 @@ import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
 // 정산노트 motion runs when its card is actually on screen, not when the data
 // arrives: a card below the fold (or inside the hidden tab) keeps its latest
 // pending motion until it scrolls into view, and rises in the first time.
-const statsMotion = motion.createVisibilityQueue({ finishWhenHidden: false });
+const statsMotion = motion.createVisibilityQueue({ finishWhenHidden: false, enterDelay: motion.ENTRY_MOTION.contentDelayMs });
 const viewMotion = createViewMotion();
 function statsCard(node) {
   return node?.closest?.(".stats-report-hero, .stats-report-section, .stats-sparkline-card") || null;
@@ -4740,8 +4740,22 @@ async function saveCurrentRecordAndGoHome() {
   if (automatic) commitRecordDraft();
   renderAll();
   showView("home");
+  markSavedDay(dateKey);
   toast("기록을 저장했습니다.", "success");
   return true;
+}
+
+// After a save the home calendar shows where the record landed: one soft glow on that day.
+function markSavedDay(dateKey) {
+  if (!motion.shouldAnimate()) return;
+  setTimeout(() => {
+    const cell = document.querySelector(`.view-home [data-calendar-date="${dateKey}"]`);
+    if (!cell) return;
+    cell.classList.remove("is-just-saved");
+    void cell.offsetWidth;
+    cell.classList.add("is-just-saved");
+    setTimeout(() => cell.classList.remove("is-just-saved"), 1000);
+  }, motion.ENTRY_MOTION.durationMs);
 }
 
 function renderRates() {

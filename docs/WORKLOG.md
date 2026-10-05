@@ -1777,3 +1777,11 @@ Browser checks:
 - Run `node scripts/release.mjs --pwa 1.0.121 --android 1.36` to synchronize local version labels, APK/release links, manifest, entry URLs and the shell cache. The new hourly calculation and timing loader modules are precached. Public release URLs are prepared only; no published availability is claimed.
 - Final versioned tree: full Node suite **722/722** passed with `--test-concurrency=1`; `release --check` passed for all **24** tracked assets. Affected JavaScript syntax and diff checks passed. Synthetic 390px browser checks passed **8/8**, including light/dark, enough/fewer/no measured days and reduced motion; captures were refreshed for this version.
 - Approval evidence and the signed APK are in `C:\work\quickflex-hourly-preparation-20261003`. Deployment remains pending: approve/apply the new DB migration, push the PWA, then publish the APK release. No remote DB, Edge Function, push, release or APK deployment was performed.
+
+## 2026-10-05 - Calmer motion and saved-day feedback (PWA 1.0.128)
+
+- User feedback: the new entry motion felt unnatural. Cards rose 52px with a rebound over 640ms, and every tab switch replayed them.
+- Entry is now 12px, critically damped (no rebound) and about 340ms. The CSS keyframes are resampled from the same `ENTRY_MOTION` spring. Cards entering together are staggered 40ms in at most four slots, and a card enters only the first time its screen is opened (or when first scrolled into view). Headers fade without moving; rows, popups and disclosures move 8px.
+- 정산노트 numbers and bars start 150ms after their card comes into view. Small buttons dip to .96 on press; full-width buttons darken instead of shrinking.
+- After a record is saved, the home calendar cell for that date glows once. All of this is off under reduced motion.
+- Validation: full Node suite 863/863 (motion tests updated to the new curve and the first-visit rule; a stagger test added), `release --check` passed. A local fake-backend browser run confirmed that cards enter on the first visit only and that the glow renders in light and dark. No database or Edge Function changes.
