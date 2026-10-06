@@ -5,7 +5,6 @@ export function bindCalendarEvents(ctx) {
     addDays,
     confirmOffWithExistingCounts,
     confirmLeaveRecordDraft,
-    defaultEntryRows,
     discardRecordDraft,
     getRecord,
     hasEnteredCounts,
@@ -30,7 +29,6 @@ export function bindCalendarEvents(ctx) {
     if (nextOff && hasEnteredCounts(record) && !confirmOffWithExistingCounts(state.selectedDate)) return;
     record.off = nextOff;
     if (record.off) record.rows = [];
-    else record.rows = defaultEntryRows();
     scheduleSave({ dateKeys: [state.selectedDate] });
     renderAll();
   });
