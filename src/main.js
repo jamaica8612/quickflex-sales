@@ -188,7 +188,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.133";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.134";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -1461,6 +1461,8 @@ function startRecordDraft(dateKey = state.selectedDate) {
       source: "override",
       readOnly: true,
     }));
+  } else if (!state.entries[dateKey] && !state.recordDraft.off && !state.recordDraft.rows.length) {
+    state.recordDraft.rows = defaultEntryRows();
   }
   state.recordDraftSalesRequestId = "";
   state.recordDraftSalesPayload = "";
@@ -1587,23 +1589,6 @@ function mergeScheduleRowsWithExisting(existingRows, scheduleRoutes) {
   const covered = new Set(retained.flatMap((row) => splitStoredRoutes(row.route)));
   const added = buildGroupedRows([...scheduled].filter((route) => !covered.has(route)));
   return [...automatic, ...retained.map((row) => ({ ...row })), ...added];
-}
-function ensureFixedRecordRows(record) {
-  if (isBackupDriver()) return record;
-  if (record.off || hasAutomaticEntries(record)) return record;
-  const allowed = fixedRoutes();
-  if (!allowed.length) return record;
-  // 기존 행에 들어있는 모든 라우트 수집 (사용자가 추가한 커스텀 라우트 포함)
-  const existingRoutes = new Set();
-  record.rows.forEach((row) => {
-    splitStoredRoutes(row.route).forEach((r) => existingRoutes.add(r));
-  });
-  // 고정 라우트 중 누락된 것만 행 앞에 추가
-  const missing = allowed.filter((r) => !existingRoutes.has(r));
-  if (missing.length) {
-    record.rows = [...buildGroupedRows(missing), ...record.rows];
-  }
-  return record;
 }
 function effectiveUnit(row) {
   const explicit = toNum(row.unit);
@@ -3007,7 +2992,6 @@ function entriesFromDb(dayRows, itemRows, workResultRows = [], workRouteRows = [
       basis[row.route] = (basis[row.route] || 0) + toNum(row.count);
     });
     entries[dateKey] = normalizeRecordShape(entries[dateKey]);
-    if (!isBackupDriver() && !hasAutomaticEntries(entries[dateKey]) && !entries[dateKey].rows.length) ensureFixedRecordRows(entries[dateKey]);
   });
   return entries;
 }
@@ -4624,7 +4608,6 @@ function routeOptions(selected) {
   return [...optionRoutes].sort().map((route) => `<option value="${route}"${selectedRoutes[0] === route ? " selected" : ""}>${route}</option>`).join("");
 }
 function renderEntryForm() {
-  const existed = Boolean(state.entries[state.selectedDate]);
   let record = currentRecordDraft();
   const automatic = hasAutomaticEntries(record);
   if (automatic) {
@@ -4641,11 +4624,6 @@ function renderEntryForm() {
   el.automaticRecordNotice?.classList.add("hidden");
   el.entryRows.innerHTML = "";
   record.rows.forEach((row, index) => renderEntryRow(row, index));
-  const defaultRows = defaultEntryRows();
-  if (!existed && !record.rows.length && !record.off && defaultRows.length) {
-    record.rows = defaultRows;
-    record.rows.forEach((row, index) => renderEntryRow(row, index));
-  }
   const dual = freshbagModeForRecord(record) === "dual";
   el.freshSingleRow.classList.toggle("hidden", dual);
   el.freshDualRow.classList.toggle("hidden", !dual);
@@ -7062,7 +7040,6 @@ function bindEvents() {
     clearNoahHistory: (userId = currentUserId()) => noahController?.clearAccount(userId),
     captureAccountContext,
     isAccountContextCurrent,
-    defaultEntryRows,
     deleteAdminBundleCard,
     discardRecordDraft,
     draftWorkRoutes,
