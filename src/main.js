@@ -188,7 +188,7 @@ function shouldShowCalendarRoutes() {
 }
 import { fmtCount, fmtNum, fmtWon } from "./lib/format.js";
 import { toNum } from "./lib/revenue.js";
-import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.134";
+import { koreanDateKey, resolveWorkDates } from "./lib/work-date.js?v=1.0.135";
 import { detectMeasurementApp, measurementAppIntentUrl, MEASUREMENT_APP_INSTALL_URL } from "./lib/measurement-app-launch.js";
 import { purgeLegacyNoahStorage } from "./lib/noah-legacy-storage.js";
 import { shouldShowPreviousPeriod } from "./lib/period-fallback.js";
@@ -4455,21 +4455,31 @@ function selectedDateSalesBreakdown(record, details) {
 function renderSelectedDateBreakdown(record) {
   if (!el.selectedDateBreakdown) return;
   const automatic = hasAutomaticEntries(record);
-  el.selectedDateBreakdown.classList.toggle("hidden", !automatic);
-  if (!automatic) return;
-  const model = selectedDateSalesBreakdown(record, state.workRouteDetails[state.selectedDate]);
+  const recorded = !record.off && (automatic || hasEnteredCounts(record));
+  el.selectedDateBreakdown.classList.toggle("hidden", !recorded);
+  if (!recorded) return;
+  const model = automatic ? selectedDateSalesBreakdown(record, state.workRouteDetails[state.selectedDate]) : {
+    invalidDetailRows: 0,
+    // Manual groups have one entered count. Preserve that group instead of
+    // inventing per-route quantities or rounding a split total.
+    rows: record.rows.filter((row) => toNum(row.count) > 0).map((row) => {
+      const rowTotals = calcRecordDetails({ ...record, rows: [row] });
+      return { route: formatRecordRoutes([row]) || "구역 미지정", count: rowTotals.count,
+        revenue: rowTotals.routeRevenue + rowTotals.backupRevenueAdditive, detailRows: [] };
+    }),
+  };
   const totals = calcRecordDetails(record);
   el.selectedDateBreakdownTitle.textContent = `${formatMonthDay(state.selectedDate)} 구역별 매출`;
   const routeRows = model.rows.length ? model.rows.map((row) => {
     const details = row.detailRows.length
       ? `<div class="selected-detail-routes">${row.detailRows.map((detail) => `<span>${formatDetailRouteCount(detail.route, detail.count, detail.cancellationCount)}</span>`).join("")}</div>`
-      : `<div class="selected-detail-empty">세부구역 기록 없음 (이전 앱 기록 포함)</div>`;
+      : automatic ? `<div class="selected-detail-empty">세부구역 기록 없음 (이전 앱 기록 포함)</div>` : "";
     return `<article class="selected-breakdown-row">
       <div><strong>${escapeAttr(row.route)}</strong><span>${fmtCount(row.count)}</span></div>
       <strong>${fmtWon(row.revenue)}</strong>
       ${details}
     </article>`;
-  }).join("") : `<div class="selected-detail-empty">매출 상품수가 0건으로 보정되어 있습니다.</div>`;
+  }).join("") : automatic ? `<div class="selected-detail-empty">매출 상품수가 0건으로 보정되어 있습니다.</div>` : "";
   const auxiliaryRows = [
     totals.freshCount > 0
       ? `<article class="selected-breakdown-row"><div><strong>프레시백</strong><span>${fmtCount(totals.freshCount)}</span></div><strong>${fmtWon(totals.freshRevenue)}</strong></article>`
@@ -4483,7 +4493,7 @@ function renderSelectedDateBreakdown(record) {
   ].join("");
   el.selectedDateBreakdownRows.innerHTML = routeRows + auxiliaryRows;
   const notes = [];
-  if (!state.workRouteDetailsContractAvailable) notes.push("세부구역 조회 서버 업데이트가 아직 적용되지 않았습니다.");
+  if (automatic && !state.workRouteDetailsContractAvailable) notes.push("세부구역 조회 서버 업데이트가 아직 적용되지 않았습니다.");
   if (model.invalidDetailRows) notes.push(`형식이 올바르지 않은 세부구역 ${model.invalidDetailRows}행은 표시하지 않았습니다.`);
   el.selectedDateBreakdownNote.textContent = notes.join(" ");
   el.selectedDateBreakdownNote.hidden = notes.length === 0;
